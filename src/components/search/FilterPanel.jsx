@@ -15,10 +15,11 @@ function detectOwnerType(name) {
 
 const DEFAULT_FILTERS = {
   minAcres: 0,
+  maxAcres: 100,
   minScore: 0,
   zoningTypes: [],
   ownerTypes: [],
-  structureFilter: "any",
+  hideHighFema: false,
 };
 
 export default function FilterPanel({ results, extraResults, onFilterChange }) {
@@ -37,6 +38,7 @@ export default function FilterPanel({ results, extraResults, onFilterChange }) {
       if ((r.match_score || 0) < newFilters.minScore) return false;
       if (newFilters.zoningTypes.length > 0 && !newFilters.zoningTypes.includes(r.zoning_classification)) return false;
       if (newFilters.ownerTypes.length > 0 && !newFilters.ownerTypes.includes(detectOwnerType(r.owner_name))) return false;
+      if (newFilters.hideHighFema && r.fema_risk_factor && r.fema_risk_factor.toLowerCase().includes("high")) return false;
       return true;
     });
     onFilterChange(new Set(filtered.map(r => r.id)));
@@ -59,7 +61,8 @@ export default function FilterPanel({ results, extraResults, onFilterChange }) {
   };
 
   const hasActiveFilters = filters.minAcres > 0 || filters.minScore > 0 ||
-    filters.zoningTypes.length > 0 || filters.ownerTypes.length > 0 || filters.structureFilter !== "any";
+    filters.zoningTypes.length > 0 || filters.ownerTypes.length > 0 ||
+    filters.structureFilter !== "any" || filters.hideHighFema;
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -178,6 +181,20 @@ export default function FilterPanel({ results, extraResults, onFilterChange }) {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* FEMA Risk Toggle */}
+          <div className="flex items-center justify-between py-2 px-3 rounded-lg border border-red-500/20 bg-red-500/5">
+            <div>
+              <p className="text-xs font-semibold text-foreground">Hide High FEMA Risk Parcels</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Excludes parcels in high flood-risk zones</p>
+            </div>
+            <button
+              onClick={() => update("hideHighFema", !filters.hideHighFema)}
+              className={`relative w-10 h-5 rounded-full transition-colors ${filters.hideHighFema ? "bg-primary" : "bg-border"}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${filters.hideHighFema ? "translate-x-5" : "translate-x-0"}`} />
+            </button>
           </div>
 
           {/* Reset */}
