@@ -93,7 +93,7 @@ function createCandidateMarkerEl(num, score) {
   return el;
 }
 
-export default function MapboxSatelliteMap({ centerLat, centerLon, results, loading }) {
+export default function MapboxSatelliteMap({ centerLat, centerLon, results, loading, mapImageGetterRef }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -132,6 +132,9 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
     map.addControl(new mapboxgl.FullscreenControl(), "top-right");
     map.on("load", () => setMapLoaded(true));
     mapRef.current = map;
+    if (mapImageGetterRef) {
+      mapImageGetterRef.current = () => mapRef.current?.getCanvas().toDataURL("image/png");
+    }
     return () => {
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     };

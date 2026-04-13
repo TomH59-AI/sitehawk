@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import SearchForm from "../components/search/SearchForm";
@@ -7,6 +7,7 @@ import ResultCard from "../components/search/ResultCard";
 import MapboxSatelliteMap from "../components/search/MapboxSatelliteMap";
 import { Radio } from "lucide-react";
 import AIChatPanel from "../components/search/AIChatPanel";
+import PDFReportButton from "../components/search/PDFReportButton";
 
 const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
@@ -25,6 +26,7 @@ export default function SiteSearch() {
   const [existingSearch, setExistingSearch] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [currentSearchId, setCurrentSearchId] = useState(null);
+  const mapImageGetterRef = useRef(null);
 
   useEffect(() => {
     async function init() {
@@ -266,6 +268,7 @@ export default function SiteSearch() {
           centerLon={searchCenter?.lon}
           results={results}
           loading={loading}
+          mapImageGetterRef={mapImageGetterRef}
         />
       )}
 
@@ -321,6 +324,17 @@ export default function SiteSearch() {
               ))}
             </>
           )}
+
+          {/* PDF Download */}
+          <div className="flex justify-center pt-4 pb-2">
+            <PDFReportButton
+              results={results}
+              extraResults={extraResults}
+              ordinance={ordinance}
+              searchCenter={searchCenter}
+              mapImageGetterRef={mapImageGetterRef}
+            />
+          </div>
         </div>
       )}
     </div>
