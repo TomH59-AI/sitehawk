@@ -34,9 +34,17 @@ export default function ResultCard({ result, rank }) {
         </div>
       </div>
 
+      {/* Parcel ID — prominent standalone display */}
+      {result.parcel_id && (
+        <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+          <Hash className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <span className="text-xs text-muted-foreground font-medium">Parcel ID:</span>
+          <span className="text-sm font-bold text-foreground tracking-wide font-mono">{result.parcel_id}</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         <InfoRow icon={User} label="Owner" value={result.owner_name} />
-        <InfoRow icon={Hash} label="Parcel ID" value={result.parcel_id} />
         <InfoRow icon={Ruler} label="Parcel Size" value={result.parcel_size_acres ? `${result.parcel_size_acres} acres` : null} />
         <InfoRow icon={Building} label="Zoning" value={result.zoning_classification} />
         <InfoRow icon={MapPin} label="Coordinates" value={`${result.latitude?.toFixed(5)}, ${result.longitude?.toFixed(5)}`} />

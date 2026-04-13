@@ -153,7 +153,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
       y += 22;
 
       allCandidates.forEach((r, idx) => {
-        const cardH = r.match_reason ? 138 : 118;
+        const cardH = r.match_reason ? 154 : 134;
         if (y + cardH > H - 60) {
           doc.addPage();
           y = margin;
@@ -186,6 +186,21 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         doc.setTextColor(...MUTED);
         doc.text(r.parcel_address || "Address pending", margin + 54, y + 32);
 
+        // Parcel ID — prominent highlight
+        if (r.parcel_id) {
+          doc.setFillColor(254, 243, 199);
+          doc.setDrawColor(251, 191, 36);
+          doc.roundedRect(margin + 54, y + 37, 200, 14, 2, 2, "FD");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7);
+          doc.setTextColor(120, 80, 0);
+          doc.text("PARCEL ID:", margin + 58, y + 46);
+          doc.setFont("courier", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(30, 30, 30);
+          doc.text(String(r.parcel_id), margin + 98, y + 46);
+        }
+
         // Score badge
         const scoreLabel = score >= 70 ? "Excellent" : score >= 40 ? "Good" : "Fair";
         doc.setFillColor(...sc);
@@ -198,10 +213,9 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         // Score bar
         drawScoreBar(doc, W - margin - 70, y + 32, score, sc, 62);
 
-        // Fields grid
+        // Fields grid — parcel_id now shown in header, excluded here
         const fields = [
           ["Owner", r.owner_name],
-          ["Parcel ID", r.parcel_id],
           ["Size", r.parcel_size_acres ? `${r.parcel_size_acres} acres` : null],
           ["Zoning", r.zoning_classification],
           ["Coordinates", `${r.latitude?.toFixed(5)}, ${r.longitude?.toFixed(5)}`],
@@ -211,7 +225,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         ];
 
         doc.setFontSize(7.5);
-        const fieldStartY = y + 52;
+        const fieldStartY = y + 68;
         fields.forEach(([label, val], fi) => {
           const col = fi % 2;
           const row = Math.floor(fi / 2);

@@ -192,6 +192,10 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
           <div style="font-weight:800;font-size:14px;margin-bottom:8px;color:#0f172a;border-bottom:2px solid ${color};padding-bottom:6px;">
             🔭 Candidate ${num} — ${r.site_name || "Unnamed"}
           </div>
+          <div style="background:#fefce8;border:1px solid #fbbf24;border-radius:6px;padding:5px 8px;margin-bottom:8px;">
+            <span style="font-size:10px;color:#92400e;font-weight:700;">PARCEL ID: </span>
+            <span style="font-size:12px;font-family:monospace;font-weight:800;color:#1e293b;">${r.parcel_id || "—"}</span>
+          </div>
           <table style="width:100%;font-size:12px;color:#334155;border-collapse:collapse;">
             <tr><td style="padding:2px 0;color:#64748b;">Owner</td><td style="padding:2px 0;font-weight:600;">${r.owner_name || "—"}</td></tr>
             <tr><td style="padding:2px 0;color:#64748b;">Zoning</td><td style="padding:2px 0;font-weight:600;">${r.zoning_classification || "—"}</td></tr>
@@ -293,6 +297,12 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
               🔭 Candidate {tooltip.idx + 1} — {tooltip.candidate.site_name || "Unnamed"}
             </div>
             <div className="space-y-1 text-xs text-muted-foreground">
+              {tooltip.candidate.parcel_id && (
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 mb-1">
+                  <span className="text-[10px] text-amber-600 font-bold">PARCEL ID:</span>
+                  <span className="font-mono font-bold text-foreground text-xs">{tooltip.candidate.parcel_id}</span>
+                </div>
+              )}
               <div><span className="text-foreground/60">Owner: </span><span className="font-medium text-foreground">{tooltip.candidate.owner_name || "—"}</span></div>
               <div><span className="text-foreground/60">Zoning: </span>
                 <span className={`font-semibold ${tooltip.candidate.zoning_classification ? "text-primary" : "text-foreground"}`}>
