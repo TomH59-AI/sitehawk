@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import SearchForm from "../components/search/SearchForm";
+import OrdinanceCard from "../components/search/OrdinanceCard";
 import ResultCard from "../components/search/ResultCard";
 import ResultsMap from "../components/search/ResultsMap";
 import { Radio } from "lucide-react";
@@ -14,6 +15,8 @@ export default function SiteSearch() {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [results, setResults] = useState([]);
+  const [ordinance, setOrdinance] = useState(null);
+  const [scanError, setScanError] = useState(null);
   const [searchCenter, setSearchCenter] = useState(null);
   const [searchesThisMonth, setSearchesThisMonth] = useState(0);
   const [existingSearch, setExistingSearch] = useState(null);
@@ -63,6 +66,8 @@ export default function SiteSearch() {
 
     setLoading(true);
     setResults([]);
+    setOrdinance(null);
+    setScanError(null);
     setSearchCenter({ lat: latitude, lon: longitude });
 
     // Create search history record
@@ -73,64 +78,51 @@ export default function SiteSearch() {
       search_label: `Scan @ ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
     });
 
-    // Use LLM to generate realistic parcel data for the area
-    const response = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a cell tower site prospecting expert. For the coordinates (${latitude}, ${longitude}), generate 5 realistic buildable parcel candidates within a 0.5-mile radius suitable for a 199-ft cell tower.
-
-For each parcel, provide realistic data including:
-- site_name: A realistic site name (e.g., "Hilltop Ranch Parcel", "Westfield Industrial Lot")
-- owner_name: A realistic owner name
-- parcel_address: A realistic street address near these coordinates
-- parcel_id: A realistic parcel ID number (format: XXX-XXX-XXX)
-- parcel_size_acres: Realistic acreage (0.5 to 20 acres)
-- zoning_classification: Realistic zoning (e.g., C-2, M-1, A-1, I-1, R-3)
-- owner_mailing_address: A realistic mailing address
-- latitude: Slightly varied from center (within 0.5 miles / ~0.007 degrees)
-- longitude: Slightly varied from center (within 0.5 miles / ~0.007 degrees)
-- fema_risk_factor: A letter grade (A, B, C, D, or X)
-- phone: A realistic phone number
-- email: A realistic email address
-- match_score: Score from 0-100 based on how suitable the parcel is for a cell tower (consider size, zoning, terrain)
-
-Order by match_score descending. Make the data realistic and varied.`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          parcels: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                site_name: { type: "string" },
-                owner_name: { type: "string" },
-                parcel_address: { type: "string" },
-                parcel_id: { type: "string" },
-                parcel_size_acres: { type: "number" },
-                zoning_classification: { type: "string" },
-                owner_mailing_address: { type: "string" },
-                latitude: { type: "number" },
-                longitude: { type: "number" },
-                fema_risk_factor: { type: "string" },
-                phone: { type: "string" },
-                email: { type: "string" },
-                match_score: { type: "number" },
-              },
-            },
-          },
-        },
+    // Call Supabase Edge Function
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
+    const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-scan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
       },
+      body: JSON.stringify({ lat: latitude, lon: longitude, radius_miles: 0.5 }),
     });
+    const data = await res.json();
 
-    const parcels = response.parcels || [];
+    if (data.error) {
+      setScanError(data.error);
+      await base44.entities.SearchHistory.update(search.id, { status: "failed" });
+      setLoading(false);
+      return;
+    }
+
+    if (data.ordinance) setOrdinance(data.ordinance);
+
+    const parcels = data.candidates || [];
 
     // Save results to DB
     const savedResults = [];
     for (const parcel of parcels) {
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
-        ...parcel,
+        site_name: parcel.site_name,
+        owner_name: parcel.owner_name,
+        parcel_address: parcel.parcel_address,
+        parcel_id: parcel.parcel_id,
+        parcel_size_acres: parcel.parcel_size_acres,
+        zoning_classification: parcel.zoning,
+        owner_mailing_address: parcel.owner_mailing_address,
+        latitude: parcel.latitude,
+        longitude: parcel.longitude,
+        fema_risk_factor: parcel.fema_risk,
+        phone: parcel.phone,
+        email: parcel.email,
+        match_score: parcel.match_score,
+        match_reason: parcel.match_reason,
       });
-      savedResults.push(saved);
+      savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }
 
     // Update search history
@@ -174,6 +166,12 @@ Order by match_score descending. Make the data realistic and varied.`,
       {/* Search Form */}
       <SearchForm onSearch={handleSearch} isLoading={loading} disabled={atLimit} />
 
+      {scanError && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
+          <span className="text-destructive text-sm font-medium">Error: {scanError}</span>
+        </div>
+      )}
+
       {atLimit && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center">
           <p className="text-destructive text-sm font-medium">
@@ -197,6 +195,8 @@ Order by match_score descending. Make the data realistic and varied.`,
       )}
 
       {/* Results */}
+      {ordinance && <OrdinanceCard ordinance={ordinance} />}
+
       {results.length > 0 && !loading && (
         <div className="space-y-4">
           <div className="flex items-center gap-3">

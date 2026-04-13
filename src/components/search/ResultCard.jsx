@@ -1,4 +1,4 @@
-import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building } from "lucide-react";
+import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 function getScoreColor(score) {
@@ -48,6 +48,12 @@ export default function ResultCard({ result, rank }) {
           </div>
         )}
       </div>
+      {result.match_reason && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/10 px-3 py-2">
+          <Lightbulb className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+          <p className="text-xs text-muted-foreground"><span className="text-primary font-medium">Why this parcel: </span>{result.match_reason}</p>
+        </div>
+      )}
     </div>
   );
 }
