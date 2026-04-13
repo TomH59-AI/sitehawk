@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Check, Eye, EyeOff, Zap } from "lucide-react";
+import { Check, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
+const SUPABASE_CHECKOUT_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/stripe-checkout";
 
 const tiers = [
   {
@@ -76,21 +79,51 @@ export default function Pricing() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(null);
 
   useEffect(() => {
     async function load() {
       const me = await base44.auth.me();
       setUser(me);
       setLoading(false);
+
+      // Handle return from Stripe checkout
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("checkout") === "success") {
+        toast({
+          title: "Welcome to SiteHawk! 🦅",
+          description: "Your hawk vision is now active. Start scanning!",
+        });
+        window.history.replaceState({}, "", window.location.pathname);
+      }
     }
     load();
   }, []);
 
-  const handleUpgrade = async (tierId) => {
-    await base44.auth.updateMe({ tier: tierId });
-    setUser({ ...user, tier: tierId });
-    const tierName = tiers.find(t => t.id === tierId)?.name;
-    toast({ title: "Plan updated!", description: `You are now on ${tierName}.` });
+  const handleCheckout = async (plan) => {
+    setCheckoutLoading(plan);
+    const res = await fetch(SUPABASE_CHECKOUT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({ plan, action: "checkout" }),
+    });
+    const data = await res.json();
+    setCheckoutLoading(null);
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      toast({ title: "Error", description: data.error || "Could not start checkout.", variant: "destructive" });
+    }
+  };
+
+  const handleSignupFree = async () => {
+    await base44.auth.updateMe({ tier: "blind" });
+    setUser({ ...user, tier: "blind" });
+    toast({ title: "Welcome to SiteHawk!", description: "You're on the Blind Vision free plan. Upgrade anytime to start scanning." });
   };
 
   if (loading) {
@@ -174,10 +207,14 @@ export default function Pricing() {
                   tier.highlight ? "bg-accent hover:bg-accent/90 text-accent-foreground" : ""
                 } ${isCurrent ? "opacity-50 cursor-not-allowed" : ""}`}
                 variant={tier.highlight ? "default" : tier.id === "blind" ? "outline" : "default"}
-                disabled={isCurrent}
-                onClick={() => handleUpgrade(tier.id)}
+                disabled={isCurrent || checkoutLoading === tier.id}
+                onClick={() => {
+                  if (tier.id === "blind") handleSignupFree();
+                  else if (tier.id === "monthly") handleCheckout("monthly");
+                  else if (tier.id === "annual") handleCheckout("annual");
+                }}
               >
-                {isCurrent ? "Current Plan" : tier.cta}
+                {isCurrent ? "Current Plan" : checkoutLoading === tier.id ? "Redirecting..." : tier.cta}
               </Button>
             </div>
           );
