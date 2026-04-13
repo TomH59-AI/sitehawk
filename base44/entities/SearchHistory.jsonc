@@ -1,0 +1,35 @@
+{
+  "name": "SearchHistory",
+  "type": "object",
+  "properties": {
+    "latitude": {
+      "type": "number",
+      "description": "Search center latitude"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Search center longitude"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "results_count": {
+      "type": "number",
+      "default": 0
+    },
+    "search_label": {
+      "type": "string",
+      "description": "Auto-generated label for the search"
+    }
+  },
+  "required": [
+    "latitude",
+    "longitude"
+  ]
+}

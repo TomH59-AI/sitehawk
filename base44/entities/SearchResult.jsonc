@@ -1,0 +1,57 @@
+{
+  "name": "SearchResult",
+  "type": "object",
+  "properties": {
+    "search_id": {
+      "type": "string",
+      "description": "Reference to SearchHistory record"
+    },
+    "site_name": {
+      "type": "string"
+    },
+    "owner_name": {
+      "type": "string"
+    },
+    "parcel_address": {
+      "type": "string"
+    },
+    "parcel_id": {
+      "type": "string"
+    },
+    "parcel_size_acres": {
+      "type": "number"
+    },
+    "zoning_classification": {
+      "type": "string"
+    },
+    "owner_mailing_address": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "fema_risk_factor": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "match_score": {
+      "type": "number",
+      "description": "Score from 0-100"
+    }
+  },
+  "required": [
+    "search_id",
+    "site_name",
+    "latitude",
+    "longitude",
+    "match_score"
+  ]
+}
