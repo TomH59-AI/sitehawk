@@ -1,4 +1,5 @@
 import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb } from "lucide-react";
+import SkipTraceButton from "./SkipTraceButton";
 import { Badge } from "@/components/ui/badge";
 
 function getScoreColor(score) {
@@ -15,7 +16,7 @@ function getScoreLabel(score) {
   return "Poor";
 }
 
-export default function ResultCard({ result, rank }) {
+export default function ResultCard({ result, rank, searchId, skipTraceResult, onSkipTraceResult }) {
   return (
     <div id={`candidate-card-${rank - 1}`} className="rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
@@ -63,6 +64,15 @@ export default function ResultCard({ result, rank }) {
           <p className="text-xs text-muted-foreground"><span className="text-primary font-medium">Why this parcel: </span>{result.match_reason}</p>
         </div>
       )}
+
+      <div className="mt-3 flex justify-end">
+        <SkipTraceButton
+          candidate={result}
+          searchId={searchId}
+          result={skipTraceResult}
+          onResult={onSkipTraceResult}
+        />
+      </div>
     </div>
   );
 }

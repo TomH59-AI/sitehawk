@@ -15,7 +15,7 @@ function drawScoreBar(doc, x, y, score, color, width = 80) {
   doc.roundedRect(x, y, (width * score) / 100, 4, 2, 2, "F");
 }
 
-export default function PDFReportButton({ results, extraResults, ordinance, searchCenter, mapImageGetterRef }) {
+export default function PDFReportButton({ results, extraResults, ordinance, searchCenter, mapImageGetterRef, skipTraceResults = {} }) {
   const [generating, setGenerating] = useState(false);
 
   const handleGenerate = async () => {
@@ -103,8 +103,6 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
       doc.roundedRect(margin, y, W - margin * 2, ordHeight, 0, 0, "FD");
       doc.setFontSize(8);
       ordFields.forEach(([k, v], i) => {
-        const cx = margin + 10 + Math.floor(i / 2) === margin + 10 ? margin + 10 : margin + 270;
-        // two columns
         const colX = i % 2 === 0 ? margin + 10 : margin + 270;
         const rowY = y + 12 + Math.floor(i / 2) * 16;
         const key = k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
@@ -113,8 +111,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         doc.text(key + ":", colX, rowY);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(...TEXT);
-        const valStr = String(v).substring(0, 45);
-        doc.text(valStr, colX + 100, rowY);
+        doc.text(String(v).substring(0, 45), colX + 100, rowY);
       });
       y += ordHeight + 10;
     }
@@ -153,7 +150,8 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
       y += 22;
 
       allCandidates.forEach((r, idx) => {
-        const cardH = r.match_reason ? 154 : 134;
+        const skipTrace = skipTraceResults[r.id];
+        const cardH = (r.match_reason ? 154 : 134) + (skipTrace ? 30 : 0);
         if (y + cardH > H - 60) {
           doc.addPage();
           y = margin;
@@ -213,7 +211,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         // Score bar
         drawScoreBar(doc, W - margin - 70, y + 32, score, sc, 62);
 
-        // Fields grid — parcel_id now shown in header, excluded here
+        // Fields grid
         const fields = [
           ["Owner", r.owner_name],
           ["Size", r.parcel_size_acres ? `${r.parcel_size_acres} acres` : null],
@@ -251,6 +249,31 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
           doc.text(r.owner_mailing_address.substring(0, 70), margin + 68, maY);
         }
 
+        // Skip Trace results
+        if (skipTrace) {
+          const stY = y + cardH - (r.match_reason ? 38 : 20);
+          doc.setFillColor(240, 253, 250);
+          doc.setDrawColor(20, 184, 166);
+          doc.roundedRect(margin + 6, stY - 8, W - margin * 2 - 12, 22, 3, 3, "FD");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7);
+          doc.setTextColor(15, 118, 110);
+          doc.text("SKIP TRACE:", margin + 12, stY + 4);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(15, 23, 42);
+          const stParts = [];
+          if (skipTrace.phone) stParts.push(`Phone: ${skipTrace.phone}`);
+          if (skipTrace.email) stParts.push(`Email: ${skipTrace.email}`);
+          if (skipTrace.registered_agent) stParts.push(`Agent: ${skipTrace.registered_agent}`);
+          if (!stParts.length) stParts.push("No direct contact found — manual lookup required");
+          doc.text(stParts.join("  |  ").substring(0, 90), margin + 68, stY + 4);
+          if (skipTrace.sunbiz_verified) {
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(21, 128, 61);
+            doc.text("✓ Sunbiz Verified", W - margin - 80, stY + 4);
+          }
+        }
+
         // Match reason
         if (r.match_reason) {
           const mrY = y + cardH - 20;
@@ -263,8 +286,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
           doc.text("Why this parcel:", margin + 12, mrY + 4);
           doc.setFont("helvetica", "normal");
           doc.setTextColor(...TEXT);
-          const reason = r.match_reason.substring(0, 90);
-          doc.text(reason, margin + 80, mrY + 4);
+          doc.text(r.match_reason.substring(0, 90), margin + 80, mrY + 4);
         }
 
         y += cardH + 10;

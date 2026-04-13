@@ -10,6 +10,7 @@ import AIChatPanel from "../components/search/AIChatPanel";
 import PDFReportButton from "../components/search/PDFReportButton";
 import HawkIcon from "../components/HawkIcon";
 import FilterPanel from "../components/search/FilterPanel";
+import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
@@ -29,6 +30,9 @@ export default function SiteSearch() {
   const [chatOpen, setChatOpen] = useState(false);
   const [currentSearchId, setCurrentSearchId] = useState(null);
   const [filteredResultIds, setFilteredResultIds] = useState(null);
+  const [skipTraceResults, setSkipTraceResults] = useState({});
+  const [skipTraceAllLoading, setSkipTraceAllLoading] = useState(false);
+  const [skipTraceAllProgress, setSkipTraceAllProgress] = useState(0);
   const mapImageGetterRef = useRef(null);
 
   useEffect(() => {
@@ -174,6 +178,30 @@ export default function SiteSearch() {
   const isBlind = tier === "blind" || tier === "free" || !tier;
   const atLimit = isBlind || searchesThisMonth >= limit;
 
+  const handleSkipTraceResult = (candidateId, data) => {
+    setSkipTraceResults(prev => ({ ...prev, [candidateId]: data }));
+  };
+
+  const handleSkipTraceAll = async () => {
+    const allCandidates = [...results, ...extraResults];
+    setSkipTraceAllLoading(true);
+    setSkipTraceAllProgress(0);
+    for (let i = 0; i < allCandidates.length; i++) {
+      const c = allCandidates[i];
+      if (!skipTraceResults[c.id]) {
+        const data = await runSkipTrace({
+          owner_name: c.owner_name,
+          mailing_address: c.owner_mailing_address,
+          candidate_id: c.id,
+          search_id: currentSearchId,
+        });
+        setSkipTraceResults(prev => ({ ...prev, [c.id]: data }));
+      }
+      setSkipTraceAllProgress(i + 1);
+    }
+    setSkipTraceAllLoading(false);
+  };
+
   const handleNeedMore = async () => {
     if (atLimit) return;
     setLoadingMore(true);
@@ -295,15 +323,34 @@ export default function SiteSearch() {
             extraResults={extraResults}
             onFilterChange={(ids) => setFilteredResultIds(ids)}
           />
-          <div className="flex items-center gap-3">
-            <Radio className="w-5 h-5 text-primary" />
-            <h2 className="font-heading font-semibold text-lg text-foreground">
-              Top {results.length} Candidate Parcels
-            </h2>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Radio className="w-5 h-5 text-primary" />
+              <h2 className="font-heading font-semibold text-lg text-foreground">
+                Top {results.length} Candidate Parcels
+              </h2>
+            </div>
+            <button
+              onClick={handleSkipTraceAll}
+              disabled={skipTraceAllLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold transition-all disabled:opacity-60"
+            >
+              {skipTraceAllLoading ? (
+                <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" /> Tracing {skipTraceAllProgress}/{results.length + extraResults.length}...</>
+              ) : (
+                <>📞 Skip Trace All</>
+              )}
+            </button>
           </div>
           {results.map((result, idx) => (
             <div key={result.id} className={filteredResultIds && !filteredResultIds.has(result.id) ? "opacity-30 pointer-events-none" : ""}>
-              <ResultCard result={result} rank={idx + 1} />
+              <ResultCard
+                result={result}
+                rank={idx + 1}
+                searchId={currentSearchId}
+                skipTraceResult={skipTraceResults[result.id]}
+                onSkipTraceResult={(data) => handleSkipTraceResult(result.id, data)}
+              />
             </div>
           ))}
 
@@ -332,7 +379,13 @@ export default function SiteSearch() {
               </div>
               {extraResults.map((result, idx) => (
                 <div key={result.id} className={filteredResultIds && !filteredResultIds.has(result.id) ? "opacity-30 pointer-events-none" : ""}>
-                  <ResultCard result={result} rank={results.length + idx + 1} />
+                  <ResultCard
+                    result={result}
+                    rank={results.length + idx + 1}
+                    searchId={currentSearchId}
+                    skipTraceResult={skipTraceResults[result.id]}
+                    onSkipTraceResult={(data) => handleSkipTraceResult(result.id, data)}
+                  />
                 </div>
               ))}
             </>
@@ -346,6 +399,7 @@ export default function SiteSearch() {
               ordinance={ordinance}
               searchCenter={searchCenter}
               mapImageGetterRef={mapImageGetterRef}
+              skipTraceResults={skipTraceResults}
             />
           </div>
         </div>
