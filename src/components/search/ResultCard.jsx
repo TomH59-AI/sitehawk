@@ -1,4 +1,4 @@
-import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff } from "lucide-react";
+import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff, Radio } from "lucide-react";
 import SkipTraceButton from "./SkipTraceButton";
 import { Badge } from "@/components/ui/badge";
 
@@ -62,6 +62,25 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
                 {result.airport_lat && (
                   <span className="text-muted-foreground"> · {result.airport_lat?.toFixed(5)}, {result.airport_lon?.toFixed(5)}</span>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+        {result.cell_towers && result.cell_towers.length > 0 && (
+          <div className="sm:col-span-2">
+            <div className="flex items-start gap-2">
+              <Radio className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="text-xs">
+                <span className="text-muted-foreground font-medium">Nearest Cell Towers: </span>
+                <div className="mt-1 space-y-0.5">
+                  {result.cell_towers.map((t, i) => (
+                    <div key={i} className="text-foreground">
+                      <span className="font-semibold">{t.operator}</span>
+                      <span className="text-muted-foreground"> ({t.type}) · {t.distance_miles?.toFixed(1)} mi</span>
+                      {t.lat && <span className="text-muted-foreground"> · {t.lat?.toFixed(5)}, {t.lon?.toFixed(5)}</span>}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

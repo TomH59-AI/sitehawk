@@ -47,24 +47,44 @@
       "description": "Score from 0-100"
     },
     "airport_iata": {
-      "type": "string",
-      "description": "Nearest airport IATA/call letters"
+      "type": "string"
     },
     "airport_name": {
-      "type": "string",
-      "description": "Nearest airport full name"
+      "type": "string"
     },
     "airport_distance_miles": {
-      "type": "number",
-      "description": "Distance to nearest airport in miles"
+      "type": "number"
     },
     "airport_lat": {
-      "type": "number",
-      "description": "Nearest airport latitude"
+      "type": "number"
     },
     "airport_lon": {
-      "type": "number",
-      "description": "Nearest airport longitude"
+      "type": "number"
+    },
+    "cell_towers": {
+      "type": "array",
+      "description": "Nearest existing cell towers",
+      "items": {
+        "type": "object",
+        "properties": {
+          "operator": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "description": "e.g. Macro, Small Cell, DAS"
+          },
+          "distance_miles": {
+            "type": "number"
+          },
+          "lat": {
+            "type": "number"
+          },
+          "lon": {
+            "type": "number"
+          }
+        }
+      }
     }
   },
   "required": [

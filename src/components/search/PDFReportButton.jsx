@@ -239,6 +239,24 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
           doc.text(String(val || "N/A").substring(0, 36), fx + 52, fy);
         });
 
+        // Cell Towers
+        if (r.cell_towers && r.cell_towers.length > 0) {
+          const towerStartY = fieldStartY + Math.ceil(fields.length / 2) * 13 + (r.owner_mailing_address ? 13 : 0);
+          doc.setFillColor(239, 246, 255);
+          doc.setDrawColor(191, 219, 254);
+          doc.roundedRect(margin + 6, towerStartY - 2, W - margin * 2 - 12, 8 + r.cell_towers.length * 11, 2, 2, "FD");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7);
+          doc.setTextColor(37, 99, 235);
+          doc.text("NEAREST CELL TOWERS:", margin + 12, towerStartY + 5);
+          r.cell_towers.forEach((t, ti) => {
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(15, 23, 42);
+            const tLine = `${t.operator} (${t.type}) · ${t.distance_miles?.toFixed(1)} mi · ${t.lat?.toFixed(5)}, ${t.lon?.toFixed(5)}`;
+            doc.text(tLine.substring(0, 90), margin + 12, towerStartY + 5 + (ti + 1) * 10);
+          });
+        }
+
         // Mailing address
         if (r.owner_mailing_address) {
           const maY = fieldStartY + Math.ceil(fields.length / 2) * 13;

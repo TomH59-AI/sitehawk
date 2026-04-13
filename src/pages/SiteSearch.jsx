@@ -126,35 +126,62 @@ export default function SiteSearch() {
 
     const parcels = (data.candidates || []).slice(0, 5);
 
-    // Look up nearest airports for all parcels in parallel
-    const airportLookups = await Promise.all(
-      parcels.map(async (parcel) => {
-        try {
-          const r = await base44.integrations.Core.InvokeLLM({
-            prompt: `What is the nearest commercial or regional airport to coordinates ${parcel.latitude}, ${parcel.longitude}? Provide the IATA code (or FAA identifier if no IATA), full airport name, distance in miles from those coordinates, and the airport's latitude and longitude.`,
-            response_json_schema: {
-              type: "object",
-              properties: {
-                iata: { type: "string" },
-                name: { type: "string" },
-                distance_miles: { type: "number" },
-                lat: { type: "number" },
-                lon: { type: "number" }
+    // Look up nearest airports AND cell towers for all parcels in parallel
+    const [airportLookups, cellTowerLookups] = await Promise.all([
+      Promise.all(
+        parcels.map(async (parcel) => {
+          try {
+            return await base44.integrations.Core.InvokeLLM({
+              prompt: `What is the nearest commercial or regional airport to coordinates ${parcel.latitude}, ${parcel.longitude}? Provide the IATA code (or FAA identifier if no IATA), full airport name, distance in miles from those coordinates, and the airport's latitude and longitude.`,
+              response_json_schema: {
+                type: "object",
+                properties: {
+                  iata: { type: "string" },
+                  name: { type: "string" },
+                  distance_miles: { type: "number" },
+                  lat: { type: "number" },
+                  lon: { type: "number" }
+                }
               }
-            }
-          });
-          return r;
-        } catch (e) {
-          return {};
-        }
-      })
-    );
+            });
+          } catch (e) { return {}; }
+        })
+      ),
+      Promise.all(
+        parcels.map(async (parcel) => {
+          try {
+            return await base44.integrations.Core.InvokeLLM({
+              prompt: `List the 2-3 nearest existing cell towers (macro towers, small cells, or DAS nodes) to coordinates ${parcel.latitude}, ${parcel.longitude}. For each include the carrier/operator name, tower type, estimated distance in miles, and approximate latitude/longitude.`,
+              response_json_schema: {
+                type: "object",
+                properties: {
+                  towers: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        operator: { type: "string" },
+                        type: { type: "string" },
+                        distance_miles: { type: "number" },
+                        lat: { type: "number" },
+                        lon: { type: "number" }
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          } catch (e) { return { towers: [] }; }
+        })
+      )
+    ]);
 
     // Save results to DB
     const savedResults = [];
     for (let i = 0; i < parcels.length; i++) {
       const parcel = parcels[i];
       const airport = airportLookups[i] || {};
+      const cellTowers = cellTowerLookups[i]?.towers || [];
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
         site_name: parcel.site_name,
@@ -175,6 +202,7 @@ export default function SiteSearch() {
         airport_distance_miles: airport.distance_miles || null,
         airport_lat: airport.lat || null,
         airport_lon: airport.lon || null,
+        cell_towers: cellTowers,
       });
       savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }

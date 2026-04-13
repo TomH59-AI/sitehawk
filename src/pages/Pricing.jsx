@@ -150,23 +150,47 @@ export default function Pricing() {
         </p>
       </div>
 
-      {/* AI Chatbot Spotlight */}
-      <div className="max-w-3xl mx-auto rounded-2xl border border-primary/30 bg-primary/5 p-6 flex flex-col md:flex-row items-center gap-6">
-        <div className="shrink-0 w-16 h-16 rounded-2xl bg-[#0C1B2E] border border-primary/30 flex items-center justify-center shadow-lg">
-          <HawkIcon size={44} />
+      {/* Intelligence Features Spotlight */}
+      <div className="max-w-3xl mx-auto space-y-4">
+        {/* AI Chatbot */}
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 flex flex-col md:flex-row items-center gap-6">
+          <div className="shrink-0 w-16 h-16 rounded-2xl bg-[#0C1B2E] border border-primary/30 flex items-center justify-center shadow-lg">
+            <HawkIcon size={44} />
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">Included with every paid plan</p>
+            <h2 className="font-heading font-bold text-xl text-foreground">SiteHawk AI Consultant</h2>
+            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+              Every paid subscription unlocks your personal AI site acquisition consultant — powered by SkyWave AI.
+              Ask it about zoning requirements, setbacks, permits, which parcel is your best bet, and more.
+              It has full context of your scan results and ordinance data the moment your search completes.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
+              {["Which parcel is best?", "Explain zoning requirements", "What permits do I need?", "Setback requirements?"].map(q => (
+                <span key={q} className="px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-medium">{q}</span>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="flex-1 text-center md:text-left">
-          <p className="text-xs uppercase tracking-widest text-primary font-bold mb-1">Included with every paid plan</p>
-          <h2 className="font-heading font-bold text-xl text-foreground">SiteHawk AI Consultant</h2>
-          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-            Every paid subscription unlocks your personal AI site acquisition consultant — powered by SkyWave AI.
-            Ask it about zoning requirements, setbacks, permits, which parcel is your best bet, and more.
-            It has full context of your scan results and ordinance data the moment your search completes.
-          </p>
-          <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
-            {["Which parcel is best?", "Explain zoning requirements", "What permits do I need?", "Setback requirements?"].map(q => (
-              <span key={q} className="px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-medium">{q}</span>
-            ))}
+
+        {/* Airport + Cell Tower Intel */}
+        <div className="rounded-2xl border border-accent/30 bg-accent/5 p-6 flex flex-col md:flex-row items-center gap-6">
+          <div className="shrink-0 w-16 h-16 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center shadow-lg text-3xl">
+            ✈️
+          </div>
+          <div className="flex-1 text-center md:text-left">
+            <p className="text-xs uppercase tracking-widest text-accent font-bold mb-1">Paid plans only — AI-powered site intelligence</p>
+            <h2 className="font-heading font-bold text-xl text-foreground">Airport Proximity & Cell Tower Analysis</h2>
+            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+              Every scanned parcel automatically includes the <span className="text-foreground font-semibold">nearest airport</span> (IATA code, name, distance in miles, coordinates)
+              and the <span className="text-foreground font-semibold">nearest existing cell towers</span> (carrier, tower type, distance, coordinates) — critical data for FAA compliance
+              and RF interference analysis. Included in every PDF report.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
+              {["✈️ Airport IATA & coordinates", "📡 Carrier & tower type", "📏 Distance in miles", "📄 Included in PDF report"].map(f => (
+                <span key={f} className="px-3 py-1 rounded-full border border-accent/30 bg-accent/10 text-accent text-xs font-medium">{f}</span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
