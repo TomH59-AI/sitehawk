@@ -12,6 +12,8 @@ import HawkIcon from "../components/HawkIcon";
 import FilterPanel from "../components/search/FilterPanel";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
+// monthly = 50/mo + 1 trial on signup (managed by Stripe trial_period_days=1 scan credit)
+// annual  = 50/mo + 2 trials on signup
 const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
 export default function SiteSearch() {

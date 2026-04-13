@@ -36,9 +36,9 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "Blind", price: "Free", desc: "Explore the platform", cta: "Get Started", highlight: false },
-  { name: "20/20 Monthly", price: "$99/mo", desc: "Full AI scanning power", cta: "Start Monthly", highlight: true },
-  { name: "20/20 Annual", price: "$799/yr", desc: "Best value — 2 months free", cta: "Go Annual", highlight: false },
+  { name: "Blind", price: "Free", desc: "View dashboard & features. No scanning.", cta: "Get Started", highlight: false },
+  { name: "Hawk 20/20 Vision", price: "$49/mo", desc: "1 free trial scan · Full AI scanning power", cta: "Start Monthly", highlight: true },
+  { name: "Hawk 20-4 AI Vision", price: "$490/yr", desc: "2 free trial scans · Best annual value", cta: "Go Annual", highlight: false },
 ];
 
 const TESTIMONIALS = [

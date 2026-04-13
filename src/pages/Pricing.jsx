@@ -11,10 +11,10 @@ const SUPABASE_CHECKOUT_URL = "https://skpxeouvikzgsaurkohf.supabase.co/function
 const tiers = [
   {
     id: "blind",
-    name: "Blind Vision",
+    name: "Blind",
     price: "$0",
     period: "",
-    description: "See the interface. No scanning until you upgrade.",
+    description: "View the dashboard and explore features. No scanning until you upgrade.",
     emoji: "🙈",
     iconBg: "bg-muted",
     iconColor: "text-muted-foreground",
@@ -22,7 +22,6 @@ const tiers = [
       "Full dashboard access",
       "View the SiteHawk interface",
       "Explore pricing & features",
-      "0 scans included",
     ],
     cta: "Free Forever",
     highlight: false,
@@ -30,10 +29,10 @@ const tiers = [
   },
   {
     id: "monthly",
-    name: "20/20 Hawk AI Vision",
+    name: "Hawk 20/20 Vision",
     price: "$49",
     period: "/month",
-    description: "Perfect sight. Full access, monthly billing.",
+    description: "Full hawk-eye clarity. Includes 1 free trial scan to get you started.",
     emoji: "🦅",
     iconBg: "bg-primary/10",
     iconColor: "text-primary",
@@ -53,22 +52,22 @@ const tiers = [
   },
   {
     id: "annual",
-    name: "20/4 Hawk AI Vision",
-    price: "$429",
+    name: "Hawk 20-4 AI Vision",
+    price: "$490",
     period: "/year",
-    description: "Get 12 months for the price of ~8.75 — hawk-level savings.",
+    description: "Maximum hawk intelligence. 2 free trial scans + annual savings.",
     emoji: "🏆",
     iconBg: "bg-accent/10",
     iconColor: "text-accent",
     features: [
-      "Everything in 20/20 Vision",
-      "Save $159 vs monthly",
-      "2 bonus months free",
+      "2 free trial scans on signup",
+      "Everything in Hawk 20/20 Vision",
       "50 searches per month",
       "SiteHawk AI chatbot",
       "MapBox satellite maps",
       "Scored candidate results",
       "Need More? (3 extra candidates)",
+      "Priority support",
     ],
     cta: "Go Annual & Save",
     highlight: true,
@@ -103,6 +102,8 @@ export default function Pricing() {
 
   const handleCheckout = async (plan) => {
     setCheckoutLoading(plan);
+    // trial_scans: monthly gets 1, annual gets 2
+    const trialScans = plan === "annual" ? 2 : 1;
     const res = await fetch(SUPABASE_CHECKOUT_URL, {
       method: "POST",
       headers: {
@@ -110,7 +111,7 @@ export default function Pricing() {
         "apikey": SUPABASE_KEY,
         "Authorization": `Bearer ${SUPABASE_KEY}`,
       },
-      body: JSON.stringify({ plan, action: "checkout" }),
+      body: JSON.stringify({ plan, action: "checkout", trial_scans: trialScans }),
     });
     const data = await res.json();
     setCheckoutLoading(null);
@@ -124,7 +125,7 @@ export default function Pricing() {
   const handleSignupFree = async () => {
     await base44.auth.updateMe({ tier: "blind" });
     setUser({ ...user, tier: "blind" });
-    toast({ title: "Welcome to SiteHawk!", description: "You're on the Blind Vision free plan. Upgrade anytime to start scanning." });
+    toast({ title: "Welcome to SiteHawk!", description: "You're on the Blind plan. Upgrade to Hawk 20/20 Vision to start scanning." });
   };
 
   if (loading) {
@@ -229,7 +230,7 @@ export default function Pricing() {
                   <span className="text-muted-foreground text-sm">{tier.period}</span>
                 </div>
                 {tier.id === "annual" && (
-                  <p className="text-xs text-accent font-semibold mt-1">~$35.75/mo — save $159/yr</p>
+                  <p className="text-xs text-accent font-semibold mt-1">~$40.83/mo — best value for power users</p>
                 )}
               </div>
 
