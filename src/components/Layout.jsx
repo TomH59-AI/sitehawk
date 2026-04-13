@@ -31,7 +31,7 @@ export default function Layout() {
             </div>
             <div>
               <h1 className="font-heading font-bold text-lg text-foreground tracking-tight">SiteHawk</h1>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium">Tower Prospecting</p>
+              <p className="text-[10px] text-muted-foreground font-medium italic">When you need the AI vision</p>
             </div>
           </Link>
         </div>
