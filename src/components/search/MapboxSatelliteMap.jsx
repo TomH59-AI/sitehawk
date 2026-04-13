@@ -93,7 +93,7 @@ function createCandidateMarkerEl(num, score) {
   return el;
 }
 
-export default function MapboxSatelliteMap({ centerLat, centerLon, results, loading, mapImageGetterRef }) {
+export default function MapboxSatelliteMap({ centerLat, centerLon, results, loading, mapImageGetterRef, filteredResultIds }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -177,9 +177,14 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
 
     results.forEach((r, idx) => {
       const score = r.match_score || 0;
-      const color = getScoreColor(score);
+      const isFiltered = filteredResultIds && !filteredResultIds.has(r.id);
+      const color = isFiltered ? "#6B7280" : getScoreColor(score);
       const num = idx + 1;
-      const el = createCandidateMarkerEl(num, score);
+      const el = createCandidateMarkerEl(num, isFiltered ? -1 : score);
+      if (isFiltered) {
+        el.style.opacity = "0.35";
+        el.style.filter = "grayscale(0.8)";
+      }
 
       // Popup content (click)
       const popupContent = `
@@ -310,12 +315,28 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
 
         {/* Style toggle */}
         {centerLat && !loading && (
-          <button
-            onClick={toggleStyle}
-            className="absolute top-3 left-3 z-10 px-3 py-1.5 rounded-lg bg-card/90 backdrop-blur border border-border text-xs font-semibold text-foreground shadow hover:bg-card transition-all"
-          >
-            {mapStyle === "satellite" ? "🗺 Streets" : "🛰 Satellite"}
-          </button>
+          <div className="absolute top-3 left-3 z-10 flex rounded-lg overflow-hidden border border-border shadow text-xs font-semibold">
+            <button
+              onClick={() => mapStyle !== "satellite" && toggleStyle()}
+              className={`px-3 py-1.5 transition-all ${
+                mapStyle === "satellite"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card/90 backdrop-blur text-muted-foreground hover:bg-card"
+              }`}
+            >
+              🛰 Satellite
+            </button>
+            <button
+              onClick={() => mapStyle !== "streets" && toggleStyle()}
+              className={`px-3 py-1.5 transition-all ${
+                mapStyle === "streets"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card/90 backdrop-blur text-muted-foreground hover:bg-card"
+              }`}
+            >
+              🗺 Streets
+            </button>
+          </div>
         )}
 
         {/* Legend */}

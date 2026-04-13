@@ -9,6 +9,7 @@ import { Radio } from "lucide-react";
 import AIChatPanel from "../components/search/AIChatPanel";
 import PDFReportButton from "../components/search/PDFReportButton";
 import HawkIcon from "../components/HawkIcon";
+import FilterPanel from "../components/search/FilterPanel";
 
 const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
@@ -27,6 +28,7 @@ export default function SiteSearch() {
   const [existingSearch, setExistingSearch] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [currentSearchId, setCurrentSearchId] = useState(null);
+  const [filteredResultIds, setFilteredResultIds] = useState(null);
   const mapImageGetterRef = useRef(null);
 
   useEffect(() => {
@@ -267,9 +269,10 @@ export default function SiteSearch() {
         <MapboxSatelliteMap
           centerLat={searchCenter?.lat}
           centerLon={searchCenter?.lon}
-          results={results}
+          results={[...results, ...extraResults]}
           loading={loading}
           mapImageGetterRef={mapImageGetterRef}
+          filteredResultIds={filteredResultIds}
         />
       )}
 
@@ -287,6 +290,11 @@ export default function SiteSearch() {
 
       {results.length > 0 && !loading && (
         <div className="space-y-4">
+          <FilterPanel
+            results={results}
+            extraResults={extraResults}
+            onFilterChange={(ids) => setFilteredResultIds(ids)}
+          />
           <div className="flex items-center gap-3">
             <Radio className="w-5 h-5 text-primary" />
             <h2 className="font-heading font-semibold text-lg text-foreground">
@@ -294,7 +302,9 @@ export default function SiteSearch() {
             </h2>
           </div>
           {results.map((result, idx) => (
-            <ResultCard key={result.id} result={result} rank={idx + 1} />
+            <div key={result.id} className={filteredResultIds && !filteredResultIds.has(result.id) ? "opacity-30 pointer-events-none" : ""}>
+              <ResultCard result={result} rank={idx + 1} />
+            </div>
           ))}
 
           {extraResults.length === 0 && (
@@ -321,7 +331,9 @@ export default function SiteSearch() {
                 <h2 className="font-heading font-semibold text-lg text-foreground">Additional Candidates</h2>
               </div>
               {extraResults.map((result, idx) => (
-                <ResultCard key={result.id} result={result} rank={results.length + idx + 1} />
+                <div key={result.id} className={filteredResultIds && !filteredResultIds.has(result.id) ? "opacity-30 pointer-events-none" : ""}>
+                  <ResultCard result={result} rank={results.length + idx + 1} />
+                </div>
               ))}
             </>
           )}
