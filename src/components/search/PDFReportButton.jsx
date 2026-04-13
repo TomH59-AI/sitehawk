@@ -36,7 +36,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text("🦅  SiteHawk", margin, 32);
+    doc.text("SiteHawk", margin + 48, 32);
     doc.setFontSize(9);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(180, 200, 230);

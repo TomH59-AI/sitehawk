@@ -2,6 +2,7 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import AppFooter from "./AppFooter";
 import { useTheme } from "../hooks/useTheme";
 import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings } from "lucide-react";
+import HawkIcon from "./HawkIcon";
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
@@ -39,9 +40,7 @@ export default function Layout() {
       <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-sidebar fixed inset-y-0 left-0 z-30">
         <div className="p-6 border-b border-border">
           <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <Radio className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <HawkIcon size={40} />
             <div>
               <h1 className="font-heading font-bold text-lg text-foreground tracking-tight">SiteHawk</h1>
               <p className="text-[10px] text-muted-foreground font-medium italic">"When you need the AI Vision"™</p>
@@ -95,9 +94,7 @@ export default function Layout() {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-sidebar border-b border-border z-30 flex items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <Radio className="w-4 h-4 text-primary-foreground" />
-          </div>
+          <HawkIcon size={32} />
           <span className="font-heading font-bold text-foreground">SiteHawk</span>
         </Link>
         <div className="flex items-center gap-1">

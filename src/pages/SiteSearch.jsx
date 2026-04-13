@@ -8,6 +8,7 @@ import MapboxSatelliteMap from "../components/search/MapboxSatelliteMap";
 import { Radio } from "lucide-react";
 import AIChatPanel from "../components/search/AIChatPanel";
 import PDFReportButton from "../components/search/PDFReportButton";
+import HawkIcon from "../components/HawkIcon";
 
 const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
@@ -219,10 +220,10 @@ export default function SiteSearch() {
       {/* AI Chat toggle button */}
       <button
         onClick={() => setChatOpen((o) => !o)}
-        className="fixed right-6 bottom-8 z-40 w-14 h-14 rounded-full bg-primary shadow-xl flex items-center justify-center text-2xl hover:scale-105 transition-transform"
+        className="fixed right-6 bottom-8 z-40 w-14 h-14 rounded-full bg-[#0C1B2E] shadow-xl flex items-center justify-center hover:scale-105 transition-transform border border-[#2563A0]"
         title="SiteHawk AI"
       >
-        🦅
+        <HawkIcon size={36} />
       </button>
 
       <AIChatPanel

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Send } from "lucide-react";
+import HawkIcon from "../HawkIcon";
 
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
 const QUICK_ACTIONS = [
@@ -58,7 +59,7 @@ export default function AIChatPanel({ open, onClose, searchId, candidates, ordin
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">🦅</span>
+          <HawkIcon size={32} />
           <div>
             <h3 className="font-heading font-bold text-foreground text-sm">SiteHawk AI</h3>
             <p className="text-[10px] text-muted-foreground">Expert site acquisition consultant</p>
@@ -83,7 +84,7 @@ export default function AIChatPanel({ open, onClose, searchId, candidates, ordin
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "assistant" && (
-              <span className="text-lg mr-1.5 mt-0.5 shrink-0">🦅</span>
+              <HawkIcon size={24} className="mr-1.5 mt-0.5 shrink-0" />
             )}
             <div
               className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
@@ -98,7 +99,7 @@ export default function AIChatPanel({ open, onClose, searchId, candidates, ordin
         ))}
         {loading && (
           <div className="flex justify-start items-center gap-2">
-            <span className="text-lg">🦅</span>
+            <HawkIcon size={24} />
             <div className="bg-secondary rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1">
               {[0, 1, 2].map((i) => (
                 <div key={i} className="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />

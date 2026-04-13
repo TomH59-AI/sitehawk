@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Check, EyeOff } from "lucide-react";
+import HawkIcon from "../components/HawkIcon";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -173,8 +174,8 @@ export default function Pricing() {
               )}
 
               <div className="mb-6">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 text-2xl ${tier.iconBg}`}>
-                  {tier.emoji}
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 overflow-hidden">
+                  {tier.id === "blind" ? <span className="text-2xl">{tier.emoji}</span> : <HawkIcon size={48} />}
                 </div>
                 <h3 className="font-heading font-bold text-lg text-foreground leading-tight">{tier.name}</h3>
                 <p className="text-xs text-muted-foreground mt-1">{tier.description}</p>
