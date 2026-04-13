@@ -36,6 +36,10 @@ export default function About() {
           <span>Inquiries: <a href="mailto:info@site-hawk-pro.com" className="text-primary hover:underline">info@site-hawk-pro.com</a></span>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Mail className="w-4 h-4 text-primary shrink-0" />
+          <span>Founder: <a href="mailto:tom@site-hawk-pro.com" className="text-primary hover:underline">tom@site-hawk-pro.com</a></span>
+        </div>
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Globe className="w-4 h-4 text-primary shrink-0" />
           <a href="https://site-hawk-pro.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">site-hawk-pro.com</a>
         </div>
