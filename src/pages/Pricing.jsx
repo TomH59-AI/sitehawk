@@ -7,17 +7,16 @@ import { useToast } from "@/components/ui/use-toast";
 const tiers = [
   {
     id: "free",
-    name: "Free",
+    name: "Free Trial",
     price: "$0",
-    period: "/month",
-    description: "Get started with basic prospecting",
+    period: "",
+    description: "Try SiteHawk with 1 free search",
     icon: Radio,
     features: [
-      "3 searches per month",
-      "Top 5 parcel results",
-      "Basic parcel data",
+      "1 search total",
+      "Top 5 candidate parcels",
+      "Full parcel data",
       "Map visualization",
-      "Search history",
     ],
     cta: "Current Plan",
     popular: false,
@@ -25,42 +24,22 @@ const tiers = [
   {
     id: "pro",
     name: "Pro",
-    price: "$99",
+    priceMonthly: "$29",
+    priceYearly: "$290",
     period: "/month",
-    description: "For active site acquisition teams",
+    description: "For active site acquisition professionals",
     icon: Zap,
     features: [
       "50 searches per month",
-      "Top 5 parcel results",
-      "Full parcel data with contacts",
+      "Top 5 candidate parcels",
+      "'Need More?' — 3 additional candidates",
+      "Full parcel & owner contact data",
       "Map visualization",
       "Search history & analytics",
       "Priority support",
-      "Export results to CSV",
     ],
     cta: "Upgrade to Pro",
     popular: true,
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: "$499",
-    period: "/month",
-    description: "Unlimited access for large organizations",
-    icon: Building,
-    features: [
-      "Unlimited searches",
-      "Top 5 parcel results",
-      "Full parcel data with contacts",
-      "Map visualization",
-      "Advanced analytics",
-      "Dedicated account manager",
-      "API access",
-      "Custom integrations",
-      "Team management",
-    ],
-    cta: "Contact Sales",
-    popular: false,
   },
 ];
 
@@ -68,6 +47,7 @@ export default function Pricing() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [billingCycle, setBillingCycle] = useState("monthly");
 
   useEffect(() => {
     async function load() {
@@ -103,13 +83,33 @@ export default function Pricing() {
       <div className="text-center max-w-2xl mx-auto">
         <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Choose Your Plan</h1>
         <p className="text-muted-foreground text-sm mt-2">
-          Scale your cell tower prospecting with the right plan for your team
+          Scale your cell tower prospecting with the right plan
         </p>
+        <div className="mt-4 inline-flex items-center rounded-lg border border-border bg-secondary p-1 gap-1">
+          <button
+            onClick={() => setBillingCycle("monthly")}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${billingCycle === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingCycle("yearly")}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${billingCycle === "yearly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
+          >
+            Yearly <span className="text-xs text-emerald-400 font-semibold">Save $58</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
         {tiers.map((tier) => {
           const isCurrent = currentTier === tier.id;
+          const displayPrice = tier.priceMonthly
+            ? billingCycle === "yearly" ? tier.priceYearly : tier.priceMonthly
+            : tier.price;
+          const displayPeriod = tier.priceMonthly
+            ? billingCycle === "yearly" ? "/year" : "/month"
+            : "";
           return (
             <div
               key={tier.id}
@@ -134,8 +134,8 @@ export default function Pricing() {
                 <h3 className="font-heading font-bold text-xl text-foreground">{tier.name}</h3>
                 <p className="text-xs text-muted-foreground mt-1">{tier.description}</p>
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span className="font-heading font-bold text-3xl text-foreground">{tier.price}</span>
-                  <span className="text-muted-foreground text-sm">{tier.period}</span>
+                  <span className="font-heading font-bold text-3xl text-foreground">{displayPrice}</span>
+                  <span className="text-muted-foreground text-sm">{displayPeriod}</span>
                 </div>
               </div>
 
@@ -149,9 +149,7 @@ export default function Pricing() {
               </ul>
 
               <Button
-                className={`w-full font-heading font-semibold ${
-                  isCurrent ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                className={`w-full font-heading font-semibold ${isCurrent ? "opacity-50 cursor-not-allowed" : ""}`}
                 variant={tier.popular ? "default" : "outline"}
                 disabled={isCurrent}
                 onClick={() => handleUpgrade(tier.id)}

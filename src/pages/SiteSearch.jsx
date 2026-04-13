@@ -7,7 +7,7 @@ import ResultCard from "../components/search/ResultCard";
 import ResultsMap from "../components/search/ResultsMap";
 import { Radio } from "lucide-react";
 
-const TIER_LIMITS = { free: 3, pro: 50, enterprise: Infinity };
+const TIER_LIMITS = { free: 1, pro: 50 };
 
 export default function SiteSearch() {
   const { toast } = useToast();
@@ -15,8 +15,10 @@ export default function SiteSearch() {
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [results, setResults] = useState([]);
+  const [extraResults, setExtraResults] = useState([]);
   const [ordinance, setOrdinance] = useState(null);
   const [scanError, setScanError] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchCenter, setSearchCenter] = useState(null);
   const [searchesThisMonth, setSearchesThisMonth] = useState(0);
   const [existingSearch, setExistingSearch] = useState(null);
@@ -66,6 +68,7 @@ export default function SiteSearch() {
 
     setLoading(true);
     setResults([]);
+    setExtraResults([]);
     setOrdinance(null);
     setScanError(null);
     setSearchCenter({ lat: latitude, lon: longitude });
@@ -100,7 +103,7 @@ export default function SiteSearch() {
 
     if (data.ordinance) setOrdinance(data.ordinance);
 
-    const parcels = data.candidates || [];
+    const parcels = (data.candidates || []).slice(0, 5);
 
     // Save results to DB
     const savedResults = [];
@@ -120,7 +123,6 @@ export default function SiteSearch() {
         phone: parcel.phone,
         email: parcel.email,
         match_score: parcel.match_score,
-        match_reason: parcel.match_reason,
       });
       savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }
@@ -150,8 +152,51 @@ export default function SiteSearch() {
   }
 
   const tier = user?.tier || "free";
-  const limit = TIER_LIMITS[tier] || 3;
-  const atLimit = tier !== "enterprise" && searchesThisMonth >= limit;
+  const limit = TIER_LIMITS[tier] || 1;
+  const atLimit = searchesThisMonth >= limit;
+
+  const handleNeedMore = async () => {
+    if (atLimit) return;
+    setLoadingMore(true);
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
+    const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` },
+      body: JSON.stringify({ lat: searchCenter.lat, lon: searchCenter.lon, radius_miles: 0.5, offset: 5 }),
+    });
+    const data = await res.json();
+    const extra = (data.candidates || []).slice(0, 3);
+    const search = await base44.entities.SearchHistory.create({
+      latitude: searchCenter.lat,
+      longitude: searchCenter.lon,
+      status: "completed",
+      results_count: extra.length,
+      search_label: `More Results @ ${searchCenter.lat.toFixed(4)}, ${searchCenter.lon.toFixed(4)}`,
+    });
+    const saved = [];
+    for (const parcel of extra) {
+      const r = await base44.entities.SearchResult.create({
+        search_id: search.id,
+        site_name: parcel.site_name,
+        owner_name: parcel.owner_name,
+        parcel_address: parcel.parcel_address,
+        parcel_id: parcel.parcel_id,
+        parcel_size_acres: parcel.parcel_size_acres,
+        zoning_classification: parcel.zoning,
+        owner_mailing_address: parcel.owner_mailing_address,
+        latitude: parcel.latitude,
+        longitude: parcel.longitude,
+        fema_risk_factor: parcel.fema_risk,
+        phone: parcel.phone,
+        email: parcel.email,
+        match_score: parcel.match_score,
+      });
+      saved.push({ ...r, match_reason: parcel.match_reason });
+    }
+    setExtraResults(saved);
+    setSearchesThisMonth((prev) => prev + 1);
+    setLoadingMore(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -208,6 +253,35 @@ export default function SiteSearch() {
           {results.map((result, idx) => (
             <ResultCard key={result.id} result={result} rank={idx + 1} />
           ))}
+
+          {extraResults.length === 0 && (
+            <div className="text-center pt-2">
+              <button
+                onClick={handleNeedMore}
+                disabled={loadingMore || atLimit}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-primary/30 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingMore ? (
+                  <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> Loading more...</>
+                ) : (
+                  <>Need More? Get 3 Additional Candidates</>
+                )}
+              </button>
+              {atLimit && <p className="text-xs text-muted-foreground mt-2">Upgrade your plan to run more searches.</p>}
+            </div>
+          )}
+
+          {extraResults.length > 0 && (
+            <>
+              <div className="flex items-center gap-3 pt-2">
+                <Radio className="w-5 h-5 text-accent" />
+                <h2 className="font-heading font-semibold text-lg text-foreground">Additional Candidates</h2>
+              </div>
+              {extraResults.map((result, idx) => (
+                <ResultCard key={result.id} result={result} rank={results.length + idx + 1} />
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

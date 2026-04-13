@@ -20,8 +20,9 @@ export default function ResultCard({ result, rank }) {
     <div className="rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-heading font-bold text-sm">
-            {rank}
+          <div className="flex flex-col items-center justify-center px-2 py-1 rounded-lg bg-primary/10 border border-primary/20 min-w-[56px]">
+            <span className="text-[9px] uppercase tracking-widest text-primary font-medium">Candidate</span>
+            <span className="text-primary font-heading font-bold text-lg leading-none">{rank}</span>
           </div>
           <div>
             <h3 className="font-heading font-semibold text-foreground text-sm">{result.site_name}</h3>
