@@ -52,7 +52,7 @@ export default function Dashboard() {
           <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">
             Welcome back{user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">When you need the AI vision</p>
+          <p className="text-muted-foreground text-sm mt-1">"When you need the AI Vision"™</p>
           <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary border border-border text-xs font-medium text-foreground">
             <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
             {monthlySearches} of {TIER_LIMITS[tier] ?? 0} searches used this month
