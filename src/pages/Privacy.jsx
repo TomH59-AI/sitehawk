@@ -23,8 +23,8 @@ export default function Privacy() {
           <p className="text-xs text-muted-foreground">
             <span className="font-medium">SkyWave LLC</span> — Michigan, USA
           </p>
-          <a href="mailto:hodgesthomas@outlook.com" className="text-primary text-sm hover:underline">
-            hodgesthomas@outlook.com
+          <a href="mailto:support@site-hawk-pro.com" className="text-primary text-sm hover:underline">
+            support@site-hawk-pro.com
           </a>
         </div>
       </div>

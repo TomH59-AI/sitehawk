@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Mail, Phone, Radio } from "lucide-react";
+import { Mail, Globe, Radio } from "lucide-react";
 
 export default function About() {
   return (
@@ -29,11 +29,15 @@ export default function About() {
         <h2 className="font-heading font-semibold text-lg text-foreground">Contact SkyWave LLC</h2>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Mail className="w-4 h-4 text-primary shrink-0" />
-          <a href="mailto:hodgesthomas@outlook.com" className="text-primary hover:underline">hodgesthomas@outlook.com</a>
+          <span>Support: <a href="mailto:support@site-hawk-pro.com" className="text-primary hover:underline">support@site-hawk-pro.com</a></span>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <Phone className="w-4 h-4 text-primary shrink-0" />
-          <a href="tel:+12487871888" className="text-primary hover:underline">(248) 787-1888</a>
+          <Mail className="w-4 h-4 text-primary shrink-0" />
+          <span>Inquiries: <a href="mailto:info@site-hawk-pro.com" className="text-primary hover:underline">info@site-hawk-pro.com</a></span>
+        </div>
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Globe className="w-4 h-4 text-primary shrink-0" />
+          <a href="https://site-hawk-pro.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">site-hawk-pro.com</a>
         </div>
         <p className="text-xs text-muted-foreground/60 mt-2">SkyWave LLC — Michigan, USA</p>
       </div>
