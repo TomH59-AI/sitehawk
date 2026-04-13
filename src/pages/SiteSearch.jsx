@@ -247,7 +247,8 @@ export default function SiteSearch() {
 
   return (
     <div className="space-y-6">
-      {/* AI Chat toggle button */}
+      {/* AI Chat toggle button — paid subscribers only */}
+      {!isBlind && (
       <button
         onClick={() => setChatOpen((o) => !o)}
         className="fixed right-6 bottom-8 z-40 w-14 h-14 rounded-full bg-[#0C1B2E] shadow-xl flex items-center justify-center hover:scale-105 transition-transform border border-[#2563A0]"
@@ -255,6 +256,7 @@ export default function SiteSearch() {
       >
         <HawkIcon size={36} />
       </button>
+      )}
 
       <AIChatPanel
         open={chatOpen}
