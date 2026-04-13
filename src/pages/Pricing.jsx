@@ -1,45 +1,74 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Check, Zap, Building, Radio } from "lucide-react";
+import { Check, Eye, EyeOff, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
 const tiers = [
   {
-    id: "free",
-    name: "Free Trial",
+    id: "blind",
+    name: "Blind Vision",
     price: "$0",
     period: "",
-    description: "Try SiteHawk with 1 free search",
-    icon: Radio,
+    description: "See the interface. No scanning until you upgrade.",
+    emoji: "🙈",
+    iconBg: "bg-muted",
+    iconColor: "text-muted-foreground",
     features: [
-      "1 search total",
-      "Top 5 candidate parcels",
-      "Full parcel data",
-      "Map visualization",
+      "Full dashboard access",
+      "View the SiteHawk interface",
+      "Explore pricing & features",
+      "0 scans included",
     ],
-    cta: "Current Plan",
-    popular: false,
+    cta: "Free Forever",
+    highlight: false,
+    badge: null,
   },
   {
-    id: "pro",
-    name: "Pro",
-    priceMonthly: "$29",
-    priceYearly: "$290",
+    id: "monthly",
+    name: "20/20 Hawk AI Vision",
+    price: "$49",
     period: "/month",
-    description: "For active site acquisition professionals",
-    icon: Zap,
+    description: "Perfect sight. Full access, monthly billing.",
+    emoji: "🦅",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
     features: [
+      "1 free trial scan on signup",
       "50 searches per month",
-      "Top 5 candidate parcels",
-      "'Need More?' — 3 additional candidates",
-      "Full parcel & owner contact data",
-      "Map visualization",
-      "Search history & analytics",
+      "SiteHawk AI chatbot",
+      "MapBox satellite maps",
+      "Scored candidate results",
+      "Need More? (3 extra candidates)",
+      "Full owner contact data",
       "Priority support",
     ],
-    cta: "Upgrade to Pro",
-    popular: true,
+    cta: "Start Scanning",
+    highlight: false,
+    badge: "Most Popular",
+  },
+  {
+    id: "annual",
+    name: "20/4 Hawk AI Vision",
+    price: "$429",
+    period: "/year",
+    description: "Get 12 months for the price of ~8.75 — hawk-level savings.",
+    emoji: "🏆",
+    iconBg: "bg-accent/10",
+    iconColor: "text-accent",
+    features: [
+      "Everything in 20/20 Vision",
+      "Save $159 vs monthly",
+      "2 bonus months free",
+      "50 searches per month",
+      "SiteHawk AI chatbot",
+      "MapBox satellite maps",
+      "Scored candidate results",
+      "Need More? (3 extra candidates)",
+    ],
+    cta: "Go Annual & Save",
+    highlight: true,
+    badge: "Best Value",
   },
 ];
 
@@ -47,7 +76,6 @@ export default function Pricing() {
   const { toast } = useToast();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [billingCycle, setBillingCycle] = useState("monthly");
 
   useEffect(() => {
     async function load() {
@@ -59,13 +87,10 @@ export default function Pricing() {
   }, []);
 
   const handleUpgrade = async (tierId) => {
-    if (tierId === "enterprise") {
-      toast({ title: "Contact Sales", description: "Please reach out to our sales team for Enterprise pricing." });
-      return;
-    }
     await base44.auth.updateMe({ tier: tierId });
     setUser({ ...user, tier: tierId });
-    toast({ title: "Plan updated!", description: `You are now on the ${tierId} plan.` });
+    const tierName = tiers.find(t => t.id === tierId)?.name;
+    toast({ title: "Plan updated!", description: `You are now on ${tierName}.` });
   };
 
   if (loading) {
@@ -76,81 +101,79 @@ export default function Pricing() {
     );
   }
 
-  const currentTier = user?.tier || "free";
+  const currentTier = user?.tier || "blind";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
+      {/* Header */}
       <div className="text-center max-w-2xl mx-auto">
-        <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Choose Your Plan</h1>
-        <p className="text-muted-foreground text-sm mt-2">
-          Scale your cell tower prospecting with the right plan
+        <p className="text-xs uppercase tracking-[0.2em] text-primary font-semibold mb-3">SiteHawk — When you need the AI vision</p>
+        <h1 className="font-heading font-bold text-3xl md:text-4xl text-foreground">
+          Choose Your Vision
+        </h1>
+        <p className="text-muted-foreground text-sm mt-3 max-w-md mx-auto">
+          From zero to hawk-level clarity — upgrade when you're ready to start prospecting.
         </p>
-        <div className="mt-4 inline-flex items-center rounded-lg border border-border bg-secondary p-1 gap-1">
-          <button
-            onClick={() => setBillingCycle("monthly")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${billingCycle === "monthly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => setBillingCycle("yearly")}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${billingCycle === "yearly" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}
-          >
-            Yearly <span className="text-xs text-emerald-400 font-semibold">Save $58</span>
-          </button>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+      {/* Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {tiers.map((tier) => {
           const isCurrent = currentTier === tier.id;
-          const displayPrice = tier.priceMonthly
-            ? billingCycle === "yearly" ? tier.priceYearly : tier.priceMonthly
-            : tier.price;
-          const displayPeriod = tier.priceMonthly
-            ? billingCycle === "yearly" ? "/year" : "/month"
-            : "";
           return (
             <div
               key={tier.id}
-              className={`rounded-xl border p-6 flex flex-col relative transition-all duration-300 ${
-                tier.popular
-                  ? "border-primary bg-card shadow-lg shadow-primary/5"
+              className={`rounded-2xl border p-6 flex flex-col relative transition-all duration-300 ${
+                tier.highlight
+                  ? "border-accent bg-card shadow-xl shadow-accent/10 scale-[1.02]"
                   : "border-border bg-card"
               }`}
             >
-              {tier.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold font-heading">
-                  Most Popular
+              {tier.badge && (
+                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold font-heading ${
+                  tier.highlight
+                    ? "bg-accent text-accent-foreground"
+                    : "bg-primary text-primary-foreground"
+                }`}>
+                  {tier.badge}
                 </div>
               )}
 
               <div className="mb-6">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 ${
-                  tier.popular ? "bg-primary/10" : "bg-secondary"
-                }`}>
-                  <tier.icon className={`w-5 h-5 ${tier.popular ? "text-primary" : "text-muted-foreground"}`} />
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 text-2xl ${tier.iconBg}`}>
+                  {tier.emoji}
                 </div>
-                <h3 className="font-heading font-bold text-xl text-foreground">{tier.name}</h3>
+                <h3 className="font-heading font-bold text-lg text-foreground leading-tight">{tier.name}</h3>
                 <p className="text-xs text-muted-foreground mt-1">{tier.description}</p>
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span className="font-heading font-bold text-3xl text-foreground">{displayPrice}</span>
-                  <span className="text-muted-foreground text-sm">{displayPeriod}</span>
+                  <span className="font-heading font-bold text-4xl text-foreground">{tier.price}</span>
+                  <span className="text-muted-foreground text-sm">{tier.period}</span>
                 </div>
+                {tier.id === "annual" && (
+                  <p className="text-xs text-accent font-semibold mt-1">~$35.75/mo — save $159/yr</p>
+                )}
               </div>
 
-              <ul className="space-y-3 flex-1 mb-6">
+              <ul className="space-y-2.5 flex-1 mb-6">
                 {tier.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2 text-sm">
-                    <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <Check className={`w-4 h-4 mt-0.5 shrink-0 ${tier.highlight ? "text-accent" : "text-primary"}`} />
                     <span className="text-muted-foreground">{feature}</span>
                   </li>
                 ))}
+                {tier.id === "blind" && (
+                  <li className="flex items-start gap-2 text-sm">
+                    <EyeOff className="w-4 h-4 mt-0.5 shrink-0 text-muted-foreground" />
+                    <span className="text-muted-foreground/60 line-through">Scanning disabled</span>
+                  </li>
+                )}
               </ul>
 
               <Button
-                className={`w-full font-heading font-semibold ${isCurrent ? "opacity-50 cursor-not-allowed" : ""}`}
-                variant={tier.popular ? "default" : "outline"}
+                className={`w-full font-heading font-semibold ${
+                  tier.highlight ? "bg-accent hover:bg-accent/90 text-accent-foreground" : ""
+                } ${isCurrent ? "opacity-50 cursor-not-allowed" : ""}`}
+                variant={tier.highlight ? "default" : tier.id === "blind" ? "outline" : "default"}
                 disabled={isCurrent}
                 onClick={() => handleUpgrade(tier.id)}
               >
@@ -160,6 +183,11 @@ export default function Pricing() {
           );
         })}
       </div>
+
+      {/* Footer */}
+      <p className="text-center text-xs text-muted-foreground/50 tracking-widest uppercase mt-4">
+        Powered by SkyWave AI
+      </p>
     </div>
   );
 }

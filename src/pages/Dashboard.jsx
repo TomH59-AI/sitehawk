@@ -7,7 +7,7 @@ import UsageBar from "../components/dashboard/UsageBar";
 import StatsCards from "../components/dashboard/StatsCards";
 import SearchHistoryTable from "../components/dashboard/SearchHistoryTable";
 
-const TIER_LIMITS = { free: 1, pro: 50 };
+const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -55,8 +55,8 @@ export default function Dashboard() {
           <p className="text-muted-foreground text-sm mt-1">When you need the AI vision</p>
           <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary border border-border text-xs font-medium text-foreground">
             <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
-            {monthlySearches} of {tier === "pro" ? 50 : 1} searches used this month
-            <span className="text-muted-foreground capitalize">· {tier} plan</span>
+            {monthlySearches} of {TIER_LIMITS[tier] ?? 0} searches used this month
+            <span className="text-muted-foreground capitalize">· {tier === "monthly" ? "20/20 Vision" : tier === "annual" ? "20/4 Vision" : tier === "blind" ? "Blind Vision" : tier} plan</span>
           </div>
         </div>
         <Link to="/search">

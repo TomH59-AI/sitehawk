@@ -8,7 +8,7 @@ import MapboxSatelliteMap from "../components/search/MapboxSatelliteMap";
 import { Radio } from "lucide-react";
 import AIChatPanel from "../components/search/AIChatPanel";
 
-const TIER_LIMITS = { free: 1, pro: 50 };
+const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
 export default function SiteSearch() {
   const { toast } = useToast();
@@ -60,10 +60,19 @@ export default function SiteSearch() {
     const tier = user?.tier || "free";
     const limit = TIER_LIMITS[tier] || 3;
 
-    if (tier !== "enterprise" && searchesThisMonth >= limit) {
+    if (tier === "blind" || tier === "free" || !tier) {
+      toast({
+        title: "Upgrade required",
+        description: "Upgrade to 20/20 Hawk AI Vision to start scanning.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (searchesThisMonth >= limit) {
       toast({
         title: "Search limit reached",
-        description: `Your ${tier} plan allows ${limit} searches/month. Upgrade to continue.`,
+        description: `Your plan allows ${limit} searches/month. Upgrade to continue.`,
         variant: "destructive",
       });
       return;
@@ -157,7 +166,8 @@ export default function SiteSearch() {
 
   const tier = user?.tier || "free";
   const limit = TIER_LIMITS[tier] || 1;
-  const atLimit = searchesThisMonth >= limit;
+  const isBlind = tier === "blind" || tier === "free" || !tier;
+  const atLimit = isBlind || searchesThisMonth >= limit;
 
   const handleNeedMore = async () => {
     if (atLimit) return;
@@ -224,7 +234,9 @@ export default function SiteSearch() {
       <div>
         <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Site Search</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Enter coordinates to find buildable parcels for a 199-ft cell tower
+          {tier === "blind" || tier === "free" || !tier
+            ? "Upgrade to 20/20 Hawk AI Vision to start scanning."
+            : "Enter coordinates to find buildable parcels for a 199-ft cell tower"}
         </p>
       </div>
 
@@ -240,8 +252,10 @@ export default function SiteSearch() {
       {atLimit && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center">
           <p className="text-destructive text-sm font-medium">
-            You've reached your monthly limit of {limit} searches. Upgrade your plan to continue.
-          </p>
+              {isBlind
+                ? "Upgrade to 20/20 Hawk AI Vision to start scanning."
+                : `You've reached your monthly limit of ${limit} searches. Upgrade your plan to continue.`}
+            </p>
         </div>
       )}
 
