@@ -142,7 +142,7 @@ export default function Pricing() {
     <div className="space-y-10">
       {/* Header */}
       <div className="text-center max-w-2xl mx-auto">
-        <p className="text-xs uppercase tracking-[0.2em] text-primary font-semibold mb-3">SiteHawk — When you need the AI vision</p>
+        <p className="text-xs uppercase tracking-[0.2em] text-primary font-semibold mb-3">SiteHawk — When you need AI Hawk vision</p>
         <h1 className="font-heading font-bold text-3xl md:text-4xl text-foreground">
           Choose Your Vision
         </h1>

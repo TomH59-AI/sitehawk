@@ -278,7 +278,7 @@ export default function Landing() {
         <div className="max-w-3xl mx-auto text-center">
           <div className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-950/50 to-[#060E1A] p-12 shadow-2xl shadow-blue-500/5">
             <div className="flex justify-center mb-6"><HawkIcon size={64} /></div>
-            <h2 className="font-heading font-bold text-4xl text-white mb-4">"When You Need<br />the AI Vision"™</h2>
+            <h2 className="font-heading font-bold text-4xl text-white mb-4">"When You Need<br />AI Hawk Vision"™</h2>
             <p className="text-white/50 mb-8 leading-relaxed">Stop spending weeks manually researching parcels. SiteHawk gives you the AI vision to find, vet, and contact the right landowner — fast.</p>
             <Link
               to="/pricing"
