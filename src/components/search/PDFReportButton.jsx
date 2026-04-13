@@ -218,6 +218,8 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
           ["Zoning", r.zoning_classification],
           ["Coordinates", `${r.latitude?.toFixed(5)}, ${r.longitude?.toFixed(5)}`],
           ["FEMA Risk", r.fema_risk_factor],
+          ["Nearest Airport", r.airport_iata ? `${r.airport_iata} — ${r.airport_name} (${r.airport_distance_miles?.toFixed(1)} mi)` : null],
+          ["Airport Coords", r.airport_lat ? `${r.airport_lat?.toFixed(5)}, ${r.airport_lon?.toFixed(5)}` : null],
           ["Phone", r.phone],
           ["Email", r.email],
         ];

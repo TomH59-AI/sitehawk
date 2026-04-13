@@ -126,9 +126,35 @@ export default function SiteSearch() {
 
     const parcels = (data.candidates || []).slice(0, 5);
 
+    // Look up nearest airports for all parcels in parallel
+    const airportLookups = await Promise.all(
+      parcels.map(async (parcel) => {
+        try {
+          const r = await base44.integrations.Core.InvokeLLM({
+            prompt: `What is the nearest commercial or regional airport to coordinates ${parcel.latitude}, ${parcel.longitude}? Provide the IATA code (or FAA identifier if no IATA), full airport name, distance in miles from those coordinates, and the airport's latitude and longitude.`,
+            response_json_schema: {
+              type: "object",
+              properties: {
+                iata: { type: "string" },
+                name: { type: "string" },
+                distance_miles: { type: "number" },
+                lat: { type: "number" },
+                lon: { type: "number" }
+              }
+            }
+          });
+          return r;
+        } catch (e) {
+          return {};
+        }
+      })
+    );
+
     // Save results to DB
     const savedResults = [];
-    for (const parcel of parcels) {
+    for (let i = 0; i < parcels.length; i++) {
+      const parcel = parcels[i];
+      const airport = airportLookups[i] || {};
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
         site_name: parcel.site_name,
@@ -144,6 +170,11 @@ export default function SiteSearch() {
         phone: parcel.phone,
         email: parcel.email,
         match_score: parcel.match_score,
+        airport_iata: airport.iata || null,
+        airport_name: airport.name || null,
+        airport_distance_miles: airport.distance_miles || null,
+        airport_lat: airport.lat || null,
+        airport_lon: airport.lon || null,
       });
       savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }

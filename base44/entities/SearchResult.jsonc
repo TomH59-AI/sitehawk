@@ -45,6 +45,26 @@
     "match_score": {
       "type": "number",
       "description": "Score from 0-100"
+    },
+    "airport_iata": {
+      "type": "string",
+      "description": "Nearest airport IATA/call letters"
+    },
+    "airport_name": {
+      "type": "string",
+      "description": "Nearest airport full name"
+    },
+    "airport_distance_miles": {
+      "type": "number",
+      "description": "Distance to nearest airport in miles"
+    },
+    "airport_lat": {
+      "type": "number",
+      "description": "Nearest airport latitude"
+    },
+    "airport_lon": {
+      "type": "number",
+      "description": "Nearest airport longitude"
     }
   },
   "required": [

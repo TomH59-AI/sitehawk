@@ -1,4 +1,4 @@
-import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb } from "lucide-react";
+import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff } from "lucide-react";
 import SkipTraceButton from "./SkipTraceButton";
 import { Badge } from "@/components/ui/badge";
 
@@ -50,6 +50,22 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
         <InfoRow icon={Building} label="Zoning" value={result.zoning_classification} />
         <InfoRow icon={MapPin} label="Coordinates" value={`${result.latitude?.toFixed(5)}, ${result.longitude?.toFixed(5)}`} />
         <InfoRow icon={Shield} label="FEMA Risk" value={result.fema_risk_factor} />
+        {result.airport_iata && (
+          <div className="sm:col-span-2">
+            <div className="flex items-start gap-2">
+              <PlaneTakeoff className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="text-xs">
+                <span className="text-muted-foreground">Nearest Airport: </span>
+                <span className="font-bold text-foreground">{result.airport_iata}</span>
+                <span className="text-foreground font-medium"> — {result.airport_name}</span>
+                <span className="text-muted-foreground"> · {result.airport_distance_miles?.toFixed(1)} mi away</span>
+                {result.airport_lat && (
+                  <span className="text-muted-foreground"> · {result.airport_lat?.toFixed(5)}, {result.airport_lon?.toFixed(5)}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <InfoRow icon={Phone} label="Phone" value={result.phone} />
         <InfoRow icon={Mail} label="Email" value={result.email} />
         {result.owner_mailing_address && (
