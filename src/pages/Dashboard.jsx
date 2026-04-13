@@ -52,11 +52,11 @@ export default function Dashboard() {
           <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">
             Welcome back{user?.full_name ? `, ${user.full_name.split(" ")[0]}` : ""}
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">"When you need the AI Vision"™</p>
+          <p className="text-muted-foreground text-sm mt-1">"When you need AI Hawk Vision"™</p>
           <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary border border-border text-xs font-medium text-foreground">
             <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
             {monthlySearches} of {TIER_LIMITS[tier] ?? 0} searches used this month
-            <span className="text-muted-foreground capitalize">· {tier === "monthly" ? "20/20 Vision" : tier === "annual" ? "20/4 Vision" : tier === "blind" ? "Blind Vision" : tier} plan</span>
+            <span className="text-muted-foreground">· {tier === "monthly" ? "Hawk 20/20 Vision" : tier === "annual" ? "Hawk 20-4 AI Vision" : "Blind"} plan</span>
           </div>
         </div>
         <Link to="/search">

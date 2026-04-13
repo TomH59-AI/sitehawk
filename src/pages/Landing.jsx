@@ -133,7 +133,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">No credit card required for free tier · Paid plans start at $99/mo</p>
+          <p className="text-xs text-white/30 mt-6">No credit card required for free tier · Paid plans start at $49/mo</p>
         </div>
 
         {/* Hero mockup strip */}

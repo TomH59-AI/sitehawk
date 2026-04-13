@@ -16,14 +16,13 @@ const tiers = [
     period: "",
     description: "View the dashboard and explore features. No scanning until you upgrade.",
     emoji: "🙈",
-    iconBg: "bg-muted",
-    iconColor: "text-muted-foreground",
     features: [
       "Full dashboard access",
       "View the SiteHawk interface",
       "Explore pricing & features",
+      "0 search credits",
     ],
-    cta: "Free Forever",
+    cta: "Sign Up Free",
     highlight: false,
     badge: null,
   },
@@ -34,8 +33,6 @@ const tiers = [
     period: "/month",
     description: "Full hawk-eye clarity. Includes 1 free trial scan to get you started.",
     emoji: "🦅",
-    iconBg: "bg-primary/10",
-    iconColor: "text-primary",
     features: [
       "1 free trial scan on signup",
       "50 searches per month",
@@ -46,7 +43,7 @@ const tiers = [
       "Full owner contact data",
       "Priority support",
     ],
-    cta: "Start Scanning",
+    cta: "Subscribe",
     highlight: false,
     badge: "Most Popular",
   },
@@ -57,8 +54,6 @@ const tiers = [
     period: "/year",
     description: "Maximum hawk intelligence. 2 free trial scans + annual savings.",
     emoji: "🏆",
-    iconBg: "bg-accent/10",
-    iconColor: "text-accent",
     features: [
       "2 free trial scans on signup",
       "Everything in Hawk 20/20 Vision",
@@ -69,7 +64,7 @@ const tiers = [
       "Need More? (3 extra candidates)",
       "Priority support",
     ],
-    cta: "Go Annual & Save",
+    cta: "Subscribe & Save",
     highlight: true,
     badge: "Best Value",
   },
@@ -83,27 +78,36 @@ export default function Pricing() {
 
   useEffect(() => {
     async function load() {
-      const me = await base44.auth.me();
-      setUser(me);
-      setLoading(false);
-
-      // Handle return from Stripe checkout
       const urlParams = new URLSearchParams(window.location.search);
+
+      // Handle return from Stripe checkout — activate trial scans & upgrade tier
       if (urlParams.get("checkout") === "success") {
+        const plan = urlParams.get("plan") || "monthly";
+        await fetch(SUPABASE_CHECKOUT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+          },
+          body: JSON.stringify({ action: "complete_checkout", plan }),
+        });
+        window.history.replaceState({}, "", window.location.pathname);
         toast({
           title: "Welcome to SiteHawk! 🦅",
           description: "Your hawk vision is now active. Start scanning!",
         });
-        window.history.replaceState({}, "", window.location.pathname);
       }
+
+      const me = await base44.auth.me();
+      setUser(me);
+      setLoading(false);
     }
     load();
   }, []);
 
   const handleCheckout = async (plan) => {
     setCheckoutLoading(plan);
-    // trial_scans: monthly gets 1, annual gets 2
-    const trialScans = plan === "annual" ? 2 : 1;
     const res = await fetch(SUPABASE_CHECKOUT_URL, {
       method: "POST",
       headers: {
@@ -111,12 +115,17 @@ export default function Pricing() {
         "apikey": SUPABASE_KEY,
         "Authorization": `Bearer ${SUPABASE_KEY}`,
       },
-      body: JSON.stringify({ plan, action: "checkout", trial_scans: trialScans }),
+      body: JSON.stringify({ plan, action: "checkout" }),
     });
     const data = await res.json();
     setCheckoutLoading(null);
     if (data.url) {
-      window.location.href = data.url;
+      // Append plan to success URL so complete_checkout knows which plan to activate
+      const successUrl = data.url.replace(
+        encodeURIComponent("checkout=success"),
+        encodeURIComponent(`checkout=success&plan=${plan}`)
+      );
+      window.location.href = successUrl || data.url;
     } else {
       toast({ title: "Error", description: data.error || "Could not start checkout.", variant: "destructive" });
     }
@@ -230,7 +239,7 @@ export default function Pricing() {
                   <span className="text-muted-foreground text-sm">{tier.period}</span>
                 </div>
                 {tier.id === "annual" && (
-                  <p className="text-xs text-accent font-semibold mt-1">~$40.83/mo — best value for power users</p>
+                  <p className="text-xs text-accent font-semibold mt-1">~$40.83/mo · save vs monthly billing</p>
                 )}
               </div>
 
@@ -257,8 +266,7 @@ export default function Pricing() {
                 disabled={isCurrent || checkoutLoading === tier.id}
                 onClick={() => {
                   if (tier.id === "blind") handleSignupFree();
-                  else if (tier.id === "monthly") handleCheckout("monthly");
-                  else if (tier.id === "annual") handleCheckout("annual");
+                  else handleCheckout(tier.id);
                 }}
               >
                 {isCurrent ? "Current Plan" : checkoutLoading === tier.id ? "Redirecting..." : tier.cta}
