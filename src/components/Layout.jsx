@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
+import AppFooter from "./AppFooter";
 import { useTheme } from "../hooks/useTheme";
 import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
@@ -9,6 +10,7 @@ const navItems = [
   { path: "/", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
+  { path: "/about", icon: Radio, label: "About" },
 ];
 
 export default function Layout() {
@@ -119,10 +121,11 @@ export default function Layout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 flex flex-col min-h-screen">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex-1">
           <Outlet />
         </div>
+        <AppFooter />
       </main>
     </div>
   );

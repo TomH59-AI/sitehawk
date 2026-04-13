@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -9,6 +10,16 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import SiteSearch from './pages/SiteSearch';
 import Pricing from './pages/Pricing';
+import About from './pages/About';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import SplashScreen from './components/SplashScreen';
+
+function AppWithSplash() {
+  const [splashDone, setSplashDone] = useState(false);
+  if (!splashDone) return <SplashScreen onDone={() => setSplashDone(true)} />;
+  return <AuthenticatedApp />;
+}
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -40,6 +51,9 @@ const AuthenticatedApp = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
@@ -53,7 +67,7 @@ function App() {
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
         <Router>
-          <AuthenticatedApp />
+          <AppWithSplash />
         </Router>
         <Toaster />
       </QueryClientProvider>
