@@ -17,7 +17,7 @@ function getScoreLabel(score) {
 
 export default function ResultCard({ result, rank }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-all duration-300">
+    <div id={`candidate-card-${rank - 1}`} className="rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="flex flex-col items-center justify-center px-2 py-1 rounded-lg bg-primary/10 border border-primary/20 min-w-[56px]">

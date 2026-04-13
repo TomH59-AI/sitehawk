@@ -4,8 +4,9 @@ import { useToast } from "@/components/ui/use-toast";
 import SearchForm from "../components/search/SearchForm";
 import OrdinanceCard from "../components/search/OrdinanceCard";
 import ResultCard from "../components/search/ResultCard";
-import ResultsMap from "../components/search/ResultsMap";
+import MapboxSatelliteMap from "../components/search/MapboxSatelliteMap";
 import { Radio } from "lucide-react";
+import AIChatPanel from "../components/search/AIChatPanel";
 
 const TIER_LIMITS = { free: 1, pro: 50 };
 
@@ -22,6 +23,8 @@ export default function SiteSearch() {
   const [searchCenter, setSearchCenter] = useState(null);
   const [searchesThisMonth, setSearchesThisMonth] = useState(0);
   const [existingSearch, setExistingSearch] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [currentSearchId, setCurrentSearchId] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -134,6 +137,7 @@ export default function SiteSearch() {
     });
 
     setResults(savedResults);
+    setCurrentSearchId(search.id);
     setSearchesThisMonth((prev) => prev + 1);
     setLoading(false);
 
@@ -200,6 +204,22 @@ export default function SiteSearch() {
 
   return (
     <div className="space-y-6">
+      {/* AI Chat toggle button */}
+      <button
+        onClick={() => setChatOpen((o) => !o)}
+        className="fixed right-6 bottom-8 z-40 w-14 h-14 rounded-full bg-primary shadow-xl flex items-center justify-center text-2xl hover:scale-105 transition-transform"
+        title="SiteHawk AI"
+      >
+        🦅
+      </button>
+
+      <AIChatPanel
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        searchId={currentSearchId}
+        candidates={[...results, ...extraResults]}
+        ordinance={ordinance}
+      />
       {/* Header */}
       <div>
         <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Site Search</h1>
@@ -225,9 +245,14 @@ export default function SiteSearch() {
         </div>
       )}
 
-      {/* Map */}
-      {searchCenter && (
-        <ResultsMap centerLat={searchCenter.lat} centerLon={searchCenter.lon} results={results} />
+      {/* Map — only renders after scan completes */}
+      {(searchCenter || loading) && (
+        <MapboxSatelliteMap
+          centerLat={searchCenter?.lat}
+          centerLon={searchCenter?.lon}
+          results={results}
+          loading={loading}
+        />
       )}
 
       {/* Loading state */}
