@@ -5,6 +5,7 @@ import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X,
 import HawkIcon from "./HawkIcon";
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { stripeCheckout } from "@/functions/stripeCheckout";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
@@ -24,14 +25,9 @@ export default function Layout() {
   };
 
   const handleManageSubscription = async () => {
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
-    const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/stripe-checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` },
-      body: JSON.stringify({ action: "portal" }),
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
+    const res = await stripeCheckout({ action: "portal" });
+    const data = res.data;
+    if (data?.url) window.location.href = data.url;
   };
 
   return (

@@ -1,0 +1,40 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "The role of the user in the app",
+      "enum": [
+        "admin",
+        "user"
+      ]
+    },
+    "tier": {
+      "type": "string",
+      "description": "Subscription tier",
+      "enum": [
+        "blind",
+        "monthly",
+        "annual"
+      ],
+      "default": "blind"
+    },
+    "subscription_plan": {
+      "type": "string",
+      "description": "Active Stripe subscription plan"
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "description": "Stripe customer ID"
+    },
+    "trial_scans_remaining": {
+      "type": "number",
+      "description": "Number of free trial scans remaining",
+      "default": 0
+    }
+  },
+  "required": [
+    "role"
+  ]
+}

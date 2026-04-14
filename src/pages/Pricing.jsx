@@ -4,9 +4,7 @@ import { Check, EyeOff } from "lucide-react";
 import HawkIcon from "../components/HawkIcon";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
-const SUPABASE_CHECKOUT_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/stripe-checkout";
+import { stripeCheckout } from "@/functions/stripeCheckout";
 
 const tiers = [
   {
@@ -83,15 +81,7 @@ export default function Pricing() {
       // Handle return from Stripe checkout — activate trial scans & upgrade tier
       if (urlParams.get("checkout") === "success") {
         const plan = urlParams.get("plan") || "monthly";
-        await fetch(SUPABASE_CHECKOUT_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": SUPABASE_KEY,
-            "Authorization": `Bearer ${SUPABASE_KEY}`,
-          },
-          body: JSON.stringify({ action: "complete_checkout", plan }),
-        });
+        await stripeCheckout({ action: "complete_checkout", plan });
         window.history.replaceState({}, "", window.location.pathname);
         toast({
           title: "Welcome to SiteHawk! 🦅",
@@ -107,27 +97,19 @@ export default function Pricing() {
   }, []);
 
   const handleCheckout = async (plan) => {
+    // Block checkout inside iframes (must run from published app)
+    if (window.self !== window.top) {
+      alert("Checkout is only available from the published app. Please open the app directly.");
+      return;
+    }
     setCheckoutLoading(plan);
-    const res = await fetch(SUPABASE_CHECKOUT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify({ plan, action: "checkout" }),
-    });
-    const data = await res.json();
+    const res = await stripeCheckout({ action: "checkout", plan });
+    const data = res.data;
     setCheckoutLoading(null);
-    if (data.url) {
-      // Append plan to success URL so complete_checkout knows which plan to activate
-      const successUrl = data.url.replace(
-        encodeURIComponent("checkout=success"),
-        encodeURIComponent(`checkout=success&plan=${plan}`)
-      );
-      window.location.href = successUrl || data.url;
+    if (data?.url) {
+      window.location.href = data.url;
     } else {
-      toast({ title: "Error", description: data.error || "Could not start checkout.", variant: "destructive" });
+      toast({ title: "Error", description: data?.error || "Could not start checkout.", variant: "destructive" });
     }
   };
 
