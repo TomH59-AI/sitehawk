@@ -6,7 +6,7 @@ export default function HawkIcon({ size = 32, className = "" }) {
       src={ICON_URL}
       width={size}
       height={size}
-      alt="SiteHawk" className="px-1 opacity-100 rounded-xl"
+      alt="SiteHawk" className="opacity-100 rounded-xl"
 
       style={{ objectFit: "contain" }} />);
 
