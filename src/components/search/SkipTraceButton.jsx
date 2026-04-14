@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Phone, Mail, User, Copy, CheckCircle, Loader2 } from "lucide-react";
 import { skipTrace } from "@/functions/skipTrace";
+import DirectMailButton from "./DirectMailButton";
 
 export async function runSkipTrace({ owner_name, mailing_address, candidate_id, search_id }) {
   const res = await skipTrace({ owner_name, mailing_address, candidate_id, search_id });
@@ -87,16 +88,20 @@ export default function SkipTraceButton({ candidate, searchId, result, onResult 
         </div>
       )}
 
-      {!hasContact && result.tip && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">{result.tip}</p>
-          <button
-            onClick={handleCopy}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs font-medium text-foreground hover:bg-secondary/80 transition-all"
-          >
-            {copied ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-            {copied ? "Copied!" : "Copy for Skip Trace"}
-          </button>
+      {!hasContact && (
+        <div className="space-y-3">
+          {result.tip && <p className="text-xs text-muted-foreground">{result.tip}</p>}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleCopy}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-secondary text-xs font-medium text-foreground hover:bg-secondary/80 transition-all"
+            >
+              {copied ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+              {copied ? "Copied!" : "Copy for Skip Trace"}
+            </button>
+            <DirectMailButton candidate={candidate} searchId={searchId} />
+          </div>
+          <p className="text-[10px] text-muted-foreground italic">Can't reach them digitally? We'll mail professional acquisition letters directly to the owner.</p>
         </div>
       )}
     </div>
