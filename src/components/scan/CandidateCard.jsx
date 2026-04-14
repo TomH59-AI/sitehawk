@@ -161,7 +161,37 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
         {result.airport_iata && (
           <Tag label={`✈ ${result.airport_iata} ${result.airport_distance_miles ? result.airport_distance_miles.toFixed(1) + "mi" : ""}`} color="#818cf8" />
         )}
+        {result.has_fiber === true && (
+          <Tag label="⚡ Fiber Present" color="#22c55e" />
+        )}
+        {result.has_fiber === false && result.fcc_block_geoid && (
+          <Tag label="No Fiber" color="#64748b" />
+        )}
+        {result.power_utility && (
+          <Tag label={`🔌 ${result.power_utility}`} color="#f59e0b" />
+        )}
       </div>
+
+      {/* Fiber providers detail */}
+      {result.fiber_providers && result.fiber_providers.length > 0 && (
+        <div style={{
+          marginTop: 8, padding: "8px 10px", borderRadius: 7,
+          background: "#22c55e0f", border: "1px solid #22c55e22",
+        }}>
+          <div style={{ fontSize: 9, color: "#22c55e", fontFamily: "'Space Mono', monospace", fontWeight: 700, letterSpacing: "0.08em", marginBottom: 4 }}>
+            FCC FIBER PROVIDERS
+          </div>
+          {result.fiber_providers.map((fp, i) => (
+            <div key={i} style={{ fontSize: 10, color: "#94a3b8", fontFamily: "'Rajdhani', sans-serif", lineHeight: 1.6 }}>
+              <span style={{ color: "#f8fafc", fontWeight: 600 }}>{fp.provider_name}</span>
+              <span style={{ color: "#475569" }}> · {fp.technology}</span>
+              {fp.max_download_speed > 0 && (
+                <span style={{ color: "#475569" }}> · {fp.max_download_speed} Mbps↓</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Match reason */}
       {result.match_reason && (

@@ -12,6 +12,7 @@ import PDFReportButton from "../components/search/PDFReportButton";
 import HawkIcon from "../components/HawkIcon";
 import FilterPanel from "../components/search/FilterPanel";
 import { siteSearch } from "@/functions/siteSearch";
+import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 // monthly = 50/mo + 1 trial on signup (managed by Stripe trial_period_days=1 scan credit)
@@ -122,8 +123,8 @@ export default function SiteSearch() {
 
     const parcels = (data.candidates || []).slice(0, 5);
 
-    // Look up nearest airports AND cell towers for all parcels in parallel
-    const [airportLookups, cellTowerLookups] = await Promise.all([
+    // Look up airports, cell towers, AND FCC broadband for all parcels in parallel
+    const [airportLookups, cellTowerLookups, fccLookups] = await Promise.all([
       Promise.all(
         parcels.map(async (parcel) => {
           try {
@@ -169,6 +170,14 @@ export default function SiteSearch() {
             });
           } catch (e) { return { towers: [] }; }
         })
+      ),
+      Promise.all(
+        parcels.map(async (parcel) => {
+          try {
+            const res = await fccBroadbandLookup({ lat: parcel.latitude, lon: parcel.longitude });
+            return res.data || {};
+          } catch (e) { return {}; }
+        })
       )
     ]);
 
@@ -178,6 +187,7 @@ export default function SiteSearch() {
       const parcel = parcels[i];
       const airport = airportLookups[i] || {};
       const cellTowers = cellTowerLookups[i]?.towers || [];
+      const fcc = fccLookups[i] || {};
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
         site_name: parcel.site_name,
@@ -199,6 +209,10 @@ export default function SiteSearch() {
         airport_lat: airport.lat || null,
         airport_lon: airport.lon || null,
         cell_towers: cellTowers,
+        fiber_providers: fcc.fiber_providers || [],
+        has_fiber: fcc.has_fiber || false,
+        power_utility: fcc.power_utility || null,
+        fcc_block_geoid: fcc.fcc_block_geoid || null,
       });
       savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }

@@ -71,8 +71,7 @@
             "type": "string"
           },
           "type": {
-            "type": "string",
-            "description": "e.g. Macro, Small Cell, DAS"
+            "type": "string"
           },
           "distance_miles": {
             "type": "number"
@@ -85,6 +84,39 @@
           }
         }
       }
+    },
+    "fiber_providers": {
+      "type": "array",
+      "description": "FCC broadband fiber providers at this location",
+      "items": {
+        "type": "object",
+        "properties": {
+          "provider_name": {
+            "type": "string"
+          },
+          "technology": {
+            "type": "string"
+          },
+          "max_download_speed": {
+            "type": "number"
+          },
+          "max_upload_speed": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "has_fiber": {
+      "type": "boolean",
+      "description": "True if fiber broadband is available at this location per FCC data"
+    },
+    "power_utility": {
+      "type": "string",
+      "description": "Electric utility provider name serving this location"
+    },
+    "fcc_block_geoid": {
+      "type": "string",
+      "description": "FCC census block GEOID used for lookup"
     }
   },
   "required": [

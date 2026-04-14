@@ -1,5 +1,7 @@
-import { MapPin, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { MapPin, Clock, CheckCircle, XCircle, Loader2, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
+import { useState, useEffect } from "react";
 import moment from "moment";
 
 const statusConfig = {
@@ -9,6 +11,27 @@ const statusConfig = {
 };
 
 export default function SearchHistoryTable({ searches }) {
+  const [fiberStats, setFiberStats] = useState({}); // searchId -> { hasFiber, count }
+
+  useEffect(() => {
+    if (!searches?.length) return;
+    // Load fiber stats for completed searches
+    const completedIds = searches.filter(s => s.status === "completed").map(s => s.id);
+    if (!completedIds.length) return;
+    Promise.all(
+      completedIds.map(async (id) => {
+        const results = await base44.entities.SearchResult.filter({ search_id: id });
+        const hasFiber = results.some(r => r.has_fiber === true);
+        const fiberCount = results.filter(r => r.has_fiber === true).length;
+        return { id, hasFiber, fiberCount, total: results.length };
+      })
+    ).then(stats => {
+      const map = {};
+      stats.forEach(s => { map[s.id] = s; });
+      setFiberStats(map);
+    });
+  }, [searches]);
+
   if (!searches || searches.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-12 text-center">
@@ -30,6 +53,7 @@ export default function SearchHistoryTable({ searches }) {
               <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Location</th>
               <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Coordinates</th>
               <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Results</th>
+              <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Fiber</th>
               <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Status</th>
               <th className="text-left px-5 py-3 font-medium text-muted-foreground text-xs">Date</th>
             </tr>
@@ -49,8 +73,22 @@ export default function SearchHistoryTable({ searches }) {
                     {search.latitude?.toFixed(4)}, {search.longitude?.toFixed(4)}
                   </td>
                   <td className="px-5 py-4">
-                    <span className="font-heading font-semibold text-foreground">{search.results_count || 0}</span>
-                    <span className="text-muted-foreground"> parcels</span>
+                   <span className="font-heading font-semibold text-foreground">{search.results_count || 0}</span>
+                   <span className="text-muted-foreground"> parcels</span>
+                  </td>
+                  <td className="px-5 py-4">
+                   {fiberStats[search.id] ? (
+                     fiberStats[search.id].hasFiber ? (
+                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400">
+                         <Zap className="w-3 h-3" />
+                         <span>{fiberStats[search.id].fiberCount}/{fiberStats[search.id].total}</span>
+                       </div>
+                     ) : (
+                       <span className="text-xs text-muted-foreground/50">None</span>
+                     )
+                   ) : (
+                     <span className="text-xs text-muted-foreground/30">—</span>
+                   )}
                   </td>
                   <td className="px-5 py-4">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>
