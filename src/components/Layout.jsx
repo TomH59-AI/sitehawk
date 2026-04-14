@@ -1,14 +1,16 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import AppFooter from "./AppFooter";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send } from "lucide-react";
 import HawkIcon from "./HawkIcon";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { stripeCheckout } from "@/functions/stripeCheckout";
 import { Button } from "@/components/ui/button";
 
-const navItems = [
+const ADMIN_EMAIL = "hodgesthomas@outlook.com";
+
+const BASE_NAV = [
   { path: "/", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
@@ -19,6 +21,15 @@ export default function Layout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggle } = useTheme();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    base44.auth.me().then(u => setIsAdmin(u?.email === ADMIN_EMAIL));
+  }, []);
+
+  const navItems = isAdmin
+    ? [...BASE_NAV, { path: "/send-update", icon: Send, label: "Send Update" }]
+    : BASE_NAV;
 
   const handleLogout = () => {
     base44.auth.logout();
