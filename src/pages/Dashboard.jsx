@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import UsageBar from "../components/dashboard/UsageBar";
 import StatsCards from "../components/dashboard/StatsCards";
 import SearchHistoryTable from "../components/dashboard/SearchHistoryTable";
+import WelcomeModal from "../components/onboarding/WelcomeModal";
+import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 
 const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
@@ -14,6 +16,7 @@ export default function Dashboard() {
   const [searches, setSearches] = useState([]);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -26,6 +29,12 @@ export default function Dashboard() {
       setSearches(searchData);
       setResults(resultData);
       setLoading(false);
+      // Show welcome modal on first visit
+      const seen = localStorage.getItem("sitehawk_welcome_seen");
+      if (!seen) {
+        setShowWelcome(true);
+        localStorage.setItem("sitehawk_welcome_seen", "1");
+      }
     }
     load();
   }, []);
@@ -44,8 +53,11 @@ export default function Dashboard() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthlySearches = searches.filter(s => new Date(s.created_date) >= monthStart).length;
 
+  const hasSkipTrace = results.some(r => r.phone || r.email);
+
   return (
     <div className="space-y-8">
+      {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -67,6 +79,9 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* Onboarding Checklist */}
+      <OnboardingChecklist searches={searches.length} hasSkipTrace={hasSkipTrace} tier={tier} />
 
       {/* Usage */}
       <UsageBar used={monthlySearches} limit={limit} tier={tier} />
