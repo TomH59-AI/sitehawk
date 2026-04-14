@@ -14,6 +14,7 @@ import Pricing from './pages/Pricing';
 import About from './pages/About';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import ScanResults from './pages/ScanResults';
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 
@@ -57,6 +58,7 @@ const AuthenticatedApp = () => {
         <Route path="/about" element={<About />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/results" element={<ScanResults />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
+import { useNavigate } from "react-router-dom";
 import SearchForm from "../components/search/SearchForm";
 import OrdinanceCard from "../components/search/OrdinanceCard";
 import ResultCard from "../components/search/ResultCard";
@@ -18,6 +19,7 @@ const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
 export default function SiteSearch() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -220,9 +222,14 @@ export default function SiteSearch() {
     setSearchesThisMonth((prev) => prev + 1);
     setLoading(false);
 
-    toast({
-      title: "Scan complete",
-      description: `Found ${savedResults.length} buildable parcels in the search area.`,
+    // Navigate to the interactive results page
+    navigate("/results", {
+      state: {
+        results: savedResults,
+        ordinance: data.ordinance || null,
+        searchCenter: { lat: latitude, lon: longitude },
+        searchId: search.id,
+      },
     });
   };
 
