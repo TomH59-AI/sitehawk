@@ -8,72 +8,93 @@ import { stripeCheckout } from "@/functions/stripeCheckout";
 
 const tiers = [
   {
-    id: "hawk_sight",
-    name: "Hawk Sight",
-    price: "$199",
-    period: "/month",
-    description: "Entry-level parcel discovery. See the landscape before you move.",
-    Icon: Zap,
+    id: "blind",
+    name: "Blind",
+    price: "$69",
+    period: "/S.A.I.R.",
+    description: "Try one intelligence report. No commitment.",
+    Icon: EyeOff,
     iconColor: "text-primary",
     iconBg: "bg-primary/10 border-primary/20",
     features: [
-      "REGRID Parcel Data",
-      "Mapbox Terrain Overlays",
-      "Basic Property Ownership",
-      "50 searches per month",
-      "SiteHawk AI Consultant",
+      "1 S.A.I.R. report",
       "Satellite map view",
       "Scored candidate results",
+      "Basic parcel data",
+      "No recurring charges",
     ],
-    cta: "Get Hawk Sight",
+    cta: "Get Started",
     highlight: false,
     badge: null,
   },
   {
     id: "hawkeye_20",
-    name: "Hawkeye 20/20",
-    price: "$599",
+    name: "Hawk 20/20 Vision",
+    price: "$469",
     period: "/month",
     description: "The Industry Standard. Full-speed site acquisition and owner outreach.",
     Icon: Star,
     iconColor: "text-accent",
     iconBg: "bg-accent/10 border-accent/20",
     features: [
-      "Everything in Hawk Sight",
       "Full S.A.I.R. Generation",
       "Zoning & Regulatory Library",
       "Built-in CRM (Deal Pipeline)",
       "One-Click Owner Mailers",
       "Skip Trace — All Candidates",
       "PDF Intelligence Reports",
+      "50 searches per month",
       "Priority support",
     ],
-    cta: "Get Hawkeye 20/20",
+    cta: "Start Monthly",
     highlight: true,
-    badge: "Industry Standard",
+    badge: "Most Popular",
   },
   {
-    id: "hawkeye_apex",
-    name: "Hawkeye Apex",
-    price: "$2,499",
-    period: "/month",
-    description: "The Monster. Enterprise-scale deployment & utility scouting.",
-    Icon: Crown,
+    id: "hawkeye_20_annual",
+    name: "Hawk 20/20 Vision (Annual)",
+    price: "$1,860",
+    period: "/year",
+    description: "Same industry-standard power. Best annual value.",
+    Icon: Zap,
     iconColor: "text-yellow-400",
     iconBg: "bg-yellow-400/10 border-yellow-400/20",
     features: [
-      "Everything in Hawkeye 20/20",
-      "Fiber & Power Proximity Vision",
-      "Wetland / Environmental Shield",
-      "AI Lease Predictor",
-      "Siterra-Ready Data Exports",
-      "Unlimited searches",
-      "Dedicated account manager",
-      "Custom quote available",
+      "Full S.A.I.R. Generation",
+      "Zoning & Regulatory Library",
+      "Built-in CRM (Deal Pipeline)",
+      "One-Click Owner Mailers",
+      "Skip Trace — All Candidates",
+      "PDF Intelligence Reports",
+      "50 searches per month",
+      "Priority support",
     ],
-    cta: "Get Hawkeye Apex",
+    cta: "Go Annual",
+    highlight: false,
+    badge: "Best Value",
+  },
+  {
+    id: "hawkeye_license",
+    name: "Hawkeye License",
+    price: "Custom",
+    period: "/quote",
+    description: "Enterprise-scale deployment with white-label capabilities.",
+    Icon: Crown,
+    iconColor: "text-yellow-500",
+    iconBg: "bg-yellow-500/10 border-yellow-500/20",
+    features: [
+      "White-label SiteHawk platform",
+      "Unlimited searches & S.A.I.R.s",
+      "Fiber & Power Proximity Vision",
+      "Custom integrations",
+      "Dedicated infrastructure",
+      "Dedicated account team",
+      "Training & onboarding",
+    ],
+    cta: "Contact Sales",
     highlight: false,
     badge: "Enterprise",
+    contactOnly: true,
   },
 ];
 
@@ -104,7 +125,14 @@ export default function Pricing() {
     load();
   }, []);
 
-  const handleCheckout = async (plan) => {
+  const handleCheckout = async (plan, contactOnly = false) => {
+    if (contactOnly) {
+      toast({
+        title: "Let's Talk",
+        description: "Please contact our sales team at sales@sitehawk.ai for enterprise licensing.",
+      });
+      return;
+    }
     if (window.self !== window.top) {
       alert("Checkout is only available from the published app. Please open the app directly.");
       return;
@@ -222,13 +250,13 @@ export default function Pricing() {
               <Button
                 className={`w-full font-heading font-semibold ${
                   tier.highlight ? "bg-accent hover:bg-accent/90 text-accent-foreground" :
-                  tier.id === "hawkeye_apex" ? "bg-yellow-400 hover:bg-yellow-300 text-black" : ""
+                  tier.id === "hawkeye_license" ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""
                 } ${isCurrent ? "opacity-50 cursor-not-allowed" : ""}`}
-                variant={tier.highlight || tier.id === "hawkeye_apex" ? "default" : "default"}
-                disabled={isCurrent || checkoutLoading === tier.id}
-                onClick={() => handleCheckout(tier.id)}
+                variant={tier.highlight || tier.id === "hawkeye_license" ? "default" : "default"}
+                disabled={isCurrent || (checkoutLoading === tier.id && !tier.contactOnly)}
+                onClick={() => handleCheckout(tier.id, tier.contactOnly)}
               >
-                {isCurrent ? "Current Plan" : checkoutLoading === tier.id ? "Redirecting..." : tier.cta}
+                {isCurrent ? "Current Plan" : checkoutLoading === tier.id && !tier.contactOnly ? "Redirecting..." : tier.cta}
               </Button>
             </div>
           );
