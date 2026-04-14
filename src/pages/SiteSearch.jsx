@@ -407,6 +407,7 @@ export default function SiteSearch() {
                 searchId={currentSearchId}
                 skipTraceResult={skipTraceResults[result.id]}
                 onSkipTraceResult={(data) => handleSkipTraceResult(result.id, data)}
+                ordinance={ordinance}
               />
             </div>
           ))}
@@ -442,6 +443,7 @@ export default function SiteSearch() {
                     searchId={currentSearchId}
                     skipTraceResult={skipTraceResults[result.id]}
                     onSkipTraceResult={(data) => handleSkipTraceResult(result.id, data)}
+                    ordinance={ordinance}
                   />
                 </div>
               ))}

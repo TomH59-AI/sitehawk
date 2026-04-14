@@ -1,4 +1,4 @@
-import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff, Radio } from "lucide-react";
+import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff, Radio, FileText } from "lucide-react";
 import SkipTraceButton from "./SkipTraceButton";
 import { Badge } from "@/components/ui/badge";
 import CRMPanel from "@/components/crm/CRMPanel";
@@ -17,7 +17,7 @@ function getScoreLabel(score) {
   return "Poor";
 }
 
-export default function ResultCard({ result, rank, searchId, skipTraceResult, onSkipTraceResult }) {
+export default function ResultCard({ result, rank, searchId, skipTraceResult, onSkipTraceResult, ordinance }) {
   return (
     <div id={`candidate-card-${rank - 1}`} className="rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
@@ -49,6 +49,21 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
         <InfoRow icon={User} label="Owner" value={result.owner_name} />
         <InfoRow icon={Ruler} label="Parcel Size" value={result.parcel_size_acres ? `${result.parcel_size_acres} acres` : null} />
         <InfoRow icon={Building} label="Zoning" value={result.zoning_classification} />
+        {/* LDC Reference from ordinance */}
+        <div className="sm:col-span-2">
+          {ordinance?.ldc_display ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+              <FileText className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+              <span className="text-xs text-muted-foreground font-medium">LDC Reference:</span>
+              <span className="font-mono text-xs font-bold text-cyan-400">{ordinance.ldc_display}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border/50">
+              <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground italic">LDC Reference Pending</span>
+            </div>
+          )}
+        </div>
         <InfoRow icon={MapPin} label="Coordinates" value={`${result.latitude?.toFixed(5)}, ${result.longitude?.toFixed(5)}`} />
         <InfoRow icon={Shield} label="FEMA Risk" value={result.fema_risk_factor} />
         {result.airport_iata && (

@@ -50,6 +50,16 @@ export default function ScanResultsSidebar({
         </div>
         {ordinance && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+            {ordinance.ldc_display ? (
+              <span style={{
+                background: "#06b6d415", border: "1px solid #06b6d433",
+                color: "#22d3ee", fontSize: 10, fontWeight: 700,
+                padding: "2px 8px", borderRadius: 6,
+                letterSpacing: "0.05em", fontFamily: "'Space Mono', monospace"
+              }}>LDC {ordinance.ldc_display}</span>
+            ) : (
+              <span style={{ color: "#475569", fontSize: 10, fontStyle: "italic", fontFamily: "'Space Mono', monospace" }}>LDC Ref Pending</span>
+            )}
             {ordinance.height_limit_ft && (
               <Tag label={`↕ ${ordinance.height_limit_ft}ft max`} />
             )}
