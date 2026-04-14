@@ -4,13 +4,15 @@ import Stripe from 'npm:stripe@14.21.0';
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 
 const PRICE_IDS = {
-  monthly: 'price_1TLrQ2IE4fOP88RJhl9VmgNy',
-  annual: 'price_1TLrQ2IE4fOP88RJMKCBSHVb',
+  hawk_sight: 'price_1TMEbLIE4fOP88RJqHu5ABh1',
+  hawkeye_20: 'price_1TMEbLIE4fOP88RJOcxyGXE8',
+  hawkeye_apex: 'price_1TMEbLIE4fOP88RJEkqAEbGr',
 };
 
 const TRIAL_SCANS = {
-  monthly: 1,
-  annual: 2,
+  hawk_sight: 1,
+  hawkeye_20: 2,
+  hawkeye_apex: 5,
 };
 
 Deno.serve(async (req) => {
