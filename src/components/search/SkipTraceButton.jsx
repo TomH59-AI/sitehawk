@@ -1,19 +1,10 @@
 import { useState } from "react";
 import { Phone, Mail, User, Copy, CheckCircle, Loader2 } from "lucide-react";
-
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
+import { skipTrace } from "@/functions/skipTrace";
 
 export async function runSkipTrace({ owner_name, mailing_address, candidate_id, search_id }) {
-  const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-skip-trace", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": SUPABASE_KEY,
-      "Authorization": `Bearer ${SUPABASE_KEY}`,
-    },
-    body: JSON.stringify({ owner_name, mailing_address, candidate_id, search_id }),
-  });
-  return res.json();
+  const res = await skipTrace({ owner_name, mailing_address, candidate_id, search_id });
+  return res.data;
 }
 
 export default function SkipTraceButton({ candidate, searchId, result, onResult }) {

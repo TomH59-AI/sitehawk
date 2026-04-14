@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Send } from "lucide-react";
 import HawkIcon from "../HawkIcon";
-
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
+import { siteChat } from "@/functions/siteChat";
 const QUICK_ACTIONS = [
   "Which parcel is best?",
   "Explain zoning requirements",
@@ -32,19 +31,11 @@ export default function AIChatPanel({ open, onClose, searchId, candidates, ordin
     setMessages((prev) => [...prev, { role: "user", text: msg }]);
     setLoading(true);
     try {
-      const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-        body: JSON.stringify({
-          message: msg,
-          context: { search_id: searchId, candidates, ordinance },
-        }),
+      const res = await siteChat({
+        message: msg,
+        context: { search_id: searchId, candidates, ordinance },
       });
-      const data = await res.json();
+      const data = res.data;
       setMessages((prev) => [...prev, { role: "assistant", text: data.response || data.message || "Sorry, I couldn't get a response. Please try again." }]);
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", text: "Connection error. Please check your network and try again." }]);

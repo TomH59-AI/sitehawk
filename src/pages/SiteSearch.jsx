@@ -11,6 +11,7 @@ import AIChatPanel from "../components/search/AIChatPanel";
 import PDFReportButton from "../components/search/PDFReportButton";
 import HawkIcon from "../components/HawkIcon";
 import FilterPanel from "../components/search/FilterPanel";
+import { siteSearch } from "@/functions/siteSearch";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 // monthly = 50/mo + 1 trial on signup (managed by Stripe trial_period_days=1 scan credit)
@@ -106,18 +107,9 @@ export default function SiteSearch() {
       search_label: `Scan @ ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
     });
 
-    // Call Supabase Edge Function
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
-    const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-scan", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify({ lat: latitude, lon: longitude, radius_miles: 0.5 }),
-    });
-    const data = await res.json();
+    // Call via Base44 backend proxy (hides Supabase key, adds rate limiting)
+    const res = await siteSearch({ lat: latitude, lon: longitude, radius_miles: 0.5 });
+    const data = res.data;
 
     if (data.error) {
       setScanError(data.error);
@@ -273,13 +265,8 @@ export default function SiteSearch() {
   const handleNeedMore = async () => {
     if (atLimit) return;
     setLoadingMore(true);
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
-    const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-scan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` },
-      body: JSON.stringify({ lat: searchCenter.lat, lon: searchCenter.lon, radius_miles: 0.5, offset: 5 }),
-    });
-    const data = await res.json();
+    const res = await siteSearch({ lat: searchCenter.lat, lon: searchCenter.lon, radius_miles: 0.5, offset: 5 });
+    const data = res.data;
     const extra = (data.candidates || []).slice(0, 3);
     const search = await base44.entities.SearchHistory.create({
       latitude: searchCenter.lat,
