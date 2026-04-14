@@ -3,34 +3,183 @@ import { FileText } from "lucide-react";
 
 export default function Terms() {
   return (
-    <div className="max-w-2xl mx-auto space-y-6 py-4">
+    <div className="max-w-3xl mx-auto space-y-6 py-4">
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
           <FileText className="w-6 h-6 text-primary" />
         </div>
         <div>
           <h1 className="font-heading font-bold text-2xl text-foreground">Terms of Service</h1>
-          <p className="text-xs text-muted-foreground">SkyWave LLC — SiteHawk Platform</p>
+          <p className="text-xs text-muted-foreground">SkyWave LLC — SiteHawk Platform · Last updated: April 14, 2026</p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-8 text-center space-y-4">
-        <p className="font-heading font-semibold text-xl text-foreground">Coming Soon</p>
-        <p className="text-muted-foreground text-sm">
-          Our full Terms of Service are being finalized. For questions, please contact us directly.
-        </p>
-        <div className="pt-2">
-          <p className="text-xs text-muted-foreground">
-            <span className="font-medium">SkyWave LLC</span> — Michigan, USA
+      <div className="rounded-xl border border-border bg-card p-8 space-y-8 text-sm text-muted-foreground leading-relaxed">
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">1. Acceptance of Terms</h2>
+          <p>
+            By accessing or using the SiteHawk platform ("Service") operated by SkyWave LLC ("Company," "we," "us," or "our"),
+            you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, you may not use the Service.
+            These Terms apply to all visitors, users, and others who access or use the Service.
           </p>
-          <a href="mailto:info@site-hawk-pro.com" className="text-primary text-sm hover:underline">
-            info@site-hawk-pro.com
-          </a>
-        </div>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">2. Description of Service</h2>
+          <p>
+            SiteHawk is an AI-powered site acquisition intelligence platform designed for wireless infrastructure professionals.
+            The Service provides parcel identification, zoning data, owner contact information via skip trace, airport proximity analysis,
+            cell tower density analysis, and AI-assisted consulting features ("SiteHawk AI Consultant").
+          </p>
+          <p>
+            The Service is intended solely for legitimate commercial use in the wireless telecommunications and real estate industries.
+            Data and analysis provided by SiteHawk are for informational purposes only and do not constitute legal, zoning, environmental,
+            or financial advice.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">3. Accounts and Registration</h2>
+          <p>
+            You must create an account to access most features of the Service. You agree to provide accurate, complete, and current
+            information and to keep your account credentials confidential. You are responsible for all activity that occurs under your account.
+            SkyWave LLC reserves the right to suspend or terminate accounts that violate these Terms.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">4. Subscription Plans and Billing</h2>
+          <p>
+            SiteHawk offers tiered subscription plans including a free "Blind" tier and paid plans ("Hawk 20/20 Vision" and
+            "Hawk 20-4 AI Vision"). Paid subscriptions are billed on a monthly or annual basis through Stripe, our third-party
+            payment processor. By subscribing, you authorize SkyWave LLC to charge your payment method on a recurring basis.
+          </p>
+          <p>
+            Trial scan credits (1 for monthly plans, 2 for annual plans) are granted upon subscription activation and do not roll over.
+            Monthly search credits reset on the first day of each billing cycle and do not accumulate.
+          </p>
+          <p>
+            You may cancel your subscription at any time through the billing portal. Cancellations take effect at the end of the current
+            billing period. No refunds are issued for partial subscription periods unless required by applicable law.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">5. Acceptable Use</h2>
+          <p>You agree not to use the Service to:</p>
+          <ul className="list-disc list-inside space-y-1 pl-2">
+            <li>Violate any applicable federal, state, or local laws or regulations.</li>
+            <li>Harass, stalk, or engage in unauthorized contact with property owners using data obtained through the Service.</li>
+            <li>Resell, redistribute, or sublicense any data or reports generated by the Service without express written consent from SkyWave LLC.</li>
+            <li>Attempt to reverse engineer, scrape, or extract underlying data from the Service.</li>
+            <li>Use the Service for any purpose other than legitimate commercial site acquisition and wireless infrastructure development.</li>
+            <li>Submit false, misleading, or fraudulent information.</li>
+          </ul>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">6. Skip Trace and Owner Contact Data</h2>
+          <p>
+            SiteHawk provides property owner contact information ("skip trace data") sourced from third-party data providers.
+            This data is provided for lawful commercial outreach purposes only. You acknowledge that:
+          </p>
+          <ul className="list-disc list-inside space-y-1 pl-2">
+            <li>You will comply with all applicable laws governing the use of personal contact data, including but not limited to the Telephone Consumer Protection Act (TCPA) and the CAN-SPAM Act.</li>
+            <li>SkyWave LLC does not guarantee the accuracy, completeness, or currency of skip trace data.</li>
+            <li>You assume full responsibility for how you use any contact information obtained through the Service.</li>
+          </ul>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">7. Intellectual Property</h2>
+          <p>
+            All content, features, and functionality of the Service — including but not limited to the SiteHawk name, logo,
+            "When You Need AI Hawk Vision"™ slogan, SkyWave AI technology, scoring algorithms, and interface design — are the
+            exclusive property of SkyWave LLC and are protected by applicable intellectual property laws. Patent Pending.
+          </p>
+          <p>
+            You are granted a limited, non-exclusive, non-transferable license to use the Service solely for your internal
+            business purposes during your active subscription period.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">8. Data Accuracy and Disclaimer</h2>
+          <p>
+            SiteHawk aggregates data from multiple third-party sources including government parcel databases, zoning records,
+            FAA data, and commercial data providers. While we strive for accuracy, SkyWave LLC makes no warranties — express or implied —
+            regarding the accuracy, completeness, timeliness, or fitness for a particular purpose of any data provided.
+          </p>
+          <p>
+            AI-generated analysis (including the SiteHawk AI Consultant) is provided for informational purposes only and should not
+            be relied upon as a substitute for professional legal, zoning, environmental, or engineering advice.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">9. Limitation of Liability</h2>
+          <p>
+            To the fullest extent permitted by law, SkyWave LLC shall not be liable for any indirect, incidental, special,
+            consequential, or punitive damages — including lost profits, lost data, or business interruption — arising from your
+            use of or inability to use the Service, even if advised of the possibility of such damages.
+          </p>
+          <p>
+            Our total liability to you for any claim arising under these Terms shall not exceed the total amount paid by you
+            to SkyWave LLC in the twelve (12) months preceding the claim.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">10. Indemnification</h2>
+          <p>
+            You agree to indemnify, defend, and hold harmless SkyWave LLC, its officers, directors, employees, and agents
+            from and against any claims, liabilities, damages, losses, and expenses arising from your use of the Service,
+            your violation of these Terms, or your violation of any third-party rights.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">11. Termination</h2>
+          <p>
+            SkyWave LLC reserves the right to suspend or terminate your access to the Service at any time, with or without notice,
+            for conduct that we believe violates these Terms or is harmful to other users, us, or third parties, or for any other
+            business reason at our sole discretion.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">12. Governing Law</h2>
+          <p>
+            These Terms are governed by and construed in accordance with the laws of the State of Michigan, United States,
+            without regard to its conflict of law provisions. Any disputes arising under these Terms shall be subject to the
+            exclusive jurisdiction of the courts located in Michigan.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">13. Changes to Terms</h2>
+          <p>
+            We reserve the right to modify these Terms at any time. We will notify users of material changes via email or
+            a prominent notice within the Service. Continued use of the Service after such changes constitutes your acceptance
+            of the revised Terms.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-heading font-semibold text-base text-foreground">14. Contact</h2>
+          <p>For questions or concerns regarding these Terms, please contact us:</p>
+          <div className="pt-1 space-y-1">
+            <p><span className="font-medium text-foreground">SkyWave LLC</span> — Michigan, USA</p>
+            <p>Email: <a href="mailto:support@site-hawk-pro.com" className="text-primary hover:underline">support@site-hawk-pro.com</a></p>
+            <p>Website: <a href="https://skywave-ai.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">skywave-ai.com</a></p>
+          </div>
+        </section>
+
       </div>
 
       <div className="text-center">
-        <Link to="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">← Back to Dashboard</Link>
+        <Link to="/dashboard" className="text-xs text-muted-foreground hover:text-foreground transition-colors">← Back to Dashboard</Link>
       </div>
     </div>
   );
