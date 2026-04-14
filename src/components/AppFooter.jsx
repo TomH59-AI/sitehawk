@@ -14,6 +14,8 @@ export default function AppFooter() {
         <span className="text-muted-foreground/40">·</span>
         <Link to="/privacy" className="text-xs text-primary hover:underline">Privacy Policy</Link>
         <span className="text-muted-foreground/40">·</span>
+        <Link to="/refund-policy" className="text-xs text-primary hover:underline">Refund Policy</Link>
+        <span className="text-muted-foreground/40">·</span>
         <Link to="/about" className="text-xs text-primary hover:underline">About</Link>
       </div>
       <p className="text-[10px] text-muted-foreground/50 mt-4 max-w-3xl mx-auto leading-relaxed">

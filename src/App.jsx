@@ -16,6 +16,7 @@ import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import ScanResults from './pages/ScanResults';
 import SendUpdate from './pages/SendUpdate';
+import RefundPolicy from './pages/RefundPolicy';
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 
@@ -61,6 +62,7 @@ const AuthenticatedApp = () => {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/results" element={<ScanResults />} />
         <Route path="/send-update" element={<SendUpdate />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
