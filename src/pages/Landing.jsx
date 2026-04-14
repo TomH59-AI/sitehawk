@@ -36,9 +36,9 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "Blind", price: "Free", desc: "View dashboard & features. No scanning.", cta: "Get Started", highlight: false },
-  { name: "Hawk 20/20 Vision", price: "$49/mo", desc: "1 free trial scan · Full AI scanning power", cta: "Start Monthly", highlight: true },
-  { name: "Hawk 20-4 AI Vision", price: "$490/yr", desc: "2 free trial scans · Best annual value", cta: "Go Annual", highlight: false },
+  { name: "Hawk Sight", price: "$199/mo", desc: "Entry-level parcel discovery. REGRID data & terrain overlays.", cta: "Get Started", highlight: false },
+  { name: "Hawkeye 20/20", price: "$599/mo", desc: "Full S.A.I.R. Generation · Built-in CRM · Owner Mailers", cta: "The Industry Standard", highlight: true },
+  { name: "Hawkeye Apex", price: "$2,499/mo", desc: "Enterprise-scale · Fiber & Power Vision · AI Lease Predictor", cta: "Go Enterprise", highlight: false },
 ];
 
 const TESTIMONIALS = [
@@ -133,7 +133,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">No credit card required for free tier · Paid plans start at $49/mo</p>
+          <p className="text-xs text-white/30 mt-6">No credit card required for free tier · Paid plans start at $199/mo</p>
         </div>
 
         {/* Hero mockup strip */}
@@ -249,7 +249,7 @@ export default function Landing() {
       <section id="pricing" className="py-24 px-6 bg-gradient-to-b from-transparent to-blue-950/10">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Simple Pricing</p>
-          <h2 className="font-heading font-bold text-4xl text-white mb-4">Start Free. Scale Fast.</h2>
+          <h2 className="font-heading font-bold text-4xl text-white mb-4">Three Tiers. One Mission.</h2>
           <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, skip trace, and the SiteHawk AI Consultant.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             {PLANS.map((p) => (
