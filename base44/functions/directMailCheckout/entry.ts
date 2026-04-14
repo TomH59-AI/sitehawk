@@ -24,7 +24,8 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { plan, owner_name, mailing_address, parcel_address, search_id, candidate_id } = body;
+    const { plan, owner_name, mailing_address, parcel_address, search_id, candidate_id,
+            sender_company, sender_address, sender_phone, sender_email, sender_logo_url } = body;
 
     if (!plan || !MAIL_PLANS[plan]) {
       return Response.json({ error: 'Invalid plan. Use "3_letters" or "5_letters".' }, { status: 400 });
@@ -69,6 +70,11 @@ Deno.serve(async (req) => {
         search_id: search_id || '',
         candidate_id: candidate_id || '',
         user_email: user.email,
+        sender_company: sender_company || '',
+        sender_address: sender_address || '',
+        sender_phone: sender_phone || '',
+        sender_email: sender_email || '',
+        sender_logo_url: sender_logo_url || '',
       },
     });
 
