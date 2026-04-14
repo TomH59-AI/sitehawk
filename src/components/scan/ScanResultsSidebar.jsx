@@ -10,6 +10,9 @@ export default function ScanResultsSidebar({
   onSelectCandidate,
   onOpenChat,
   onNewScan,
+  userTier,
+  contactCache,
+  onContactFound,
 }) {
   const cardRefs = useRef([]);
   const scrollRef = useRef(null);
@@ -75,6 +78,9 @@ export default function ScanResultsSidebar({
               result={result}
               rank={idx + 1}
               isSelected={selectedIndex === idx}
+              userTier={userTier}
+              contactCache={contactCache}
+              onContactFound={onContactFound}
             />
           </div>
         ))}

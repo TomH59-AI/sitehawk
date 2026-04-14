@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { base44 } from "@/api/base44Client";
 import HawkIcon from "../components/HawkIcon";
 import ScanResultsSidebar from "../components/scan/ScanResultsSidebar";
 import ScanResultsMap from "../components/scan/ScanResultsMap";
@@ -10,7 +11,17 @@ export default function ScanResults() {
   const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const [userTier, setUserTier] = useState(null);
+  const [contactCache, setContactCache] = useState({});
   const flyToRef = useRef(null);
+
+  useEffect(() => {
+    base44.auth.me().then(u => setUserTier(u?.tier || "blind"));
+  }, []);
+
+  const handleContactFound = (candidateId, data) => {
+    setContactCache(prev => ({ ...prev, [candidateId]: data }));
+  };
 
   // If navigated here without state, go back to search
   useEffect(() => {
@@ -63,6 +74,9 @@ export default function ScanResults() {
           onSelectCandidate={handleSelectCandidate}
           onOpenChat={() => setChatOpen(true)}
           onNewScan={() => navigate("/search")}
+          userTier={userTier}
+          contactCache={contactCache}
+          onContactFound={handleContactFound}
         />
       </div>
 
