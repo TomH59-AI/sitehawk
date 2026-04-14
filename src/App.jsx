@@ -15,6 +15,7 @@ import About from './pages/About';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import SplashScreen from './components/SplashScreen';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 function AppWithSplash() {
   const [splashDone, setSplashDone] = useState(false);
@@ -72,6 +73,7 @@ function App() {
           <AppWithSplash />
         </Router>
         <Toaster />
+        <PWAInstallPrompt />
       </QueryClientProvider>
     </AuthProvider>
   )
