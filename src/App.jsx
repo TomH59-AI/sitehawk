@@ -17,6 +17,7 @@ import Privacy from './pages/Privacy';
 import ScanResults from './pages/ScanResults';
 import SendUpdate from './pages/SendUpdate';
 import MailOrders from './pages/MailOrders';
+import CRM from './pages/CRM';
 import RefundPolicy from './pages/RefundPolicy';
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -64,6 +65,7 @@ const AuthenticatedApp = () => {
         <Route path="/results" element={<ScanResults />} />
         <Route path="/send-update" element={<SendUpdate />} />
         <Route path="/mail-orders" element={<MailOrders />} />
+        <Route path="/crm" element={<CRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>

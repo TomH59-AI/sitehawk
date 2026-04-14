@@ -1,0 +1,47 @@
+{
+  "name": "CRMActivity",
+  "type": "object",
+  "properties": {
+    "deal_id": {
+      "type": "string",
+      "description": "Linked CRMDeal ID"
+    },
+    "candidate_id": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "call",
+        "email",
+        "meeting",
+        "note",
+        "mail"
+      ],
+      "default": "note"
+    },
+    "summary": {
+      "type": "string",
+      "description": "What happened / was discussed"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "positive",
+        "neutral",
+        "negative",
+        "no_answer"
+      ],
+      "default": "neutral"
+    },
+    "follow_up_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "deal_id",
+    "type",
+    "summary"
+  ]
+}

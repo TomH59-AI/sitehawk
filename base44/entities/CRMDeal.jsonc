@@ -1,0 +1,64 @@
+{
+  "name": "CRMDeal",
+  "type": "object",
+  "properties": {
+    "owner_name": {
+      "type": "string",
+      "description": "Property owner name"
+    },
+    "parcel_address": {
+      "type": "string",
+      "description": "Parcel / site address"
+    },
+    "owner_mailing_address": {
+      "type": "string"
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "Linked SearchResult ID"
+    },
+    "search_id": {
+      "type": "string",
+      "description": "Linked SearchHistory ID"
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "prospect",
+        "contacted",
+        "interested",
+        "negotiating",
+        "signed",
+        "lost"
+      ],
+      "default": "prospect",
+      "description": "Pipeline stage"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "follow_up_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Next follow-up date"
+    },
+    "match_score": {
+      "type": "number"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "owner_name"
+  ]
+}

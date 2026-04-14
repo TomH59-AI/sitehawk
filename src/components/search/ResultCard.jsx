@@ -1,6 +1,7 @@
 import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff, Radio } from "lucide-react";
 import SkipTraceButton from "./SkipTraceButton";
 import { Badge } from "@/components/ui/badge";
+import CRMPanel from "@/components/crm/CRMPanel";
 
 function getScoreColor(score) {
   if (score >= 80) return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
@@ -108,6 +109,8 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
           onResult={onSkipTraceResult}
         />
       </div>
+
+      <CRMPanel result={result} searchId={searchId} />
     </div>
   );
 }
