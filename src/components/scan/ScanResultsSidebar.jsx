@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import CandidateCard from "./CandidateCard";
 import HawkIcon from "../HawkIcon";
+import DirectMailButton from "../search/DirectMailButton";
+import PDFReportButton from "../search/PDFReportButton";
 
 export default function ScanResultsSidebar({
   results,
@@ -13,6 +15,7 @@ export default function ScanResultsSidebar({
   userTier,
   contactCache,
   onContactFound,
+  searchId,
 }) {
   const cardRefs = useRef([]);
   const scrollRef = useRef(null);
@@ -134,6 +137,24 @@ export default function ScanResultsSidebar({
             + New Scan
           </button>
         </div>
+
+        {/* PDF Download */}
+        <PDFReportButton
+          results={results}
+          extraResults={[]}
+          ordinance={ordinance}
+          searchCenter={searchCenter}
+          mapImageGetterRef={null}
+          skipTraceResults={{}}
+        />
+
+        {/* Direct Mail — for selected candidate if it has a mailing address */}
+        {results[selectedIndex]?.owner_mailing_address && (
+          <DirectMailButton
+            candidate={results[selectedIndex]}
+            searchId={searchId}
+          />
+        )}
         <div style={{ textAlign: "center", fontSize: 9, color: "#334155", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "'Space Mono', monospace" }}>
           Powered by SkyWave AI
         </div>

@@ -77,6 +77,7 @@ export default function ScanResults() {
           userTier={userTier}
           contactCache={contactCache}
           onContactFound={handleContactFound}
+          searchId={searchId}
         />
       </div>
 
