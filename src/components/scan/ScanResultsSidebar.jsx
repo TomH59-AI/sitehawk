@@ -4,6 +4,7 @@ import HawkIcon from "../HawkIcon";
 import DirectMailButton from "../search/DirectMailButton";
 import PDFReportButton from "../search/PDFReportButton";
 import SearchUsageBar from "./SearchUsageBar";
+import BatchSkipTrace from "../search/BatchSkipTrace";
 
 export default function ScanResultsSidebar({
   results,
@@ -143,6 +144,11 @@ export default function ScanResultsSidebar({
 
         {/* Usage indicator */}
         <SearchUsageBar usage={usage} plan={plan} />
+
+        {/* Batch skip trace */}
+        {results?.length > 0 && (
+          <BatchSkipTrace candidates={results} />
+        )}
 
         {/* PDF Download */}
         <PDFReportButton

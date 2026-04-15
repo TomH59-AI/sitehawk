@@ -1,0 +1,100 @@
+{
+  "name": "SkipTraceLog",
+  "type": "object",
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "description": "Linked SearchResult ID"
+    },
+    "search_id": {
+      "type": "string",
+      "description": "Linked SearchHistory ID"
+    },
+    "owner_name": {
+      "type": "string"
+    },
+    "mailing_address": {
+      "type": "string"
+    },
+    "phones": {
+      "type": "array",
+      "description": "All phone numbers found",
+      "items": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "emails": {
+      "type": "array",
+      "description": "All email addresses found",
+      "items": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "associated_llcs": {
+      "type": "array",
+      "description": "LLCs / entities associated with this owner",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "registered_agent": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "raw_result": {
+      "type": "string",
+      "description": "Full JSON response from skip trace provider (stringified)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "found",
+        "partial",
+        "not_found",
+        "error"
+      ],
+      "default": "not_found"
+    },
+    "attempt_number": {
+      "type": "number",
+      "description": "Which attempt this was for this candidate",
+      "default": 1
+    }
+  },
+  "required": [
+    "candidate_id",
+    "owner_name"
+  ]
+}
