@@ -19,6 +19,7 @@ import SendUpdate from './pages/SendUpdate';
 import MailOrders from './pages/MailOrders';
 import CRM from './pages/CRM';
 import RefundPolicy from './pages/RefundPolicy';
+import ParcelScout from './pages/ParcelScout';
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 
@@ -67,6 +68,7 @@ const AuthenticatedApp = () => {
         <Route path="/mail-orders" element={<MailOrders />} />
         <Route path="/crm" element={<CRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
+        <Route path="/parcel-scout" element={<ParcelScout />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import AppFooter from "./AppFooter";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
@@ -14,6 +14,7 @@ const BASE_NAV = [
   { path: "/", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/crm", icon: Briefcase, label: "Deal Pipeline" },
+  { path: "/parcel-scout", icon: ScanSearch, label: "Parcel Scout" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
   { path: "/about", icon: Radio, label: "About" },
 ];
