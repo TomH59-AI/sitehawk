@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import HawkIcon from "../components/HawkIcon";
 import ScanResultsSidebar from "../components/scan/ScanResultsSidebar";
 import ScanResultsMap from "../components/scan/ScanResultsMap";
 import AIChatPanel from "../components/search/AIChatPanel";
+import { applyFiltersAndSort } from "../components/scan/ResultsFilterSort";
+
+const DEFAULT_FILTERS = {
+  minScore: 0, maxScore: 100,
+  minAcres: 0, maxAcres: 200,
+  maxAirportDist: 999,
+  zoningTypes: [], ownerTypes: [],
+  femaFilter: "any",
+};
 
 export default function ScanResults() {
   const { state } = useLocation();
@@ -13,32 +21,43 @@ export default function ScanResults() {
   const [chatOpen, setChatOpen] = useState(false);
   const [userTier, setUserTier] = useState(null);
   const [contactCache, setContactCache] = useState({});
+  const [sortKey, setSortKey] = useState("match_score_desc");
+  const [displayedResults, setDisplayedResults] = useState(null);
   const flyToRef = useRef(null);
 
   useEffect(() => {
     base44.auth.me().then(u => setUserTier(u?.tier || "blind"));
   }, []);
 
-  const handleContactFound = (candidateId, data) => {
-    setContactCache(prev => ({ ...prev, [candidateId]: data }));
-  };
-
-  // If navigated here without state, go back to search
   useEffect(() => {
     if (!state?.results) navigate("/search");
+    else setDisplayedResults(state.results);
   }, [state, navigate]);
 
   if (!state?.results) return null;
 
   const { results, ordinance, searchCenter, searchId, usage, plan } = state;
+  const shown = displayedResults ?? results;
+
+  const handleContactFound = (candidateId, data) => {
+    setContactCache(prev => ({ ...prev, [candidateId]: data }));
+  };
 
   const handleSelectCandidate = (idx) => {
     setSelectedIndex(idx);
-    flyToRef.current?.(results[idx]);
+    flyToRef.current?.(shown[idx]);
   };
 
-  const handlePinClick = (idx) => {
-    setSelectedIndex(idx);
+  const handlePinClick = (idx) => setSelectedIndex(idx);
+
+  const handleFiltered = (filtered) => {
+    setDisplayedResults(filtered);
+    setSelectedIndex(null);
+  };
+
+  const handleSortChange = (newSort) => {
+    setSortKey(newSort);
+    setDisplayedResults(applyFiltersAndSort(shown, DEFAULT_FILTERS, newSort));
   };
 
   return (
@@ -46,7 +65,6 @@ export default function ScanResults() {
       className="fixed inset-0 flex flex-col md:flex-row overflow-hidden"
       style={{ background: "#0a0e17", fontFamily: "'Rajdhani', sans-serif" }}
     >
-      {/* Load fonts */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
         .font-mono-data { font-family: 'Space Mono', monospace; }
@@ -56,7 +74,7 @@ export default function ScanResults() {
       {/* MAP — 65% wide on desktop, 55% tall on mobile */}
       <div className="w-full md:w-[65%] h-[55vh] md:h-full flex-shrink-0">
         <ScanResultsMap
-          results={results}
+          results={shown}
           searchCenter={searchCenter}
           selectedIndex={selectedIndex}
           onPinClick={handlePinClick}
@@ -67,7 +85,8 @@ export default function ScanResults() {
       {/* SIDEBAR — 35% wide on desktop, 45% tall on mobile */}
       <div className="w-full md:w-[35%] h-[45vh] md:h-full flex-shrink-0 overflow-hidden">
         <ScanResultsSidebar
-          results={results}
+          results={shown}
+          allResults={results}
           ordinance={ordinance}
           searchCenter={searchCenter}
           selectedIndex={selectedIndex}
@@ -80,10 +99,12 @@ export default function ScanResults() {
           searchId={searchId}
           usage={usage}
           plan={plan}
+          sortKey={sortKey}
+          onSortChange={handleSortChange}
+          onFiltered={handleFiltered}
         />
       </div>
 
-      {/* AI Chat Panel */}
       <AIChatPanel
         open={chatOpen}
         onClose={() => setChatOpen(false)}

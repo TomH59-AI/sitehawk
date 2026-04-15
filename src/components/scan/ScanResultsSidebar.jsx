@@ -5,9 +5,11 @@ import DirectMailButton from "../search/DirectMailButton";
 import PDFReportButton from "../search/PDFReportButton";
 import SearchUsageBar from "./SearchUsageBar";
 import BatchSkipTrace from "../search/BatchSkipTrace";
+import ResultsFilterSort from "./ResultsFilterSort";
 
 export default function ScanResultsSidebar({
   results,
+  allResults,
   ordinance,
   searchCenter,
   selectedIndex,
@@ -20,6 +22,9 @@ export default function ScanResultsSidebar({
   searchId,
   usage,
   plan,
+  sortKey,
+  onSortChange,
+  onFiltered,
 }) {
   const cardRefs = useRef([]);
   const scrollRef = useRef(null);
@@ -81,6 +86,16 @@ export default function ScanResultsSidebar({
             )}
           </div>
         )}
+      </div>
+
+      {/* Filter & Sort */}
+      <div style={{ padding: "8px 12px", borderBottom: "1px solid #1e293b", flexShrink: 0 }}>
+        <ResultsFilterSort
+          results={allResults || results}
+          onFiltered={onFiltered}
+          currentSort={sortKey || "match_score_desc"}
+          onSortChange={onSortChange}
+        />
       </div>
 
       {/* Candidate list */}
@@ -146,8 +161,8 @@ export default function ScanResultsSidebar({
         <SearchUsageBar usage={usage} plan={plan} />
 
         {/* Batch skip trace */}
-        {results?.length > 0 && (
-          <BatchSkipTrace candidates={results} />
+        {(allResults || results)?.length > 0 && (
+          <BatchSkipTrace candidates={allResults || results} />
         )}
 
         {/* PDF Download */}
