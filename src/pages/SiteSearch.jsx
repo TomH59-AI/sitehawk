@@ -15,9 +15,7 @@ import { siteSearch } from "@/functions/siteSearch";
 import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
-// monthly = 50/mo + 1 trial on signup (managed by Stripe trial_period_days=1 scan credit)
-// annual  = 50/mo + 2 trials on signup
-const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
+const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
 
 export default function SiteSearch() {
   const { toast } = useToast();
@@ -73,21 +71,21 @@ export default function SiteSearch() {
 
   const handleSearch = async (latitude, longitude) => {
     const tier = user?.tier || "free";
-    const limit = TIER_LIMITS[tier] || 3;
+    const limit = TIER_LIMITS[tier] ?? 0;
 
-    if (tier === "blind" || tier === "free" || !tier) {
+    if (!tier || tier === "blind" || tier === "free") {
       toast({
         title: "Upgrade required",
-        description: "Upgrade to 20/20 Hawk AI Vision to start scanning.",
+        description: "Subscribe to Hawk Site or higher to start scanning.",
         variant: "destructive",
       });
       return;
     }
 
-    if (searchesThisMonth >= limit) {
+    if (limit !== Infinity && searchesThisMonth >= limit) {
       toast({
-        title: "Search limit reached",
-        description: `Your plan allows ${limit} searches/month. Upgrade to continue.`,
+        title: "Daily search limit reached",
+        description: `Your ${tier === "hawk_site" ? "Hawk Site" : "Hawkeyes"} plan allows ${limit} Target Search${limit !== 1 ? "es" : ""}/day. Upgrade to continue.`,
         variant: "destructive",
       });
       return;
@@ -229,12 +227,15 @@ export default function SiteSearch() {
     setLoading(false);
 
     // Navigate to the interactive results page
+    const dailyLimit = TIER_LIMITS[tier] === Infinity ? 999 : (TIER_LIMITS[tier] || 1);
     navigate("/results", {
       state: {
         results: savedResults,
         ordinance: data.ordinance || null,
         searchCenter: { lat: latitude, lon: longitude },
         searchId: search.id,
+        usage: data.usage || { searches_used_today: searchesThisMonth + 1, daily_search_limit: dailyLimit },
+        plan: data.plan || { id: tier, features: { exports: tier !== "hawk_site" ? ["pdf", "csv"] : [], mailer: tier === "hawkeye_apex", skip_trace: tier === "hawkeye_apex" } },
       },
     });
   };
@@ -248,9 +249,9 @@ export default function SiteSearch() {
   }
 
   const tier = user?.tier || "free";
-  const limit = TIER_LIMITS[tier] || 1;
-  const isBlind = tier === "blind" || tier === "free" || !tier;
-  const atLimit = isBlind || searchesThisMonth >= limit;
+  const limit = TIER_LIMITS[tier] ?? 0;
+  const isBlind = !tier || tier === "blind" || tier === "free";
+  const atLimit = isBlind || (limit !== Infinity && searchesThisMonth >= limit);
 
   const handleSkipTraceResult = (candidateId, data) => {
     setSkipTraceResults(prev => ({ ...prev, [candidateId]: data }));
@@ -338,8 +339,8 @@ export default function SiteSearch() {
       <div>
         <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Site Search</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {tier === "blind" || tier === "free" || !tier
-            ? "Upgrade to 20/20 Hawk AI Vision to start scanning."
+          {isBlind
+            ? "Subscribe to Hawk Site or higher to start scanning."
             : "Enter coordinates to find buildable parcels for a 199-ft cell tower"}
         </p>
       </div>
@@ -356,10 +357,11 @@ export default function SiteSearch() {
       {atLimit && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center">
           <p className="text-destructive text-sm font-medium">
-              {isBlind
-                ? "Upgrade to 20/20 Hawk AI Vision to start scanning."
-                : `You've reached your monthly limit of ${limit} searches. Upgrade your plan to continue.`}
-            </p>
+            {isBlind
+              ? "Subscribe to Hawk Site or higher to start scanning."
+              : `You've reached your daily limit of ${limit} Target Search${limit !== 1 ? "es" : ""}. Upgrade your plan to continue.`}
+          </p>
+          <a href="/pricing" className="text-xs text-primary underline mt-1 inline-block">View upgrade options →</a>
         </div>
       )}
 
@@ -464,16 +466,25 @@ export default function SiteSearch() {
             </>
           )}
 
-          {/* PDF Download */}
+          {/* PDF Download — gated to Hawkeyes+ */}
           <div className="flex justify-center pt-4 pb-2">
-            <PDFReportButton
-              results={results}
-              extraResults={extraResults}
-              ordinance={ordinance}
-              searchCenter={searchCenter}
-              mapImageGetterRef={mapImageGetterRef}
-              skipTraceResults={skipTraceResults}
-            />
+            {tier === "hawkeyes" || tier === "hawkeye_apex" ? (
+              <PDFReportButton
+                results={results}
+                extraResults={extraResults}
+                ordinance={ordinance}
+                searchCenter={searchCenter}
+                mapImageGetterRef={mapImageGetterRef}
+                skipTraceResults={skipTraceResults}
+              />
+            ) : (
+              <a
+                href="/pricing"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-accent/40 bg-accent/5 text-accent text-sm font-semibold hover:bg-accent/10 transition-all"
+              >
+                ⬆ Upgrade to Hawkeyes for PDF & CSV Exports
+              </a>
+            )}
           </div>
         </div>
       )}

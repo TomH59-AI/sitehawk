@@ -113,10 +113,7 @@ export default function Pricing() {
 
   const handleCheckout = async (plan, contactOnly = false) => {
     if (contactOnly) {
-      toast({
-        title: "Let's Talk",
-        description: "Please contact our sales team at sales@sitehawk.ai for enterprise licensing.",
-      });
+      window.location.href = "mailto:info@site-hawk-pro.com?subject=Hawkeye%20Apex%20Enterprise%20Licensing";
       return;
     }
     if (window.self !== window.top) {

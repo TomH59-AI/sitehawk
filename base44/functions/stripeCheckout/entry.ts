@@ -3,16 +3,15 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 
+// hawk_site = $69/mo | hawkeyes = $199/mo | hawkeye_apex = contact sales (no checkout)
 const PRICE_IDS = {
-  hawk_site: 'price_1TMEbLIE4fOP88RJqHu5ABh1',
-  hawkeyes: 'price_1TMEbLIE4fOP88RJOcxyGXE8',
-  hawkeye_apex: 'price_1TMEbLIE4fOP88RJEkqAEbGr',
+  hawk_site: 'price_1TMUQXIE4fOP88RJjL3nPcbS',
+  hawkeyes: 'price_1TMUQXIE4fOP88RJZShRn1v0',
 };
 
 const TRIAL_SCANS = {
   hawk_site: 1,
-  hawkeyes: 2,
-  hawkeye_apex: 5,
+  hawkeyes: 5,
 };
 
 Deno.serve(async (req) => {
