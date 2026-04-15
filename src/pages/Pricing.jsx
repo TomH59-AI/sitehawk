@@ -12,23 +12,23 @@ const tiers = [
     name: "Hawk Site",
     price: "$69",
     period: "/month",
-    description: "Get started with daily site searches and core parcel intelligence.",
+    description: "Entry-level plan for individual site acquisition specialists.",
     Icon: Zap,
     iconColor: "text-primary",
     iconBg: "bg-primary/10 border-primary/20",
     features: [
       "1 Target Search per day",
-      "Single user (1 seat)",
+      "1 seat",
       "Satellite map view",
-      "Scored candidate results",
+      "Scored & ranked candidate parcels",
       "SiteHawk AI Consultant",
     ],
     excludes: [
-      "No exports",
+      "No PDF / CSV exports",
       "No mailer",
       "No skip trace",
     ],
-    cta: "Get Started",
+    cta: "Get Started — $69/mo",
     highlight: false,
     badge: null,
   },
@@ -37,13 +37,13 @@ const tiers = [
     name: "Hawkeyes",
     price: "$199",
     period: "/month",
-    description: "The team standard for site acquisition intelligence.",
+    description: "The team plan for small site acquisition firms.",
     Icon: Star,
     iconColor: "text-accent",
     iconBg: "bg-accent/10 border-accent/20",
     features: [
       "5 Target Searches per day",
-      "Team access (3 seats)",
+      "3 team seats",
       "PDF & CSV exports",
       "Full S.A.I.R. Generation",
       "Zoning & Regulatory Library",
@@ -54,7 +54,7 @@ const tiers = [
       "No mailer",
       "No skip trace",
     ],
-    cta: "Upgrade to Hawkeyes",
+    cta: "Subscribe — $199/mo",
     highlight: true,
     badge: "Most Popular",
   },
@@ -68,10 +68,10 @@ const tiers = [
     iconColor: "text-yellow-400",
     iconBg: "bg-yellow-400/10 border-yellow-400/20",
     features: [
-      "Unlimited Target Searches",
+      "Unlimited Target Searches per day",
       "Unlimited team seats",
       "PDF & CSV exports",
-      "One-click mailer integration",
+      "One-click mailer included",
       "Skip trace included",
       "Full S.A.I.R. Generation",
       "Dedicated account team",
@@ -113,21 +113,22 @@ export default function Pricing() {
 
   const handleCheckout = async (plan, contactOnly = false) => {
     if (contactOnly) {
-      window.location.href = "mailto:info@site-hawk-pro.com?subject=Hawkeye%20Apex%20Enterprise%20Licensing";
+      window.location.href = "mailto:support@site-hawk-pro.com?subject=Hawkeye%20Apex%20Inquiry";
       return;
     }
     if (window.self !== window.top) {
       alert("Checkout is only available from the published app. Please open the app directly.");
       return;
     }
-    setCheckoutLoading(plan);
-    const res = await stripeCheckout({ action: "checkout", plan });
-    const data = res.data;
-    setCheckoutLoading(null);
-    if (data?.url) {
-      window.location.href = data.url;
+    const PAYMENT_LINKS = {
+      hawk_site: "https://buy.stripe.com/6oU3cw7uLako4Mh7td9MY0a",
+      hawkeyes: "https://buy.stripe.com/14A3cw3ev3W02E96p99MY0b",
+    };
+    const url = PAYMENT_LINKS[plan];
+    if (url) {
+      window.location.href = url;
     } else {
-      toast({ title: "Error", description: data?.error || "Could not start checkout.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not start checkout.", variant: "destructive" });
     }
   };
 
