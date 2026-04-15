@@ -28,14 +28,23 @@ Deno.serve(async (req) => {
 
     console.log(`GEOID: ${blockGeoid}`);
 
-    // Step 2: Query FCC broadband availability for this block
+    // Step 2: Query FCC broadband availability for this block (POST required)
     const bbRes = await fetch(
-      `https://broadbandmap.fcc.gov/api/public/map/listAvailability?latitude=${lat}&longitude=${lon}&unit_id=0&limit=25&offset=0`,
+      `https://broadbandmap.fcc.gov/api/public/map/listAvailability`,
       {
+        method: 'POST',
         headers: {
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
           'User-Agent': 'SiteHawk/1.0 (site-hawk-pro.com)',
-        }
+        },
+        body: JSON.stringify({
+          latitude: lat,
+          longitude: lon,
+          unit_id: '0',
+          limit: 25,
+          offset: 0,
+        }),
       }
     );
 
