@@ -120,15 +120,15 @@ export default function Pricing() {
       alert("Checkout is only available from the published app. Please open the app directly.");
       return;
     }
-    const PAYMENT_LINKS = {
-      hawk_site: "https://buy.stripe.com/6oU3cw7uLako4Mh7td9MY0a",
-      hawkeyes: "https://buy.stripe.com/14A3cw3ev3W02E96p99MY0b",
-    };
-    const url = PAYMENT_LINKS[plan];
-    if (url) {
+    setCheckoutLoading(plan);
+    try {
+      const res = await stripeCheckout({ action: "checkout", plan });
+      const { url, error } = res.data;
+      if (error) throw new Error(error);
       window.location.href = url;
-    } else {
-      toast({ title: "Error", description: "Could not start checkout.", variant: "destructive" });
+    } catch (err) {
+      toast({ title: "Checkout Error", description: err.message || "Could not start checkout.", variant: "destructive" });
+      setCheckoutLoading(null);
     }
   };
 
