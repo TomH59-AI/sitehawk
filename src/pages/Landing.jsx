@@ -36,9 +36,9 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "Hawk Sight", price: "$199/mo", desc: "Entry-level parcel discovery. REGRID data & terrain overlays.", cta: "Get Started", highlight: false },
-  { name: "Hawkeye 20/20", price: "$599/mo", desc: "Full S.A.I.R. Generation · Built-in CRM · Owner Mailers", cta: "The Industry Standard", highlight: true },
-  { name: "Hawkeye Apex", price: "$2,499/mo", desc: "Enterprise-scale · Fiber & Power Vision · AI Lease Predictor", cta: "Go Enterprise", highlight: false },
+  { name: "Hawk Site", price: "$69/mo", desc: "1 Target Search/day · Single seat · Core parcel intelligence", cta: "Get Started", highlight: false },
+  { name: "Hawkeyes", price: "$199/mo", desc: "5 Target Searches/day · 3 seats · PDF & CSV exports", cta: "Most Popular", highlight: true },
+  { name: "Hawkeye Apex", price: "Licensed", desc: "Unlimited searches · Unlimited seats · Mailer + skip trace", cta: "Contact Sales", highlight: false },
 ];
 
 const TESTIMONIALS = [
@@ -133,7 +133,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">No credit card required for free tier · Paid plans start at $199/mo</p>
+          <p className="text-xs text-white/30 mt-6">Plans start at $69/mo · Hawkeyes from $199/mo · Enterprise licensed</p>
         </div>
 
         {/* Hero mockup strip */}
@@ -250,7 +250,7 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Simple Pricing</p>
           <h2 className="font-heading font-bold text-4xl text-white mb-4">Three Tiers. One Mission.</h2>
-          <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, skip trace, and the SiteHawk AI Consultant.</p>
+          <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, and the SiteHawk AI Consultant.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             {PLANS.map((p) => (
               <div key={p.name} className={`rounded-2xl border p-8 flex flex-col items-center gap-4 transition-all ${p.highlight ? "border-blue-500/50 bg-blue-600/10 shadow-2xl shadow-blue-500/10 scale-105" : "border-white/5 bg-white/3"}`}>

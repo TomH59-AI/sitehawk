@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Check, EyeOff, Zap, Star, Crown } from "lucide-react";
+import { Check, Zap, Star, Crown } from "lucide-react";
 import HawkIcon from "../components/HawkIcon";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -8,89 +8,75 @@ import { stripeCheckout } from "@/functions/stripeCheckout";
 
 const tiers = [
   {
-    id: "blind",
-    name: "Blind",
+    id: "hawk_site",
+    name: "Hawk Site",
     price: "$69",
-    period: "/S.A.I.R.",
-    description: "Try one intelligence report. No commitment.",
-    Icon: EyeOff,
+    period: "/month",
+    description: "Get started with daily site searches and core parcel intelligence.",
+    Icon: Zap,
     iconColor: "text-primary",
     iconBg: "bg-primary/10 border-primary/20",
     features: [
-      "1 S.A.I.R. report",
+      "1 Target Search per day",
+      "Single user (1 seat)",
       "Satellite map view",
       "Scored candidate results",
-      "Basic parcel data",
-      "No recurring charges",
+      "SiteHawk AI Consultant",
+    ],
+    excludes: [
+      "No exports",
+      "No mailer",
+      "No skip trace",
     ],
     cta: "Get Started",
     highlight: false,
     badge: null,
   },
   {
-    id: "hawkeye_20",
-    name: "Hawk 20/20 Vision",
-    price: "$469",
+    id: "hawkeyes",
+    name: "Hawkeyes",
+    price: "$199",
     period: "/month",
-    description: "The Industry Standard. Full-speed site acquisition and owner outreach.",
+    description: "The team standard for site acquisition intelligence.",
     Icon: Star,
     iconColor: "text-accent",
     iconBg: "bg-accent/10 border-accent/20",
     features: [
+      "5 Target Searches per day",
+      "Team access (3 seats)",
+      "PDF & CSV exports",
       "Full S.A.I.R. Generation",
       "Zoning & Regulatory Library",
       "Built-in CRM (Deal Pipeline)",
-      "One-Click Owner Mailers",
-      "Skip Trace — All Candidates",
-      "PDF Intelligence Reports",
-      "50 searches per month",
-      "Priority support",
+      "SiteHawk AI Consultant",
     ],
-    cta: "Start Monthly",
+    excludes: [
+      "No mailer",
+      "No skip trace",
+    ],
+    cta: "Upgrade to Hawkeyes",
     highlight: true,
     badge: "Most Popular",
   },
   {
-    id: "hawkeye_20_annual",
-    name: "Hawk 20/20 Vision (Annual)",
-    price: "$1,860",
-    period: "/year",
-    description: "Same industry-standard power. Best annual value.",
-    Icon: Zap,
+    id: "hawkeye_apex",
+    name: "Hawkeye Apex",
+    price: "Licensed",
+    period: "",
+    description: "Enterprise-scale deployment for serious acquisition teams.",
+    Icon: Crown,
     iconColor: "text-yellow-400",
     iconBg: "bg-yellow-400/10 border-yellow-400/20",
     features: [
+      "Unlimited Target Searches",
+      "Unlimited team seats",
+      "PDF & CSV exports",
+      "One-click mailer integration",
+      "Skip trace included",
       "Full S.A.I.R. Generation",
-      "Zoning & Regulatory Library",
-      "Built-in CRM (Deal Pipeline)",
-      "One-Click Owner Mailers",
-      "Skip Trace — All Candidates",
-      "PDF Intelligence Reports",
-      "50 searches per month",
-      "Priority support",
-    ],
-    cta: "Go Annual",
-    highlight: false,
-    badge: "Best Value",
-  },
-  {
-    id: "hawkeye_license",
-    name: "Hawkeye License",
-    price: "Custom",
-    period: "/quote",
-    description: "Enterprise-scale deployment with white-label capabilities.",
-    Icon: Crown,
-    iconColor: "text-yellow-500",
-    iconBg: "bg-yellow-500/10 border-yellow-500/20",
-    features: [
-      "White-label SiteHawk platform",
-      "Unlimited searches & S.A.I.R.s",
-      "Fiber & Power Proximity Vision",
-      "Custom integrations",
-      "Dedicated infrastructure",
       "Dedicated account team",
-      "Training & onboarding",
     ],
+    excludes: [],
     cta: "Contact Sales",
     highlight: false,
     badge: "Enterprise",
@@ -180,7 +166,7 @@ export default function Pricing() {
           📡
         </div>
         <div className="flex-1 text-center md:text-left">
-          <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-1">Included with Hawkeye 20/20 & Apex</p>
+          <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-1">Included with Hawkeyes & Hawkeye Apex</p>
           <h2 className="font-heading font-bold text-xl text-foreground">S.A.I.R. — Site AI Intelligence Report</h2>
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
             Every scan generates a full <span className="text-cyan-400 font-semibold">Site AI Intelligence Report (S.A.I.R.)</span> — zoning analysis, regulatory context, LDC section references, scored candidates, owner data, airport proximity, and cell tower density. The complete intelligence package for every acquisition decision.
@@ -204,7 +190,7 @@ export default function Pricing() {
               className={`rounded-2xl border p-6 flex flex-col relative transition-all duration-300 ${
                 tier.highlight
                   ? "border-accent bg-card shadow-2xl shadow-accent/10 scale-[1.02]"
-                  : tier.id === "hawkeye_apex"
+                  : tier.contactOnly
                   ? "border-yellow-400/30 bg-card shadow-xl shadow-yellow-400/5"
                   : "border-border bg-card"
               }`}
@@ -227,10 +213,10 @@ export default function Pricing() {
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{tier.description}</p>
                 <div className="mt-4 flex items-baseline gap-1">
                   <span className="font-heading font-bold text-4xl text-foreground">{tier.price}</span>
-                  <span className="text-muted-foreground text-sm">{tier.period}</span>
+                  {tier.period && <span className="text-muted-foreground text-sm">{tier.period}</span>}
                 </div>
-                {tier.id === "hawkeye_apex" && (
-                  <p className="text-xs text-yellow-400 font-semibold mt-1">or Custom Quote — contact us</p>
+                {tier.contactOnly && (
+                  <p className="text-xs text-yellow-400 font-semibold mt-1">Contact us for enterprise pricing</p>
                 )}
               </div>
 
@@ -243,6 +229,12 @@ export default function Pricing() {
                       "text-primary"
                     }`} />
                     <span className="text-muted-foreground">{feature}</span>
+                  </li>
+                ))}
+                {tier.excludes?.map((ex) => (
+                  <li key={ex} className="flex items-start gap-2 text-sm opacity-40">
+                    <span className="w-4 h-4 mt-0.5 shrink-0 text-center text-xs">✕</span>
+                    <span className="text-muted-foreground">{ex}</span>
                   </li>
                 ))}
               </ul>

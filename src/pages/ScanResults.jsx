@@ -30,7 +30,7 @@ export default function ScanResults() {
 
   if (!state?.results) return null;
 
-  const { results, ordinance, searchCenter, searchId } = state;
+  const { results, ordinance, searchCenter, searchId, usage, plan } = state;
 
   const handleSelectCandidate = (idx) => {
     setSelectedIndex(idx);
@@ -78,6 +78,8 @@ export default function ScanResults() {
           contactCache={contactCache}
           onContactFound={handleContactFound}
           searchId={searchId}
+          usage={usage}
+          plan={plan}
         />
       </div>
 

@@ -3,6 +3,7 @@ import CandidateCard from "./CandidateCard";
 import HawkIcon from "../HawkIcon";
 import DirectMailButton from "../search/DirectMailButton";
 import PDFReportButton from "../search/PDFReportButton";
+import SearchUsageBar from "./SearchUsageBar";
 
 export default function ScanResultsSidebar({
   results,
@@ -16,6 +17,8 @@ export default function ScanResultsSidebar({
   contactCache,
   onContactFound,
   searchId,
+  usage,
+  plan,
 }) {
   const cardRefs = useRef([]);
   const scrollRef = useRef(null);
@@ -137,6 +140,9 @@ export default function ScanResultsSidebar({
             + New Scan
           </button>
         </div>
+
+        {/* Usage indicator */}
+        <SearchUsageBar usage={usage} plan={plan} />
 
         {/* PDF Download */}
         <PDFReportButton

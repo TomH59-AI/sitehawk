@@ -4,14 +4,14 @@ import Stripe from 'npm:stripe@14.21.0';
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 
 const PRICE_IDS = {
-  hawk_sight: 'price_1TMEbLIE4fOP88RJqHu5ABh1',
-  hawkeye_20: 'price_1TMEbLIE4fOP88RJOcxyGXE8',
+  hawk_site: 'price_1TMEbLIE4fOP88RJqHu5ABh1',
+  hawkeyes: 'price_1TMEbLIE4fOP88RJOcxyGXE8',
   hawkeye_apex: 'price_1TMEbLIE4fOP88RJEkqAEbGr',
 };
 
 const TRIAL_SCANS = {
-  hawk_sight: 1,
-  hawkeye_20: 2,
+  hawk_site: 1,
+  hawkeyes: 2,
   hawkeye_apex: 5,
 };
 
