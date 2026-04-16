@@ -20,6 +20,8 @@ import MailOrders from './pages/MailOrders';
 import CRM from './pages/CRM';
 import RefundPolicy from './pages/RefundPolicy';
 import ParcelScout from './pages/ParcelScout';
+import AIVisionAnalyzer from './pages/AIVisionAnalyzer';
+import MarketAnalytics from './pages/MarketAnalytics';
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 
@@ -69,6 +71,8 @@ const AuthenticatedApp = () => {
         <Route path="/crm" element={<CRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/parcel-scout" element={<ParcelScout />} />
+        <Route path="/ai-vision" element={<AIVisionAnalyzer />} />
+        <Route path="/market-analytics" element={<MarketAnalytics />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
