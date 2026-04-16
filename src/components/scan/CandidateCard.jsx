@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { skipTrace } from "@/functions/skipTrace";
 
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
-const PAID_TIERS = ["hawk_sight", "hawkeye_20", "hawkeye_apex"];
+const PAID_TIERS = ["hawk_site", "hawkeyes", "hawk_sight", "hawkeye_20", "hawkeye_apex"];
 
 function scoreColor(score) {
   if (score >= 75) return "#22c55e";
@@ -89,20 +89,12 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
     e.stopPropagation();
     if (loading || cachedContact) return;
     setLoading(true);
-    const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-skip-trace", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify({
-        owner_name: result.owner_name,
-        parcel_address: result.parcel_address,
-        owner_mailing_address: result.owner_mailing_address,
-      }),
+    const res = await skipTrace({
+      owner_name: result.owner_name,
+      mailing_address: result.owner_mailing_address,
+      candidate_id: result.id,
     });
-    const data = await res.json();
+    const data = res.data || {};
     onContactFound(result.id, { phone: data.phone || null, email: data.email || null });
     setLoading(false);
   };
