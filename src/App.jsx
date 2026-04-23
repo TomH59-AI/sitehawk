@@ -22,6 +22,7 @@ import RefundPolicy from './pages/RefundPolicy';
 import ParcelScout from './pages/ParcelScout';
 import AIVisionAnalyzer from './pages/AIVisionAnalyzer';
 import MarketAnalytics from './pages/MarketAnalytics';
+import MailAnalytics from './pages/MailAnalytics';
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 
@@ -73,6 +74,7 @@ const AuthenticatedApp = () => {
         <Route path="/parcel-scout" element={<ParcelScout />} />
         <Route path="/ai-vision" element={<AIVisionAnalyzer />} />
         <Route path="/market-analytics" element={<MarketAnalytics />} />
+        <Route path="/mail-analytics" element={<MailAnalytics />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

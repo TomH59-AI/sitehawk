@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import AppFooter from "./AppFooter";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2 } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
@@ -32,7 +32,7 @@ export default function Layout() {
   }, []);
 
   const navItems = isAdmin
-    ? [...BASE_NAV, { path: "/send-update", icon: Send, label: "Send Update" }, { path: "/mail-orders", icon: Mail, label: "Mail Orders" }]
+    ? [...BASE_NAV, { path: "/send-update", icon: Send, label: "Send Update" }, { path: "/mail-orders", icon: Mail, label: "Mail Orders" }, { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" }]
     : BASE_NAV;
 
   const handleLogout = () => {
