@@ -16,9 +16,19 @@ Deno.serve(async (req) => {
     }
 
     const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
-    await stripe.checkout.sessions.update(session_id, {
-      metadata: { fulfillment_status: status },
-    });
+
+    // Retrieve the session to get the payment intent
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (!session) {
+      return Response.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    // Update metadata on the payment intent (sessions are immutable after completion)
+    if (session.payment_intent) {
+      await stripe.paymentIntents.update(session.payment_intent, {
+        metadata: { fulfillment_status: status, session_id },
+      });
+    }
 
     console.log(`Mail order ${session_id} status updated to ${status}`);
     return Response.json({ success: true });
