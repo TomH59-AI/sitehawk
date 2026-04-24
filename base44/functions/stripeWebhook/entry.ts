@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
 
         console.log(`Checkout completed for ${userEmail}, plan: ${plan}`);
 
-        const TRIAL_SCANS = { monthly: 1, annual: 2 };
+        const TRIAL_SCANS = { hawk_site: 1, hawkeyes: 5, hawkeye_apex: 10, monthly: 1, annual: 2 };
         const trialScans = TRIAL_SCANS[plan] || 0;
 
         const users = await base44.asServiceRole.entities.User.filter({ email: userEmail });

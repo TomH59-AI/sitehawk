@@ -57,7 +57,7 @@ export default function ScanResults() {
 
   const handleSortChange = (newSort) => {
     setSortKey(newSort);
-    setDisplayedResults(applyFiltersAndSort(shown, DEFAULT_FILTERS, newSort));
+    setDisplayedResults(applyFiltersAndSort(results, DEFAULT_FILTERS, newSort));
   };
 
   return (
