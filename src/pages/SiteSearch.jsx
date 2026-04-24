@@ -70,10 +70,17 @@ export default function SiteSearch() {
   }, []);
 
   const handleSearch = async (latitude, longitude) => {
+    // Require login for all scans (including free trial)
+    if (!user) {
+      base44.auth.redirectToLogin(window.location.href);
+      return;
+    }
+
     const tier = user?.tier || "free";
     const limit = TIER_LIMITS[tier] ?? 0;
+    const isFreeTrialEligible = (tier === "blind" || tier === "free") && !user.free_trial_used;
 
-    if (!tier || tier === "blind" || tier === "free") {
+    if ((!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible) {
       toast({
         title: "Upgrade required",
         description: "Subscribe to Hawk Site or higher to start scanning.",
@@ -221,6 +228,28 @@ export default function SiteSearch() {
       results_count: savedResults.length,
     });
 
+    // Auto-save all results to CRM for free trial users so we capture their lead data
+    if (isFreeTrialEligible) {
+      for (const r of savedResults) {
+        try {
+          await base44.entities.CRMDeal.create({
+            owner_name: r.owner_name || "Unknown Owner",
+            parcel_address: r.parcel_address,
+            owner_mailing_address: r.owner_mailing_address,
+            candidate_id: r.id,
+            search_id: search.id,
+            stage: "prospect",
+            phone: r.phone || null,
+            email: r.email || null,
+            match_score: r.match_score,
+            latitude: r.latitude,
+            longitude: r.longitude,
+            notes: `Free trial scan — auto-captured on ${new Date().toLocaleDateString()}`,
+          });
+        } catch (_) { /* silently continue */ }
+      }
+    }
+
     setResults(savedResults);
     setCurrentSearchId(search.id);
     setSearchesThisMonth((prev) => prev + 1);
@@ -250,8 +279,9 @@ export default function SiteSearch() {
 
   const tier = user?.tier || "free";
   const limit = TIER_LIMITS[tier] ?? 0;
-  const isBlind = !tier || tier === "blind" || tier === "free";
-  const atLimit = isBlind || (limit !== Infinity && searchesThisMonth >= limit);
+  const isFreeTrialEligible = (tier === "blind" || tier === "free") && !user?.free_trial_used;
+  const isBlind = (!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible;
+  const atLimit = isBlind || (limit !== Infinity && !isFreeTrialEligible && searchesThisMonth >= limit);
 
   const handleSkipTraceResult = (candidateId, data) => {
     setSkipTraceResults(prev => ({ ...prev, [candidateId]: data }));
@@ -339,7 +369,9 @@ export default function SiteSearch() {
       <div>
         <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Site Search</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          {isBlind
+          {isFreeTrialEligible
+            ? "🎁 You have 1 free trial scan — enter coordinates to see it in action."
+            : isBlind
             ? "Subscribe to Hawk Site or higher to start scanning."
             : "Enter coordinates to find buildable parcels for a 199-ft cell tower"}
         </p>
@@ -358,7 +390,7 @@ export default function SiteSearch() {
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center">
           <p className="text-destructive text-sm font-medium">
             {isBlind
-              ? "Subscribe to Hawk Site or higher to start scanning."
+              ? "Your free trial scan has been used. Subscribe to Hawk Site or higher to continue scanning."
               : `You've reached your daily limit of ${limit} Target Search${limit !== 1 ? "es" : ""}. Upgrade your plan to continue.`}
           </p>
           <a href="/pricing" className="text-xs text-primary underline mt-1 inline-block">View upgrade options →</a>
