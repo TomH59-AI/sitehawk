@@ -53,8 +53,19 @@ Deno.serve(async (req) => {
     }
 
     const tier = user.tier || 'blind';
-    if (tier === 'blind' || tier === 'free') {
+    const isFreeTrialSkip = (tier === 'blind' || tier === 'free') && user.free_trial_used && !user.free_trial_skip_trace_used;
+
+    if ((tier === 'blind' || tier === 'free') && !isFreeTrialSkip) {
       return Response.json({ error: 'Upgrade required' }, { status: 403 });
+    }
+
+    // Consume the free trial skip trace slot
+    if (isFreeTrialSkip) {
+      console.log(`Free trial skip trace: user=${user.email}`);
+      const users = await base44.asServiceRole.entities.User.filter({ email: user.email });
+      if (users.length) {
+        await base44.asServiceRole.entities.User.update(users[0].id, { free_trial_skip_trace_used: true });
+      }
     }
 
     if (isRateLimited(user.id)) {

@@ -32,6 +32,16 @@
       "type": "number",
       "description": "Number of free trial scans remaining",
       "default": 0
+    },
+    "free_trial_used": {
+      "type": "boolean",
+      "description": "Whether the user has used their one free full trial scan",
+      "default": false
+    },
+    "free_trial_skip_trace_used": {
+      "type": "boolean",
+      "description": "Whether the user has used their one free skip trace included with the trial",
+      "default": false
     }
   },
   "required": [

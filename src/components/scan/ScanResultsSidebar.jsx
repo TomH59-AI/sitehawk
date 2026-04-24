@@ -6,6 +6,7 @@ import PDFReportButton from "../search/PDFReportButton";
 import SearchUsageBar from "./SearchUsageBar";
 import BatchSkipTrace from "../search/BatchSkipTrace";
 import ResultsFilterSort from "./ResultsFilterSort";
+import FreeTrialUpsellBanner from "./FreeTrialUpsellBanner";
 
 export default function ScanResultsSidebar({
   results,
@@ -25,6 +26,7 @@ export default function ScanResultsSidebar({
   sortKey,
   onSortChange,
   onFiltered,
+  freeTrialUsed,
 }) {
   const cardRefs = useRef([]);
   const scrollRef = useRef(null);
@@ -100,6 +102,7 @@ export default function ScanResultsSidebar({
 
       {/* Candidate list */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", scrollbarWidth: "thin", scrollbarColor: "#1e293b #0a0e17" }}>
+        <FreeTrialUpsellBanner userTier={userTier} freeTrialUsed={freeTrialUsed} />
         {results.map((result, idx) => (
           <div
             key={result.id || idx}
