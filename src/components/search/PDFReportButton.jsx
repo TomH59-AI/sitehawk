@@ -83,14 +83,45 @@ function loadImageAsBase64(url) {
   });
 }
 
+const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ";
+
+function buildStaticMapUrl(lat, lon, candidates, width = 800, height = 400, zoom = 14) {
+  // Build pin overlays for each candidate (up to 5)
+  const pins = candidates.slice(0, 5).map((c, i) => {
+    const colors = ["22c55e", "00d4ff", "f59e0b", "f43f5e", "a78bfa"];
+    return `pin-s-${i + 1}+${colors[i] || "888"}(${c.longitude},${c.latitude})`;
+  });
+  // Center crosshair
+  const center = `pin-s+ef4444(${lon},${lat})`;
+  const overlays = [center, ...pins].join(",");
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${overlays}/${lon},${lat},${zoom},0/${width}x${height}@2x?access_token=${MAPBOX_TOKEN}`;
+}
+
+// Generate a small inset map per candidate
+function buildCandidateMapUrl(lat, lon, width = 300, height = 160, zoom = 16) {
+  const pin = `pin-s+00d4ff(${lon},${lat})`;
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${pin}/${lon},${lat},${zoom},0/${width}x${height}@2x?access_token=${MAPBOX_TOKEN}`;
+}
+
 export default function PDFReportButton({ results, extraResults, ordinance, searchCenter, mapImageGetterRef, skipTraceResults = {} }) {
   const [generating, setGenerating] = useState(false);
 
   const handleGenerate = async () => {
     setGenerating(true);
 
-    // Pre-load logo
-    const logoData = await loadImageAsBase64(LOGO_URL);
+    // Pre-load logo + maps in parallel
+    const allCands = [...(results || []), ...(extraResults || [])];
+    const overviewMapUrl = searchCenter
+      ? buildStaticMapUrl(searchCenter.lat, searchCenter.lon, allCands, 1060, 500, 14)
+      : null;
+
+    const [logoData, overviewMapData, ...candidateMapDatas] = await Promise.all([
+      loadImageAsBase64(LOGO_URL),
+      overviewMapUrl ? loadImageAsBase64(overviewMapUrl) : Promise.resolve(null),
+      ...allCands.slice(0, 8).map(c =>
+        loadImageAsBase64(buildCandidateMapUrl(c.latitude, c.longitude, 400, 200, 17))
+      ),
+    ]);
 
     const doc = new jsPDF({ unit: "pt", format: "letter" });
     const W = 612, H = 792;
@@ -161,7 +192,6 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
 
     const lat = searchCenter?.lat?.toFixed(6) || "—";
     const lon = searchCenter?.lon?.toFixed(6) || "—";
-    const allCands = [...(results || []), ...(extraResults || [])];
 
     const coverFields = [
       ["Center Latitude", lat],
@@ -296,17 +326,11 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
       y += ordH + 10;
     }
 
-    // ── MAP ──
-    const mapFn = mapImageGetterRef?.current;
-    if (mapFn) {
-      try {
-        const imgData = mapFn();
-        if (imgData) {
-          y = drawSectionHeader(doc, y, W, margin, "SATELLITE MAP — SEARCH AREA");
-          doc.addImage(imgData, "PNG", margin, y, W - margin * 2, 200);
-          y += 212;
-        }
-      } catch (_) {}
+    // ── OVERVIEW SATELLITE MAP ──
+    if (overviewMapData) {
+      y = drawSectionHeader(doc, y, W, margin, "SATELLITE MAP — SEARCH AREA OVERVIEW");
+      doc.addImage(overviewMapData, "PNG", margin, y, W - margin * 2, 220);
+      y += 232;
     }
 
     // ── CANDIDATE PARCELS ──
@@ -319,7 +343,8 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
       const hasFiber = r.has_fiber;
 
       // Estimate card height dynamically
-      const baseH = 160;
+      const hasInsetMap = !!candidateMapDatas[idx];
+      const baseH = hasInsetMap ? 170 : 160;
       const towerH = towers.length > 0 ? 14 + towers.length * 12 : 0;
       const fiberH = fiber.length > 0 ? 14 + 12 : 0;
       const stH = skipTrace ? 28 : 0;
@@ -391,6 +416,18 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
 
       // Score bar
       drawBar(doc, W - margin - 76, y + 36, r.match_score || 0, sc, 68);
+
+      // ── INSET SATELLITE MAP (top-right of card) ──
+      const candidateMapData = candidateMapDatas[idx];
+      const mapInsetW = 150, mapInsetH = 80;
+      if (candidateMapData) {
+        doc.addImage(candidateMapData, "PNG", W - margin - mapInsetW - 4, y + 50, mapInsetW, mapInsetH);
+        // small label under inset
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+        doc.setTextColor(...MUTED);
+        doc.text("Satellite View", W - margin - mapInsetW / 2 - 4, y + 50 + mapInsetH + 7, { align: "center" });
+      }
 
       // ── FIELDS GRID ──
       const fy = y + 58;
