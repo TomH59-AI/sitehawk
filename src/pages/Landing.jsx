@@ -111,9 +111,9 @@ export default function Landing() {
         </div>
 
         <div className="relative max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-300 text-xs font-semibold tracking-wide mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-            AI-Powered Site Acquisition Intelligence
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 text-xs font-semibold tracking-wide mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            🎁 New — Every user gets 1 FREE scan. No credit card required.
           </div>
 
           <h1 className="font-heading font-bold text-5xl md:text-7xl leading-tight text-white mb-6">
@@ -129,10 +129,10 @@ export default function Landing() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/pricing"
+              to="/search"
               className="px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-heading font-bold text-lg shadow-2xl shadow-blue-500/25 transition-all hover:scale-105"
             >
-              Start Scanning Free →
+              Try Your Free Scan Now →
             </Link>
             <Link
               to="/dashboard"
@@ -142,7 +142,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">Plans start at $69/mo · Hawkeyes from $199/mo · Enterprise licensed</p>
+          <p className="text-xs text-white/30 mt-6">1 free scan for every new account · Paid plans from $69/mo · No credit card to try</p>
         </div>
 
         {/* Hero mockup strip */}
@@ -259,6 +259,9 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Simple Pricing</p>
           <h2 className="font-heading font-bold text-4xl text-white mb-4">Three Tiers. One Mission.</h2>
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-cyan-400/30 bg-cyan-400/8 text-cyan-300 text-sm font-semibold mb-6">
+            🎁 Start with 1 free scan — no credit card required
+          </div>
           <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, and the SiteHawk AI Consultant.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             {PLANS.map((p) => (
@@ -289,12 +292,21 @@ export default function Landing() {
             <div className="flex justify-center mb-6"><HawkIcon size={64} /></div>
             <h2 className="font-heading font-bold text-4xl text-white mb-4">"When You Need<br />AI Hawk Vision"™</h2>
             <p className="text-white/50 mb-8 leading-relaxed">Stop spending weeks manually researching parcels. SiteHawk gives you the AI vision to find, vet, and contact the right landowner — fast.</p>
-            <Link
-              to="/pricing"
-              className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-heading font-bold text-lg shadow-2xl shadow-blue-500/25 transition-all hover:scale-105"
-            >
-              Get Started Today 🦅
-            </Link>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link
+                to="/search"
+                className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-heading font-bold text-lg shadow-2xl shadow-blue-500/25 transition-all hover:scale-105"
+              >
+                Try 1 Free Scan 🦅
+              </Link>
+              <Link
+                to="/pricing"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl border border-white/10 hover:border-white/25 text-white/70 hover:text-white font-semibold text-lg transition-all"
+              >
+                View Paid Plans →
+              </Link>
+            </div>
+            <p className="text-xs text-white/30 mt-5">No credit card required to try · Plans from $69/mo after your free scan</p>
           </div>
         </div>
       </section>
