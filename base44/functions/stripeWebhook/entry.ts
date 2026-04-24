@@ -42,6 +42,41 @@ Deno.serve(async (req) => {
             stripe_customer_id: session.customer,
           });
         }
+
+        // Credit referral if this user was referred
+        try {
+          const referrals = await base44.asServiceRole.entities.Referral.filter({ referred_email: userEmail, status: "signed_up" });
+          if (referrals.length) {
+            const referral = referrals[0];
+            const REFERRAL_CREDITS = 5;
+
+            // Credit referrer
+            const referrers = await base44.asServiceRole.entities.User.filter({ email: referral.referrer_email });
+            if (referrers.length) {
+              await base44.asServiceRole.entities.User.update(referrers[0].id, {
+                trial_scans_remaining: (referrers[0].trial_scans_remaining || 0) + REFERRAL_CREDITS,
+              });
+            }
+
+            // Credit referred user
+            if (users.length) {
+              await base44.asServiceRole.entities.User.update(users[0].id, {
+                trial_scans_remaining: (users[0].trial_scans_remaining || 0) + REFERRAL_CREDITS,
+              });
+            }
+
+            await base44.asServiceRole.entities.Referral.update(referral.id, {
+              status: "credited",
+              referrer_credited: true,
+              referred_credited: true,
+            });
+
+            console.log(`Referral credited: referrer=${referral.referrer_email} referred=${userEmail}`);
+          }
+        } catch (refErr) {
+          console.error("Referral credit error:", refErr.message);
+        }
+
         break;
       }
 

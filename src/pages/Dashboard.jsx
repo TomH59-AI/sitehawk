@@ -8,6 +8,7 @@ import StatsCards from "../components/dashboard/StatsCards";
 import SearchHistoryTable from "../components/dashboard/SearchHistoryTable";
 import WelcomeModal from "../components/onboarding/WelcomeModal";
 import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
+import ReferralPanel from "../components/referral/ReferralPanel";
 
 const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
@@ -93,6 +94,11 @@ export default function Dashboard() {
       <div>
         <h2 className="font-heading font-semibold text-lg text-foreground mb-4">Recent Searches</h2>
         <SearchHistoryTable searches={searches.slice(0, 10)} />
+      </div>
+
+      {/* Referral */}
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <ReferralPanel />
       </div>
     </div>
   );

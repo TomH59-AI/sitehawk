@@ -1,0 +1,41 @@
+{
+  "name": "Referral",
+  "type": "object",
+  "properties": {
+    "referrer_email": {
+      "type": "string",
+      "description": "Email of the user who created the referral link"
+    },
+    "referral_code": {
+      "type": "string",
+      "description": "Unique referral code"
+    },
+    "referred_email": {
+      "type": "string",
+      "description": "Email of the user who signed up via this link (set after they sign up)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "signed_up",
+        "subscribed",
+        "credited"
+      ],
+      "default": "pending",
+      "description": "pending=link created, signed_up=new user registered, subscribed=paid, credited=both rewarded"
+    },
+    "referrer_credited": {
+      "type": "boolean",
+      "default": false
+    },
+    "referred_credited": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "referrer_email",
+    "referral_code"
+  ]
+}

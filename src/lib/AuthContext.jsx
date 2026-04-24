@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
+import { referral } from '@/functions/referral';
 
 const AuthContext = createContext();
 
@@ -95,6 +96,17 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
+
+      // Register referral if one is stored from landing page
+      const refCode = localStorage.getItem("sitehawk_ref_code");
+      if (refCode) {
+        try {
+          await referral({ action: "register_referral", referral_code: refCode });
+        } catch (_) {
+          // silently ignore (code already used, self-referral, etc.)
+        }
+        localStorage.removeItem("sitehawk_ref_code");
+      }
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);

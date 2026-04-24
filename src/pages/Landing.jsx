@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import HawkIcon from "../components/HawkIcon";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const FEATURES = [
   {
@@ -49,6 +49,15 @@ const TESTIMONIALS = [
 
 export default function Landing() {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Capture referral code from URL and persist to localStorage
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) {
+      localStorage.setItem("sitehawk_ref_code", ref);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#060E1A] text-white font-body overflow-x-hidden">
