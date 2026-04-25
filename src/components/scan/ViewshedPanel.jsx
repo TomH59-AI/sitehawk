@@ -48,17 +48,14 @@ function buildViewshedUrl(lat, lon, bearing, width = 600, height = 340) {
   const center = offsetCoord(lat, lon, bearing, 0.18);
   // pitch=60 gives a strong low-angle "antenna eye" perspective
   // zoom=14 shows roughly 0.5mi corridor
-  const cameraSpec = encodeURIComponent(
-    `[${center.lon},${center.lat},14,${bearing},60]`
-  );
 
   // Tower marker at actual parcel location
-  const marker = `pin-l-tower+ef4444(${lon},${lat})`;
+  const marker = `pin-l+ef4444(${lon},${lat})`;
 
   return (
     `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/` +
     `${marker}/` +
-    `[${center.lon},${center.lat},14,${bearing},60]/` +
+    `${center.lon},${center.lat},14,${bearing},60/` +
     `${width}x${height}@2x` +
     `?access_token=${MAPBOX_TOKEN}`
   );
