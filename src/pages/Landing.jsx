@@ -143,6 +143,11 @@ export default function Landing() {
           </div>
 
           <p className="text-xs text-white/30 mt-6">1 free scan for every new account · Paid plans from $69/mo · No credit card to try</p>
+
+          <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-[11px] text-white/50">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+            Powered by <span className="text-white/80 font-semibold">Anthropic AI Intelligence</span>
+          </div>
         </div>
 
         {/* Hero mockup strip */}
