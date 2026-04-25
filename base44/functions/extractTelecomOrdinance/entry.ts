@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const NOTION_API = 'https://api.notion.com/v1';
 const NOTION_VERSION = '2022-06-28';
-const MAX_NOTION_CHARS = 12000;
+const MAX_NOTION_CHARS = 45000;
 
 async function getStateCode(lat, lon) {
   const res = await fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`);
@@ -48,7 +48,7 @@ async function getAllBlockChildren(blockId, accessToken) {
     if (!data?.results) break;
     blocks.push(...data.results);
     cursor = data.has_more ? data.next_cursor : null;
-  } while (cursor && blocks.length < 300);
+  } while (cursor && blocks.length < 800);
 
   return blocks;
 }
@@ -152,7 +152,10 @@ Deno.serve(async (req) => {
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'gemini_3_flash',
       add_context_from_internet: true,
-      prompt: `You are a municipal zoning research analyst for telecom site acquisition.\n\nTask: identify the local municipal/county zoning ordinance sections that govern wireless telecommunications facilities, telecom towers, communication towers, antennas, small wireless facilities, wireless support structures, collocation, stealth/concealment, setbacks, height, special use permits, conditional use permits, and related approvals for the location below.\n\nCoordinates: ${lat}, ${lon}\nExisting scan ordinance context: ${JSON.stringify(ordinance || {})}\nCandidate parcel context: ${JSON.stringify(candidateContext)}\nNotion zoning knowledge base context for state ${notionContext.state_code || 'unknown'}: ${JSON.stringify({ found: notionContext.found, folder_title: notionContext.folder_title, pages: notionContext.pages, text: notionContext.text })}\n\nCritical accuracy rules:\n- First use current public sources you can find on the internet, preferably official municipal/county ordinance/code library URLs.\n- Use the Notion zoning knowledge base as a secondary/default fallback when official search context is missing or to guide which sections to verify.\n- Do not invent section numbers, clause text, URLs, jurisdiction names, permit requirements, or height limits.\n- If a clause is supported only by Notion without an official public source URL, mark confidence as low or medium and set source_url to 'Notion: <page title>'.\n- If the relevant ordinance cannot be verified from public or Notion context, return status='not_verified' and explain what is missing.\n- For each clause, include the exact source URL when available, or the Notion page title when Notion is the only source.\n- Focus specifically on telecom tower and antenna zoning sections, not generic parcel zoning.`,
+      prompt: `You are a municipal zoning research analyst for telecom site acquisition.\n\nTask: identify the local municipal/county zoning ordinance sections that govern wireless telecommunications facilities, telecom towers, communication towers, antennas, small wireless facilities, wireless support structures, collocation, stealth/concealment, setbacks, height, special use permits, conditional use permits, and related approvals for the location below. Then read the full extracted Notion ordinance context and generate a simplified user-facing Compliance Summary table that highlights which tower types are permitted, prohibited, conditional, or not addressed.\n\nCoordinates: ${lat}, ${lon}\nExisting scan ordinance context: ${JSON.stringify(ordinance || {})}\nCandidate parcel context: ${JSON.stringify(candidateContext)}\nNotion zoning knowledge base context for state ${notionContext.state_code || 'unknown'}: ${JSON.stringify({ found: notionContext.found, folder_title: notionContext.folder_title, pages: notionContext.pages, text: notionContext.text })}\n\nCritical accuracy rules:\n- First use current public sources you can find on the internet, preferably official municipal/county ordinance/code library URLs.\n- Use the Notion zoning knowledge base as a secondary/default fallback when official search context is missing or to guide which sections to verify.\n- Do not invent section numbers, clause text, URLs, jurisdiction names, permit requirements, or height limits.\n- If a clause is supported only by Notion without an official public source URL, mark confidence as low or medium and set source_url to 'Notion: <page title>'.\n- If the relevant ordinance cannot be verified from public or Notion context, return status='not_verified' and explain what is missing.\n- For each clause, include the exact source URL when available, or the Notion page title when Notion is the only source.\n- Focus specifically on telecom tower and antenna zoning sections, not generic parcel zoning.
+- For compliance_summary, use plain language for non-lawyers and include common tower types such as macro tower, monopole, lattice tower, guyed tower, rooftop antenna, small wireless facility, collocation, concealed/stealth facility, and temporary tower when addressed.
+- Mark a tower type as prohibited only when the ordinance clearly prohibits it; otherwise use conditional or not_addressed.
+- Every compliance_summary row must cite a section_ref or source_ref from the ordinance or Notion context.`,
       response_json_schema: {
         type: 'object',
         properties: {
@@ -182,6 +185,22 @@ Deno.serve(async (req) => {
           collocation_required: { type: 'boolean' },
           stealth_required: { type: 'boolean' },
           setback_summary: { type: 'string' },
+          compliance_summary: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                tower_type: { type: 'string' },
+                status: { type: 'string', enum: ['permitted', 'prohibited', 'conditional', 'not_addressed'] },
+                zones_or_context: { type: 'string' },
+                permit_path: { type: 'string' },
+                key_limits: { type: 'string' },
+                user_summary: { type: 'string' },
+                source_ref: { type: 'string' },
+                confidence: { type: 'string', enum: ['high', 'medium', 'low'] }
+              }
+            }
+          },
           extraction_notes: { type: 'string' }
         }
       }
@@ -189,12 +208,14 @@ Deno.serve(async (req) => {
 
     const sections = Array.isArray(result.telecom_sections) ? result.telecom_sections : [];
     const sourceUrls = Array.isArray(result.source_urls) ? result.source_urls : [];
+    const complianceSummary = Array.isArray(result.compliance_summary) ? result.compliance_summary : [];
     const hasVerifiedSource = sections.some(s => s.source_url) || sourceUrls.length > 0;
 
     const normalized = {
       ...result,
       status: hasVerifiedSource ? (result.status || 'partial') : 'not_verified',
       telecom_sections: sections,
+      compliance_summary: complianceSummary,
       source_urls: sourceUrls,
       notion_context_used: notionContext.found,
       notion_state_code: notionContext.state_code,

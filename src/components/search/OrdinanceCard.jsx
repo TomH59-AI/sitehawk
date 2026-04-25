@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { FileText, ChevronDown, ChevronUp } from "lucide-react";
 import TelecomOrdinanceSections from "./TelecomOrdinanceSections";
+import ComplianceSummaryTable from "./ComplianceSummaryTable";
 
 export default function OrdinanceCard({ ordinance }) {
   const [expanded, setExpanded] = useState(false);
   if (!ordinance) return null;
 
   // Fields to skip from the generic grid (handled specially)
-  const SKIP = new Set(["section_ref", "section_title", "ldc_display", "jurisdiction"]);
+  const SKIP = new Set(["section_ref", "section_title", "ldc_display", "jurisdiction", "compliance_summary"]);
   const entries = Object.entries(ordinance).filter(([k, v]) => !SKIP.has(k) && v !== null && v !== undefined && v !== "");
 
   const sections = ordinance.section_title
@@ -74,6 +75,7 @@ export default function OrdinanceCard({ ordinance }) {
         </div>
       )}
 
+      <ComplianceSummaryTable summary={ordinance.compliance_summary} />
       <TelecomOrdinanceSections ordinance={ordinance} />
     </div>
   );
