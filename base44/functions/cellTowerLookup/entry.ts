@@ -1,7 +1,11 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // OpenStreetMap Overpass API — free, no key, covers all of CONUS
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.openstreetmap.ru/api/interpreter",
+];
 
 function haversineMiles(lat1, lon1, lat2, lon2) {
   const R = 3958.8;
@@ -34,20 +38,34 @@ Deno.serve(async (req) => {
 
     const radiusMeters = Math.round((radius_miles || 2) * 1609.344);
 
-    // Overpass QL — nodes tagged as masts/towers of communication type
-    const query = `[out:json][timeout:20];(node[man_made=mast](around:${radiusMeters},${lat},${lon});node[man_made=tower][tower:type=communication](around:${radiusMeters},${lat},${lon}););out body 20;`;
+    // Overpass QL — OSM tower/mast features commonly used for communications
+    const query = `[out:json][timeout:25];(
+      node["man_made"="mast"](around:${radiusMeters},${lat},${lon});
+      node["man_made"="tower"]["tower:type"="communication"](around:${radiusMeters},${lat},${lon});
+      node["communication:mobile_phone"="yes"](around:${radiusMeters},${lat},${lon});
+    );out body 25;`;
 
-    const res = await fetch(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`, {
-      method: "GET",
-      headers: { "Accept": "application/json" },
-    });
+    let data = null;
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "User-Agent": "SiteHawk/1.0",
+        },
+        body: new URLSearchParams({ data: query }),
+      });
 
-    if (!res.ok) {
-      console.warn(`[cellTower] Overpass ${res.status} for lat=${lat} lon=${lon}`);
-      return Response.json({ towers: [] });
+      if (res.ok) {
+        data = await res.json();
+        break;
+      }
+
+      console.warn(`[cellTower] Overpass ${res.status} from ${endpoint} for lat=${lat} lon=${lon}`);
     }
 
-    const data = await res.json();
+    if (!data) return Response.json({ towers: [] });
     const elements = data.elements || [];
     console.log(`[cellTower] Overpass returned ${elements.length} elements for lat=${lat} lon=${lon}`);
 

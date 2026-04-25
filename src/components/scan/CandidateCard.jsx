@@ -163,8 +163,11 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
         {result.has_fiber === true && (
           <Tag label="⚡ Fiber Present" color="#22c55e" />
         )}
-        {result.has_fiber === false && result.fcc_block_geoid && (
+        {result.has_fiber === false && (
           <Tag label="No Fiber" color="#64748b" />
+        )}
+        {result.has_fiber === null && result.fcc_block_geoid && (
+          <Tag label="Fiber Unknown" color="#64748b" />
         )}
         {result.power_utility && (
           <Tag label={`🔌 ${result.power_utility}`} color="#f59e0b" />

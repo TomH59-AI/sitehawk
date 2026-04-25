@@ -482,7 +482,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         ["Owner Mailing Addr", r.owner_mailing_address],
         ["Direct Phone", r.phone],
         ["Direct Email", r.email],
-        ["Fiber Available", hasFiber ? "Yes" : (r.fcc_block_geoid ? "No (FCC verified)" : "Unknown")],
+        ["Fiber Available", hasFiber === true ? "Yes" : hasFiber === false ? "No (FCC verified)" : "Unknown"],
         ["TX Line Distance", r.transmission_line_distance_miles != null ? `${r.transmission_line_distance_miles} mi${r.transmission_line_voltage ? ` · ${r.transmission_line_voltage}` : ""}` : null],
         ["Wind Speed (ASCE 7-22)", r.wind_speed_mph ? `${r.wind_speed_mph} mph${r.in_hurricane_prone_region ? " · Hurricane Prone" : ""}${r.in_special_wind_region ? " · Special Wind Region" : ""}` : "N/A"],
         ["Wetlands (NWI)", r.wetlands_present === true

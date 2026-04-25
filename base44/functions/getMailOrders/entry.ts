@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
         user_email: s.metadata.user_email,
         search_id: s.metadata.search_id,
         payment_intent: s.payment_intent?.id || s.payment_intent,
-        fulfillment_status: s.metadata.fulfillment_status || 'pending',
+        fulfillment_status: s.payment_intent?.metadata?.fulfillment_status || s.metadata.fulfillment_status || 'pending',
       }));
 
     return Response.json({ orders: mailOrders });

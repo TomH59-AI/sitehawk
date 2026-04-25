@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
 
     // FCC broadband availability
     let fiberProviders = [];
-    let hasFiber = false;
+    let hasFiber = null;
 
     if (blockGeoid) {
       const bbRes = await fetch(`https://broadbandmap.fcc.gov/api/public/map/listAvailability`, {

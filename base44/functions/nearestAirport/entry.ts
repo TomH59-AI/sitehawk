@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       return Response.json({});
     }
 
-    // Compute distance for each and pick nearest
+    // Compute distance for each and pick nearest public airport (exclude heliports/hospitals/private pads)
     const withDist = features.map(f => {
       const coords = f.geometry?.coordinates;
       if (!coords) return null;
@@ -94,9 +94,19 @@ Deno.serve(async (req) => {
       const name = p.NAME || p.AIRPORT_NAME || null;
       const city = p.SERVCITY || p.CITY || null;
       const state = p.STATE || p.STATE_NAME || null;
+      const type = String(p.TYPE_CODE || p.TYPE || '').toLowerCase();
+      const label = `${name || ''} ${type}`.toLowerCase();
+
+      if (label.includes('heliport') || label.includes('hospital') || label.includes('medical')) return null;
+      if (label.includes('private') || label.includes('closed')) return null;
 
       return { iata, icao, name, city, state, lat: flat, lon: flon, distance_miles: parseFloat(dist.toFixed(2)) };
     }).filter(Boolean).sort((a, b) => a.distance_miles - b.distance_miles);
+
+    if (!withDist.length) {
+      console.warn(`No public airports found within ${radius_miles} mi of ${lat},${lon}`);
+      return Response.json({});
+    }
 
     const nearest = withDist[0];
     console.log(`FAA airport: user=${user.email} → ${nearest.iata || nearest.icao} (${nearest.name}) ${nearest.distance_miles} mi`);
