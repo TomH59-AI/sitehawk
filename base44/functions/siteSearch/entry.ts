@@ -322,6 +322,30 @@ async function searchMaryland(lat, lon, radiusMiles, offset) {
   return { candidates, ordinance: null };
 }
 
+// ── Coordinate cache (Regrid fallback only) ───────────────────────────────────
+// Keyed by "lat4,lon4" (4 decimal places ≈ ~11m grid), TTL 24 hours
+const regridCache = new Map();
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function getCacheKey(lat, lon) {
+  return `${parseFloat(lat).toFixed(4)},${parseFloat(lon).toFixed(4)}`;
+}
+
+function getCached(lat, lon) {
+  const key = getCacheKey(lat, lon);
+  const entry = regridCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    regridCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCache(lat, lon, data) {
+  regridCache.set(getCacheKey(lat, lon), { data, ts: Date.now() });
+}
+
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const rateLimitMap = new Map();
 const RATE_WINDOW_MS = 60 * 1000;
@@ -400,6 +424,13 @@ Deno.serve(async (req) => {
     }
 
     // ── Fallback: Supabase/Regrid (token-based) ───────────────────────────────
+    // Check cache first — skip Regrid if we have a recent result for this location
+    const cached = getCached(lat, lon);
+    if (cached) {
+      console.log(`Regrid cache HIT: user=${user.email} lat=${lat} lon=${lon}`);
+      return Response.json(cached);
+    }
+
     console.log(`Regrid fallback: user=${user.email} lat=${lat} lon=${lon}`);
     const res = await fetch(SUPABASE_URL, {
       method: "POST",
@@ -412,6 +443,11 @@ Deno.serve(async (req) => {
     });
 
     const data = await res.json();
+    // Cache the result to avoid repeat Regrid calls for the same area
+    if (data && !data.error) {
+      setCache(lat, lon, data);
+      console.log(`Regrid result cached for lat=${lat} lon=${lon}`);
+    }
     return Response.json(data);
 
   } catch (error) {
