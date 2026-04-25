@@ -112,14 +112,19 @@ async function getNotionZoningContext(lat, lon) {
   const masterPageId = Deno.env.get('NOTION_MASTER_ZONING_PAGE_ID');
   const stateCode = await getStateCode(lat, lon);
   const folder = await findStateFolder(masterPageId, stateCode);
-  if (!folder) return { state_code: stateCode, found: false, text: '', pages: [] };
 
-  const collected = await collectNotionText(folder.id, 0, folder.child_page?.title || `${stateCode}-Folder`);
+  const targetId = folder?.id || masterPageId;
+  const targetTitle = folder?.child_page?.title || `${stateCode || 'State'}-Zoning`;
+  if (!targetId) return { state_code: stateCode, found: false, text: '', pages: [] };
+
+  const collected = await collectNotionText(targetId, 0, targetTitle);
+  const found = collected.text.length > 0;
+
   return {
     state_code: stateCode,
-    found: true,
-    folder_id: folder.id,
-    folder_title: folder.child_page?.title || `${stateCode}-Folder`,
+    found,
+    folder_id: targetId,
+    folder_title: targetTitle,
     text: collected.text,
     pages: collected.pages.slice(0, 25),
   };
