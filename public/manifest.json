@@ -1,0 +1,22 @@
+{
+  "name": "SiteHawk",
+  "short_name": "SiteHawk",
+  "description": "AI-powered site acquisition intelligence for wireless infrastructure professionals.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#060E1A",
+  "theme_color": "#060E1A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://media.base44.com/images/public/69dd277f9504047a559d5834/7dadc5516_logo-skyhawk.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://media.base44.com/images/public/69dd277f9504047a559d5834/7dadc5516_logo-skyhawk.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
