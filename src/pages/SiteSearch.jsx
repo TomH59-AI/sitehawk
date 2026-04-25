@@ -206,6 +206,7 @@ export default function SiteSearch() {
         owner_mailing_address: parcel.owner_mailing_address,
         latitude: parcel.latitude,
         longitude: parcel.longitude,
+        parcel_geometry: parcel.parcel_geometry || null,
         fema_risk_factor: fema.fema_zone || parcel.fema_risk,
         fema_zone_description: fema.fema_zone_description || null,
         fema_risk_level: fema.fema_risk_level || null,
