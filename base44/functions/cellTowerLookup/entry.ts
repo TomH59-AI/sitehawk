@@ -1,43 +1,27 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// HIFLD Cell Towers — public ArcGIS service, no key required
-// Primary + fallback endpoints in case of 400/service changes
-const HIFLD_URLS = [
-  "https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Cellular_Towers/FeatureServer/0/query",
-  "https://services7.arcgis.com/n1YM8pTrFmm7L4hs/arcgis/rest/services/CellTowers_Public/FeatureServer/0/query",
-];
+// OpenStreetMap Overpass API — free, no key, covers all of CONUS
+// Queries masts/towers tagged as communication type within radius
+const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
 function haversineMiles(lat1, lon1, lat2, lon2) {
-  const R = 3958.7613;
-  const toRad = d => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-async function queryTowers(url, lat, lon, radiusMiles, outFields) {
-  const params = new URLSearchParams({
-    geometry: `${lon},${lat}`,
-    geometryType: "esriGeometryPoint",
-    inSR: "4326",
-    distance: String(radiusMiles),
-    units: "esriSRUnit_StatuteMile",
-    spatialRel: "esriSpatialRelIntersects",
-    outFields,
-    returnGeometry: "true",
-    f: "geojson",
-    resultRecordCount: "10",
-  });
-  const res = await fetch(`${url}?${params}`);
-  if (!res.ok) {
-    console.warn(`Tower query to ${url} returned ${res.status}`);
-    return null;
-  }
-  const fc = await res.json();
-  return fc?.features || null;
+function towerType(tags) {
+  if (tags["communication:mobile_phone"] === "yes") return "Cellular";
+  if (tags["tower:type"] === "communication") return "Communication";
+  if (tags["man_made"] === "mast") return "Tower/Mast";
+  return "Tower";
+}
+
+function towerOperator(tags) {
+  return tags.operator || tags.name || tags["communication:operator"] || "Unknown";
 }
 
 Deno.serve(async (req) => {
@@ -46,53 +30,53 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { lat, lon, radius_miles = 2 } = await req.json();
-    if (!lat || !lon) return Response.json({ error: 'lat and lon are required' }, { status: 400 });
+    const { lat, lon, radius_miles } = await req.json();
+    if (!lat || !lon) return Response.json({ error: 'lat and lon required' }, { status: 400 });
 
-    // Try primary endpoint
-    let features = await queryTowers(
-      HIFLD_URLS[0], lat, lon, radius_miles,
-      "OWNER,TYPE,STRUCTHGT,LATITUDE,LONGITUDE"
-    );
+    const radiusMeters = Math.round((radius_miles || 2) * 1609.344);
 
-    // Try fallback endpoint if primary fails or returns empty
-    if (!features || features.length === 0) {
-      console.log(`Trying fallback cell tower endpoint for ${lat},${lon}`);
-      features = await queryTowers(
-        HIFLD_URLS[1], lat, lon, radius_miles,
-        "*"
-      );
-    }
+    // Overpass QL — nodes tagged as masts or towers with communication type
+    const query = `[out:json][timeout:20];(node[man_made=mast](around:${radiusMeters},${lat},${lon});node[man_made=tower][tower:type=communication](around:${radiusMeters},${lat},${lon}););out body 20;`;
 
-    if (!features || features.length === 0) {
-      console.log(`No towers found within ${radius_miles} mi of ${lat},${lon}`);
+    console.log(`[cellTower] Overpass query radius=${radiusMeters}m at ${lat},${lon}`);
+    const res = await fetch(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`, {
+      method: "GET",
+      headers: { "Accept": "application/json" },
+    });
+
+    if (!res.ok) {
+      console.warn(`[cellTower] Overpass returned ${res.status}`);
       return Response.json({ towers: [] });
     }
 
-    const towers = features
-      .map(f => {
-        if (!f.geometry?.coordinates) return null;
-        const [tlon, tlat] = f.geometry.coordinates;
-        const p = f.properties;
-        const dist = haversineMiles(lat, lon, tlat, tlon);
+    const data = await res.json();
+    const elements = data.elements || [];
+    console.log(`[cellTower] Overpass returned ${elements.length} elements`);
+
+    const towers = elements
+      .map((el) => {
+        const tLat = el.lat;
+        const tLon = el.lon;
+        if (!tLat || !tLon) return null;
+        const tags = el.tags || {};
+        const distMiles = haversineMiles(lat, lon, tLat, tLon);
         return {
-          operator: p.OWNER || p.owner || "Unknown",
-          type: p.TYPE || p.type || "Tower",
-          distance_miles: parseFloat(dist.toFixed(2)),
-          lat: tlat,
-          lon: tlon,
-          height_m: p.STRUCTHGT || p.structhgt || null,
+          operator: towerOperator(tags),
+          type: towerType(tags),
+          distance_miles: parseFloat(distMiles.toFixed(2)),
+          lat: tLat,
+          lon: tLon,
         };
       })
       .filter(Boolean)
       .sort((a, b) => a.distance_miles - b.distance_miles)
-      .slice(0, 3);
+      .slice(0, 5);
 
-    console.log(`Cell tower lookup: user=${user.email} lat=${lat} lon=${lon} → ${towers.length} towers found`);
+    console.log(`[cellTower] returning ${towers.length} towers`);
     return Response.json({ towers });
 
   } catch (error) {
     console.error('cellTowerLookup error:', error.message);
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ towers: [], error: error.message });
   }
 });

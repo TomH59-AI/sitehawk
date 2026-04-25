@@ -1,12 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-// ASCE 7-22 Wind Speed — correct service endpoints confirmed via ArcGIS catalog
-// w2022_Tile_RC_II = Risk Category II, US customary (mph)
-const ASCE_BASE = "https://gis.asce.org/arcgis/rest/services/ASCE722/w2022_Tile_RC_II/MapServer";
-
-// Layer 0: Wind Points (Vmph) — contour_mph field — queryable Feature Layer
-// Layer 1: Hurricane Prone Region — polyline (boundary line, not polygon)
-// Layer 3: Special Wind Region — polygon
+// ASCE 7-22 Wind Speed — w2022_Tile_RC_II_new MapServer
+// Layer 5 = Wind Speed CONUS (Vmph) — identify returns pixel value already in mph
+const ASCE_BASE = "https://gis.asce.org/arcgis/rest/services/ASCE722/w2022_Tile_RC_II_new/MapServer";
 
 function classifyRisk(mph) {
   if (!mph) return "unknown";
@@ -14,6 +10,14 @@ function classifyRisk(mph) {
   if (mph >= 130) return "high";
   if (mph >= 110) return "moderate";
   return "low";
+}
+
+// ASCE 7-22 §26.5.1 — Hurricane Prone Region: Atlantic/Gulf coast where Vult > 115 mph
+function isHurricaneProne(mph, lat, lon) {
+  if (!mph || mph < 115) return false;
+  // Gulf Coast + Atlantic seaboard band
+  const isCoastal = lon >= -98 && lon <= -65 && lat >= 24 && lat <= 48;
+  return isCoastal;
 }
 
 Deno.serve(async (req) => {
@@ -25,93 +29,77 @@ Deno.serve(async (req) => {
     const { lat, lon } = await req.json();
     if (!lat || !lon) return Response.json({ error: 'lat and lon required' }, { status: 400 });
 
-    // Query nearest wind contour point within 50 miles
-    // Layer 0 uses Web Mercator (102100) so we use geographic SR 4326 with inSR/outSR
-    const windParams = new URLSearchParams({
-      geometry: `${lon},${lat}`,
-      geometryType: "esriGeometryPoint",
-      inSR: "4326",
-      spatialRel: "esriSpatialRelIntersects",
-      distance: "100000",   // 100km radius to find nearest contour point
-      units: "esriSRUnit_Meter",
-      outFields: "contour_mph,MRI,Notes",
-      returnGeometry: "false",
-      orderByFields: "",    // no ordering — we pick closest manually
-      f: "json",
-      resultRecordCount: "5",
-    });
+    const delta = 0.1;
+    const mapExtent = `${lon - delta},${lat - delta},${lon + delta},${lat + delta}`;
 
-    // Layer 3: Special Wind Region polygon — check if point falls inside
-    const specialParams = new URLSearchParams({
+    // Identify — pulls raster pixel from layer 5 (CONUS wind speed, values in mph)
+    const identifyUrl = `${ASCE_BASE}/identify?` + new URLSearchParams({
       geometry: `${lon},${lat}`,
       geometryType: "esriGeometryPoint",
-      inSR: "4326",
-      spatialRel: "esriSpatialRelIntersects",
-      outFields: "*",
+      sr: "4326",
+      layers: "visible",
+      tolerance: "20",
+      mapExtent,
+      imageDisplay: "800,600,96",
       returnGeometry: "false",
       f: "json",
     });
 
-    // Layer 1: Hurricane Prone Region — it's a polyline (the boundary)
-    // Check if point is within ~50mi of the boundary line OR use a known coastal FL/TX/LA/NC/SC/GA/AL/MS/VA/MD check
-    // Since layer 1 is a polyline boundary, we buffer and check within 1 mile of the line
-    const hurricaneParams = new URLSearchParams({
-      geometry: `${lon},${lat}`,
-      geometryType: "esriGeometryPoint",
-      inSR: "4326",
-      spatialRel: "esriSpatialRelIntersects",
-      distance: "1600",  // ~1 mile in meters
-      units: "esriSRUnit_Meter",
-      outFields: "*",
-      returnGeometry: "false",
-      f: "json",
-    });
+    const identifyRes = await fetch(identifyUrl);
+    const identifyData = identifyRes.ok ? await identifyRes.json() : { results: [] };
 
-    const [windRes, specialRes, hurricaneLineRes] = await Promise.all([
-      fetch(`${ASCE_BASE}/0/query?${windParams}`),
-      fetch(`${ASCE_BASE}/3/query?${specialParams}`),
-      fetch(`${ASCE_BASE}/1/query?${hurricaneParams}`),
-    ]);
+    console.log(`[ASCE wind] identify results: ${identifyData.results?.length ?? 0}`);
+    identifyData.results?.forEach(r =>
+      console.log(`  layer ${r.layerId} "${r.layerName}": ${JSON.stringify(r.attributes)}`)
+    );
 
-    const [windData, specialData, hurricaneLineData] = await Promise.all([
-      windRes.ok ? windRes.json() : { features: [] },
-      specialRes.ok ? specialRes.json() : { features: [] },
-      hurricaneLineRes.ok ? hurricaneLineRes.json() : { features: [] },
-    ]);
-
-    console.log(`[ASCE] wind points: ${windData.features?.length ?? 0}, special: ${specialData.features?.length ?? 0}, hurricane line: ${hurricaneLineData.features?.length ?? 0}`);
-
-    // Extract wind speed from nearest contour point
+    // Extract wind speed from any result that has a pixel value
     let wind_speed_mph = null;
-    let wind_mri = null;
+    const wind_mri = "700-Year MRI (Risk Category II)";
 
-    if (windData.features?.length > 0) {
-      // Take the first result (closest point by spatial query)
-      const attrs = windData.features[0].attributes;
-      const mph = attrs.contour_mph;
-      if (mph && mph > 0) {
-        wind_speed_mph = mph;
-        wind_mri = attrs.MRI || "700-Year MRI (Risk Category II)";
-      }
+    for (const r of (identifyData.results || [])) {
+      const raw = r.attributes?.["Classify.Pixel Value"]
+        || r.attributes?.["Pixel Value"]
+        || r.attributes?.["pixel_value"];
+
+      if (!raw || raw === "NoData" || raw === "null") continue;
+      const val = parseFloat(raw);
+      if (isNaN(val) || val <= 0) continue;
+
+      // Layer 5 of w2022_Tile_RC_II_new returns mph directly (85–200 mph range for CONUS)
+      wind_speed_mph = Math.round(val);
+      break;
     }
 
-    // Hurricane Prone Region: the polyline represents the boundary
-    // If we find any results, the point is near the hurricane zone boundary
-    // Additionally use geographic heuristic: coastal Southeast/Gulf/Atlantic states
-    const hurricaneStates = /FL|TX|LA|MS|AL|GA|SC|NC|VA|MD|DE|NJ|NY|CT|RI|MA|NH|ME/i;
-    const isCoastalLat = lat >= 24 && lat <= 47; // rough US coastal band
-    // Simple heuristic: FL, Gulf Coast, and Atlantic seaboard are in hurricane prone region
-    // ASCE 7-22 defines it as within 100 miles of coast in these states
-    // We'll use the polyline query + a geographic check
-    const in_hurricane_prone_region = (hurricaneLineData.features?.length > 0);
-    const in_special_wind_region = (specialData.features?.length > 0);
+    const in_hurricane_prone_region = isHurricaneProne(wind_speed_mph, lat, lon);
     const wind_risk_level = classifyRisk(wind_speed_mph);
 
-    console.log(`[ASCE] result: ${wind_speed_mph} mph (${wind_mri}), hurricane=${in_hurricane_prone_region}, special=${in_special_wind_region}, risk=${wind_risk_level}`);
+    // Special Wind Region check via the dedicated polygon service
+    let in_special_wind_region = false;
+    try {
+      const swrUrl = "https://gis.asce.org/arcgis/rest/services/ASCE722/w2022_Special_Wind_Regions/MapServer/0/query?" + new URLSearchParams({
+        geometry: `${lon},${lat}`,
+        geometryType: "esriGeometryPoint",
+        inSR: "4326",
+        spatialRel: "esriSpatialRelIntersects",
+        outFields: "OBJECTID",
+        returnGeometry: "false",
+        f: "json",
+      });
+      const swrRes = await fetch(swrUrl);
+      if (swrRes.ok) {
+        const swrData = await swrRes.json();
+        in_special_wind_region = (swrData.features?.length > 0);
+      }
+    } catch (e) {
+      console.warn("[ASCE wind] Special wind region check failed:", e.message);
+    }
+
+    console.log(`[ASCE wind] final: ${wind_speed_mph} mph | hurricane=${in_hurricane_prone_region} | special=${in_special_wind_region} | risk=${wind_risk_level}`);
 
     return Response.json({
       wind_speed_mph,
-      wind_mri,
+      wind_mri: wind_speed_mph ? wind_mri : null,
       in_hurricane_prone_region,
       in_special_wind_region,
       wind_risk_level,
