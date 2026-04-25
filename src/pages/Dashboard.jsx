@@ -9,6 +9,7 @@ import SearchHistoryTable from "../components/dashboard/SearchHistoryTable";
 import WelcomeModal from "../components/onboarding/WelcomeModal";
 import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import ReferralPanel from "../components/referral/ReferralPanel";
+import FieldConnectCard from "../components/dashboard/FieldConnectCard";
 
 const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
 
@@ -89,6 +90,9 @@ export default function Dashboard() {
 
       {/* Stats */}
       <StatsCards searches={searches} results={results} />
+
+      {/* Field Connect — WhatsApp */}
+      <FieldConnectCard tier={tier} />
 
       {/* History */}
       <div>
