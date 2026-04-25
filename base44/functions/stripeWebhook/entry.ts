@@ -2,6 +2,107 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
+const LOB_API_KEY = Deno.env.get('LOB_API_KEY_SECRET');
+
+// Parse a mailing address string into Lob's required fields (best-effort)
+function parseAddress(raw) {
+  if (!raw) return null;
+  // Try to split "123 Main St, City, ST 12345" or "123 Main St\nCity, ST 12345"
+  const normalized = raw.replace(/\n/g, ', ');
+  const parts = normalized.split(',').map(s => s.trim());
+  if (parts.length < 3) return null;
+  const lastPart = parts[parts.length - 1]; // "ST 12345"
+  const stateZip = lastPart.trim().split(' ');
+  const zip = stateZip[stateZip.length - 1];
+  const state = stateZip[stateZip.length - 2] || '';
+  const city = parts[parts.length - 2] || '';
+  const line1 = parts.slice(0, parts.length - 2).join(', ');
+  return { line1, city, state, zip };
+}
+
+async function fulfillDirectMail(meta) {
+  const {
+    letters, owner_name, mailing_address, parcel_address,
+    sender_company, sender_address, sender_phone, sender_email, user_email
+  } = meta;
+
+  const numLetters = parseInt(letters) || 3;
+
+  // Parse recipient address
+  const toAddr = parseAddress(mailing_address);
+  if (!toAddr) throw new Error(`Could not parse mailing address: ${mailing_address}`);
+
+  // Parse sender return address (fallback to a placeholder if not provided)
+  const fromAddr = parseAddress(sender_address) || {
+    line1: '100 SkyWave HQ',
+    city: 'Miami',
+    state: 'FL',
+    zip: '33101',
+  };
+
+  const senderName = sender_company || user_email || 'SiteHawk';
+
+  // Send each letter spaced 7 days apart using Lob's scheduled send_date
+  const today = new Date();
+  for (let i = 0; i < numLetters; i++) {
+    const sendDate = new Date(today);
+    sendDate.setDate(today.getDate() + i * 7);
+    const sendDateStr = sendDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const letterBody = `Dear ${owner_name || 'Property Owner'},
+
+My name is ${senderName} and I am reaching out regarding a ground lease opportunity on your property located at ${parcel_address || 'your property'}.
+
+We are actively seeking sites in your area to lease ground space for wireless cell tower installation. Cell tower leases typically generate $1,500–$3,500+ per month in passive income for property owners, with lease terms of 25–30 years.
+
+Your property has been identified as a strong candidate based on its location, size, and zoning. This requires only a small footprint (~50x50 ft) and will not interfere with your property's primary use. There is NO COST to you — we handle all permitting, construction, and maintenance.
+
+If you are interested, please contact us${sender_phone ? ' at ' + sender_phone : ''}${sender_email ? ' or ' + sender_email : ''}.
+
+Sincerely,
+${senderName}`;
+
+    const lobPayload = {
+      description: `Letter ${i + 1} of ${numLetters} — ${owner_name}`,
+      to: {
+        name: owner_name || 'Property Owner',
+        address_line1: toAddr.line1,
+        address_city: toAddr.city,
+        address_state: toAddr.state,
+        address_zip: toAddr.zip,
+        address_country: 'US',
+      },
+      from: {
+        name: senderName,
+        address_line1: fromAddr.line1,
+        address_city: fromAddr.city,
+        address_state: fromAddr.state,
+        address_zip: fromAddr.zip,
+        address_country: 'US',
+      },
+      file: `<html><body style="font-family:Arial,sans-serif;font-size:13px;line-height:1.7;padding:60px 80px;max-width:700px;">${letterBody.replace(/\n/g, '<br/>')}</body></html>`,
+      color: false,
+      send_date: sendDateStr,
+    };
+
+    const res = await fetch('https://api.lob.com/v1/letters', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(LOB_API_KEY + ':')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(lobPayload),
+    });
+
+    const result = await res.json();
+    if (!res.ok) {
+      throw new Error(`Lob letter ${i + 1} failed: ${JSON.stringify(result)}`);
+    }
+    console.log(`Lob letter ${i + 1}/${numLetters} scheduled for ${sendDateStr} — ID: ${result.id}`);
+  }
+
+  console.log(`Direct mail fulfillment complete: ${numLetters} letters queued for ${owner_name} at ${mailing_address}`);
+}
 
 Deno.serve(async (req) => {
   const body = await req.text();
@@ -25,6 +126,18 @@ Deno.serve(async (req) => {
         const session = event.data.object;
         const userEmail = session.metadata?.user_email;
         const plan = session.metadata?.plan;
+        const type = session.metadata?.type;
+
+        // ── Direct Mail Fulfillment via Lob ──
+        if (type === 'direct_mail') {
+          try {
+            await fulfillDirectMail(session.metadata);
+          } catch (lobErr) {
+            console.error('Lob fulfillment error:', lobErr.message);
+          }
+          break;
+        }
+
         if (!userEmail || !plan) break;
 
         console.log(`Checkout completed for ${userEmail}, plan: ${plan}`);
