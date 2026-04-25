@@ -65,7 +65,22 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
           )}
         </div>
         <InfoRow icon={MapPin} label="Coordinates" value={`${result.latitude?.toFixed(5)}, ${result.longitude?.toFixed(5)}`} />
-        <InfoRow icon={Shield} label="FEMA Risk" value={result.fema_risk_factor} />
+        <div className="flex items-start gap-2">
+          <Shield className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+          <div className="text-xs">
+            <span className="text-muted-foreground">FEMA Flood Zone: </span>
+            <span className={`font-bold ${result.fema_risk_level === "high" ? "text-red-500" : result.fema_risk_level === "minimal" ? "text-green-600" : "text-amber-500"}`}>
+              {result.fema_risk_factor || "N/A"}
+              {result.fema_sfha && " ⚠ SFHA"}
+            </span>
+            {result.fema_zone_description && (
+              <span className="text-muted-foreground"> — {result.fema_zone_description}</span>
+            )}
+            {result.fema_bfe && (
+              <span className="text-muted-foreground"> · BFE: {result.fema_bfe} ft</span>
+            )}
+          </div>
+        </div>
         {result.airport_iata && (
           <div className="sm:col-span-2">
             <div className="flex items-start gap-2">

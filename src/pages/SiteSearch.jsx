@@ -16,6 +16,7 @@ import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { nearestAirport } from "@/functions/nearestAirport";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
+import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
@@ -131,8 +132,8 @@ export default function SiteSearch() {
 
     const parcels = (data.candidates || []).slice(0, 5);
 
-    // Look up airports, cell towers, AND FCC broadband for all parcels in parallel
-    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups] = await Promise.all([
+    // Look up all external data sources in parallel
+    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups, femaLookups] = await Promise.all([
       Promise.all(
         parcels.map(async (parcel) => {
           try {
@@ -164,6 +165,14 @@ export default function SiteSearch() {
             return res.data || {};
           } catch (e) { return {}; }
         })
+      ),
+      Promise.all(
+        parcels.map(async (parcel) => {
+          try {
+            const res = await femaFloodLookup({ lat: parcel.latitude, lon: parcel.longitude });
+            return res.data || {};
+          } catch (e) { return {}; }
+        })
       )
     ]);
 
@@ -175,6 +184,7 @@ export default function SiteSearch() {
       const cellTowers = cellTowerLookups[i]?.towers || [];
       const fcc = fccLookups[i] || {};
       const wetlands = wetlandLookups[i] || {};
+      const fema = femaLookups[i] || {};
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
         site_name: parcel.site_name,
@@ -186,7 +196,12 @@ export default function SiteSearch() {
         owner_mailing_address: parcel.owner_mailing_address,
         latitude: parcel.latitude,
         longitude: parcel.longitude,
-        fema_risk_factor: parcel.fema_risk,
+        fema_risk_factor: fema.fema_zone || parcel.fema_risk,
+        fema_zone_description: fema.fema_zone_description || null,
+        fema_risk_level: fema.fema_risk_level || null,
+        fema_sfha: fema.sfha || false,
+        fema_bfe: fema.static_bfe || null,
+        fema_zone_subtype: fema.zone_subtype || null,
         phone: parcel.phone,
         email: parcel.email,
         match_score: parcel.match_score,

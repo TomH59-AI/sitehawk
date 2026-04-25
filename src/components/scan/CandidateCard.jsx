@@ -151,7 +151,10 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
         {result.zoning_classification && <Tag label={result.zoning_classification} color="#00d4ff" />}
         {result.fema_risk_factor && (
-          <Tag label={`FEMA: ${result.fema_risk_factor}`} color={result.fema_risk_factor?.toLowerCase().includes("x") ? "#22c55e" : "#f59e0b"} />
+          <Tag
+            label={`FEMA: ${result.fema_risk_factor}${result.fema_sfha ? " ⚠ SFHA" : ""}`}
+            color={result.fema_risk_level === "high" ? "#ef4444" : result.fema_risk_level === "minimal" ? "#22c55e" : "#f59e0b"}
+          />
         )}
         {result.parcel_size_acres && <Tag label={`${result.parcel_size_acres} ac`} color="#94a3b8" />}
         {result.airport_iata && (

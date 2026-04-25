@@ -436,7 +436,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         ["Parcel Size", r.parcel_size_acres ? `${r.parcel_size_acres} acres` : null],
         ["Zoning", r.zoning_classification],
         ["GPS Coordinates", `${r.latitude?.toFixed(5)}, ${r.longitude?.toFixed(5)}`],
-        ["FEMA Risk", r.fema_risk_factor],
+        ["FEMA Zone (NFHL)", r.fema_risk_factor ? `${r.fema_risk_factor}${r.fema_sfha ? " ⚠ SFHA" : ""}${r.fema_zone_description ? " — " + r.fema_zone_description.substring(0, 30) : ""}` : "N/A"],
         ["Power Utility", r.power_utility],
         ["Nearest Airport", r.airport_iata ? `${r.airport_iata} · ${r.airport_name} · ${r.airport_distance_miles?.toFixed(1)} mi` : null],
         ["Airport Coords", r.airport_lat ? `${r.airport_lat?.toFixed(5)}, ${r.airport_lon?.toFixed(5)}` : null],

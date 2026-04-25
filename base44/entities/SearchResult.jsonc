@@ -34,7 +34,28 @@
       "type": "number"
     },
     "fema_risk_factor": {
-      "type": "string"
+      "type": "string",
+      "description": "FEMA flood zone code (AE, X, VE, etc.) from NFHL"
+    },
+    "fema_zone_description": {
+      "type": "string",
+      "description": "Human-readable FEMA zone description"
+    },
+    "fema_risk_level": {
+      "type": "string",
+      "description": "high, minimal, or undetermined"
+    },
+    "fema_sfha": {
+      "type": "boolean",
+      "description": "True if in Special Flood Hazard Area (SFHA)"
+    },
+    "fema_bfe": {
+      "type": "number",
+      "description": "Base Flood Elevation in feet (if available)"
+    },
+    "fema_zone_subtype": {
+      "type": "string",
+      "description": "FEMA zone subtype detail"
     },
     "phone": {
       "type": "string"
@@ -108,11 +129,11 @@
     },
     "has_fiber": {
       "type": "boolean",
-      "description": "True if fiber broadband is available at this location per FCC data"
+      "description": "True if fiber broadband is available per FCC data"
     },
     "power_utility": {
       "type": "string",
-      "description": "EIA electric utility provider name serving this location"
+      "description": "EIA electric utility provider name"
     },
     "fcc_block_geoid": {
       "type": "string",
@@ -120,11 +141,11 @@
     },
     "transmission_line_distance_miles": {
       "type": "number",
-      "description": "Distance in miles to nearest high-voltage transmission line (EIA/ArcGIS)"
+      "description": "Distance in miles to nearest high-voltage transmission line"
     },
     "transmission_line_voltage": {
       "type": "string",
-      "description": "Voltage class of nearest transmission line (e.g. 345 kV)"
+      "description": "Voltage class of nearest transmission line"
     },
     "wetlands_present": {
       "type": "boolean",
@@ -132,14 +153,14 @@
     },
     "wetland_types": {
       "type": "array",
-      "description": "NWI wetland type(s) found (e.g. Freshwater Emergent Wetland)",
+      "description": "NWI wetland type(s) found",
       "items": {
         "type": "string"
       }
     },
     "wetland_proximity": {
       "type": "string",
-      "description": "on-site (point inside wetland polygon) or adjacent (~100m)"
+      "description": "on-site or adjacent (~100m)"
     }
   },
   "required": [
