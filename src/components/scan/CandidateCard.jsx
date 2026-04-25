@@ -184,6 +184,12 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
         {result.wetlands_present === false && (
           <Tag label="✓ No Wetlands (NWI)" color="#22c55e" />
         )}
+        {result.wind_speed_mph && (
+          <Tag
+            label={`💨 Wind: ${result.wind_speed_mph} mph${result.in_hurricane_prone_region ? " ⚠ Hurricane" : ""}${result.in_special_wind_region ? " ⚠ Special" : ""}`}
+            color={result.wind_risk_level === "extreme" ? "#ef4444" : result.wind_risk_level === "high" ? "#f59e0b" : result.wind_risk_level === "moderate" ? "#f59e0b" : "#22c55e"}
+          />
+        )}
       </div>
 
       {/* Fiber providers detail */}

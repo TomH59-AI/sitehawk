@@ -116,6 +116,20 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
             </div>
           </div>
         )}
+        {result.wind_speed_mph && (
+          <div className="flex items-start gap-2">
+            <span className="text-sm mt-0.5">💨</span>
+            <div className="text-xs">
+              <span className="text-muted-foreground font-medium">Wind Speed (ASCE 7-22): </span>
+              <span className={`font-bold ${result.wind_risk_level === "extreme" ? "text-red-500" : result.wind_risk_level === "high" ? "text-amber-500" : result.wind_risk_level === "moderate" ? "text-amber-400" : "text-green-600"}`}>
+                {result.wind_speed_mph} mph
+              </span>
+              {result.wind_mri && <span className="text-muted-foreground"> · {result.wind_mri}</span>}
+              {result.in_hurricane_prone_region && <span className="text-amber-500 font-semibold"> · ⚠ Hurricane Prone Region</span>}
+              {result.in_special_wind_region && <span className="text-red-500 font-semibold"> · ⚠ Special Wind Region</span>}
+            </div>
+          </div>
+        )}
         {result.wetlands_present !== undefined && result.wetlands_present !== null && (
           <div className="sm:col-span-2">
             <div className="flex items-start gap-2">

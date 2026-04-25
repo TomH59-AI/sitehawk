@@ -17,6 +17,7 @@ import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { nearestAirport } from "@/functions/nearestAirport";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
+import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
@@ -133,7 +134,7 @@ export default function SiteSearch() {
     const parcels = (data.candidates || []).slice(0, 5);
 
     // Look up all external data sources in parallel
-    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups, femaLookups] = await Promise.all([
+    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups, femaLookups, windLookups] = await Promise.all([
       Promise.all(
         parcels.map(async (parcel) => {
           try {
@@ -173,7 +174,15 @@ export default function SiteSearch() {
             return res.data || {};
           } catch (e) { return {}; }
         })
-      )
+      ),
+      Promise.all(
+        parcels.map(async (parcel) => {
+          try {
+            const res = await windSpeedLookup({ lat: parcel.latitude, lon: parcel.longitude });
+            return res.data || {};
+          } catch (e) { return {}; }
+        })
+      ),
     ]);
 
     // Save results to DB
@@ -185,6 +194,7 @@ export default function SiteSearch() {
       const fcc = fccLookups[i] || {};
       const wetlands = wetlandLookups[i] || {};
       const fema = femaLookups[i] || {};
+      const wind = windLookups[i] || {};
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
         site_name: parcel.site_name,
@@ -220,6 +230,11 @@ export default function SiteSearch() {
         wetlands_present: wetlands.wetlands_present || false,
         wetland_types: wetlands.wetland_types || [],
         wetland_proximity: wetlands.wetland_proximity || null,
+        wind_speed_mph: wind.wind_speed_mph || null,
+        wind_mri: wind.wind_mri || null,
+        wind_risk_level: wind.wind_risk_level || null,
+        in_hurricane_prone_region: wind.in_hurricane_prone_region || false,
+        in_special_wind_region: wind.in_special_wind_region || false,
       });
       savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }

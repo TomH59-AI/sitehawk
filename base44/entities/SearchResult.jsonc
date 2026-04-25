@@ -57,6 +57,26 @@
       "type": "string",
       "description": "FEMA zone subtype detail"
     },
+    "wind_speed_mph": {
+      "type": "number",
+      "description": "ASCE 7-22 design wind speed in mph (3-sec gust, Risk Category II)"
+    },
+    "wind_mri": {
+      "type": "string",
+      "description": "Mean Recurrence Interval from ASCE 7-22"
+    },
+    "wind_risk_level": {
+      "type": "string",
+      "description": "low, moderate, high, or extreme"
+    },
+    "in_hurricane_prone_region": {
+      "type": "boolean",
+      "description": "True if site is in ASCE 7-22 Hurricane Prone Region"
+    },
+    "in_special_wind_region": {
+      "type": "boolean",
+      "description": "True if site is in ASCE 7-22 Special Wind Region (local study required)"
+    },
     "phone": {
       "type": "string"
     },
