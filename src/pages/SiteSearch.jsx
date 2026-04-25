@@ -14,6 +14,7 @@ import FilterPanel from "../components/search/FilterPanel";
 import { siteSearch } from "@/functions/siteSearch";
 import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
+import { nearestAirport } from "@/functions/nearestAirport";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
@@ -134,19 +135,8 @@ export default function SiteSearch() {
       Promise.all(
         parcels.map(async (parcel) => {
           try {
-            return await base44.integrations.Core.InvokeLLM({
-              prompt: `What is the nearest commercial or regional airport to coordinates ${parcel.latitude}, ${parcel.longitude}? Provide the IATA code (or FAA identifier if no IATA), full airport name, distance in miles from those coordinates, and the airport's latitude and longitude.`,
-              response_json_schema: {
-                type: "object",
-                properties: {
-                  iata: { type: "string" },
-                  name: { type: "string" },
-                  distance_miles: { type: "number" },
-                  lat: { type: "number" },
-                  lon: { type: "number" }
-                }
-              }
-            });
+            const res = await nearestAirport({ lat: parcel.latitude, lon: parcel.longitude });
+            return res.data || {};
           } catch (e) { return {}; }
         })
       ),
@@ -190,8 +180,8 @@ export default function SiteSearch() {
         phone: parcel.phone,
         email: parcel.email,
         match_score: parcel.match_score,
-        airport_iata: airport.iata || null,
-        airport_name: airport.name || null,
+        airport_iata: airport.iata || airport.icao || null,
+        airport_name: airport.name ? `${airport.name}${airport.city ? ' · ' + airport.city : ''}${airport.state ? ', ' + airport.state : ''}` : null,
         airport_distance_miles: airport.distance_miles || null,
         airport_lat: airport.lat || null,
         airport_lon: airport.lon || null,
