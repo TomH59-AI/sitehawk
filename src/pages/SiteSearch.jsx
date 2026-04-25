@@ -15,6 +15,7 @@ import { siteSearch } from "@/functions/siteSearch";
 import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { nearestAirport } from "@/functions/nearestAirport";
+import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
@@ -131,7 +132,7 @@ export default function SiteSearch() {
     const parcels = (data.candidates || []).slice(0, 5);
 
     // Look up airports, cell towers, AND FCC broadband for all parcels in parallel
-    const [airportLookups, cellTowerLookups, fccLookups] = await Promise.all([
+    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups] = await Promise.all([
       Promise.all(
         parcels.map(async (parcel) => {
           try {
@@ -155,6 +156,14 @@ export default function SiteSearch() {
             return res.data || {};
           } catch (e) { return {}; }
         })
+      ),
+      Promise.all(
+        parcels.map(async (parcel) => {
+          try {
+            const res = await wetlandsLookup({ lat: parcel.latitude, lon: parcel.longitude });
+            return res.data || {};
+          } catch (e) { return {}; }
+        })
       )
     ]);
 
@@ -165,6 +174,7 @@ export default function SiteSearch() {
       const airport = airportLookups[i] || {};
       const cellTowers = cellTowerLookups[i]?.towers || [];
       const fcc = fccLookups[i] || {};
+      const wetlands = wetlandLookups[i] || {};
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
         site_name: parcel.site_name,
@@ -192,6 +202,9 @@ export default function SiteSearch() {
         fcc_block_geoid: fcc.fcc_block_geoid || null,
         transmission_line_distance_miles: fcc.transmission_line_distance_miles || null,
         transmission_line_voltage: fcc.transmission_line_voltage || null,
+        wetlands_present: wetlands.wetlands_present || false,
+        wetland_types: wetlands.wetland_types || [],
+        wetland_proximity: wetlands.wetland_proximity || null,
       });
       savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }

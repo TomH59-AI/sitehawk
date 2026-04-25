@@ -101,6 +101,24 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
             </div>
           </div>
         )}
+        {result.wetlands_present !== undefined && result.wetlands_present !== null && (
+          <div className="sm:col-span-2">
+            <div className="flex items-start gap-2">
+              <span className="text-sm mt-0.5">🌿</span>
+              <div className="text-xs">
+                <span className="text-muted-foreground font-medium">Wetlands (NWI): </span>
+                {result.wetlands_present === false ? (
+                  <span className="text-green-600 font-semibold">None detected</span>
+                ) : (
+                  <span className={result.wetland_proximity === "on-site" ? "text-red-500 font-bold" : "text-amber-500 font-semibold"}>
+                    {result.wetland_proximity === "on-site" ? "⚠ ON SITE" : "Adjacent (~100m)"}
+                    {result.wetland_types?.length > 0 && ` · ${result.wetland_types.join(", ")}`}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <InfoRow icon={Phone} label="Phone" value={result.phone} />
         <InfoRow icon={Mail} label="Email" value={result.email} />
         {result.owner_mailing_address && (

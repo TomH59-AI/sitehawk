@@ -172,6 +172,15 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
             color={result.transmission_line_distance_miles <= 1 ? "#22c55e" : result.transmission_line_distance_miles <= 3 ? "#f59e0b" : "#64748b"}
           />
         )}
+        {result.wetlands_present === true && (
+          <Tag
+            label={`🌿 Wetlands${result.wetland_proximity === "on-site" ? " ON SITE" : " Adjacent"}${result.wetland_types?.length ? ` · ${result.wetland_types[0]}` : ""}`}
+            color={result.wetland_proximity === "on-site" ? "#ef4444" : "#f59e0b"}
+          />
+        )}
+        {result.wetlands_present === false && (
+          <Tag label="✓ No Wetlands (NWI)" color="#22c55e" />
+        )}
       </div>
 
       {/* Fiber providers detail */}

@@ -125,6 +125,21 @@
     "transmission_line_voltage": {
       "type": "string",
       "description": "Voltage class of nearest transmission line (e.g. 345 kV)"
+    },
+    "wetlands_present": {
+      "type": "boolean",
+      "description": "True if USFWS NWI wetlands are on or adjacent to this parcel"
+    },
+    "wetland_types": {
+      "type": "array",
+      "description": "NWI wetland type(s) found (e.g. Freshwater Emergent Wetland)",
+      "items": {
+        "type": "string"
+      }
+    },
+    "wetland_proximity": {
+      "type": "string",
+      "description": "on-site (point inside wetland polygon) or adjacent (~100m)"
     }
   },
   "required": [
