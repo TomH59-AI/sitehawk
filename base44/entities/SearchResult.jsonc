@@ -112,11 +112,19 @@
     },
     "power_utility": {
       "type": "string",
-      "description": "Electric utility provider name serving this location"
+      "description": "EIA electric utility provider name serving this location"
     },
     "fcc_block_geoid": {
       "type": "string",
       "description": "FCC census block GEOID used for lookup"
+    },
+    "transmission_line_distance_miles": {
+      "type": "number",
+      "description": "Distance in miles to nearest high-voltage transmission line (EIA/ArcGIS)"
+    },
+    "transmission_line_voltage": {
+      "type": "string",
+      "description": "Voltage class of nearest transmission line (e.g. 345 kV)"
     }
   },
   "required": [

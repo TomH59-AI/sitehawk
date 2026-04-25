@@ -200,6 +200,8 @@ export default function SiteSearch() {
         has_fiber: fcc.has_fiber || false,
         power_utility: fcc.power_utility || null,
         fcc_block_geoid: fcc.fcc_block_geoid || null,
+        transmission_line_distance_miles: fcc.transmission_line_distance_miles || null,
+        transmission_line_voltage: fcc.transmission_line_voltage || null,
       });
       savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }

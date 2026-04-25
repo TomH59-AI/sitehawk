@@ -166,6 +166,12 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
         {result.power_utility && (
           <Tag label={`🔌 ${result.power_utility}`} color="#f59e0b" />
         )}
+        {result.transmission_line_distance_miles != null && (
+          <Tag
+            label={`⚡ TX Line: ${result.transmission_line_distance_miles} mi${result.transmission_line_voltage ? ` · ${result.transmission_line_voltage}` : ""}`}
+            color={result.transmission_line_distance_miles <= 1 ? "#22c55e" : result.transmission_line_distance_miles <= 3 ? "#f59e0b" : "#64748b"}
+          />
+        )}
       </div>
 
       {/* Fiber providers detail */}
