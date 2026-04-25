@@ -13,6 +13,7 @@ import HawkIcon from "../components/HawkIcon";
 import FilterPanel from "../components/search/FilterPanel";
 import { siteSearch } from "@/functions/siteSearch";
 import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
+import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
@@ -152,27 +153,8 @@ export default function SiteSearch() {
       Promise.all(
         parcels.map(async (parcel) => {
           try {
-            return await base44.integrations.Core.InvokeLLM({
-              prompt: `List the 2-3 nearest existing cell towers (macro towers, small cells, or DAS nodes) to coordinates ${parcel.latitude}, ${parcel.longitude}. For each include the carrier/operator name, tower type, estimated distance in miles, and approximate latitude/longitude.`,
-              response_json_schema: {
-                type: "object",
-                properties: {
-                  towers: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        operator: { type: "string" },
-                        type: { type: "string" },
-                        distance_miles: { type: "number" },
-                        lat: { type: "number" },
-                        lon: { type: "number" }
-                      }
-                    }
-                  }
-                }
-              }
-            });
+            const res = await cellTowerLookup({ lat: parcel.latitude, lon: parcel.longitude, radius_miles: 2 });
+            return res.data || { towers: [] };
           } catch (e) { return { towers: [] }; }
         })
       ),
