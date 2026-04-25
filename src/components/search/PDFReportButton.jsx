@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Download, FileText } from "lucide-react";
 import { jsPDF } from "jspdf";
 
-const LOGO_URL = "https://media.base44.com/images/public/69dd277f9504047a559d5834/8d3b816e3_fiercesitehawklogo.png";
+const LOGO_URL = "https://media.base44.com/images/public/69dd277f9504047a559d5834/7dadc5516_logo-skyhawk.png";
 
 // Brand colors
 const NAVY      = [12, 27, 46];

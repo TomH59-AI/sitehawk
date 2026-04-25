@@ -1,4 +1,4 @@
-const ICON_URL = "https://media.base44.com/images/public/69dd277f9504047a559d5834/8d3b816e3_fiercesitehawklogo.png";
+const ICON_URL = "https://media.base44.com/images/public/69dd277f9504047a559d5834/7dadc5516_logo-skyhawk.png";
 
 export default function HawkIcon({ size = 32, className = "" }) {
   return (
