@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { skipTrace } from "@/functions/skipTrace";
 import ViewshedPanel from "./ViewshedPanel";
+import RFCoveragePanel from "./RFCoveragePanel";
 
 const PAID_TIERS = ["hawk_site", "hawkeyes", "hawk_sight", "hawkeye_20", "hawkeye_apex"];
 
@@ -84,6 +85,7 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
   const [loading, setLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [showViewshed, setShowViewshed] = useState(false);
+  const [showRFCoverage, setShowRFCoverage] = useState(false);
   const isPaid = PAID_TIERS.includes(userTier);
   const cachedContact = contactCache?.[result.id];
 
@@ -197,6 +199,29 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
         </div>
       )}
 
+      {/* ── RF Coverage Button ── */}
+      {result.latitude && result.longitude && (
+        <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => setShowRFCoverage(true)}
+            style={{
+              width: "100%", padding: "7px 10px", borderRadius: 7, cursor: "pointer",
+              background: "#0d1829",
+              border: "1px solid #22c55e33",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+              transition: "border-color 0.15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = "#22c55e88"}
+            onMouseLeave={e => e.currentTarget.style.borderColor = "#22c55e33"}
+          >
+            <span style={{ fontSize: 12 }}>📡</span>
+            <span style={{ fontSize: 11, color: "#22c55e", fontFamily: "'Space Mono', monospace" }}>
+              RF Coverage Heatmap
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* ── Viewshed Button ── */}
       {result.latitude && result.longitude && (
         <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
@@ -278,6 +303,14 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
           </button>
         )}
       </div>
+
+      {/* RF Coverage Modal */}
+      {showRFCoverage && (
+        <RFCoveragePanel
+          candidate={result}
+          onClose={() => setShowRFCoverage(false)}
+        />
+      )}
 
       {/* Viewshed Modal */}
       {showViewshed && (
