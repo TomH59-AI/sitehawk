@@ -18,8 +18,8 @@ function richTextToPlain(richText = []) {
   return richText.map(t => t?.plain_text || '').join('').trim();
 }
 
-async function notionRequest(path) {
-  const token = Deno.env.get('NOTION_API_TOKEN');
+async function notionRequest(path, accessToken) {
+  const token = accessToken || Deno.env.get('NOTION_API_TOKEN');
   if (!token) return null;
 
   const res = await fetch(`${NOTION_API}${path}`, {
@@ -37,14 +37,14 @@ async function notionRequest(path) {
   return res.json();
 }
 
-async function getAllBlockChildren(blockId) {
+async function getAllBlockChildren(blockId, accessToken) {
   const blocks = [];
   let cursor = null;
 
   do {
     const params = new URLSearchParams({ page_size: '100' });
     if (cursor) params.set('start_cursor', cursor);
-    const data = await notionRequest(`/blocks/${blockId}/children?${params}`);
+    const data = await notionRequest(`/blocks/${blockId}/children?${params}`, accessToken);
     if (!data?.results) break;
     blocks.push(...data.results);
     cursor = data.has_more ? data.next_cursor : null;
@@ -53,9 +53,9 @@ async function getAllBlockChildren(blockId) {
   return blocks;
 }
 
-async function findStateFolder(masterPageId, stateCode) {
+async function findStateFolder(masterPageId, stateCode, accessToken) {
   if (!masterPageId || !stateCode) return null;
-  const children = await getAllBlockChildren(masterPageId);
+  const children = await getAllBlockChildren(masterPageId, accessToken);
   const normalizedState = normalizeTitle(stateCode);
 
   return children.find(block => {
@@ -81,10 +81,10 @@ function blockToText(block) {
   return text;
 }
 
-async function collectNotionText(blockId, depth = 0, pageTitle = 'State Folder') {
+async function collectNotionText(blockId, depth = 0, pageTitle = 'State Folder', accessToken = null) {
   if (depth > 3) return { text: '', pages: [] };
 
-  const blocks = await getAllBlockChildren(blockId);
+  const blocks = await getAllBlockChildren(blockId, accessToken);
   const lines = [];
   const pages = [{ id: blockId, title: pageTitle }];
 
@@ -94,7 +94,7 @@ async function collectNotionText(blockId, depth = 0, pageTitle = 'State Folder')
 
     if ((block.has_children || block.type === 'child_page') && lines.join('\n').length < MAX_NOTION_CHARS) {
       const childTitle = block.child_page?.title || line.replace(/^#+\s*/, '').slice(0, 80) || 'Nested Page';
-      const child = await collectNotionText(block.id, depth + 1, childTitle);
+      const child = await collectNotionText(block.id, depth + 1, childTitle, accessToken);
       if (child.text) lines.push(child.text);
       pages.push(...child.pages);
     }
@@ -108,16 +108,16 @@ async function collectNotionText(blockId, depth = 0, pageTitle = 'State Folder')
   };
 }
 
-async function getNotionZoningContext(lat, lon) {
+async function getNotionZoningContext(lat, lon, accessToken) {
   const masterPageId = Deno.env.get('NOTION_MASTER_ZONING_PAGE_ID');
   const stateCode = await getStateCode(lat, lon);
-  const folder = await findStateFolder(masterPageId, stateCode);
+  const folder = await findStateFolder(masterPageId, stateCode, accessToken);
 
   const targetId = folder?.id || masterPageId;
   const targetTitle = folder?.child_page?.title || `${stateCode || 'State'}-Zoning`;
   if (!targetId) return { state_code: stateCode, found: false, text: '', pages: [] };
 
-  const collected = await collectNotionText(targetId, 0, targetTitle);
+  const collected = await collectNotionText(targetId, 0, targetTitle, accessToken);
   const found = collected.text.length > 0;
 
   return {
@@ -146,7 +146,8 @@ Deno.serve(async (req) => {
       parcel_id: c.parcel_id || null,
     }));
 
-    const notionContext = await getNotionZoningContext(lat, lon);
+    const { accessToken } = await base44.asServiceRole.connectors.getConnection('notion');
+    const notionContext = await getNotionZoningContext(lat, lon, accessToken);
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'gemini_3_flash',
