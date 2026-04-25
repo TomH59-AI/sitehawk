@@ -6,6 +6,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const EIA_UTILITY_URL = "https://services1.arcgis.com/4yjifSiIG17X0gW4/arcgis/rest/services/Electric_Retail_Service_Territories/FeatureServer/0/query";
 const EIA_TRANSMISSION_URL = "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/US_Electric_Power_Transmission_Lines/FeatureServer/0/query";
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.openstreetmap.ru/api/interpreter",
+];
 
 function haversineMiles(lat1, lon1, lat2, lon2) {
   const R = 3958.7613;
@@ -94,6 +99,80 @@ async function getNearestTransmissionLine(lat, lon) {
   }
 }
 
+function fiberAssetLabel(tags = {}) {
+  if (tags["communication:line"]) return `Fiber/telecom line (${tags["communication:line"]})`;
+  if (tags["cable"] === "fibre_optic" || tags["cable"] === "fiber_optic") return "Fiber optic cable";
+  if (tags["street_cabinet"] === "telecom") return "Telecom street cabinet";
+  if (tags["utility"] === "telecom") return "Telecom utility asset";
+  if (tags["telecom"]) return `Telecom ${tags["telecom"]}`;
+  return "Mapped telecom infrastructure";
+}
+
+function collectGeometryPoints(el) {
+  if (el.type === "node" && el.lat && el.lon) return [[el.lat, el.lon]];
+  if (Array.isArray(el.geometry)) return el.geometry.map(p => [p.lat, p.lon]).filter(([a, b]) => a && b);
+  return [];
+}
+
+async function getNearestFiberInfrastructure(lat, lon) {
+  const radiusMeters = 8047; // 5 miles
+  const query = `[out:json][timeout:20];(
+    node["telecom"~"exchange|service_device|connection_point|data_center",i](around:${radiusMeters},${lat},${lon});
+    node["street_cabinet"="telecom"](around:${radiusMeters},${lat},${lon});
+    node["utility"="telecom"](around:${radiusMeters},${lat},${lon});
+    way["communication:line"~"fiber|fibre|optical|telecom",i](around:${radiusMeters},${lat},${lon});
+    way["cable"~"fiber_optic|fibre_optic",i](around:${radiusMeters},${lat},${lon});
+    way["utility"="telecom"](around:${radiusMeters},${lat},${lon});
+    way["telecom"~"line|cable|connection_point",i](around:${radiusMeters},${lat},${lon});
+  );out body geom 25;`;
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "User-Agent": "SiteHawk/1.0",
+        },
+        body: new URLSearchParams({ data: query }),
+      });
+      if (!res.ok) {
+        console.warn(`OSM fiber lookup ${res.status} from ${endpoint}`);
+        continue;
+      }
+
+      const data = await res.json();
+      let nearest = null;
+      for (const el of data.elements || []) {
+        const points = collectGeometryPoints(el);
+        for (const [flat, flon] of points) {
+          const d = haversineMiles(lat, lon, flat, flon);
+          if (!nearest || d < nearest.distance_miles) {
+            const tags = el.tags || {};
+            nearest = {
+              distance_miles: d,
+              type: fiberAssetLabel(tags),
+              operator: tags.operator || tags.name || tags.owner || null,
+            };
+          }
+        }
+      }
+
+      if (!nearest) return { distance_miles: null, type: null, operator: null };
+      return {
+        distance_miles: parseFloat(nearest.distance_miles.toFixed(2)),
+        type: nearest.type,
+        operator: nearest.operator,
+      };
+    } catch (e) {
+      console.warn("OSM fiber lookup failed:", e.message);
+    }
+  }
+
+  return { distance_miles: null, type: null, operator: null };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -106,10 +185,11 @@ Deno.serve(async (req) => {
     console.log(`FCC+EIA lookup: lat=${lat} lon=${lon}`);
 
     // Run all lookups in parallel
-    const [geoRes, utilityName, txLine] = await Promise.all([
+    const [geoRes, utilityName, txLine, fiberInfra] = await Promise.all([
       fetch(`https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`).then(r => r.json()),
       getEIAUtility(lat, lon),
       getNearestTransmissionLine(lat, lon),
+      getNearestFiberInfrastructure(lat, lon),
     ]);
 
     const blockGeoid = geoRes?.Block?.FIPS || null;
@@ -154,6 +234,9 @@ Deno.serve(async (req) => {
     return Response.json({
       fiber_providers: fiberProviders,
       has_fiber: hasFiber,
+      fiber_distance_miles: fiberInfra.distance_miles,
+      fiber_infrastructure_type: fiberInfra.type,
+      fiber_operator: fiberInfra.operator,
       power_utility: utilityName,
       fcc_block_geoid: blockGeoid,
       transmission_line_distance_miles: txLine.distance_miles,

@@ -169,6 +169,12 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
         {result.has_fiber === null && result.fcc_block_geoid && (
           <Tag label="Fiber Unknown" color="#64748b" />
         )}
+        {result.fiber_distance_miles != null && (
+          <Tag
+            label={`Fiber/Telecom: ${result.fiber_distance_miles} mi${result.fiber_operator ? ` · ${result.fiber_operator}` : ""}`}
+            color="#22c55e"
+          />
+        )}
         {result.power_utility && (
           <Tag label={`🔌 ${result.power_utility}`} color="#f59e0b" />
         )}

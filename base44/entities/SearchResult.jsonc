@@ -155,6 +155,18 @@
       "type": "boolean",
       "description": "True if fiber broadband is available per FCC data"
     },
+    "fiber_distance_miles": {
+      "type": "number",
+      "description": "Distance in miles to nearest mapped OSM fiber/telecom infrastructure"
+    },
+    "fiber_infrastructure_type": {
+      "type": "string",
+      "description": "Nearest mapped fiber/telecom asset type from OSM Overpass"
+    },
+    "fiber_operator": {
+      "type": "string",
+      "description": "Operator/name of nearest mapped fiber/telecom infrastructure"
+    },
     "power_utility": {
       "type": "string",
       "description": "EIA electric utility provider name"

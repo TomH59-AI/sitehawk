@@ -148,6 +148,13 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
             </div>
           </div>
         )}
+        {result.fiber_distance_miles != null && (
+          <InfoRow
+            icon={Radio}
+            label="Nearest Fiber/Telecom"
+            value={`${result.fiber_distance_miles} mi${result.fiber_operator ? ` · ${result.fiber_operator}` : ""}${result.fiber_infrastructure_type ? ` · ${result.fiber_infrastructure_type}` : ""}`}
+          />
+        )}
         <InfoRow icon={Phone} label="Phone" value={result.phone} />
         <InfoRow icon={Mail} label="Email" value={result.email} />
         {result.owner_mailing_address && (
