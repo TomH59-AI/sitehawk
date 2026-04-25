@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ";
 const TILE_URL = `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`;
@@ -26,13 +26,42 @@ function createNumberedIcon(L, number, score, isSelected) {
   return L.divIcon({ html, className: "", iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
 }
 
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.7613;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function createTowerIcon(L) {
+  const html = `
+    <div style="width:18px;height:18px;border-radius:50%;background:#ef4444;border:2px solid #fecaca;box-shadow:0 0 14px #ef444499;display:flex;align-items:center;justify-content:center;">
+      <div style="width:6px;height:6px;border-radius:50%;background:#fff;"></div>
+    </div>
+  `;
+  return L.divIcon({ html, className: "", iconSize: [18, 18], iconAnchor: [9, 9] });
+}
+
+function LegendDot({ color, label }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 4 }}>
+      <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}99` }} />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 export default function ScanResultsMap({ results, searchCenter, selectedIndex, onPinClick, flyToRef }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
+  const coverageLayerRef = useRef(null);
   const centerMarkerRef = useRef(null);
   const circleRef = useRef(null);
   const LRef = useRef(null);
+  const [showCoverage, setShowCoverage] = useState(true);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -90,6 +119,7 @@ export default function ScanResultsMap({ results, searchCenter, selectedIndex, o
 
       mapRef.current = map;
       renderMarkers(L, map);
+      renderCoverageOverlay(L, map);
 
       // flyTo handler
       flyToRef.current = (candidate) => {
@@ -106,11 +136,12 @@ export default function ScanResultsMap({ results, searchCenter, selectedIndex, o
     };
   }, []);
 
-  // Re-render markers when selection changes
+  // Re-render markers and coverage when map inputs change
   useEffect(() => {
     if (!mapRef.current || !LRef.current) return;
     renderMarkers(LRef.current, mapRef.current);
-  }, [selectedIndex, results]);
+    renderCoverageOverlay(LRef.current, mapRef.current);
+  }, [selectedIndex, results, showCoverage]);
 
   function renderMarkers(L, map) {
     // Remove old markers
@@ -153,6 +184,63 @@ export default function ScanResultsMap({ results, searchCenter, selectedIndex, o
     }
   }
 
+  function renderCoverageOverlay(L, map) {
+    if (coverageLayerRef.current) {
+      coverageLayerRef.current.remove();
+      coverageLayerRef.current = null;
+    }
+    if (!showCoverage) return;
+
+    const layer = L.layerGroup().addTo(map);
+    coverageLayerRef.current = layer;
+
+    const towerMap = new Map();
+    results.forEach((result) => {
+      (result.cell_towers || []).forEach((tower) => {
+        if (!tower.lat || !tower.lon) return;
+        if (haversineMiles(searchCenter.lat, searchCenter.lon, tower.lat, tower.lon) > 0.5) return;
+        const key = `${tower.lat.toFixed(5)},${tower.lon.toFixed(5)}`;
+        if (!towerMap.has(key)) towerMap.set(key, tower);
+      });
+    });
+
+    const towers = Array.from(towerMap.values());
+    towers.forEach((tower) => {
+      L.circle([tower.lat, tower.lon], {
+        radius: 402,
+        color: "#ef4444",
+        weight: 1,
+        opacity: 0.35,
+        fillColor: "#ef4444",
+        fillOpacity: 0.12,
+      }).addTo(layer);
+
+      L.marker([tower.lat, tower.lon], { icon: createTowerIcon(L) })
+        .bindPopup(`<div style="font-family:'Rajdhani',sans-serif;background:#111827;color:#e2e8f0;border:1px solid #ef444455;border-radius:8px;padding:10px;min-width:170px;"><b style="color:#fecaca;">Competitor Tower</b><br/><span style="color:#94a3b8;font-size:12px;">${tower.operator || "Unknown operator"}</span><br/><span style="color:#94a3b8;font-size:12px;">${tower.type || "Communication"}</span></div>`, { className: "hawk-popup" })
+        .addTo(layer);
+    });
+
+    results.forEach((result) => {
+      if (!result.latitude || !result.longitude) return;
+      const nearestTower = towers.reduce((closest, tower) => {
+        const distance = haversineMiles(result.latitude, result.longitude, tower.lat, tower.lon);
+        return distance < closest ? distance : closest;
+      }, Infinity);
+
+      if (nearestTower <= 0.35) return;
+      const strongDemand = nearestTower === Infinity || nearestTower > 0.5;
+      L.circle([result.latitude, result.longitude], {
+        radius: strongDemand ? 275 : 190,
+        color: strongDemand ? "#22c55e" : "#f59e0b",
+        weight: 2,
+        opacity: 0.75,
+        fillColor: strongDemand ? "#22c55e" : "#f59e0b",
+        fillOpacity: strongDemand ? 0.22 : 0.16,
+        dashArray: strongDemand ? null : "5 5",
+      }).bindPopup(`<div style="font-family:'Rajdhani',sans-serif;background:#111827;color:#e2e8f0;border:1px solid ${strongDemand ? "#22c55e66" : "#f59e0b66"};border-radius:8px;padding:10px;min-width:190px;"><b style="color:${strongDemand ? "#86efac" : "#fcd34d"};">${strongDemand ? "High-demand white space" : "Moderate coverage gap"}</b><br/><span style="color:#94a3b8;font-size:12px;">Nearest mapped tower: ${nearestTower === Infinity ? "none inside radius" : `${nearestTower.toFixed(2)} mi`}</span></div>`, { className: "hawk-popup" }).addTo(layer);
+    });
+  }
+
   return (
     <>
       <style>{`
@@ -168,7 +256,52 @@ export default function ScanResultsMap({ results, searchCenter, selectedIndex, o
         .leaflet-control-zoom a { background: #111827 !important; color: #00d4ff !important; border-color: #1e293b !important; }
         .leaflet-control-zoom a:hover { background: #1e293b !important; }
       `}</style>
-      <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#0a0e17" }} />
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#0a0e17" }} />
+        <button
+          onClick={() => setShowCoverage((value) => !value)}
+          style={{
+            position: "absolute",
+            top: 16,
+            right: 16,
+            zIndex: 500,
+            background: showCoverage ? "#00d4ff22" : "#111827dd",
+            border: `1px solid ${showCoverage ? "#00d4ff66" : "#334155"}`,
+            color: showCoverage ? "#00d4ff" : "#94a3b8",
+            borderRadius: 10,
+            padding: "9px 12px",
+            fontFamily: "'Rajdhani', sans-serif",
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: "pointer",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+          }}
+        >
+          Competitor Coverage {showCoverage ? "On" : "Off"}
+        </button>
+        {showCoverage && (
+          <div style={{
+            position: "absolute",
+            left: 16,
+            bottom: 16,
+            zIndex: 500,
+            background: "#111827dd",
+            border: "1px solid #1e293b",
+            color: "#cbd5e1",
+            borderRadius: 12,
+            padding: "10px 12px",
+            fontFamily: "'Rajdhani', sans-serif",
+            fontSize: 12,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+            backdropFilter: "blur(8px)",
+          }}>
+            <div style={{ color: "#f8fafc", fontWeight: 700, marginBottom: 6 }}>Coverage Heatmap</div>
+            <LegendDot color="#ef4444" label="Existing competitor tower coverage" />
+            <LegendDot color="#22c55e" label="High-demand white space" />
+            <LegendDot color="#f59e0b" label="Moderate coverage gap" />
+          </div>
+        )}
+      </div>
     </>
   );
 }
