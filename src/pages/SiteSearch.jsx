@@ -96,7 +96,7 @@ export default function SiteSearch() {
       return;
     }
 
-    if (limit !== Infinity && searchesThisMonth >= limit) {
+    if (!isFreeTrialEligible && limit !== Infinity && searchesThisMonth >= limit) {
       toast({
         title: "Daily search limit reached",
         description: `Your ${tier === "hawk_site" ? "Hawk Site" : "Hawkeyes"} plan allows ${limit} Target Search${limit !== 1 ? "es" : ""}/day. Upgrade to continue.`,
