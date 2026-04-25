@@ -177,7 +177,7 @@ export default function ScanResultsSidebar({
           ordinance={ordinance}
           searchCenter={searchCenter}
           mapImageGetterRef={null}
-          skipTraceResults={{}}
+          skipTraceResults={contactCache || {}}
         />
 
         {/* Direct Mail — for selected candidate if it has a mailing address */}

@@ -67,6 +67,59 @@ function drawLabel(doc, x, y, label, val, maxLen = 38) {
   doc.text(String(val || "N/A").substring(0, maxLen), x + 58, y);
 }
 
+function drawComplianceSummary(doc, rows, y, W, H, margin, pageHeader) {
+  if (!Array.isArray(rows) || rows.length === 0) return y;
+
+  y = drawSectionHeader(doc, y, W, margin, "COMPLIANCE SUMMARY — TOWER TYPES");
+  const headers = ["Tower Type", "Status", "Approval Path", "Key Limits / Notes"];
+  const colX = [margin + 8, margin + 118, margin + 210, margin + 338];
+
+  doc.setFillColor(...BLUE_BG);
+  doc.setDrawColor(...BLUE_BD);
+  doc.roundedRect(margin, y, W - margin * 2, 18, 3, 3, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(...BLUE);
+  headers.forEach((h, i) => doc.text(h, colX[i], y + 12));
+  y += 18;
+
+  rows.slice(0, 10).forEach((row) => {
+    const rowH = 34;
+    if (y + rowH > H - 50) {
+      doc.addPage();
+      pageHeader(doc);
+      y = 56;
+    }
+
+    const statusColor = row.status === "permitted" ? GREEN : row.status === "prohibited" ? RED : row.status === "conditional" ? AMBER : MUTED;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(...BORDER);
+    doc.rect(margin, y, W - margin * 2, rowH, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...TEXT);
+    doc.text(String(row.tower_type || "Unknown").substring(0, 20), colX[0], y + 12);
+
+    doc.setTextColor(...statusColor);
+    doc.text(String(row.status || "not_addressed").replace(/_/g, " ").toUpperCase().substring(0, 16), colX[1], y + 12);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...TEXT);
+    doc.text(doc.splitTextToSize(String(row.permit_path || "N/A"), 110).slice(0, 2), colX[2], y + 10);
+    doc.text(doc.splitTextToSize(String(row.key_limits || row.user_summary || "N/A"), 170).slice(0, 2), colX[3], y + 10);
+
+    if (row.source_ref) {
+      doc.setFontSize(6);
+      doc.setTextColor(...MUTED);
+      doc.text(`Source: ${String(row.source_ref).substring(0, 70)}`, colX[0], y + 28);
+    }
+    y += rowH;
+  });
+
+  return y + 10;
+}
+
 function loadImageAsBase64(url) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -352,7 +405,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
     // ── ZONING ORDINANCE ──
     if (ordinance) {
       y = drawSectionHeader(doc, y, W, margin, "LOCAL ZONING ORDINANCE");
-      const ordFields = Object.entries(ordinance).filter(([, v]) => v !== null && v !== undefined && v !== "");
+      const ordFields = Object.entries(ordinance).filter(([key, v]) => key !== "compliance_summary" && key !== "telecom_sections" && key !== "notion_pages" && v !== null && v !== undefined && v !== "");
       const ordH = Math.ceil(ordFields.length / 2) * 18 + 14;
       doc.setFillColor(...LIGHT);
       doc.setDrawColor(...BORDER);
@@ -363,6 +416,7 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         drawLabel(doc, cx, cy, k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()), String(v).substring(0, 38));
       });
       y += ordH + 10;
+      y = drawComplianceSummary(doc, ordinance.compliance_summary, y, W, H, margin, pageHeader);
     }
 
     // ── OVERVIEW SATELLITE MAP ──
