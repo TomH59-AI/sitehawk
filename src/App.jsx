@@ -25,6 +25,7 @@ import MarketAnalytics from './pages/MarketAnalytics';
 import MailAnalytics from './pages/MailAnalytics';
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import AppProtection from './components/security/AppProtection';
 
 function AppWithSplash() {
   const [splashDone, setSplashDone] = useState(false);
@@ -91,6 +92,7 @@ function App() {
           <AppWithSplash />
         </Router>
         <Toaster />
+        <AppProtection />
         <PWAInstallPrompt />
       </QueryClientProvider>
     </AuthProvider>
