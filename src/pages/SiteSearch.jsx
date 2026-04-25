@@ -18,6 +18,7 @@ import { nearestAirport } from "@/functions/nearestAirport";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
+import { extractTelecomOrdinance } from "@/functions/extractTelecomOrdinance";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
@@ -64,6 +65,7 @@ export default function SiteSearch() {
         if (found) {
           setExistingSearch(found);
           setSearchCenter({ lat: found.latitude, lon: found.longitude });
+          if (found.ordinance_metadata) setOrdinance(found.ordinance_metadata);
           const existingResults = await base44.entities.SearchResult.filter({ search_id: searchId }, "-match_score", 5);
           setResults(existingResults);
         }
@@ -129,9 +131,24 @@ export default function SiteSearch() {
       return;
     }
 
-    if (data.ordinance) setOrdinance(data.ordinance);
+    let ordinanceMetadata = data.ordinance || null;
 
     const parcels = (data.candidates || []).slice(0, 5);
+
+    const ordinanceExtraction = await extractTelecomOrdinance({
+      lat: latitude,
+      lon: longitude,
+      ordinance: data.ordinance || null,
+      candidates: parcels,
+    });
+
+    if (ordinanceExtraction.data?.ordinance_metadata) {
+      ordinanceMetadata = {
+        ...(data.ordinance || {}),
+        ...ordinanceExtraction.data.ordinance_metadata,
+      };
+      setOrdinance(ordinanceMetadata);
+    }
 
     // Look up all external data sources in parallel
     const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups, femaLookups, windLookups] = await Promise.all([
@@ -247,6 +264,7 @@ export default function SiteSearch() {
     await base44.entities.SearchHistory.update(search.id, {
       status: "completed",
       results_count: savedResults.length,
+      ordinance_metadata: ordinanceMetadata,
     });
 
     // Auto-save all results to CRM for free trial users so we capture their lead data
@@ -281,7 +299,7 @@ export default function SiteSearch() {
     navigate("/results", {
       state: {
         results: savedResults,
-        ordinance: data.ordinance || null,
+        ordinance: ordinanceMetadata,
         searchCenter: { lat: latitude, lon: longitude },
         searchId: search.id,
         usage: data.usage || { searches_used_today: searchesThisMonth + 1, daily_search_limit: dailyLimit },

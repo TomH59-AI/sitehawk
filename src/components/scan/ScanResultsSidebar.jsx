@@ -7,6 +7,7 @@ import SearchUsageBar from "./SearchUsageBar";
 import BatchSkipTrace from "../search/BatchSkipTrace";
 import ResultsFilterSort from "./ResultsFilterSort";
 import FreeTrialUpsellBanner from "./FreeTrialUpsellBanner";
+import TelecomOrdinanceSummary from "./TelecomOrdinanceSummary";
 
 export default function ScanResultsSidebar({
   results,
@@ -88,6 +89,7 @@ export default function ScanResultsSidebar({
             )}
           </div>
         )}
+        {ordinance && <TelecomOrdinanceSummary ordinance={ordinance} />}
       </div>
 
       {/* Filter & Sort */}

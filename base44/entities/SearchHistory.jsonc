@@ -26,6 +26,10 @@
     "search_label": {
       "type": "string",
       "description": "Auto-generated label for the search"
+    },
+    "ordinance_metadata": {
+      "type": "object",
+      "description": "Verified local ordinance extraction metadata, including telecom tower and antenna zoning clauses"
     }
   },
   "required": [

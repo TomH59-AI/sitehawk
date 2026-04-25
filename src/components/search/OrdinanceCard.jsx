@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FileText, ChevronDown, ChevronUp } from "lucide-react";
+import TelecomOrdinanceSections from "./TelecomOrdinanceSections";
 
 export default function OrdinanceCard({ ordinance }) {
   const [expanded, setExpanded] = useState(false);
@@ -72,6 +73,8 @@ export default function OrdinanceCard({ ordinance }) {
           )}
         </div>
       )}
+
+      <TelecomOrdinanceSections ordinance={ordinance} />
     </div>
   );
 }
