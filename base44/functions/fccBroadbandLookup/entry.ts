@@ -194,42 +194,12 @@ Deno.serve(async (req) => {
 
     const blockGeoid = geoRes?.Block?.FIPS || null;
 
-    // FCC broadband availability
-    let fiberProviders = [];
-    let hasFiber = null;
+    // FCC block GEOID is verified via FCC Census API.
+    // FCC provider availability now requires authenticated BDC API access, so we do not infer provider availability here.
+    const fiberProviders = [];
+    const hasFiber = null;
 
-    if (blockGeoid) {
-      const bbRes = await fetch(`https://broadbandmap.fcc.gov/api/public/map/listAvailability`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'User-Agent': 'SiteHawk/1.0 (site-hawk-pro.com)',
-        },
-        body: JSON.stringify({ latitude: lat, longitude: lon, unit_id: '0', limit: 25, offset: 0 }),
-      });
-
-      if (bbRes.ok) {
-        const bbData = await bbRes.json();
-        const providers = bbData?.data || bbData?.availability || [];
-        const FIBER_TECH_CODES = [50, 70];
-        const allProviders = providers.map(p => ({
-          provider_name: p.provider_name || p.dba_name || 'Unknown',
-          technology: getTechLabel(p.technology || p.tech_code),
-          tech_code: p.technology || p.tech_code,
-          max_download_speed: p.max_advertised_download_speed || p.max_download_speed || 0,
-          max_upload_speed: p.max_advertised_upload_speed || p.max_upload_speed || 0,
-        }));
-        fiberProviders = allProviders
-          .filter(p => FIBER_TECH_CODES.includes(p.tech_code))
-          .map(({ tech_code, ...rest }) => rest);
-        hasFiber = fiberProviders.length > 0;
-      } else {
-        console.warn(`FCC broadband API returned ${bbRes.status}`);
-      }
-    }
-
-    console.log(`EIA utility: ${utilityName} | TX line: ${txLine.distance_miles} mi (${txLine.voltage})`);
+    console.log(`EIA utility: ${utilityName} | TX line: ${txLine.distance_miles} mi (${txLine.voltage}) | OSM fiber/telecom: ${fiberInfra.distance_miles ?? 'unknown'} mi`);
 
     return Response.json({
       fiber_providers: fiberProviders,
@@ -248,13 +218,3 @@ Deno.serve(async (req) => {
     return Response.json({ error: error.message }, { status: 500 });
   }
 });
-
-function getTechLabel(code) {
-  const map = {
-    10: 'DSL', 11: 'ADSL2', 12: 'VDSL', 20: 'Cable', 30: 'Cable (DOCSIS 3.1)',
-    40: 'Fiber', 50: 'Fiber to Premises', 60: 'Satellite', 61: 'LBR Fixed Wireless',
-    70: 'Gig Passive Optical', 71: 'xDSL', 72: 'Cable',
-    300: 'Licensed Fixed Wireless', 400: 'Unlicensed Fixed Wireless', 0: 'Other',
-  };
-  return map[code] || `Tech ${code}`;
-}

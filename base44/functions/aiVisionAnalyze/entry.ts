@@ -42,10 +42,11 @@ Identify and catalog all potential RF obstructions visible:
     };
 
     const prompt = prompts[analysis_type] || prompts.aerial;
+    const evidenceGuardrail = `\n\nCritical accuracy rules: Do not invent owners, zoning, permits, distances, utilities, or site conditions that are not visible in the uploaded image or explicitly provided in the location context. If something cannot be confirmed from the image, say it is unknown. Phrase all inferred observations as estimates, not facts.`;
     const locationContext = lat && lon ? `\n\nLocation context: Coordinates ${lat}, ${lon}.` : '';
 
     const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-      prompt: prompt + locationContext,
+      prompt: prompt + evidenceGuardrail + locationContext,
       file_urls: [image_url],
       response_json_schema: {
         type: "object",
