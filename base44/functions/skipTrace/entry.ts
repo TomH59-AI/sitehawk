@@ -2,7 +2,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const ENFORMION_AP_NAME = Deno.env.get("ENFORMION_AP_NAME");
 const ENFORMION_AP_PASSWORD = Deno.env.get("ENFORMION_AP_PASSWORD");
-const ENFORMION_URL = "https://apis.enformion.com/api/v1/person/search";
+const ENFORMION_URL = "https://devapi.endato.com/PersonSearch";
 
 // Rate limiting: max 10 skip traces per minute per user
 const rateLimitMap = new Map();
