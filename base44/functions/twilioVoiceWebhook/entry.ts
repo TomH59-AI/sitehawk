@@ -5,9 +5,13 @@ const WELCOME_MESSAGE = "Thank you for calling SiteHawk, the AI-powered site acq
 
 Deno.serve(async (req) => {
   try {
-    // Build absolute URL for the recording webhook (same origin, sibling function)
-    const url = new URL(req.url);
-    const recordingActionUrl = `${url.origin}${url.pathname.replace(/twilioVoiceWebhook$/, "twilioRecordingWebhook")}`;
+    // Recording webhook URL must be set as a secret (each Base44 function has its own URL)
+    const recordingActionUrl = Deno.env.get("TWILIO_RECORDING_WEBHOOK_URL");
+    if (!recordingActionUrl) {
+      console.error("TWILIO_RECORDING_WEBHOOK_URL secret is not set");
+      const fallback = `<?xml version="1.0" encoding="UTF-8"?><Response><Say>This phone line is not yet configured. Please email info@site-hawk-pro.com.</Say><Hangup/></Response>`;
+      return new Response(fallback, { status: 200, headers: { "Content-Type": "text/xml" } });
+    }
 
     const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
