@@ -1,7 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const SUPABASE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-skip-trace";
-const SUPABASE_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+const ENDATO_URL = "https://devapi.endato.com/PersonSearch";
+const AP_NAME = Deno.env.get("ENFORMION_AP_NAME");
+const AP_PASSWORD = Deno.env.get("ENFORMION_AP_PASSWORD");
 
 // Rate limiting: max 10 skip traces per minute per user
 const rateLimitMap = new Map();
@@ -21,74 +22,102 @@ function checkRateLimit(userId, count = 1) {
   return false;
 }
 
-async function runSingleTrace(owner_name, mailing_address, candidate_id, search_id) {
-  const res = await fetch(SUPABASE_URL, {
+function parseName(fullName) {
+  if (!fullName) return { firstName: "", lastName: "" };
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) return { firstName: "", lastName: parts[0] };
+  return {
+    firstName: parts.slice(0, parts.length - 1).join(" "),
+    lastName: parts[parts.length - 1],
+  };
+}
+
+function parseAddress(address) {
+  if (!address) return {};
+  const parts = address.split(",").map(s => s.trim());
+  const addressLine1 = parts[0] || "";
+  const city = parts[1] || "";
+  const stateZip = (parts[2] || "").trim().split(/\s+/);
+  const state = stateZip[0] || "";
+  const zip = stateZip[1] || "";
+  return { addressLine1, city, state, zip };
+}
+
+// Direct call to Endato (Enformion) PersonSearch API
+async function runSingleTrace(owner_name, mailing_address) {
+  const { firstName, lastName } = parseName(owner_name);
+  const { addressLine1, city, state, zip } = parseAddress(mailing_address);
+
+  const payload = {
+    FirstName: firstName,
+    LastName: lastName,
+    Addresses: [{ AddressLine1: addressLine1, City: city, State: state, Zip: zip }],
+    Page: 1,
+    ResultsPerPage: 1,
+  };
+
+  const res = await fetch(ENDATO_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": SUPABASE_KEY,
-      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "galaxy-ap-name": AP_NAME,
+      "galaxy-ap-password": AP_PASSWORD,
+      "galaxy-search-type": "Person",
     },
-    body: JSON.stringify({ owner_name, mailing_address, candidate_id, search_id }),
+    body: JSON.stringify(payload),
   });
-  return await res.json();
-}
 
-// Normalize the raw result into the richer structured format
-function normalizeResult(raw) {
+  const raw = await res.json();
+  if (!res.ok) {
+    console.error(`Endato error ${res.status}:`, JSON.stringify(raw).slice(0, 300));
+    return { phones: [], emails: [], error: raw?.error || `HTTP ${res.status}` };
+  }
+
+  const records = raw?.persons || raw?.Records?.Record || raw?.records || [];
+  const record = Array.isArray(records) ? records[0] : records;
+
   const phones = [];
   const emails = [];
-  const associated_llcs = [];
 
-  // Single phone/email from legacy response
-  if (raw.phone) phones.push({ number: raw.phone, type: "primary", confidence: "high" });
-  if (raw.email) emails.push({ address: raw.email, type: "primary", confidence: "high" });
-
-  // Extended phones array
-  if (Array.isArray(raw.phones)) {
-    for (const p of raw.phones) {
-      if (!phones.find(x => x.number === (p.number || p))) {
-        phones.push({ number: p.number || p, type: p.type || "other", confidence: p.confidence || "medium" });
-      }
-    }
-  }
-
-  // Extended emails array
-  if (Array.isArray(raw.emails)) {
-    for (const e of raw.emails) {
-      if (!emails.find(x => x.address === (e.address || e))) {
-        emails.push({ address: e.address || e, type: e.type || "other", confidence: e.confidence || "medium" });
-      }
-    }
-  }
-
-  // LLCs / entities
-  if (raw.registered_agent) {
-    associated_llcs.push({
-      name: raw.company || raw.entity_name || "Unknown Entity",
-      state: raw.state || "",
-      status: raw.entity_status || "Unknown",
-      registered_agent: raw.registered_agent,
-    });
-  }
-  if (Array.isArray(raw.entities)) {
-    for (const e of raw.entities) {
-      if (!associated_llcs.find(x => x.name === e.name)) {
-        associated_llcs.push({
-          name: e.name,
-          state: e.state || "",
-          status: e.status || "",
-          registered_agent: e.registered_agent || "",
+  if (record) {
+    const phoneRaw = record?.phoneNumbers || record?.PhoneNumbers?.PhoneNumber || record?.Phones?.Phone || [];
+    const phoneList = Array.isArray(phoneRaw) ? phoneRaw : [phoneRaw];
+    for (const p of phoneList) {
+      const number = p?.phoneNumber || p?.Number10 || p?.Number || p?.number;
+      if (number && !phones.find(x => x.number === number)) {
+        phones.push({
+          number,
+          type: (p?.phoneType || p?.Type || "primary").toLowerCase(),
+          confidence: "high",
         });
       }
     }
+
+    const emailRaw = record?.emails || record?.EmailAddresses?.EmailAddress || record?.Emails?.Email || [];
+    const emailList = Array.isArray(emailRaw) ? emailRaw : [emailRaw];
+    for (const e of emailList) {
+      const address = e?.emailAddress || e?.Email || e?.Address || e?.address;
+      if (address && !emails.find(x => x.address === address)) {
+        emails.push({ address, type: "primary", confidence: "high" });
+      }
+    }
   }
 
+  return { phones, emails };
+}
+
+function buildResult({ phones, emails }) {
   const status = phones.length > 0 || emails.length > 0
     ? (phones.length > 0 && emails.length > 0 ? "found" : "partial")
     : "not_found";
-
-  return { phones, emails, associated_llcs, status, raw };
+  return {
+    phones,
+    emails,
+    associated_llcs: [],
+    status,
+    phone: phones[0]?.number || null,
+    email: emails[0]?.address || null,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -98,8 +127,15 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const tier = user.tier || 'blind';
-    if (tier === 'blind' || tier === 'free') {
+    const isFreeTrialSkip = (tier === 'blind' || tier === 'free') && user.free_trial_used && !user.free_trial_skip_trace_used;
+
+    if ((tier === 'blind' || tier === 'free') && !isFreeTrialSkip) {
       return Response.json({ error: 'Upgrade required' }, { status: 403 });
+    }
+
+    if (!AP_NAME || !AP_PASSWORD) {
+      console.error("ENFORMION_AP_NAME / ENFORMION_AP_PASSWORD not set");
+      return Response.json({ error: 'Skip trace API not configured' }, { status: 500 });
     }
 
     const body = await req.json();
@@ -113,28 +149,36 @@ Deno.serve(async (req) => {
 
       console.log(`Skip trace single: user=${user.email} owner=${owner_name}`);
 
-      const raw = await runSingleTrace(owner_name, mailing_address, candidate_id, search_id);
-      const normalized = normalizeResult(raw);
+      const traced = await runSingleTrace(owner_name, mailing_address);
+      const normalized = buildResult(traced);
 
-      // Count previous attempts for this candidate
-      const existing = await base44.asServiceRole.entities.SkipTraceLog.filter({ candidate_id });
-      const attempt_number = (existing?.length || 0) + 1;
+      // Consume free trial slot
+      if (isFreeTrialSkip) {
+        const users = await base44.asServiceRole.entities.User.filter({ email: user.email });
+        if (users.length) {
+          await base44.asServiceRole.entities.User.update(users[0].id, { free_trial_skip_trace_used: true });
+        }
+      }
 
       // Persist to SkipTraceLog
-      await base44.asServiceRole.entities.SkipTraceLog.create({
-        candidate_id,
-        search_id,
-        owner_name,
-        mailing_address,
-        phones: normalized.phones,
-        emails: normalized.emails,
-        associated_llcs: normalized.associated_llcs,
-        raw_result: JSON.stringify(raw),
-        status: normalized.status,
-        attempt_number,
-      });
+      if (candidate_id) {
+        const existing = await base44.asServiceRole.entities.SkipTraceLog.filter({ candidate_id });
+        const attempt_number = (existing?.length || 0) + 1;
+        await base44.asServiceRole.entities.SkipTraceLog.create({
+          candidate_id,
+          search_id,
+          owner_name,
+          mailing_address,
+          phones: normalized.phones,
+          emails: normalized.emails,
+          associated_llcs: [],
+          raw_result: JSON.stringify(traced),
+          status: normalized.status,
+          attempt_number,
+        });
+      }
 
-      return Response.json({ ...raw, ...normalized });
+      return Response.json(normalized);
     }
 
     // ── BATCH MODE ────────────────────────────────────────────
@@ -151,24 +195,25 @@ Deno.serve(async (req) => {
 
     const results = await Promise.allSettled(
       candidates.slice(0, batchSize).map(async (c) => {
-        const raw = await runSingleTrace(c.owner_name, c.owner_mailing_address, c.id, c.search_id);
-        const normalized = normalizeResult(raw);
+        const traced = await runSingleTrace(c.owner_name, c.owner_mailing_address);
+        const normalized = buildResult(traced);
 
-        const existing = await base44.asServiceRole.entities.SkipTraceLog.filter({ candidate_id: c.id });
-        const attempt_number = (existing?.length || 0) + 1;
-
-        await base44.asServiceRole.entities.SkipTraceLog.create({
-          candidate_id: c.id,
-          search_id: c.search_id,
-          owner_name: c.owner_name,
-          mailing_address: c.owner_mailing_address,
-          phones: normalized.phones,
-          emails: normalized.emails,
-          associated_llcs: normalized.associated_llcs,
-          raw_result: JSON.stringify(raw),
-          status: normalized.status,
-          attempt_number,
-        });
+        if (c.id) {
+          const existing = await base44.asServiceRole.entities.SkipTraceLog.filter({ candidate_id: c.id });
+          const attempt_number = (existing?.length || 0) + 1;
+          await base44.asServiceRole.entities.SkipTraceLog.create({
+            candidate_id: c.id,
+            search_id: c.search_id,
+            owner_name: c.owner_name,
+            mailing_address: c.owner_mailing_address,
+            phones: normalized.phones,
+            emails: normalized.emails,
+            associated_llcs: [],
+            raw_result: JSON.stringify(traced),
+            status: normalized.status,
+            attempt_number,
+          });
+        }
 
         return { candidate_id: c.id, owner_name: c.owner_name, ...normalized };
       })

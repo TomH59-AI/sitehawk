@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { skipTrace } from "@/functions/skipTrace";
+import { skipTraceBatch } from "@/functions/skipTraceBatch";
 import ViewshedPanel from "./ViewshedPanel";
 import RFCoveragePanel from "./RFCoveragePanel";
 
@@ -93,7 +93,8 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
     e.stopPropagation();
     if (loading || cachedContact) return;
     setLoading(true);
-    const res = await skipTrace({
+    const res = await skipTraceBatch({
+      mode: "single",
       owner_name: result.owner_name,
       mailing_address: result.owner_mailing_address,
       candidate_id: result.id,
