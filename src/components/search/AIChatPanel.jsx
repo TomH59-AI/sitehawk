@@ -13,7 +13,7 @@ export default function AIChatPanel({ open, onClose, searchId, candidates, ordin
   const [messages, setMessages] = useState([
     {
       role: "assistant",
-      text: "👋 I'm your SiteHawk AI consultant. I've analyzed your scan results and I'm ready to help. Ask me anything about the candidates, zoning, permits, or site acquisition strategy.",
+      text: "👋 I'm SiteHawk Vision, your AI site acquisition consultant. I've analyzed your scan results and I'm ready to help. Ask me anything about the candidates, zoning, permits, or site acquisition strategy.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -52,7 +52,7 @@ export default function AIChatPanel({ open, onClose, searchId, candidates, ordin
         <div className="flex items-center gap-2">
           <HawkIcon size={32} />
           <div>
-            <h3 className="font-heading font-bold text-foreground text-sm">SiteHawk AI</h3>
+            <h3 className="font-heading font-bold text-foreground text-sm">SiteHawk Vision</h3>
             <p className="text-[10px] text-muted-foreground">Expert site acquisition consultant</p>
           </div>
         </div>
