@@ -1,0 +1,31 @@
+{
+  "name": "RegridUsage",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "description": "UTC date in YYYY-MM-DD format"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User email \u2014 empty/null for global daily counter"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "global",
+        "user"
+      ],
+      "description": "Whether this is the platform-wide counter or a per-user counter"
+    },
+    "count": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of Regrid parcel pulls today"
+    }
+  },
+  "required": [
+    "date",
+    "scope"
+  ]
+}

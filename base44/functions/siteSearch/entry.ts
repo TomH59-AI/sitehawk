@@ -368,6 +368,59 @@ function isRateLimited(userId) {
   return false;
 }
 
+// ── Regrid daily quotas ───────────────────────────────────────────────────────
+// Platform-wide: 20 Regrid parcel pulls per UTC day
+// Per-user: 3/day for free trial, 5/day for paid subscribers
+const REGRID_GLOBAL_DAILY_LIMIT = 20;
+const REGRID_USER_DAILY_LIMITS = {
+  free_trial: 3,
+  subscriber: 5,
+};
+
+const PAID_TIERS = ['hawk_site', 'hawkeyes', 'hawk_sight', 'hawkeye_20', 'hawkeye_apex'];
+
+function todayUTC() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function checkAndIncrementRegridQuota(base44, userEmail, isPaid) {
+  const date = todayUTC();
+  const userLimit = isPaid ? REGRID_USER_DAILY_LIMITS.subscriber : REGRID_USER_DAILY_LIMITS.free_trial;
+
+  // Global counter
+  const globalRecords = await base44.asServiceRole.entities.RegridUsage.filter({ date, scope: 'global' });
+  const globalRecord = globalRecords[0];
+  const globalCount = globalRecord?.count || 0;
+
+  if (globalCount >= REGRID_GLOBAL_DAILY_LIMIT) {
+    return { allowed: false, reason: 'global', globalCount, userCount: 0, userLimit };
+  }
+
+  // Per-user counter
+  const userRecords = await base44.asServiceRole.entities.RegridUsage.filter({ date, scope: 'user', user_email: userEmail });
+  const userRecord = userRecords[0];
+  const userCount = userRecord?.count || 0;
+
+  if (userCount >= userLimit) {
+    return { allowed: false, reason: 'user', globalCount, userCount, userLimit };
+  }
+
+  // Increment both counters
+  if (globalRecord) {
+    await base44.asServiceRole.entities.RegridUsage.update(globalRecord.id, { count: globalCount + 1 });
+  } else {
+    await base44.asServiceRole.entities.RegridUsage.create({ date, scope: 'global', count: 1, user_email: '' });
+  }
+
+  if (userRecord) {
+    await base44.asServiceRole.entities.RegridUsage.update(userRecord.id, { count: userCount + 1 });
+  } else {
+    await base44.asServiceRole.entities.RegridUsage.create({ date, scope: 'user', user_email: userEmail, count: 1 });
+  }
+
+  return { allowed: true, globalCount: globalCount + 1, userCount: userCount + 1, userLimit };
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   try {
@@ -428,14 +481,30 @@ Deno.serve(async (req) => {
     }
 
     // ── Fallback: Supabase/Regrid (token-based) ───────────────────────────────
-    // Check cache first — skip Regrid if we have a recent result for this location
+    // Check cache first — cached results don't count against quota
     const cached = getCached(lat, lon);
     if (cached) {
       console.log(`Regrid cache HIT: user=${user.email} lat=${lat} lon=${lon}`);
       return Response.json(cached);
     }
 
-    console.log(`Regrid fallback: user=${user.email} lat=${lat} lon=${lon}`);
+    // Enforce daily Regrid quotas (global 20/day, free 3/day, paid 5/day)
+    const isPaid = PAID_TIERS.includes(tier);
+    const quota = await checkAndIncrementRegridQuota(base44, user.email, isPaid);
+    if (!quota.allowed) {
+      if (quota.reason === 'global') {
+        console.warn(`Regrid global daily limit reached: user=${user.email}`);
+        return Response.json({
+          error: `Daily Regrid limit reached for the platform (${REGRID_GLOBAL_DAILY_LIMIT} parcel pulls/day). Please try again tomorrow.`,
+        }, { status: 429 });
+      }
+      console.warn(`Regrid user daily limit reached: user=${user.email} (${quota.userCount}/${quota.userLimit})`);
+      return Response.json({
+        error: `You've reached your daily Regrid parcel limit (${quota.userLimit}/day). ${isPaid ? 'Limit resets at midnight UTC.' : 'Subscribe for higher limits.'}`,
+      }, { status: 429 });
+    }
+
+    console.log(`Regrid fallback: user=${user.email} lat=${lat} lon=${lon} quota=${quota.userCount}/${quota.userLimit} global=${quota.globalCount}/${REGRID_GLOBAL_DAILY_LIMIT}`);
     const res = await fetch(SUPABASE_URL, {
       method: "POST",
       headers: {
