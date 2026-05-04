@@ -11,7 +11,25 @@ import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import ReferralPanel from "../components/referral/ReferralPanel";
 import FieldConnectCard from "../components/dashboard/FieldConnectCard";
 
-const TIER_LIMITS = { blind: 0, free: 0, monthly: 50, annual: 50, pro: 50 };
+const TIER_LIMITS = {
+  blind: 0,
+  free: 0,
+  hawk_site: 30,
+  hawkeyes: 150,
+  hawk_sight: 150,
+  hawkeye_20: 600,
+  hawkeye_apex: 9999,
+};
+
+const TIER_LABELS = {
+  blind: "Blind",
+  free: "Free Trial",
+  hawk_site: "Hawk Site",
+  hawkeyes: "Hawkeyes",
+  hawk_sight: "Hawk Sight",
+  hawkeye_20: "Hawkeye 20/20",
+  hawkeye_apex: "Hawkeye Apex",
+};
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -70,7 +88,7 @@ export default function Dashboard() {
           <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary border border-border text-xs font-medium text-foreground">
             <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
             {monthlySearches} of {TIER_LIMITS[tier] ?? 0} searches used this month
-            <span className="text-muted-foreground">· {tier === "monthly" ? "Hawk 20/20 Vision" : tier === "annual" ? "Hawk 20-4 AI Vision" : "Blind"} plan</span>
+            <span className="text-muted-foreground">· {TIER_LABELS[tier] || "Blind"} plan</span>
           </div>
         </div>
         <Link to="/search">

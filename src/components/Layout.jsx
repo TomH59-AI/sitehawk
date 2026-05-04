@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import AppFooter from "./AppFooter";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2 } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
@@ -11,10 +11,11 @@ import { Button } from "@/components/ui/button";
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 
 const BASE_NAV = [
-  { path: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/crm", icon: Briefcase, label: "Deal Pipeline" },
   { path: "/parcel-scout", icon: ScanSearch, label: "Parcel Scout" },
+  { path: "/tower-placement", icon: Compass, label: "Tower Placement" },
   { path: "/ai-vision", icon: Eye, label: "AI Vision" },
   { path: "/market-analytics", icon: TrendingUp, label: "Market Analytics" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },

@@ -24,6 +24,7 @@ import AIVisionAnalyzer from './pages/AIVisionAnalyzer';
 import MarketAnalytics from './pages/MarketAnalytics';
 import MailAnalytics from './pages/MailAnalytics';
 import Voicemails from './pages/Voicemails';
+import TowerPlacement from './pages/TowerPlacement';
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import AppProtection from './components/security/AppProtection';
@@ -78,6 +79,7 @@ const AuthenticatedApp = () => {
         <Route path="/market-analytics" element={<MarketAnalytics />} />
         <Route path="/mail-analytics" element={<MailAnalytics />} />
         <Route path="/voicemails" element={<Voicemails />} />
+        <Route path="/tower-placement" element={<TowerPlacement />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
