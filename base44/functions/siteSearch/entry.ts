@@ -326,6 +326,209 @@ async function searchMaryland(lat, lon, radiusMiles, offset) {
   return { candidates, ordinance: null };
 }
 
+// ── County-level endpoints (TX, GA) ───────────────────────────────────────────
+// These are county appraisal-district feeds with full owner/mailing/acres
+// attribution. Each entry has its own bounding box so we only call the
+// endpoint when the search point is inside the county.
+
+const COUNTY_BBOX = {
+  // Texas
+  TX_TRAVIS:    { latMin: 30.02, latMax: 30.63, lonMin: -98.13, lonMax: -97.37 },
+  TX_BEXAR:     { latMin: 29.18, latMax: 29.81, lonMin: -98.92, lonMax: -98.21 },
+  TX_DFW:       { latMin: 32.50, latMax: 33.30, lonMin: -97.40, lonMax: -96.30 }, // Dallas/Collin/Denton/Kaufman/Rockwall (DCAD shared feed)
+  // Georgia
+  GA_FULTON:    { latMin: 33.45, latMax: 34.30, lonMin: -84.80, lonMax: -84.20 },
+  GA_DEKALB:    { latMin: 33.62, latMax: 34.02, lonMin: -84.37, lonMax: -84.05 },
+};
+
+function inCountyBox(lat, lon, key) {
+  const b = COUNTY_BBOX[key];
+  return lat >= b.latMin && lat <= b.latMax && lon >= b.lonMin && lon <= b.lonMax;
+}
+
+// ── Travis County, TX (TCAD) ──────────────────────────────────────────────────
+async function searchTravisTX(lat, lon, radiusMiles, offset) {
+  const url = "https://taxmaps.traviscountytx.gov/arcgis/rest/services/Parcels/FeatureServer/0/query";
+  const fields = "PROP_ID,py_owner_name,py_address,situs_address,situs_zip,GIS_acres,land_type_desc,legal_desc";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    if (!centroid) return null;
+    const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
+    const acres = p.GIS_acres ? parseFloat(parseFloat(p.GIS_acres).toFixed(2)) : null;
+    const zoning = p.land_type_desc || "Unknown";
+    const physAddr = p.situs_address ? `${p.situs_address}${p.situs_zip ? ", " + p.situs_zip : ""}, Travis County, TX` : null;
+    return {
+      site_name: physAddr || `Travis Parcel ${p.PROP_ID}`,
+      owner_name: p.py_owner_name || "Unknown Owner",
+      parcel_address: physAddr || "—",
+      parcel_id: String(p.PROP_ID || "—"),
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: p.py_address || null,
+      latitude: centroid.lat,
+      longitude: centroid.lon,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, /vacant|agricul|farm/i.test(zoning) ? 8 : 0),
+      match_reason: `Travis County (TCAD) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
+// ── Bexar County, TX (BCAD) ───────────────────────────────────────────────────
+async function searchBexarTX(lat, lon, radiusMiles, offset) {
+  const url = "https://maps.bexar.org/arcgis/rest/services/Parcels/MapServer/0/query";
+  const fields = "PropID,Situs,Owner,AddrLn1,AddrLn2,AddrCity,AddrSt,Zip,Acres,LglAcres,State_cd,PropUse";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    if (!centroid) return null;
+    const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
+    const acres = p.Acres ? parseFloat(parseFloat(p.Acres).toFixed(2)) : (p.LglAcres ? parseFloat(parseFloat(p.LglAcres).toFixed(2)) : null);
+    const zoning = p.State_cd || p.PropUse || "Unknown";
+    const mailingAddr = [p.AddrLn1, p.AddrLn2, p.AddrCity, p.AddrSt, p.Zip].filter(Boolean).join(", ");
+    const physAddr = p.Situs ? `${p.Situs}, Bexar County, TX` : null;
+    return {
+      site_name: physAddr || `Bexar Parcel ${p.PropID}`,
+      owner_name: p.Owner || "Unknown Owner",
+      parcel_address: physAddr || "—",
+      parcel_id: String(p.PropID || "—"),
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: mailingAddr || null,
+      latitude: centroid.lat,
+      longitude: centroid.lon,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, 0),
+      match_reason: `Bexar County (BCAD) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
+// ── Dallas / Collin / Denton / Kaufman / Rockwall, TX (DCAD shared feed) ──────
+async function searchDFW(lat, lon, radiusMiles, offset) {
+  const url = "https://gis.dallascityhall.com/arcgis/rest/services/Basemap/DallasTaxParcels/FeatureServer/0/query";
+  const fields = "ACCT,GIS_ACCT,SPTBCODE,PROP_CL,ST_NUM,ST_NAME,ST_TYPE,CITY,COUNTY,TAXPANAME1,TAXPAADD1,TAXPACITY,TAXPASTA,TAXPAZIP,AREA_FEET";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    if (!centroid) return null;
+    const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
+    const acres = p.AREA_FEET ? parseFloat((p.AREA_FEET / 43560).toFixed(2)) : null;
+    const zoning = p.PROP_CL || `SPTB-${p.SPTBCODE || "?"}`;
+    const physAddr = [p.ST_NUM, p.ST_NAME, p.ST_TYPE, p.CITY, p.COUNTY, "TX"].filter(Boolean).join(" ").replace(/\s+,/g, ",").trim();
+    const mailingAddr = [p.TAXPAADD1, p.TAXPACITY, p.TAXPASTA, p.TAXPAZIP].filter(Boolean).join(", ");
+    return {
+      site_name: physAddr || `${p.COUNTY || "DFW"} Parcel ${p.ACCT}`,
+      owner_name: p.TAXPANAME1 || "Unknown Owner",
+      parcel_address: physAddr || "—",
+      parcel_id: String(p.ACCT || p.GIS_ACCT || "—"),
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: mailingAddr || null,
+      latitude: centroid.lat,
+      longitude: centroid.lon,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, 0),
+      match_reason: `${p.COUNTY || "DFW"} County (DCAD-shared) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
+// ── Fulton County, GA ─────────────────────────────────────────────────────────
+async function searchFultonGA(lat, lon, radiusMiles, offset) {
+  const url = "https://services5.arcgis.com/buITjRsK0rZsAXbQ/arcgis/rest/services/CurrentParcels/FeatureServer/0/query";
+  const fields = "ParcelID,Address,Owner,OwnerAddr1,OwnerAddr2,LandAcres,LUCode,ClassCode";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    if (!centroid) return null;
+    const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
+    const acres = p.LandAcres ? parseFloat(parseFloat(p.LandAcres).toFixed(2)) : null;
+    const zoning = p.LUCode ? `LU-${p.LUCode}${p.ClassCode ? "/" + p.ClassCode : ""}` : "Unknown";
+    const mailingAddr = [p.OwnerAddr1, p.OwnerAddr2].filter(Boolean).join(", ");
+    const physAddr = p.Address ? `${p.Address}, Fulton County, GA` : null;
+    return {
+      site_name: physAddr || `Fulton Parcel ${p.ParcelID}`,
+      owner_name: p.Owner || "Unknown Owner",
+      parcel_address: physAddr || "—",
+      parcel_id: p.ParcelID || "—",
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: mailingAddr || null,
+      latitude: centroid.lat,
+      longitude: centroid.lon,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, 0),
+      match_reason: `Fulton County (GA) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
+// ── DeKalb County, GA ─────────────────────────────────────────────────────────
+async function searchDeKalbGA(lat, lon, radiusMiles, offset) {
+  const url = "https://dcgis.dekalbcountyga.gov/mapping/rest/services/TaxParcels/FeatureServer/0/query";
+  const fields = "PARCELID,SITEADDRESS,OWNERNME1,OWNERNME2,PSTLADDRESS,PSTLCITY,PSTLSTATE,PSTLZIP5,CLASSCD,CLASSDSCRP,CVTTXDSCRP";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    if (!centroid) return null;
+    const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
+    // DeKalb has no Acres field; estimate from polygon Shape__Area (sq meters)
+    const sqm = f.geometry?.coordinates ? null : null; // ArcGIS GeoJSON doesn't ship Shape__Area; rely on attribute Shape__Area if present
+    const shapeArea = p.Shape__Area;
+    const acres = shapeArea ? parseFloat((shapeArea / 4046.8564224).toFixed(2)) : null;
+    const zoning = p.CLASSDSCRP || p.CLASSCD || "Unknown";
+    const ownerName = [p.OWNERNME1, p.OWNERNME2].filter(Boolean).join(" / ");
+    const mailingAddr = [p.PSTLADDRESS, p.PSTLCITY, p.PSTLSTATE, p.PSTLZIP5].filter(Boolean).join(", ");
+    const physAddr = p.SITEADDRESS ? `${p.SITEADDRESS}, DeKalb County, GA` : null;
+    return {
+      site_name: physAddr || `DeKalb Parcel ${p.PARCELID}`,
+      owner_name: ownerName || "Unknown Owner",
+      parcel_address: physAddr || "—",
+      parcel_id: p.PARCELID || "—",
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: mailingAddr || null,
+      latitude: centroid.lat,
+      longitude: centroid.lon,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, /vacant|agricul/i.test(zoning) ? 8 : 0),
+      match_reason: `DeKalb County (GA) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
 // ── Coordinate cache (Regrid fallback only) ───────────────────────────────────
 // Keyed by "lat4,lon4" (4 decimal places ≈ ~11m grid), TTL 24 hours
 const regridCache = new Map();
@@ -460,26 +663,34 @@ Deno.serve(async (req) => {
     const radiusMiles = radius_miles || 0.5;
 
     // ── Default path: free local-GIS (no Regrid token cost) ─────────────────
-    // Try the state's ArcGIS endpoint first. Only fall through to Regrid if
-    // (a) no local source is configured for this state, (b) the state endpoint
-    // errors, or (c) the state endpoint returns zero candidates.
-    const localState =
-      inState(lat, lon, "FL") ? { code: "FL", fn: searchFlorida } :
-      inState(lat, lon, "NC") ? { code: "NC", fn: searchNorthCarolina } :
-      inState(lat, lon, "MA") ? { code: "MA", fn: searchMassachusetts } :
-      inState(lat, lon, "MD") ? { code: "MD", fn: searchMaryland } :
+    // Try state-level endpoints first, then county-level (TX, GA). Only fall
+    // through to Regrid if (a) no local source is configured for this point,
+    // (b) the local endpoint errors, or (c) it returns zero candidates.
+    const localSource =
+      // State-wide feeds
+      inState(lat, lon, "FL")           ? { code: "FL",        fn: searchFlorida } :
+      inState(lat, lon, "NC")           ? { code: "NC",        fn: searchNorthCarolina } :
+      inState(lat, lon, "MA")           ? { code: "MA",        fn: searchMassachusetts } :
+      inState(lat, lon, "MD")           ? { code: "MD",        fn: searchMaryland } :
+      // County-level feeds (TX)
+      inCountyBox(lat, lon, "TX_TRAVIS") ? { code: "TX-TRAVIS", fn: searchTravisTX } :
+      inCountyBox(lat, lon, "TX_BEXAR")  ? { code: "TX-BEXAR",  fn: searchBexarTX } :
+      inCountyBox(lat, lon, "TX_DFW")    ? { code: "TX-DFW",    fn: searchDFW } :
+      // County-level feeds (GA)
+      inCountyBox(lat, lon, "GA_FULTON") ? { code: "GA-FULTON", fn: searchFultonGA } :
+      inCountyBox(lat, lon, "GA_DEKALB") ? { code: "GA-DEKALB", fn: searchDeKalbGA } :
       null;
 
-    if (localState) {
+    if (localSource) {
       try {
-        console.log(`${localState.code} local-GIS scan: user=${user.email} lat=${lat} lon=${lon}`);
-        const localResult = await localState.fn(lat, lon, radiusMiles, offset || 0);
+        console.log(`${localSource.code} local-GIS scan: user=${user.email} lat=${lat} lon=${lon}`);
+        const localResult = await localSource.fn(lat, lon, radiusMiles, offset || 0);
         if (localResult?.candidates?.length) {
-          return Response.json({ ...localResult, source: `local-gis-${localState.code.toLowerCase()}` });
+          return Response.json({ ...localResult, source: `local-gis-${localSource.code.toLowerCase()}` });
         }
-        console.warn(`${localState.code} local-GIS returned 0 candidates — falling back to Regrid`);
+        console.warn(`${localSource.code} local-GIS returned 0 candidates — falling back to Regrid`);
       } catch (e) {
-        console.warn(`${localState.code} local-GIS failed (${e.message}) — falling back to Regrid`);
+        console.warn(`${localSource.code} local-GIS failed (${e.message}) — falling back to Regrid`);
       }
     }
 
