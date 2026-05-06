@@ -169,7 +169,49 @@
     },
     "power_utility": {
       "type": "string",
-      "description": "EIA electric utility provider name"
+      "description": "Electric utility provider name (HIFLD primary, falls back to EIA)"
+    },
+    "utility_type": {
+      "type": "string",
+      "description": "HIFLD utility type: INVESTOR OWNED, MUNICIPAL, COOPERATIVE, etc."
+    },
+    "utility_holding_company": {
+      "type": "string",
+      "description": "Parent holding company (e.g. Duke Energy Corp, Southern Company)"
+    },
+    "utility_website": {
+      "type": "string",
+      "description": "Utility website URL"
+    },
+    "utility_phone": {
+      "type": "string",
+      "description": "Utility main phone number"
+    },
+    "utility_control_area": {
+      "type": "string",
+      "description": "ISO/RTO or balancing authority code (ERCO, MISO, PJM, SOCO, etc.)"
+    },
+    "utility_customers": {
+      "type": "number",
+      "description": "Number of retail customers served by primary utility"
+    },
+    "utility_overlapping": {
+      "type": "array",
+      "description": "Other utility territories overlapping this point (co-ops, alternates)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "holding_co": {
+            "type": "string"
+          }
+        }
+      }
     },
     "fcc_block_geoid": {
       "type": "string",

@@ -3,6 +3,7 @@ import SkipTraceButton from "./SkipTraceButton";
 import { Badge } from "@/components/ui/badge";
 import CRMPanel from "@/components/crm/CRMPanel";
 import TowerPlacementButton from "@/components/tower/TowerPlacementButton";
+import UtilityRow from "./UtilityRow";
 
 function getScoreColor(score) {
   if (score >= 80) return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
@@ -149,6 +150,7 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
             </div>
           </div>
         )}
+        <UtilityRow result={result} />
         {result.fiber_distance_miles != null && (
           <InfoRow
             icon={Radio}

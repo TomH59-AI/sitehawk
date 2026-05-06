@@ -13,6 +13,7 @@ import HawkIcon from "../components/HawkIcon";
 import FilterPanel from "../components/search/FilterPanel";
 import { siteSearch } from "@/functions/siteSearch";
 import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
+import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { nearestAirport } from "@/functions/nearestAirport";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
@@ -151,7 +152,7 @@ export default function SiteSearch() {
     }
 
     // Look up all external data sources in parallel
-    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups, femaLookups, windLookups] = await Promise.all([
+    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups, femaLookups, windLookups, utilityLookups] = await Promise.all([
       Promise.all(
         parcels.map(async (parcel) => {
           try {
@@ -200,6 +201,14 @@ export default function SiteSearch() {
           } catch (e) { return {}; }
         })
       ),
+      Promise.all(
+        parcels.map(async (parcel) => {
+          try {
+            const res = await electricUtilityLookup({ lat: parcel.latitude, lon: parcel.longitude });
+            return res.data || {};
+          } catch (e) { return {}; }
+        })
+      ),
     ]);
 
     // Save results to DB
@@ -212,6 +221,7 @@ export default function SiteSearch() {
       const wetlands = wetlandLookups[i] || {};
       const fema = femaLookups[i] || {};
       const wind = windLookups[i] || {};
+      const utility = utilityLookups[i] || {};
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
         site_name: parcel.site_name,
@@ -244,7 +254,14 @@ export default function SiteSearch() {
         fiber_distance_miles: fcc.fiber_distance_miles ?? null,
         fiber_infrastructure_type: fcc.fiber_infrastructure_type || null,
         fiber_operator: fcc.fiber_operator || null,
-        power_utility: fcc.power_utility || null,
+        power_utility: utility.utility_name || fcc.power_utility || null,
+        utility_type: utility.utility_type || null,
+        utility_holding_company: utility.holding_company || null,
+        utility_website: utility.website && utility.website !== "NOT AVAILABLE" ? utility.website : null,
+        utility_phone: utility.telephone && utility.telephone !== "NOT AVAILABLE" ? utility.telephone : null,
+        utility_control_area: utility.control_area && utility.control_area !== "NOT AVAILABLE" ? utility.control_area : null,
+        utility_customers: utility.customers || null,
+        utility_overlapping: utility.overlapping_territories || [],
         fcc_block_geoid: fcc.fcc_block_geoid || null,
         transmission_line_distance_miles: fcc.transmission_line_distance_miles || null,
         transmission_line_voltage: fcc.transmission_line_voltage || null,
