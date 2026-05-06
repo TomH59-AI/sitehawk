@@ -459,25 +459,28 @@ Deno.serve(async (req) => {
 
     const radiusMiles = radius_miles || 0.5;
 
-    // ── Free ArcGIS routes (no token cost) ───────────────────────────────────
-    if (inState(lat, lon, "FL")) {
-      console.log(`FL ArcGIS scan: user=${user.email} lat=${lat} lon=${lon}`);
-      return Response.json(await searchFlorida(lat, lon, radiusMiles, offset || 0));
-    }
+    // ── Default path: free local-GIS (no Regrid token cost) ─────────────────
+    // Try the state's ArcGIS endpoint first. Only fall through to Regrid if
+    // (a) no local source is configured for this state, (b) the state endpoint
+    // errors, or (c) the state endpoint returns zero candidates.
+    const localState =
+      inState(lat, lon, "FL") ? { code: "FL", fn: searchFlorida } :
+      inState(lat, lon, "NC") ? { code: "NC", fn: searchNorthCarolina } :
+      inState(lat, lon, "MA") ? { code: "MA", fn: searchMassachusetts } :
+      inState(lat, lon, "MD") ? { code: "MD", fn: searchMaryland } :
+      null;
 
-    if (inState(lat, lon, "NC")) {
-      console.log(`NC ArcGIS scan: user=${user.email} lat=${lat} lon=${lon}`);
-      return Response.json(await searchNorthCarolina(lat, lon, radiusMiles, offset || 0));
-    }
-
-    if (inState(lat, lon, "MA")) {
-      console.log(`MA ArcGIS scan: user=${user.email} lat=${lat} lon=${lon}`);
-      return Response.json(await searchMassachusetts(lat, lon, radiusMiles, offset || 0));
-    }
-
-    if (inState(lat, lon, "MD")) {
-      console.log(`MD ArcGIS scan: user=${user.email} lat=${lat} lon=${lon}`);
-      return Response.json(await searchMaryland(lat, lon, radiusMiles, offset || 0));
+    if (localState) {
+      try {
+        console.log(`${localState.code} local-GIS scan: user=${user.email} lat=${lat} lon=${lon}`);
+        const localResult = await localState.fn(lat, lon, radiusMiles, offset || 0);
+        if (localResult?.candidates?.length) {
+          return Response.json({ ...localResult, source: `local-gis-${localState.code.toLowerCase()}` });
+        }
+        console.warn(`${localState.code} local-GIS returned 0 candidates — falling back to Regrid`);
+      } catch (e) {
+        console.warn(`${localState.code} local-GIS failed (${e.message}) — falling back to Regrid`);
+      }
     }
 
     // ── Fallback: Supabase/Regrid (token-based) ───────────────────────────────
@@ -505,23 +508,42 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Regrid fallback: user=${user.email} lat=${lat} lon=${lon} quota=${quota.userCount}/${quota.userLimit} global=${quota.globalCount}/${REGRID_GLOBAL_DAILY_LIMIT}`);
-    const res = await fetch(SUPABASE_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify({ lat, lon, radius_miles: radiusMiles, offset: offset || 0 }),
-    });
+    let data;
+    try {
+      const res = await fetch(SUPABASE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+        },
+        body: JSON.stringify({ lat, lon, radius_miles: radiusMiles, offset: offset || 0 }),
+      });
+      data = await res.json();
+    } catch (e) {
+      console.error(`Regrid network error: ${e.message}`);
+      return Response.json({
+        error: "Regrid parcel service is temporarily unavailable. Local GIS coverage is available for FL, NC, MA, and MD — try a location in those states, or try again later.",
+      }, { status: 502 });
+    }
 
-    const data = await res.json();
-    // Cache the result to avoid repeat Regrid calls for the same area
+    // If Regrid token expired or returned an error, give a clear message
+    if (data?.error) {
+      const msg = String(data.error).toLowerCase();
+      if (msg.includes("token") || msg.includes("unauthorized") || msg.includes("forbidden") || msg.includes("expired")) {
+        console.error(`Regrid token issue: ${data.error}`);
+        return Response.json({
+          error: "Regrid parcel data is currently unavailable (auth issue). Local GIS coverage is available for FL, NC, MA, and MD — please try a location in those states.",
+        }, { status: 502 });
+      }
+    }
+
+    // Cache successful results to avoid repeat Regrid calls for the same area
     if (data && !data.error) {
       setCache(lat, lon, data);
       console.log(`Regrid result cached for lat=${lat} lon=${lon}`);
     }
-    return Response.json(data);
+    return Response.json({ ...data, source: data?.error ? "regrid-error" : "regrid" });
 
   } catch (error) {
     console.error('siteSearch error:', error.message);
