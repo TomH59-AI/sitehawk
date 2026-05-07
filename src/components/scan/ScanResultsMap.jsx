@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import TowerPlacementOverlay from "./TowerPlacementOverlay";
 
 const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ";
 const TILE_URL = `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`;
@@ -62,6 +63,7 @@ export default function ScanResultsMap({ results, searchCenter, selectedIndex, o
   const circleRef = useRef(null);
   const LRef = useRef(null);
   const [showCoverage, setShowCoverage] = useState(true);
+  const [, forceRerender] = useState(0);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -120,6 +122,8 @@ export default function ScanResultsMap({ results, searchCenter, selectedIndex, o
       mapRef.current = map;
       renderMarkers(L, map);
       renderCoverageOverlay(L, map);
+      // Trigger re-render so the TowerPlacementOverlay receives the live map+L refs
+      forceRerender(n => n + 1);
 
       // flyTo handler
       flyToRef.current = (candidate) => {
@@ -258,6 +262,10 @@ export default function ScanResultsMap({ results, searchCenter, selectedIndex, o
       `}</style>
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
         <div ref={containerRef} style={{ width: "100%", height: "100%", background: "#0a0e17" }} />
+
+        {/* Tower placement overlay (parcel boundary, setback, compound, fall zone) */}
+        <TowerPlacementOverlay map={mapRef.current} L={LRef.current} results={results} />
+
         <button
           onClick={() => setShowCoverage((value) => !value)}
           style={{
