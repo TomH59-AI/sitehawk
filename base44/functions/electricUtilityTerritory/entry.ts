@@ -11,9 +11,14 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { lat, lon } = await req.json();
+    const { lat, lon, bbox_miles } = await req.json();
     if (!lat || !lon) return Response.json({ error: 'lat and lon are required' }, { status: 400 });
 
+    // ArcGIS server-side geometry simplification: drop coordinate precision so
+    // the response stays small. Utility territory polygons can be 10+ MB raw.
+    // maxAllowableOffset is in the output SR units (degrees for 4326).
+    // ~0.0003 degrees ≈ 33 m at mid-latitudes — enough resolution for an
+    // overlay zoomed to a 0.5-mile search area.
     const params = new URLSearchParams({
       geometry: `${lon},${lat}`,
       geometryType: "esriGeometryPoint",
@@ -22,6 +27,8 @@ Deno.serve(async (req) => {
       spatialRel: "esriSpatialRelIntersects",
       outFields: "NAME,TYPE,HOLDING_CO,WEBSITE,TELEPHONE,CNTRL_AREA,CUSTOMERS",
       returnGeometry: "true",
+      maxAllowableOffset: "0.0003",
+      geometryPrecision: "5",
       f: "geojson",
       resultRecordCount: "10",
     });
