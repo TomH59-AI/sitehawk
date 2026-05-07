@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import UtilityTerritoryOverlay from "./UtilityTerritoryOverlay";
 
 const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ";
 const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
@@ -325,6 +326,16 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
             </div>
             <p className="text-[10px] text-muted-foreground/60 mt-2 text-center">Click for full details</p>
           </div>
+        )}
+
+        {/* Utility territory overlay toggle */}
+        {centerLat && !loading && mapLoaded && (
+          <UtilityTerritoryOverlay
+            map={mapRef.current}
+            mapLoaded={mapLoaded}
+            centerLat={centerLat}
+            centerLon={centerLon}
+          />
         )}
 
         {/* Style toggle */}
