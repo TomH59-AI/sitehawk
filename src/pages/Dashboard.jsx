@@ -10,6 +10,7 @@ import WelcomeModal from "../components/onboarding/WelcomeModal";
 import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import ReferralPanel from "../components/referral/ReferralPanel";
 import FieldConnectCard from "../components/dashboard/FieldConnectCard";
+import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
 
 const TIER_LIMITS = {
   blind: 0,
@@ -108,6 +109,9 @@ export default function Dashboard() {
 
       {/* Stats */}
       <StatsCards searches={searches} results={results} />
+
+      {/* Top Parcels Map */}
+      <RecentParcelsMap results={results} />
 
       {/* Field Connect — WhatsApp */}
       <FieldConnectCard tier={tier} />
