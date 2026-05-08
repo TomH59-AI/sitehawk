@@ -1,0 +1,80 @@
+{
+  "name": "SCParcelRecord",
+  "type": "object",
+  "description": "Normalized South Carolina parcel data for Site-Hawk Pro.",
+  "properties": {
+    "state": {
+      "type": "string",
+      "default": "SC",
+      "description": "State code for routing."
+    },
+    "county": {
+      "type": "string",
+      "description": "County name returned by SC GIS."
+    },
+    "parcel_id": {
+      "type": "string",
+      "description": "Primary parcel identifier (TMS/PIN)."
+    },
+    "owner_name": {
+      "type": "string",
+      "description": "Owner name from SC county GIS."
+    },
+    "parcel_address": {
+      "type": "string",
+      "description": "Situs (physical) address of the parcel."
+    },
+    "mailing_address": {
+      "type": "string",
+      "description": "Owner mailing address."
+    },
+    "acreage": {
+      "type": "number",
+      "description": "Parcel size in acres."
+    },
+    "zoning": {
+      "type": "string",
+      "description": "Zoning classification if available; otherwise 'N/A'."
+    },
+    "land_use": {
+      "type": "string",
+      "description": "Land use code or description."
+    },
+    "land_value": {
+      "type": "number",
+      "description": "Assessed land value."
+    },
+    "improvement_value": {
+      "type": "number",
+      "description": "Assessed improvement value."
+    },
+    "total_value": {
+      "type": "number",
+      "description": "Total assessed value."
+    },
+    "sale_date": {
+      "type": "string",
+      "description": "Last recorded sale date."
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Centroid latitude."
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Centroid longitude."
+    },
+    "parcel_geometry": {
+      "type": "object",
+      "description": "GeoJSON polygon geometry for map rendering."
+    },
+    "source": {
+      "type": "string",
+      "default": "SC-HAWK",
+      "description": "Which module produced the record."
+    }
+  },
+  "required": [
+    "parcel_id"
+  ]
+}
