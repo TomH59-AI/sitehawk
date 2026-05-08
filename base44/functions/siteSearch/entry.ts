@@ -76,6 +76,78 @@ async function queryArcGIS(url, lat, lon, radiusMiles, outFields, offset) {
   return res.json();
 }
 
+// ── hawk_parcels Supabase cache (universal pre-Regrid fallback) ──────────────
+const HAWK_PARCELS_URL = "https://skpxeouvikzgsaurkohf.supabase.co/rest/v1/hawk_parcels";
+const HAWK_RES_FILTERS = ["R", "RES", "RESI", "SFR", "MFR", "APT", "CONDO"];
+
+function isHawkResidential(zoning) {
+  if (!zoning) return false;
+  const z = zoning.toUpperCase();
+  return HAWK_RES_FILTERS.some((p) => z.includes(p));
+}
+
+function scoreHawkParcel(p, distMeters) {
+  const distanceScore = distMeters ? Math.max(0, 100 - (distMeters / 8)) : 70;
+  const zoningScore = p.zoning?.startsWith("C") ? 100 :
+                      p.zoning?.startsWith("I") ? 95 : 60;
+  const acreageScore = p.acreage ? Math.min(100, p.acreage * 12) : 40;
+  return Math.round(distanceScore * 0.4 + zoningScore * 0.4 + acreageScore * 0.2);
+}
+
+async function searchHawkParcels(lat, lon, radiusMiles) {
+  const radiusMeters = radiusMiles * 1609.344;
+  const latDelta = 0.00725;
+  const lonDelta = 0.00725;
+
+  const params = new URLSearchParams({ select: "*" });
+  params.append("latitude", `gte.${lat - latDelta}`);
+  params.append("latitude", `lte.${lat + latDelta}`);
+  params.append("longitude", `gte.${lon - lonDelta}`);
+  params.append("longitude", `lte.${lon + lonDelta}`);
+  params.append("limit", "50");
+
+  const res = await fetch(`${HAWK_PARCELS_URL}?${params}`, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "Accept": "application/json",
+    },
+  });
+  if (!res.ok) return { candidates: [], ordinance: null };
+
+  const rows = await res.json();
+  if (!rows?.length) return { candidates: [], ordinance: null };
+
+  const candidates = rows
+    .filter((p) => !isHawkResidential(p.zoning))
+    .map((p) => {
+      if (p.latitude == null || p.longitude == null) return null;
+      const distMeters = haversineMeters(lat, lon, p.latitude, p.longitude);
+      if (distMeters > radiusMeters) return null;
+      const score = scoreHawkParcel(p, distMeters);
+      return {
+        site_name: p.parcel_address || `${p.state} Parcel ${p.parcel_id}`,
+        owner_name: p.owner_name || "Unknown Owner",
+        parcel_address: p.parcel_address || "—",
+        parcel_id: p.parcel_id || "—",
+        parcel_size_acres: p.acreage ?? null,
+        zoning: p.zoning || "Unknown",
+        owner_mailing_address: p.mailing_address || null,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        parcel_geometry: p.parcel_geometry || null,
+        fema_risk: null, phone: null, email: null,
+        match_score: score,
+        match_reason: `hawk_parcels cache · ${p.zoning || "Unknown"} · ${p.acreage ? p.acreage + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.match_score - a.match_score)
+    .slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
 // ── Florida ───────────────────────────────────────────────────────────────────
 function dorUcToZoning(dorUc) {
   const code = parseInt(dorUc);
@@ -836,8 +908,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Fallback: Supabase/Regrid (token-based) ───────────────────────────────
-    // Check cache first — cached results don't count against quota
+    // ── Fallback layer 1: hawk_parcels Supabase cache (free, no Regrid cost) ──
+    // If we've previously ingested parcels for this area into hawk_parcels,
+    // serve them directly. Skips Regrid entirely when we have data.
+    try {
+      const hawkResult = await searchHawkParcels(lat, lon, 0.5);
+      if (hawkResult?.candidates?.length) {
+        console.log(`hawk_parcels cache HIT: user=${user.email} → ${hawkResult.candidates.length} parcels`);
+        return Response.json({ ...hawkResult, source: "hawk-parcels-cache" });
+      }
+    } catch (e) {
+      console.warn(`hawk_parcels lookup failed (${e.message}) — falling through to Regrid`);
+    }
+
+    // ── Fallback layer 2: Supabase/Regrid (token-based) ──────────────────────
+    // Check Regrid in-memory cache first — cached results don't count against quota
     const cached = getCached(lat, lon);
     if (cached) {
       console.log(`Regrid cache HIT: user=${user.email} lat=${lat} lon=${lon}`);
