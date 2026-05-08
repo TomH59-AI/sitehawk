@@ -5,7 +5,7 @@ const SUPABASE_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
 // ── ArcGIS Endpoints (free, no key) ─────────────────────────────────────────
 const ARCGIS_FL  = "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0/query";
-const ARCGIS_NC  = "https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/FeatureServer/0/query";
+const ARCGIS_NC  = "https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/FeatureServer/1/query";
 const ARCGIS_MA  = "https://services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/MassGIS_L3_Parcels/FeatureServer/1/query";
 const ARCGIS_MD  = "https://geodata.md.gov/imap/rest/services/PlanningCadastre/MD_ParcelBoundaries/MapServer/0/query";
 
@@ -147,7 +147,22 @@ async function searchFlorida(lat, lon, radiusMiles, offset) {
 // ── North Carolina ────────────────────────────────────────────────────────────
 function ncUseToZoning(desc) {
   if (!desc) return "Unknown";
-  const d = desc.toUpperCase();
+  const d = desc.toUpperCase().trim();
+  // NC OneMap single-letter parusedesc codes (used by many counties incl. Wake)
+  if (d.length <= 2) {
+    const codeMap = {
+      V: "Vacant",
+      R: "Residential",
+      A: "Agricultural",
+      C: "Commercial",
+      I: "Industrial",
+      M: "Multi-Family",
+      G: "Government",
+      P: "Institutional",
+      E: "Exempt",
+    };
+    if (codeMap[d]) return codeMap[d];
+  }
   if (d.includes("VACANT") || d.includes("UNDEVELOPED")) return "Vacant";
   if (d.includes("AGRICUL") || d.includes("FARM") || d.includes("TIMBER")) return "Agricultural";
   if (d.includes("COMMERCIAL") || d.includes("RETAIL") || d.includes("OFFICE")) return "Commercial";
@@ -171,7 +186,9 @@ function ncZoningBonus(desc) {
 }
 
 async function searchNorthCarolina(lat, lon, radiusMiles, offset) {
-  const fields = "parno,ownname,mailadd,mcity,mstate,mzip,siteadd,sitecity,gisacres,usedscrp,parval";
+  // NC OneMap field names (FeatureServer/1 — polygons): parno, ownname, mailadd, mcity, mstate, mzip,
+  // siteadd, scity, gisacres, parusedesc (NOT usedscrp), parval
+  const fields = "parno,ownname,mailadd,mcity,mstate,mzip,siteadd,scity,gisacres,parusedesc,parval";
   const data = await queryArcGIS(ARCGIS_NC, lat, lon, radiusMiles, fields, offset);
   if (!data.features?.length) return { candidates: [], ordinance: null };
 
@@ -181,9 +198,9 @@ async function searchNorthCarolina(lat, lon, radiusMiles, offset) {
     if (!centroid) return null;
     const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
     const acres = p.gisacres ? parseFloat(parseFloat(p.gisacres).toFixed(2)) : null;
-    const zoning = ncUseToZoning(p.usedscrp);
+    const zoning = ncUseToZoning(p.parusedesc);
     const mailingAddr = [p.mailadd, p.mcity, p.mstate, p.mzip].filter(Boolean).join(", ");
-    const physAddr = [p.siteadd, p.sitecity, "NC"].filter(Boolean).join(", ");
+    const physAddr = [p.siteadd, p.scity, "NC"].filter(Boolean).join(", ");
     return {
       site_name: physAddr || `NC Parcel ${p.parno}`,
       owner_name: p.ownname || "Unknown Owner",
@@ -196,7 +213,7 @@ async function searchNorthCarolina(lat, lon, radiusMiles, offset) {
       longitude: centroid.lon,
       parcel_geometry: f.geometry || null,
       fema_risk: null, phone: null, email: null,
-      match_score: genericScore(acres || 0, distMeters, ncZoningBonus(p.usedscrp)),
+      match_score: genericScore(acres || 0, distMeters, ncZoningBonus(p.parusedesc)),
       match_reason: `NC OneMap cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
     };
   }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
