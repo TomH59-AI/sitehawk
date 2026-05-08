@@ -7,14 +7,15 @@ const RADIUS_MILES = 0.5;
 const RADIUS_METERS = 804.672;
 
 // Residential zoning patterns to exclude (case-insensitive)
+// Mirrors SQL ILIKE filters: R%, %RES%, %RESI%, %SFR%, %MFR%, %APT%, %CONDO%
 const RESIDENTIAL_PATTERNS = [
-  /^R\d/i,    // R1, R2, R3
-  /RES/i,     // RES, RESIDENTIAL
-  /RESI/i,    // RESIDENTIAL variations
-  /SFR/i,     // single-family residential
-  /MFR/i,     // multi-family residential
-  /APT/i,     // apartments
-  /CONDO/i,   // condos
+  /^R/i,      // R%
+  /RES/i,     // %RES%
+  /RESI/i,    // %RESI%
+  /SFR/i,     // %SFR%
+  /MFR/i,     // %MFR%
+  /APT/i,     // %APT%
+  /CONDO/i,   // %CONDO%
 ];
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
