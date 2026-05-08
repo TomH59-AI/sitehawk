@@ -1,0 +1,84 @@
+{
+  "name": "HawkParcelRecord",
+  "type": "object",
+  "description": "Unified 50-state parcel record backed by the Supabase hawk_parcels table.",
+  "properties": {
+    "state": {
+      "type": "string",
+      "description": "Two-letter state code (FL, NC, GA, etc.)."
+    },
+    "county": {
+      "type": "string",
+      "description": "County or equivalent jurisdiction name."
+    },
+    "parcel_id": {
+      "type": "string",
+      "description": "Primary parcel identifier."
+    },
+    "owner_name": {
+      "type": "string",
+      "description": "Owner name."
+    },
+    "parcel_address": {
+      "type": "string",
+      "description": "Situs (physical) address."
+    },
+    "mailing_address": {
+      "type": "string",
+      "description": "Owner mailing address."
+    },
+    "acreage": {
+      "type": "number",
+      "description": "Parcel size in acres."
+    },
+    "zoning": {
+      "type": "string",
+      "description": "Zoning classification; 'N/A' when unknown."
+    },
+    "land_use": {
+      "type": "string",
+      "description": "Land use code or description."
+    },
+    "land_value": {
+      "type": "number",
+      "description": "Assessed land value."
+    },
+    "improvement_value": {
+      "type": "number",
+      "description": "Assessed improvement value."
+    },
+    "total_value": {
+      "type": "number",
+      "description": "Total assessed value."
+    },
+    "sale_date": {
+      "type": "string",
+      "description": "Last recorded sale date."
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Centroid latitude."
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Centroid longitude."
+    },
+    "parcel_geometry": {
+      "type": "object",
+      "description": "GeoJSON polygon geometry for map rendering."
+    },
+    "source": {
+      "type": "string",
+      "default": "HAWK",
+      "description": "Module/source tag (e.g., FL-HAWK, NC-HAWK)."
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Insertion timestamp from Supabase."
+    }
+  },
+  "required": [
+    "state",
+    "parcel_id"
+  ]
+}
