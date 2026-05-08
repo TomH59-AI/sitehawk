@@ -29,7 +29,8 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
 
 function isResidential(zoning) {
   if (!zoning) return false;
-  return RESIDENTIAL_PATTERNS.some((re) => re.test(zoning));
+  const z = zoning.toUpperCase();
+  return RES_FILTERS.some((pattern) => z.includes(pattern.replace(/%/g, "")));
 }
 
 function scoreParcel(p) {
