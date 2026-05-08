@@ -3,8 +3,27 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const SUPABASE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/rest/v1/hawk_parcels";
 const SUPABASE_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
-// Reads parcel records from the Supabase hawk_parcels table.
-// Accepts optional filters: state, county, parcel_id, owner_name, lat/lon bbox, limit.
+const RADIUS_MILES = 0.5;
+const RADIUS_METERS = 804.672;
+
+// Residential zoning patterns to exclude (case-insensitive)
+const RESIDENTIAL_PATTERNS = [/^R\d/i, /RESI/i, /RES$/i];
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function isResidential(zoning) {
+  if (!zoning) return false;
+  return RESIDENTIAL_PATTERNS.some((re) => re.test(zoning));
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -12,27 +31,31 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const {
-      state,
-      county,
-      parcel_id,
-      owner_name,
-      lat_min, lat_max, lon_min, lon_max,
-      limit,
-    } = body || {};
+    const { state, county, lat, lon, limit = 5 } = body || {};
 
+    if (!state) {
+      return Response.json({ error: "State is required" }, { status: 400 });
+    }
+
+    const cap = Math.min(parseInt(limit) || 5, 100);
+
+    // Build PostgREST query
     const params = new URLSearchParams({ select: "*" });
-    if (state)      params.append("state", `eq.${state}`);
-    if (county)     params.append("county", `ilike.*${county}*`);
-    if (parcel_id)  params.append("parcel_id", `eq.${parcel_id}`);
-    if (owner_name) params.append("owner_name", `ilike.*${owner_name}*`);
-    if (lat_min != null) params.append("latitude", `gte.${lat_min}`);
-    if (lat_max != null) params.append("latitude", `lte.${lat_max}`);
-    if (lon_min != null) params.append("longitude", `gte.${lon_min}`);
-    if (lon_max != null) params.append("longitude", `lte.${lon_max}`);
+    params.append("state", `eq.${state}`);
+    if (county) params.append("county", `ilike.*${county}*`);
 
-    const cap = Math.min(parseInt(limit) || 100, 500);
-    params.append("limit", String(cap));
+    // Bounding box pre-filter (lat/lon) — refined with haversine below
+    if (lat != null && lon != null) {
+      const latDelta = RADIUS_MILES / 69; // ~0.00725°
+      const lonDelta = RADIUS_MILES / (69 * Math.cos((lat * Math.PI) / 180));
+      params.append("latitude", `gte.${lat - latDelta}`);
+      params.append("latitude", `lte.${lat + latDelta}`);
+      params.append("longitude", `gte.${lon - lonDelta}`);
+      params.append("longitude", `lte.${lon + lonDelta}`);
+    }
+
+    // Pull a wider page so post-filtering still yields `limit` rows
+    params.append("limit", String(Math.max(cap * 10, 50)));
 
     const res = await fetch(`${SUPABASE_URL}?${params}`, {
       headers: {
@@ -48,8 +71,40 @@ Deno.serve(async (req) => {
       return Response.json({ error: `Supabase error ${res.status}`, detail: text }, { status: 502 });
     }
 
-    const records = await res.json();
-    return Response.json({ count: records.length, records });
+    let rows = await res.json();
+
+    // Exclude residential zoning
+    rows = rows.filter((p) => !isResidential(p.zoning));
+
+    // Refine to true half-mile radius
+    if (lat != null && lon != null) {
+      rows = rows
+        .map((p) => {
+          if (p.latitude == null || p.longitude == null) return null;
+          const d = haversineMeters(lat, lon, p.latitude, p.longitude);
+          if (d > RADIUS_METERS) return null;
+          return { ...p, distance_meters: Math.round(d) };
+        })
+        .filter(Boolean);
+    }
+
+    // Score
+    const scored = rows.map((p) => {
+      const distanceScore = lat != null && lon != null
+        ? 100 - Math.min(100, (p.distance_meters || 0) / 8)
+        : 80;
+      const zoningScore = p.zoning && /^C/i.test(p.zoning) ? 100 : 70;
+      const acreageScore = p.acreage ? Math.min(100, p.acreage * 10) : 50;
+      const score = parseFloat(
+        (distanceScore * 0.4 + zoningScore * 0.4 + acreageScore * 0.2).toFixed(1)
+      );
+      return { ...p, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const results = scored.slice(0, cap);
+
+    return Response.json({ count: results.length, results });
 
   } catch (error) {
     console.error('hawkParcelSearch error:', error.message);
