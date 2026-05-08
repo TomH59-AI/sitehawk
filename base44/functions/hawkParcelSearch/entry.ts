@@ -32,6 +32,26 @@ function isResidential(zoning) {
   return RESIDENTIAL_PATTERNS.some((re) => re.test(zoning));
 }
 
+function scoreParcel(p) {
+  const distanceScore = p.distance_meters
+    ? Math.max(0, 100 - (p.distance_meters / 8))
+    : 70;
+
+  const zoningScore = p.zoning?.startsWith("C") ? 100 :
+                      p.zoning?.startsWith("I") ? 95 :
+                      60;
+
+  const acreageScore = p.acreage
+    ? Math.min(100, p.acreage * 12)
+    : 40;
+
+  return Number(
+    (distanceScore * 0.4 +
+     zoningScore   * 0.4 +
+     acreageScore  * 0.2).toFixed(1)
+  );
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -99,17 +119,7 @@ Deno.serve(async (req) => {
     }
 
     // Score
-    const scored = rows.map((p) => {
-      const distanceScore = lat != null && lon != null
-        ? 100 - Math.min(100, (p.distance_meters || 0) / 8)
-        : 80;
-      const zoningScore = p.zoning && /^C/i.test(p.zoning) ? 100 : 70;
-      const acreageScore = p.acreage ? Math.min(100, p.acreage * 10) : 50;
-      const score = parseFloat(
-        (distanceScore * 0.4 + zoningScore * 0.4 + acreageScore * 0.2).toFixed(1)
-      );
-      return { ...p, score };
-    });
+    const scored = rows.map((p) => ({ ...p, score: scoreParcel(p) }));
 
     scored.sort((a, b) => b.score - a.score);
     const results = scored.slice(0, cap);
