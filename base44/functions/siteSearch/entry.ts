@@ -185,12 +185,62 @@ function ncZoningBonus(desc) {
   return 0;
 }
 
-async function searchNorthCarolina(lat, lon, radiusMiles, offset) {
+// Best-effort cache write into the NCParcelRecord entity. Non-blocking — any
+// failure (duplicate, schema mismatch, transient error) is swallowed so it
+// never breaks a live scan.
+async function cacheNCParcels(base44, rawFeatures) {
+  if (!base44 || !rawFeatures?.length) return;
+  for (const f of rawFeatures) {
+    try {
+      const p = f.properties || {};
+      if (!p.parno) continue;
+      const centroid = getCentroid(f.geometry);
+      if (!centroid) continue;
+      const acres = p.gisacres ? parseFloat(parseFloat(p.gisacres).toFixed(2)) : null;
+      const mailingAddr = [p.mailadd, p.mcity, p.mstate, p.mzip].filter(Boolean).join(", ");
+      const physAddr = [p.siteadd, p.scity, "NC"].filter(Boolean).join(", ");
+
+      // Skip if we've already cached this parcel_id
+      const existing = await base44.asServiceRole.entities.NCParcelRecord
+        .filter({ parcel_id: String(p.parno) }, null, 1)
+        .catch(() => []);
+      if (existing?.length) continue;
+
+      await base44.asServiceRole.entities.NCParcelRecord.create({
+        state: "NC",
+        county: p.scity || null,
+        parcel_id: String(p.parno),
+        owner_name: p.ownname || null,
+        parcel_address: physAddr || null,
+        mailing_address: mailingAddr || null,
+        acreage: acres,
+        zoning: ncUseToZoning(p.parusedesc),
+        land_use: p.parusedesc || null,
+        land_value: p.landval != null ? Number(p.landval) : null,
+        improvement_value: p.improvval != null ? Number(p.improvval) : null,
+        total_value: p.parval != null ? Number(p.parval) : null,
+        sale_date: p.saledatetx || null,
+        latitude: centroid.lat,
+        longitude: centroid.lon,
+        parcel_geometry: f.geometry || null,
+        source: "NC-HAWK",
+      });
+    } catch (_) { /* swallow */ }
+  }
+}
+
+async function searchNorthCarolina(lat, lon, radiusMiles, offset, base44) {
   // NC OneMap field names (FeatureServer/1 — polygons): parno, ownname, mailadd, mcity, mstate, mzip,
-  // siteadd, scity, gisacres, parusedesc (NOT usedscrp), parval
-  const fields = "parno,ownname,mailadd,mcity,mstate,mzip,siteadd,scity,gisacres,parusedesc,parval";
+  // siteadd, scity, gisacres, parusedesc (NOT usedscrp), parval, landval, improvval, saledatetx
+  const fields = "parno,ownname,mailadd,mcity,mstate,mzip,siteadd,scity,gisacres,parusedesc,parval,landval,improvval,saledatetx";
   const data = await queryArcGIS(ARCGIS_NC, lat, lon, radiusMiles, fields, offset);
   if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  // Fire-and-forget: cache the raw NC parcel features into the entity store.
+  // Awaited so the writes happen during the request, but errors don't bubble up.
+  if (base44) {
+    cacheNCParcels(base44, data.features).catch(() => {});
+  }
 
   const candidates = data.features.map((f) => {
     const p = f.properties;
@@ -701,7 +751,9 @@ Deno.serve(async (req) => {
     if (localSource) {
       try {
         console.log(`${localSource.code} local-GIS scan: user=${user.email} lat=${lat} lon=${lon}`);
-        const localResult = await localSource.fn(lat, lon, radiusMiles, offset || 0);
+        // NC handler accepts an extra base44 arg so it can mirror parcels into NCParcelRecord.
+        // Other handlers ignore the extra arg.
+        const localResult = await localSource.fn(lat, lon, radiusMiles, offset || 0, base44);
         if (localResult?.candidates?.length) {
           return Response.json({ ...localResult, source: `local-gis-${localSource.code.toLowerCase()}` });
         }
