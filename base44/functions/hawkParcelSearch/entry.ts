@@ -6,16 +6,15 @@ const SUPABASE_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 const RADIUS_MILES = 0.5;
 const RADIUS_METERS = 804.672;
 
-// Residential zoning patterns to exclude (case-insensitive)
-// Mirrors SQL ILIKE filters: R%, %RES%, %RESI%, %SFR%, %MFR%, %APT%, %CONDO%
-const RESIDENTIAL_PATTERNS = [
-  /^R/i,      // R%
-  /RES/i,     // %RES%
-  /RESI/i,    // %RESI%
-  /SFR/i,     // %SFR%
-  /MFR/i,     // %MFR%
-  /APT/i,     // %APT%
-  /CONDO/i,   // %CONDO%
+// Residential zoning patterns to exclude (SQL ILIKE style, case-insensitive)
+const RES_FILTERS = [
+  "R%",
+  "%RES%",
+  "%RESI%",
+  "%SFR%",
+  "%MFR%",
+  "%APT%",
+  "%CONDO%",
 ];
 
 function haversineMeters(lat1, lon1, lat2, lon2) {
