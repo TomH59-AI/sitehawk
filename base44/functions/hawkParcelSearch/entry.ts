@@ -52,14 +52,16 @@ Deno.serve(async (req) => {
     params.append("state", `eq.${state}`);
     if (county) params.append("county", `ilike.*${county}*`);
 
-    // Bounding box pre-filter (lat/lon) — refined with haversine below
+    // Bounding box pre-filter (~0.5 mi) — refined with haversine below
     if (lat != null && lon != null) {
-      const latDelta = RADIUS_MILES / 69; // ~0.00725°
-      const lonDelta = RADIUS_MILES / (69 * Math.cos((lat * Math.PI) / 180));
-      params.append("latitude", `gte.${lat - latDelta}`);
-      params.append("latitude", `lte.${lat + latDelta}`);
-      params.append("longitude", `gte.${lon - lonDelta}`);
-      params.append("longitude", `lte.${lon + lonDelta}`);
+      const latMin = lat - 0.00725;
+      const latMax = lat + 0.00725;
+      const lonMin = lon - 0.00725;
+      const lonMax = lon + 0.00725;
+      params.append("latitude", `gte.${latMin}`);
+      params.append("latitude", `lte.${latMax}`);
+      params.append("longitude", `gte.${lonMin}`);
+      params.append("longitude", `lte.${lonMax}`);
     }
 
     // Pull a wider page so post-filtering still yields `limit` rows
