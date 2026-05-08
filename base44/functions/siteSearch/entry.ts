@@ -76,8 +76,8 @@ async function queryArcGIS(url, lat, lon, radiusMiles, outFields, offset) {
   return res.json();
 }
 
-// ── hawk_parcels Supabase cache (universal pre-Regrid fallback) ──────────────
-const HAWK_PARCELS_URL = "https://skpxeouvikzgsaurkohf.supabase.co/rest/v1/hawk_parcels";
+// ── scip_parcels Supabase cache (universal pre-Regrid fallback) ──────────────
+const HAWK_PARCELS_URL = "https://skpxeouvikzgsaurkohf.supabase.co/rest/v1/scip_parcels";
 const HAWK_RES_FILTERS = ["R", "RES", "RESI", "SFR", "MFR", "APT", "CONDO"];
 
 function isHawkResidential(zoning) {

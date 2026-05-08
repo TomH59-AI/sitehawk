@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const SUPABASE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/rest/v1/hawk_parcels";
+const SUPABASE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/rest/v1/scip_parcels";
 const SUPABASE_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
 const RADIUS_MILES = 0.5;
@@ -62,15 +62,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { state, county, lat, lon, limit = 5 } = body || {};
 
-    if (!state) {
-      return Response.json({ error: "State is required" }, { status: 400 });
-    }
-
     const cap = Math.min(parseInt(limit) || 5, 100);
 
-    // Build PostgREST query
+    // Build PostgREST query — scip_parcels has no `state` column, so we
+    // rely on the bounding-box / haversine filters below.
     const params = new URLSearchParams({ select: "*" });
-    params.append("state", `eq.${state}`);
     if (county) params.append("county", `ilike.*${county}*`);
 
     // Bounding box pre-filter (~0.5 mi) — refined with haversine below
