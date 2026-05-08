@@ -520,12 +520,63 @@ async function searchDFW(lat, lon, radiusMiles, offset) {
   return { candidates, ordinance: null };
 }
 
+// Best-effort cache write into the GAParcelRecord entity. Non-blocking.
+async function cacheGAParcel(base44, county, raw) {
+  if (!base44 || !raw?.parcel_id) return;
+  try {
+    const existing = await base44.asServiceRole.entities.GAParcelRecord
+      .filter({ parcel_id: String(raw.parcel_id) }, null, 1)
+      .catch(() => []);
+    if (existing?.length) return;
+    await base44.asServiceRole.entities.GAParcelRecord.create({
+      state: "GA",
+      county: county || null,
+      parcel_id: String(raw.parcel_id),
+      owner_name: raw.owner_name || null,
+      parcel_address: raw.parcel_address || null,
+      mailing_address: raw.mailing_address || null,
+      acreage: raw.acreage ?? null,
+      zoning: raw.zoning || null,
+      land_use: raw.land_use || null,
+      land_value: raw.land_value ?? null,
+      improvement_value: raw.improvement_value ?? null,
+      total_value: raw.total_value ?? null,
+      sale_date: raw.sale_date || null,
+      latitude: raw.latitude ?? null,
+      longitude: raw.longitude ?? null,
+      parcel_geometry: raw.parcel_geometry || null,
+      source: "GA-HAWK",
+    });
+  } catch (_) { /* swallow */ }
+}
+
 // ── Fulton County, GA ─────────────────────────────────────────────────────────
-async function searchFultonGA(lat, lon, radiusMiles, offset) {
+async function searchFultonGA(lat, lon, radiusMiles, offset, base44) {
   const url = "https://services5.arcgis.com/buITjRsK0rZsAXbQ/arcgis/rest/services/CurrentParcels/FeatureServer/0/query";
   const fields = "ParcelID,Address,Owner,OwnerAddr1,OwnerAddr2,LandAcres,LUCode,ClassCode";
   const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
   if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  // Mirror raw features into GAParcelRecord (non-blocking)
+  if (base44) {
+    Promise.all(data.features.map((f) => {
+      const p = f.properties || {};
+      const c = getCentroid(f.geometry);
+      if (!c || !p.ParcelID) return null;
+      return cacheGAParcel(base44, "Fulton", {
+        parcel_id: p.ParcelID,
+        owner_name: p.Owner || null,
+        parcel_address: p.Address ? `${p.Address}, Fulton County, GA` : null,
+        mailing_address: [p.OwnerAddr1, p.OwnerAddr2].filter(Boolean).join(", ") || null,
+        acreage: p.LandAcres ? parseFloat(parseFloat(p.LandAcres).toFixed(2)) : null,
+        zoning: p.ClassCode || null,
+        land_use: p.LUCode ? `LU-${p.LUCode}` : null,
+        latitude: c.lat,
+        longitude: c.lon,
+        parcel_geometry: f.geometry || null,
+      });
+    })).catch(() => {});
+  }
 
   const candidates = data.features.map((f) => {
     const p = f.properties;
@@ -557,11 +608,33 @@ async function searchFultonGA(lat, lon, radiusMiles, offset) {
 }
 
 // ── DeKalb County, GA ─────────────────────────────────────────────────────────
-async function searchDeKalbGA(lat, lon, radiusMiles, offset) {
+async function searchDeKalbGA(lat, lon, radiusMiles, offset, base44) {
   const url = "https://dcgis.dekalbcountyga.gov/mapping/rest/services/TaxParcels/FeatureServer/0/query";
   const fields = "PARCELID,SITEADDRESS,OWNERNME1,OWNERNME2,PSTLADDRESS,PSTLCITY,PSTLSTATE,PSTLZIP5,CLASSCD,CLASSDSCRP,CVTTXDSCRP";
   const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
   if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  // Mirror raw features into GAParcelRecord (non-blocking)
+  if (base44) {
+    Promise.all(data.features.map((f) => {
+      const p = f.properties || {};
+      const c = getCentroid(f.geometry);
+      if (!c || !p.PARCELID) return null;
+      const sa = p.Shape__Area;
+      return cacheGAParcel(base44, "DeKalb", {
+        parcel_id: p.PARCELID,
+        owner_name: [p.OWNERNME1, p.OWNERNME2].filter(Boolean).join(" / ") || null,
+        parcel_address: p.SITEADDRESS ? `${p.SITEADDRESS}, DeKalb County, GA` : null,
+        mailing_address: [p.PSTLADDRESS, p.PSTLCITY, p.PSTLSTATE, p.PSTLZIP5].filter(Boolean).join(", ") || null,
+        acreage: sa ? parseFloat((sa / 4046.8564224).toFixed(2)) : null,
+        zoning: p.CLASSDSCRP || p.CLASSCD || null,
+        land_use: p.CVTTXDSCRP || null,
+        latitude: c.lat,
+        longitude: c.lon,
+        parcel_geometry: f.geometry || null,
+      });
+    })).catch(() => {});
+  }
 
   const candidates = data.features.map((f) => {
     const p = f.properties;
