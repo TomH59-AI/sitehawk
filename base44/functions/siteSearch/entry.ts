@@ -6,7 +6,7 @@ const SUPABASE_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 // ── ArcGIS Endpoints (free, no key) ─────────────────────────────────────────
 const ARCGIS_FL  = "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0/query";
 const ARCGIS_NC  = "https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/FeatureServer/1/query";
-const ARCGIS_MA  = "https://services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/MassGIS_L3_Parcels/FeatureServer/1/query";
+const ARCGIS_MA  = "https://services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/Massachusetts_Property_Tax_Parcels/FeatureServer/0/query";
 const ARCGIS_MD  = "https://geodata.md.gov/imap/rest/services/PlanningCadastre/MD_ParcelBoundaries/MapServer/0/query";
 
 // ── Bounding boxes ────────────────────────────────────────────────────────────
