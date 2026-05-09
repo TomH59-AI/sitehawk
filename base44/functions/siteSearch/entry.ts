@@ -795,8 +795,8 @@ async function searchDeKalbGA(lat, lon, radiusMiles, offset, base44) {
 }
 // ── Cobb County, GA ───────────────────────────────────────────────────────────
 async function searchCobbGA(lat, lon, radiusMiles, offset, base44) {
-  const url = "https://gis.cobbcounty.org/gisserver/rest/services/Public/taxassessorsdaily/MapServer/0/query";
-  const fields = "PARID,ADRNO,ADRDIR,ADRSTR,ADRSUF,CITYNAME,STATECODE,ZIP1,OWN1,OADR1,OADR2,OCITY,OSTATE,OZIP1,LUC,CLASS,ACRES,LIVUNIT,RTOTAPR";
+  const url = "https://gis.cobbcounty.org/gisserver/rest/services/tax/cobbparcelmapwm/MapServer/3/query";
+  const fields = "PARID,PIN,SITUS_ADDR,OWNER_NAM1,OWNER_NAM2,OWNER_ADDR,OWNER_CITY,OWNER_STAT,OWNER_ZIP,ACRES,ACRE_DEEDED,LAND_SQFT,CLASS,FMV_TOTAL,FMV_LAND,FMV_BLDG,TAXDIST";
   const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
   if (!data.features?.length) return { candidates: [], ordinance: null };
 
@@ -806,16 +806,19 @@ async function searchCobbGA(lat, lon, radiusMiles, offset, base44) {
       const p = f.properties || {};
       const c = getCentroid(f.geometry);
       if (!c || !p.PARID) return null;
-      const physAddr = [p.ADRNO, p.ADRDIR, p.ADRSTR, p.ADRSUF].filter(Boolean).join(" ");
+      const ownerName = [p.OWNER_NAM1, p.OWNER_NAM2].filter(Boolean).join(" / ");
+      const cleanSitus = p.SITUS_ADDR ? p.SITUS_ADDR.replace(/\s+/g, " ").trim() : null;
       return cacheGAParcel(base44, "Cobb", {
-        parcel_id: p.PARID,
-        owner_name: p.OWN1 || null,
-        parcel_address: physAddr ? `${physAddr}, ${p.CITYNAME || "Cobb County"}, GA` : null,
-        mailing_address: [p.OADR1, p.OADR2, p.OCITY, p.OSTATE, p.OZIP1].filter(Boolean).join(", ") || null,
-        acreage: p.ACRES ? parseFloat(parseFloat(p.ACRES).toFixed(2)) : null,
-        zoning: p.CLASS || p.LUC || null,
-        land_use: p.LUC ? `LUC-${p.LUC}` : null,
-        total_value: p.RTOTAPR ?? null,
+        parcel_id: String(p.PARID),
+        owner_name: ownerName || null,
+        parcel_address: cleanSitus ? `${cleanSitus}, Cobb County, GA` : null,
+        mailing_address: [p.OWNER_ADDR, p.OWNER_CITY, p.OWNER_STAT, p.OWNER_ZIP].filter(Boolean).map(s => String(s).replace(/\s+/g, " ").trim()).join(", ") || null,
+        acreage: p.ACRES != null ? parseFloat(parseFloat(p.ACRES).toFixed(2)) : (p.ACRE_DEEDED != null ? parseFloat(parseFloat(p.ACRE_DEEDED).toFixed(2)) : null),
+        zoning: p.CLASS || null,
+        land_use: p.CLASS || null,
+        total_value: p.FMV_TOTAL ?? null,
+        land_value: p.FMV_LAND ?? null,
+        improvement_value: p.FMV_BLDG ?? null,
         latitude: c.lat,
         longitude: c.lon,
         parcel_geometry: f.geometry || null,
@@ -828,16 +831,17 @@ async function searchCobbGA(lat, lon, radiusMiles, offset, base44) {
     const centroid = getCentroid(f.geometry);
     if (!centroid) return null;
     const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
-    const acres = p.ACRES ? parseFloat(parseFloat(p.ACRES).toFixed(2)) : null;
-    const zoning = p.CLASS || (p.LUC ? `LUC-${p.LUC}` : "Unknown");
-    const physAddr = [p.ADRNO, p.ADRDIR, p.ADRSTR, p.ADRSUF].filter(Boolean).join(" ");
-    const fullAddr = physAddr ? `${physAddr}, ${p.CITYNAME || "Cobb County"}, GA` : null;
-    const mailingAddr = [p.OADR1, p.OADR2, p.OCITY, p.OSTATE, p.OZIP1].filter(Boolean).join(", ");
+    const acres = p.ACRES != null ? parseFloat(parseFloat(p.ACRES).toFixed(2)) : (p.ACRE_DEEDED != null ? parseFloat(parseFloat(p.ACRE_DEEDED).toFixed(2)) : null);
+    const zoning = p.CLASS || "Unknown";
+    const ownerName = [p.OWNER_NAM1, p.OWNER_NAM2].filter(Boolean).join(" / ");
+    const cleanSitus = p.SITUS_ADDR ? p.SITUS_ADDR.replace(/\s+/g, " ").trim() : null;
+    const fullAddr = cleanSitus ? `${cleanSitus}, Cobb County, GA` : null;
+    const mailingAddr = [p.OWNER_ADDR, p.OWNER_CITY, p.OWNER_STAT, p.OWNER_ZIP].filter(Boolean).map(s => String(s).replace(/\s+/g, " ").trim()).join(", ");
     return {
       site_name: fullAddr || `Cobb Parcel ${p.PARID}`,
-      owner_name: p.OWN1 || "Unknown Owner",
+      owner_name: ownerName || "Unknown Owner",
       parcel_address: fullAddr || "—",
-      parcel_id: p.PARID || "—",
+      parcel_id: p.PARID ? String(p.PARID) : "—",
       parcel_size_acres: acres,
       zoning,
       owner_mailing_address: mailingAddr || null,
@@ -845,7 +849,7 @@ async function searchCobbGA(lat, lon, radiusMiles, offset, base44) {
       longitude: centroid.lon,
       parcel_geometry: f.geometry || null,
       fema_risk: null, phone: null, email: null,
-      match_score: genericScore(acres || 0, distMeters, cobbZoningBonus(p.LUC, p.CLASS)),
+      match_score: genericScore(acres || 0, distMeters, cobbZoningBonus(p.CLASS, p.CLASS)),
       match_reason: `Cobb County (GA) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
     };
   }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
@@ -886,7 +890,7 @@ async function cacheTNParcel(base44, county, raw) {
 // ── Davidson County (Nashville), TN ───────────────────────────────────────────
 async function searchNashvilleTN(lat, lon, radiusMiles, offset, base44) {
   const url = "https://services2.arcgis.com/HdTo6HJqh92wn4D8/arcgis/rest/services/Parcels_view/FeatureServer/0/query";
-  const fields = "ParcelID,APN,LocAddr,OwnerName,OwnerAddr,OwnerCity,OwnerState,OwnerZip,LandUseDesc,LandUseCode,Acreage,LandValue,ImprValue,TotalAprValue,Latitude,Longitude";
+  const fields = "ParID,Owner,OwnAddr1,OwnAddr2,OwnAddr3,OwnCity,OwnState,OwnZip,PropAddr,PropHouse,PropStreet,PropCity,PropState,PropZip,Acres,LUCode,LUDesc,Zoning,LandAppr,ImprAppr,TotlAppr,Lat,Lon";
   const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
   if (!data.features?.length) return { candidates: [], ordinance: null };
 
@@ -895,21 +899,20 @@ async function searchNashvilleTN(lat, lon, radiusMiles, offset, base44) {
     Promise.all(data.features.map((f) => {
       const p = f.properties || {};
       const c = getCentroid(f.geometry);
-      const id = p.ParcelID || p.APN;
-      if (!id || (!c && !p.Latitude)) return null;
-      const lat2 = p.Latitude ?? c?.lat ?? null;
-      const lon2 = p.Longitude ?? c?.lon ?? null;
+      if (!p.ParID || (!c && p.Lat == null)) return null;
+      const lat2 = p.Lat ?? c?.lat ?? null;
+      const lon2 = p.Lon ?? c?.lon ?? null;
       return cacheTNParcel(base44, "Davidson", {
-        parcel_id: id,
-        owner_name: p.OwnerName || null,
-        parcel_address: p.LocAddr ? `${p.LocAddr}, Nashville, TN` : null,
-        mailing_address: [p.OwnerAddr, p.OwnerCity, p.OwnerState, p.OwnerZip].filter(Boolean).join(", ") || null,
-        acreage: p.Acreage ? parseFloat(parseFloat(p.Acreage).toFixed(2)) : null,
-        zoning: p.LandUseDesc || null,
-        land_use: p.LandUseCode ? `LU-${p.LandUseCode}` : null,
-        land_value: p.LandValue ?? null,
-        improvement_value: p.ImprValue ?? null,
-        total_value: p.TotalAprValue ?? null,
+        parcel_id: String(p.ParID),
+        owner_name: p.Owner || null,
+        parcel_address: p.PropAddr ? `${p.PropAddr}, ${p.PropCity || "Nashville"}, TN ${p.PropZip || ""}`.trim() : null,
+        mailing_address: [p.OwnAddr1, p.OwnAddr2, p.OwnAddr3, p.OwnCity, p.OwnState, p.OwnZip].filter(Boolean).join(", ") || null,
+        acreage: p.Acres ? parseFloat(parseFloat(p.Acres).toFixed(2)) : null,
+        zoning: p.Zoning || p.LUDesc || null,
+        land_use: p.LUCode ? `LU-${p.LUCode}` : null,
+        land_value: p.LandAppr ?? null,
+        improvement_value: p.ImprAppr ?? null,
+        total_value: p.TotlAppr ?? null,
         latitude: lat2,
         longitude: lon2,
         parcel_geometry: f.geometry || null,
@@ -920,19 +923,19 @@ async function searchNashvilleTN(lat, lon, radiusMiles, offset, base44) {
   const candidates = data.features.map((f) => {
     const p = f.properties;
     const centroid = getCentroid(f.geometry);
-    const lat2 = p.Latitude ?? centroid?.lat ?? null;
-    const lon2 = p.Longitude ?? centroid?.lon ?? null;
+    const lat2 = p.Lat ?? centroid?.lat ?? null;
+    const lon2 = p.Lon ?? centroid?.lon ?? null;
     if (lat2 == null || lon2 == null) return null;
     const distMeters = haversineMeters(lat, lon, lat2, lon2);
-    const acres = p.Acreage ? parseFloat(parseFloat(p.Acreage).toFixed(2)) : null;
-    const zoning = p.LandUseDesc || (p.LandUseCode ? `LU-${p.LandUseCode}` : "Unknown");
-    const physAddr = p.LocAddr ? `${p.LocAddr}, Nashville, TN` : null;
-    const mailingAddr = [p.OwnerAddr, p.OwnerCity, p.OwnerState, p.OwnerZip].filter(Boolean).join(", ");
+    const acres = p.Acres ? parseFloat(parseFloat(p.Acres).toFixed(2)) : null;
+    const zoning = p.Zoning || p.LUDesc || (p.LUCode ? `LU-${p.LUCode}` : "Unknown");
+    const physAddr = p.PropAddr ? `${p.PropAddr}, ${p.PropCity || "Nashville"}, TN ${p.PropZip || ""}`.trim() : null;
+    const mailingAddr = [p.OwnAddr1, p.OwnAddr2, p.OwnAddr3, p.OwnCity, p.OwnState, p.OwnZip].filter(Boolean).join(", ");
     return {
-      site_name: physAddr || `Davidson Parcel ${p.ParcelID || p.APN}`,
-      owner_name: p.OwnerName || "Unknown Owner",
+      site_name: physAddr || `Davidson Parcel ${p.ParID}`,
+      owner_name: p.Owner || "Unknown Owner",
       parcel_address: physAddr || "—",
-      parcel_id: p.ParcelID || p.APN || "—",
+      parcel_id: p.ParID ? String(p.ParID) : "—",
       parcel_size_acres: acres,
       zoning,
       owner_mailing_address: mailingAddr || null,
@@ -940,7 +943,7 @@ async function searchNashvilleTN(lat, lon, radiusMiles, offset, base44) {
       longitude: lon2,
       parcel_geometry: f.geometry || null,
       fema_risk: null, phone: null, email: null,
-      match_score: genericScore(acres || 0, distMeters, tnZoningBonus(p.LandUseDesc)),
+      match_score: genericScore(acres || 0, distMeters, tnZoningBonus(p.LUDesc)),
       match_reason: `Davidson County (Nashville, TN) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
     };
   }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
@@ -951,7 +954,7 @@ async function searchNashvilleTN(lat, lon, radiusMiles, offset, base44) {
 // ── Connecticut (statewide CAMA) ──────────────────────────────────────────────
 async function searchConnecticut(lat, lon, radiusMiles, offset) {
   const url = "https://services3.arcgis.com/3FL1kr7L4LvwA2Kb/arcgis/rest/services/Connecticut_CAMA_and_Parcel_Layer/FeatureServer/0/query";
-  const fields = "PARCELID,LOCATION,OWNER,MAILINGADDRESS,MAILINGCITY,MAILINGSTATE,MAILINGZIP,ACRES,ZONE,LANDUSE,TOWN,TOTALVALUE";
+  const fields = "Parcel_ID,Location,Owner,Co_Owner,Mailing_Address,Mailing_City,Mailing_State,Mailing_Zip,Land_Acres,Zone,State_Use,State_Use_Description,Town_Name,Property_City,Property_Zip,Full_Address,Full_Mailing,Assessed_Total";
   const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
   if (!data.features?.length) return { candidates: [], ordinance: null };
 
@@ -960,15 +963,16 @@ async function searchConnecticut(lat, lon, radiusMiles, offset) {
     const centroid = getCentroid(f.geometry);
     if (!centroid) return null;
     const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
-    const acres = p.ACRES ? parseFloat(parseFloat(p.ACRES).toFixed(2)) : null;
-    const zoning = p.ZONE || p.LANDUSE || "Unknown";
-    const physAddr = p.LOCATION ? `${p.LOCATION}, ${p.TOWN || ""}, CT`.replace(/, ,/, ",") : null;
-    const mailingAddr = [p.MAILINGADDRESS, p.MAILINGCITY, p.MAILINGSTATE, p.MAILINGZIP].filter(Boolean).join(", ");
+    const acres = p.Land_Acres ? parseFloat(parseFloat(p.Land_Acres).toFixed(4)) : null;
+    const zoning = p.Zone || p.State_Use_Description || "Unknown";
+    const ownerName = [p.Owner, p.Co_Owner].filter(Boolean).join(" / ");
+    const physAddr = p.Full_Address || (p.Location ? `${p.Location}, ${p.Property_City || p.Town_Name || ""}, CT`.replace(/, ,/, ",") : null);
+    const mailingAddr = p.Full_Mailing || [p.Mailing_Address, p.Mailing_City, p.Mailing_State, p.Mailing_Zip].filter(Boolean).join(", ");
     return {
-      site_name: physAddr || `CT Parcel ${p.PARCELID}`,
-      owner_name: p.OWNER || "Unknown Owner",
+      site_name: physAddr || `CT Parcel ${p.Parcel_ID}`,
+      owner_name: ownerName || "Unknown Owner",
       parcel_address: physAddr || "—",
-      parcel_id: p.PARCELID || "—",
+      parcel_id: p.Parcel_ID || "—",
       parcel_size_acres: acres,
       zoning,
       owner_mailing_address: mailingAddr || null,
@@ -976,7 +980,7 @@ async function searchConnecticut(lat, lon, radiusMiles, offset) {
       longitude: centroid.lon,
       parcel_geometry: f.geometry || null,
       fema_risk: null, phone: null, email: null,
-      match_score: genericScore(acres || 0, distMeters, ctZoningBonus(p.ZONE, p.LANDUSE)),
+      match_score: genericScore(acres || 0, distMeters, ctZoningBonus(p.Zone, p.State_Use_Description)),
       match_reason: `Connecticut CAMA · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
     };
   }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
@@ -987,7 +991,7 @@ async function searchConnecticut(lat, lon, radiusMiles, offset) {
 // ── Vermont (statewide VCGI) ──────────────────────────────────────────────────
 async function searchVermont(lat, lon, radiusMiles, offset) {
   const url = "https://services1.arcgis.com/BkFxaEFNwHqX3tAw/arcgis/rest/services/FS_VCGI_OPENDATA_Cadastral_VTPARCELS_poly_standardized_parcels_SP_v1/FeatureServer/0/query";
-  const fields = "PARCID,SPAN,E911ADDR,OWNER1,OWNER2,ADDRGL1,ADDRGL2,CITYGL,STGL,ZIPGL,ACRESGL,GLYRBLT,CAT,DESCPROP,GLIST,TOWNNAME";
+  const fields = "PARCID,SPAN,E911ADDR,OWNER1,OWNER2,ADDRGL1,ADDRGL2,CITYGL,STGL,ZIPGL,ACRESGL,DESCPROP,CAT,TOWN,TNAME";
   const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
   if (!data.features?.length) return { candidates: [], ordinance: null };
 
@@ -998,7 +1002,8 @@ async function searchVermont(lat, lon, radiusMiles, offset) {
     const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
     const acres = p.ACRESGL ? parseFloat(parseFloat(p.ACRESGL).toFixed(2)) : null;
     const zoning = p.DESCPROP || p.CAT || "Unknown";
-    const physAddr = p.E911ADDR ? `${p.E911ADDR}, ${p.TOWNNAME || ""}, VT`.replace(/, ,/, ",") : null;
+    const townName = p.TNAME || p.TOWN || "";
+    const physAddr = p.E911ADDR ? `${p.E911ADDR}, ${townName}, VT`.replace(/, ,/, ",") : null;
     const ownerName = [p.OWNER1, p.OWNER2].filter(Boolean).join(" / ");
     const mailingAddr = [p.ADDRGL1, p.ADDRGL2, p.CITYGL, p.STGL, p.ZIPGL].filter(Boolean).join(", ");
     return {
