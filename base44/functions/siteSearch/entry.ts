@@ -8,6 +8,8 @@ const ARCGIS_FL  = "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/se
 const ARCGIS_NC  = "https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/FeatureServer/1/query";
 const ARCGIS_MA  = "https://services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/Massachusetts_Property_Tax_Parcels/FeatureServer/0/query";
 const ARCGIS_MD  = "https://geodata.md.gov/imap/rest/services/PlanningCadastre/MD_ParcelBoundaries/MapServer/0/query";
+const ARCGIS_CT  = "https://services3.arcgis.com/3FL1kr7L4LvwA2Kb/arcgis/rest/services/Connecticut_CAMA_and_Parcel_Layer/FeatureServer/0/query";
+const ARCGIS_VT  = "https://services1.arcgis.com/BkFxaEFNwHqX3tAw/arcgis/rest/services/FS_VCGI_OPENDATA_Cadastral_VTPARCELS_poly_standardized_parcels_SP_v1/FeatureServer/0/query";
 
 // ── Bounding boxes ────────────────────────────────────────────────────────────
 const BBOX = {
@@ -15,6 +17,8 @@ const BBOX = {
   NC: { latMin: 33.8, latMax: 36.6, lonMin: -84.4, lonMax: -75.4 },
   MA: { latMin: 41.2, latMax: 42.9, lonMin: -73.5, lonMax: -69.9 },
   MD: { latMin: 37.9, latMax: 39.7, lonMin: -79.5, lonMax: -74.9 },
+  CT: { latMin: 40.95, latMax: 42.05, lonMin: -73.73, lonMax: -71.78 },
+  VT: { latMin: 42.72, latMax: 45.02, lonMin: -73.43, lonMax: -71.46 },
 };
 
 function inState(lat, lon, state) {
@@ -370,6 +374,51 @@ function maZoningBonus(useCode) {
   return 0;
 }
 
+function ctZoningBonus(zone, landuse) {
+  const t = ((zone || "") + " " + (landuse || "")).toUpperCase();
+  if (/VACANT|UNDEVELOP/.test(t)) return 10;
+  if (/AGRI|FARM|FOREST|TIMBER/.test(t)) return 8;
+  if (/INDUSTRIAL|MANUFACTUR|WAREHOUSE/.test(t)) return 5;
+  if (/COMMERCIAL|BUSINESS|RETAIL/.test(t)) return 4;
+  if (/RESIDENTIAL|SINGLE FAMILY|MULTI/.test(t)) return -8;
+  if (/MUNICIPAL|GOVERNMENT|TAX EXEMPT/.test(t)) return -15;
+  return 0;
+}
+
+function vtZoningBonus(descprop, cat) {
+  const t = ((descprop || "") + " " + (cat || "")).toUpperCase();
+  if (/VACANT|MISC/.test(t)) return 10;
+  if (/FARM|AGRI|WOODLAND|FOREST|TIMBER/.test(t)) return 8;
+  if (/INDUSTRIAL/.test(t)) return 5;
+  if (/COMMERCIAL/.test(t)) return 4;
+  if (/RESIDENTIAL|MOBILE HOME|CAMP/.test(t)) return -8;
+  if (/UTILITY|MUNICIPAL|GOVERNMENT/.test(t)) return -15;
+  return 0;
+}
+
+function cobbZoningBonus(luc, cls) {
+  const t = ((luc || "") + " " + (cls || "")).toUpperCase();
+  if (/VAC|UNIMPRO/.test(t)) return 10;
+  if (/AGR|FARM|FOREST|TIMBER/.test(t)) return 8;
+  if (/INDUS|MANU|WAREHOUSE/.test(t)) return 5;
+  if (/COMM|BUSINESS|RETAIL|OFFICE/.test(t)) return 4;
+  if (/RESIDEN|R-/.test(t)) return -8;
+  if (/PUBLIC|GOVT|EXEMPT/.test(t)) return -15;
+  return 0;
+}
+
+function tnZoningBonus(landuseDesc) {
+  if (!landuseDesc) return 0;
+  const t = landuseDesc.toUpperCase();
+  if (/VACANT|UNIMPROVED/.test(t)) return 10;
+  if (/AGRI|FARM|FOREST|GREENBELT/.test(t)) return 8;
+  if (/INDUSTRIAL|WAREHOUSE/.test(t)) return 5;
+  if (/COMMERCIAL|RETAIL|OFFICE/.test(t)) return 4;
+  if (/RESIDENTIAL|DUPLEX|CONDO/.test(t)) return -8;
+  if (/PUBLIC|EXEMPT|GOVERNMENT/.test(t)) return -15;
+  return 0;
+}
+
 async function searchMassachusetts(lat, lon, radiusMiles, offset) {
   const fields = "MAP_PAR_ID,OWNER1,OWN_ADDR,OWN_CITY,OWN_STATE,OWN_ZIP,SITE_ADDR,SITE_CITY,LOT_SIZE,USE_CODE,TOTAL_VAL,ZONING";
   const data = await queryArcGIS(ARCGIS_MA, lat, lon, radiusMiles, fields, offset);
@@ -478,6 +527,10 @@ const COUNTY_BBOX = {
   // Georgia
   GA_FULTON:    { latMin: 33.45, latMax: 34.30, lonMin: -84.80, lonMax: -84.20 },
   GA_DEKALB:    { latMin: 33.62, latMax: 34.02, lonMin: -84.37, lonMax: -84.05 },
+  // Tennessee
+  TN_DAVIDSON: { latMin: 36.00, latMax: 36.40, lonMin: -87.05, lonMax: -86.50 },
+  // Georgia (cont.)
+  GA_COBB:      { latMin: 33.78, latMax: 34.18, lonMin: -84.78, lonMax: -84.30 },
 };
 
 function inCountyBox(lat, lon, key) {
@@ -740,6 +793,233 @@ async function searchDeKalbGA(lat, lon, radiusMiles, offset, base44) {
 
   return { candidates, ordinance: null };
 }
+// ── Cobb County, GA ───────────────────────────────────────────────────────────
+async function searchCobbGA(lat, lon, radiusMiles, offset, base44) {
+  const url = "https://gis.cobbcounty.org/gisserver/rest/services/Public/taxassessorsdaily/MapServer/0/query";
+  const fields = "PARID,ADRNO,ADRDIR,ADRSTR,ADRSUF,CITYNAME,STATECODE,ZIP1,OWN1,OADR1,OADR2,OCITY,OSTATE,OZIP1,LUC,CLASS,ACRES,LIVUNIT,RTOTAPR";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  // Mirror raw features into GAParcelRecord (non-blocking)
+  if (base44) {
+    Promise.all(data.features.map((f) => {
+      const p = f.properties || {};
+      const c = getCentroid(f.geometry);
+      if (!c || !p.PARID) return null;
+      const physAddr = [p.ADRNO, p.ADRDIR, p.ADRSTR, p.ADRSUF].filter(Boolean).join(" ");
+      return cacheGAParcel(base44, "Cobb", {
+        parcel_id: p.PARID,
+        owner_name: p.OWN1 || null,
+        parcel_address: physAddr ? `${physAddr}, ${p.CITYNAME || "Cobb County"}, GA` : null,
+        mailing_address: [p.OADR1, p.OADR2, p.OCITY, p.OSTATE, p.OZIP1].filter(Boolean).join(", ") || null,
+        acreage: p.ACRES ? parseFloat(parseFloat(p.ACRES).toFixed(2)) : null,
+        zoning: p.CLASS || p.LUC || null,
+        land_use: p.LUC ? `LUC-${p.LUC}` : null,
+        total_value: p.RTOTAPR ?? null,
+        latitude: c.lat,
+        longitude: c.lon,
+        parcel_geometry: f.geometry || null,
+      });
+    })).catch(() => {});
+  }
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    if (!centroid) return null;
+    const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
+    const acres = p.ACRES ? parseFloat(parseFloat(p.ACRES).toFixed(2)) : null;
+    const zoning = p.CLASS || (p.LUC ? `LUC-${p.LUC}` : "Unknown");
+    const physAddr = [p.ADRNO, p.ADRDIR, p.ADRSTR, p.ADRSUF].filter(Boolean).join(" ");
+    const fullAddr = physAddr ? `${physAddr}, ${p.CITYNAME || "Cobb County"}, GA` : null;
+    const mailingAddr = [p.OADR1, p.OADR2, p.OCITY, p.OSTATE, p.OZIP1].filter(Boolean).join(", ");
+    return {
+      site_name: fullAddr || `Cobb Parcel ${p.PARID}`,
+      owner_name: p.OWN1 || "Unknown Owner",
+      parcel_address: fullAddr || "—",
+      parcel_id: p.PARID || "—",
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: mailingAddr || null,
+      latitude: centroid.lat,
+      longitude: centroid.lon,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, cobbZoningBonus(p.LUC, p.CLASS)),
+      match_reason: `Cobb County (GA) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
+// ── Cache helper for TN parcels ───────────────────────────────────────────────
+async function cacheTNParcel(base44, county, raw) {
+  if (!base44 || !raw?.parcel_id) return;
+  try {
+    const existing = await base44.asServiceRole.entities.TNParcelRecord
+      .filter({ parcel_id: String(raw.parcel_id) }, null, 1)
+      .catch(() => []);
+    if (existing?.length) return;
+    await base44.asServiceRole.entities.TNParcelRecord.create({
+      state: "TN",
+      county: county || null,
+      parcel_id: String(raw.parcel_id),
+      owner_name: raw.owner_name || null,
+      parcel_address: raw.parcel_address || null,
+      mailing_address: raw.mailing_address || null,
+      acreage: raw.acreage ?? null,
+      zoning: raw.zoning || null,
+      land_use: raw.land_use || null,
+      land_value: raw.land_value ?? null,
+      improvement_value: raw.improvement_value ?? null,
+      total_value: raw.total_value ?? null,
+      sale_date: raw.sale_date || null,
+      latitude: raw.latitude ?? null,
+      longitude: raw.longitude ?? null,
+      parcel_geometry: raw.parcel_geometry || null,
+      source: "TN-HAWK",
+    });
+  } catch (_) { /* swallow */ }
+}
+
+// ── Davidson County (Nashville), TN ───────────────────────────────────────────
+async function searchNashvilleTN(lat, lon, radiusMiles, offset, base44) {
+  const url = "https://services2.arcgis.com/HdTo6HJqh92wn4D8/arcgis/rest/services/Parcels_view/FeatureServer/0/query";
+  const fields = "ParcelID,APN,LocAddr,OwnerName,OwnerAddr,OwnerCity,OwnerState,OwnerZip,LandUseDesc,LandUseCode,Acreage,LandValue,ImprValue,TotalAprValue,Latitude,Longitude";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  // Mirror raw features into TNParcelRecord (non-blocking)
+  if (base44) {
+    Promise.all(data.features.map((f) => {
+      const p = f.properties || {};
+      const c = getCentroid(f.geometry);
+      const id = p.ParcelID || p.APN;
+      if (!id || (!c && !p.Latitude)) return null;
+      const lat2 = p.Latitude ?? c?.lat ?? null;
+      const lon2 = p.Longitude ?? c?.lon ?? null;
+      return cacheTNParcel(base44, "Davidson", {
+        parcel_id: id,
+        owner_name: p.OwnerName || null,
+        parcel_address: p.LocAddr ? `${p.LocAddr}, Nashville, TN` : null,
+        mailing_address: [p.OwnerAddr, p.OwnerCity, p.OwnerState, p.OwnerZip].filter(Boolean).join(", ") || null,
+        acreage: p.Acreage ? parseFloat(parseFloat(p.Acreage).toFixed(2)) : null,
+        zoning: p.LandUseDesc || null,
+        land_use: p.LandUseCode ? `LU-${p.LandUseCode}` : null,
+        land_value: p.LandValue ?? null,
+        improvement_value: p.ImprValue ?? null,
+        total_value: p.TotalAprValue ?? null,
+        latitude: lat2,
+        longitude: lon2,
+        parcel_geometry: f.geometry || null,
+      });
+    })).catch(() => {});
+  }
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    const lat2 = p.Latitude ?? centroid?.lat ?? null;
+    const lon2 = p.Longitude ?? centroid?.lon ?? null;
+    if (lat2 == null || lon2 == null) return null;
+    const distMeters = haversineMeters(lat, lon, lat2, lon2);
+    const acres = p.Acreage ? parseFloat(parseFloat(p.Acreage).toFixed(2)) : null;
+    const zoning = p.LandUseDesc || (p.LandUseCode ? `LU-${p.LandUseCode}` : "Unknown");
+    const physAddr = p.LocAddr ? `${p.LocAddr}, Nashville, TN` : null;
+    const mailingAddr = [p.OwnerAddr, p.OwnerCity, p.OwnerState, p.OwnerZip].filter(Boolean).join(", ");
+    return {
+      site_name: physAddr || `Davidson Parcel ${p.ParcelID || p.APN}`,
+      owner_name: p.OwnerName || "Unknown Owner",
+      parcel_address: physAddr || "—",
+      parcel_id: p.ParcelID || p.APN || "—",
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: mailingAddr || null,
+      latitude: lat2,
+      longitude: lon2,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, tnZoningBonus(p.LandUseDesc)),
+      match_reason: `Davidson County (Nashville, TN) cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
+// ── Connecticut (statewide CAMA) ──────────────────────────────────────────────
+async function searchConnecticut(lat, lon, radiusMiles, offset) {
+  const url = "https://services3.arcgis.com/3FL1kr7L4LvwA2Kb/arcgis/rest/services/Connecticut_CAMA_and_Parcel_Layer/FeatureServer/0/query";
+  const fields = "PARCELID,LOCATION,OWNER,MAILINGADDRESS,MAILINGCITY,MAILINGSTATE,MAILINGZIP,ACRES,ZONE,LANDUSE,TOWN,TOTALVALUE";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    if (!centroid) return null;
+    const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
+    const acres = p.ACRES ? parseFloat(parseFloat(p.ACRES).toFixed(2)) : null;
+    const zoning = p.ZONE || p.LANDUSE || "Unknown";
+    const physAddr = p.LOCATION ? `${p.LOCATION}, ${p.TOWN || ""}, CT`.replace(/, ,/, ",") : null;
+    const mailingAddr = [p.MAILINGADDRESS, p.MAILINGCITY, p.MAILINGSTATE, p.MAILINGZIP].filter(Boolean).join(", ");
+    return {
+      site_name: physAddr || `CT Parcel ${p.PARCELID}`,
+      owner_name: p.OWNER || "Unknown Owner",
+      parcel_address: physAddr || "—",
+      parcel_id: p.PARCELID || "—",
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: mailingAddr || null,
+      latitude: centroid.lat,
+      longitude: centroid.lon,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, ctZoningBonus(p.ZONE, p.LANDUSE)),
+      match_reason: `Connecticut CAMA · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
+
+// ── Vermont (statewide VCGI) ──────────────────────────────────────────────────
+async function searchVermont(lat, lon, radiusMiles, offset) {
+  const url = "https://services1.arcgis.com/BkFxaEFNwHqX3tAw/arcgis/rest/services/FS_VCGI_OPENDATA_Cadastral_VTPARCELS_poly_standardized_parcels_SP_v1/FeatureServer/0/query";
+  const fields = "PARCID,SPAN,E911ADDR,OWNER1,OWNER2,ADDRGL1,ADDRGL2,CITYGL,STGL,ZIPGL,ACRESGL,GLYRBLT,CAT,DESCPROP,GLIST,TOWNNAME";
+  const data = await queryArcGIS(url, lat, lon, radiusMiles, fields, offset);
+  if (!data.features?.length) return { candidates: [], ordinance: null };
+
+  const candidates = data.features.map((f) => {
+    const p = f.properties;
+    const centroid = getCentroid(f.geometry);
+    if (!centroid) return null;
+    const distMeters = haversineMeters(lat, lon, centroid.lat, centroid.lon);
+    const acres = p.ACRESGL ? parseFloat(parseFloat(p.ACRESGL).toFixed(2)) : null;
+    const zoning = p.DESCPROP || p.CAT || "Unknown";
+    const physAddr = p.E911ADDR ? `${p.E911ADDR}, ${p.TOWNNAME || ""}, VT`.replace(/, ,/, ",") : null;
+    const ownerName = [p.OWNER1, p.OWNER2].filter(Boolean).join(" / ");
+    const mailingAddr = [p.ADDRGL1, p.ADDRGL2, p.CITYGL, p.STGL, p.ZIPGL].filter(Boolean).join(", ");
+    return {
+      site_name: physAddr || `VT Parcel ${p.PARCID || p.SPAN}`,
+      owner_name: ownerName || "Unknown Owner",
+      parcel_address: physAddr || "—",
+      parcel_id: p.PARCID || p.SPAN || "—",
+      parcel_size_acres: acres,
+      zoning,
+      owner_mailing_address: mailingAddr || null,
+      latitude: centroid.lat,
+      longitude: centroid.lon,
+      parcel_geometry: f.geometry || null,
+      fema_risk: null, phone: null, email: null,
+      match_score: genericScore(acres || 0, distMeters, vtZoningBonus(p.DESCPROP, p.CAT)),
+      match_reason: `Vermont VCGI cadastral · ${zoning} · ${acres ? acres + " acres" : "size unknown"} · ${(distMeters / 1609.344).toFixed(2)} mi`,
+    };
+  }).filter(Boolean).sort((a, b) => b.match_score - a.match_score).slice(0, 5);
+
+  return { candidates, ordinance: null };
+}
 
 // ── Coordinate cache (Regrid fallback only) ───────────────────────────────────
 // Keyed by "lat4,lon4" (4 decimal places ≈ ~11m grid), TTL 24 hours
@@ -884,13 +1164,18 @@ Deno.serve(async (req) => {
       inState(lat, lon, "NC")           ? { code: "NC",        fn: searchNorthCarolina } :
       inState(lat, lon, "MA")           ? { code: "MA",        fn: searchMassachusetts } :
       inState(lat, lon, "MD")           ? { code: "MD",        fn: searchMaryland } :
+      inState(lat, lon, "CT")           ? { code: "CT",        fn: searchConnecticut } :
+      inState(lat, lon, "VT")           ? { code: "VT",        fn: searchVermont } :
       // County-level feeds (TX)
       inCountyBox(lat, lon, "TX_TRAVIS") ? { code: "TX-TRAVIS", fn: searchTravisTX } :
       inCountyBox(lat, lon, "TX_BEXAR")  ? { code: "TX-BEXAR",  fn: searchBexarTX } :
       inCountyBox(lat, lon, "TX_DFW")    ? { code: "TX-DFW",    fn: searchDFW } :
+      // County-level feeds (TN)
+      inCountyBox(lat, lon, "TN_DAVIDSON") ? { code: "TN-DAVIDSON", fn: searchNashvilleTN } :
       // County-level feeds (GA)
       inCountyBox(lat, lon, "GA_FULTON") ? { code: "GA-FULTON", fn: searchFultonGA } :
       inCountyBox(lat, lon, "GA_DEKALB") ? { code: "GA-DEKALB", fn: searchDeKalbGA } :
+      inCountyBox(lat, lon, "GA_COBB")   ? { code: "GA-COBB",   fn: searchCobbGA } :
       null;
 
     if (localSource) {
