@@ -908,18 +908,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Fallback layer 1: hawk_parcels Supabase cache (free, no Regrid cost) ──
-    // If we've previously ingested parcels for this area into hawk_parcels,
-    // serve them directly. Skips Regrid entirely when we have data.
-    try {
-      const hawkResult = await searchHawkParcels(lat, lon, 0.5);
-      if (hawkResult?.candidates?.length) {
-        console.log(`hawk_parcels cache HIT: user=${user.email} → ${hawkResult.candidates.length} parcels`);
-        return Response.json({ ...hawkResult, source: "hawk-parcels-cache" });
-      }
-    } catch (e) {
-      console.warn(`hawk_parcels lookup failed (${e.message}) — falling through to Regrid`);
-    }
+    // ── Fallback layer 1: hawk_parcels Supabase cache — DISABLED ──────────────
+    // The scip_parcels table is empty and the rows in `parcels` lack centroid/geom,
+    // so this layer always returned 0 hits and just added two HTTP roundtrips
+    // before every Regrid call. Re-enable once the cache is populated with geometry.
 
     // ── Fallback layer 2: Supabase/Regrid (token-based) ──────────────────────
     // Check Regrid in-memory cache first — cached results don't count against quota
