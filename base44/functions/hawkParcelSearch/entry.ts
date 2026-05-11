@@ -94,11 +94,16 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       const text = await res.text();
-      console.error(`hawk_parcels fetch failed: HTTP ${res.status} ${text}`);
-      return Response.json({ error: `Supabase error ${res.status}`, detail: text }, { status: 502 });
+      // scip_parcels is currently empty and has no lat/lon columns — log + return empty
+      // instead of 502'ing the frontend. siteSearch already routes around this table.
+      console.warn(`hawk_parcels unavailable: HTTP ${res.status} ${text}`);
+      return Response.json({ count: 0, results: [], note: "parcel cache empty" });
     }
 
     let rows = await res.json();
+    if (!rows?.length) {
+      return Response.json({ count: 0, results: [], note: "parcel cache empty" });
+    }
 
     // Exclude residential zoning
     rows = rows.filter((p) => !isResidential(p.zoning));
