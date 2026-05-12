@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { lat, lon, radius_miles } = body;
+    const { lat, lon, radius_miles, offset } = body;
 
     if (!lat || !lon) {
       return Response.json({ error: 'lat and lon are required' }, { status: 400 });
@@ -166,9 +166,11 @@ Deno.serve(async (req) => {
 
     // Realie Location Search caps at 2 miles, max 100 results
     const radiusMiles = Math.min(parseFloat(radius_miles) || 0.5, 2);
+    const pageOffset = Math.max(0, parseInt(offset) || 0);
+    const PAGE_SIZE = 3;
 
-    const url = `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radiusMiles}&limit=100`;
-    console.log(`Realie scan: user=${user.email} lat=${lat} lon=${lon} radius=${radiusMiles}mi`);
+    const url = `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radiusMiles}&limit=100&offset=${pageOffset}`;
+    console.log(`Realie scan: user=${user.email} lat=${lat} lon=${lon} radius=${radiusMiles}mi offset=${pageOffset}`);
 
     let data;
     try {
@@ -190,19 +192,26 @@ Deno.serve(async (req) => {
 
     const properties = Array.isArray(data?.properties) ? data.properties : [];
 
-    // Normalize, drop residential, sort by score, take top 5
-    const candidates = properties
+    // Normalize and drop residential, sort by score
+    const ranked = properties
       .filter((p) => !isResidentialUseCode(p.useCode))
       .map((p) => normalizeRealie(p, lat, lon))
       .filter(Boolean)
-      .sort((a, b) => b.match_score - a.match_score)
-      .slice(0, 5);
+      .sort((a, b) => b.match_score - a.match_score);
+
+    // Page through results — exactly PAGE_SIZE (3) per call, non-overlapping
+    const candidates = ranked.slice(pageOffset, pageOffset + PAGE_SIZE);
+    const nextOffset = pageOffset + candidates.length;
+    const hasMore = nextOffset < ranked.length;
 
     return Response.json({
       candidates,
       ordinance: null,
       source: "realie",
       total_returned: properties.length,
+      offset: pageOffset,
+      next_offset: hasMore ? nextOffset : null,
+      has_more: hasMore,
     });
 
   } catch (error) {

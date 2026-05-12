@@ -64,29 +64,30 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { lat, lon, limit = 5, radius_miles } = body || {};
+    const { lat, lon, limit = 3, radius_miles, offset } = body || {};
 
     if (lat == null || lon == null) {
       return Response.json({ error: 'lat and lon are required' }, { status: 400 });
     }
 
-    const cap = Math.min(parseInt(limit) || 5, 100);
+    const cap = Math.min(parseInt(limit) || 3, 3); // hard-cap at 3 per page
+    const pageOffset = Math.max(0, parseInt(offset) || 0);
     const radiusMiles = Math.min(parseFloat(radius_miles) || 0.5, 2); // Realie max 2 mi
 
-    const url = `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radiusMiles}&limit=100`;
+    const url = `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radiusMiles}&limit=100&offset=${pageOffset}`;
 
     const res = await fetch(url, { headers: { "Authorization": REALIE_API_KEY } });
     if (!res.ok) {
       const text = await res.text();
       console.warn(`Realie HTTP ${res.status}: ${text}`);
-      return Response.json({ count: 0, results: [], note: `realie ${res.status}` });
+      return Response.json({ count: 0, results: [], offset: pageOffset, next_offset: null, has_more: false, note: `realie ${res.status}` });
     }
 
     const data = await res.json();
     const properties = Array.isArray(data?.properties) ? data.properties : [];
-    if (!properties.length) return Response.json({ count: 0, results: [] });
+    if (!properties.length) return Response.json({ count: 0, results: [], offset: pageOffset, next_offset: null, has_more: false });
 
-    const results = properties
+    const ranked = properties
       .filter((p) => !isResidentialUseCode(p.useCode))
       .map((p) => {
         if (p.latitude == null || p.longitude == null) return null;
@@ -121,10 +122,20 @@ Deno.serve(async (req) => {
         };
       })
       .filter(Boolean)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, cap);
+      .sort((a, b) => b.score - a.score);
 
-    return Response.json({ count: results.length, results, source: "realie" });
+    const results = ranked.slice(pageOffset, pageOffset + cap);
+    const nextOffset = pageOffset + results.length;
+    const hasMore = nextOffset < ranked.length;
+
+    return Response.json({
+      count: results.length,
+      results,
+      source: "realie",
+      offset: pageOffset,
+      next_offset: hasMore ? nextOffset : null,
+      has_more: hasMore,
+    });
 
   } catch (error) {
     console.error('hawkParcelSearch error:', error.message);

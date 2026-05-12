@@ -35,6 +35,8 @@ export default function SiteSearch() {
   const [ordinance, setOrdinance] = useState(null);
   const [scanError, setScanError] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
   const [searchCenter, setSearchCenter] = useState(null);
   const [searchesThisMonth, setSearchesThisMonth] = useState(0);
   const [existingSearch, setExistingSearch] = useState(null);
@@ -111,6 +113,9 @@ export default function SiteSearch() {
     setExtraResults([]);
     setOrdinance(null);
     setScanError(null);
+    // New site → reset pagination to offset 0
+    setNextOffset(null);
+    setHasMore(false);
     setSearchCenter({ lat: latitude, lon: longitude });
 
     // Create search history record
@@ -121,8 +126,8 @@ export default function SiteSearch() {
       search_label: `Scan @ ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
     });
 
-    // Call via Base44 backend proxy (hides Supabase key, adds rate limiting)
-    const res = await siteSearch({ lat: latitude, lon: longitude, radius_miles: 0.5 });
+    // Call via Base44 backend proxy — always starts at offset 0 for a new site
+    const res = await siteSearch({ lat: latitude, lon: longitude, radius_miles: 0.5, offset: 0 });
     const data = res.data;
 
     if (data.error) {
@@ -134,7 +139,10 @@ export default function SiteSearch() {
 
     let ordinanceMetadata = data.ordinance || null;
 
-    const parcels = (data.candidates || []).slice(0, 5);
+    // Backend returns exactly 3 parcels per page
+    const parcels = (data.candidates || []).slice(0, 3);
+    setNextOffset(data.next_offset ?? null);
+    setHasMore(Boolean(data.has_more));
 
     const ordinanceExtraction = await extractTelecomOrdinance({
       lat: latitude,
@@ -364,9 +372,14 @@ export default function SiteSearch() {
   };
 
   const handleNeedMore = async () => {
-    if (atLimit) return;
+    if (atLimit || nextOffset == null) return;
     setLoadingMore(true);
-    const res = await siteSearch({ lat: searchCenter.lat, lon: searchCenter.lon, radius_miles: 0.5, offset: 5 });
+    const res = await siteSearch({
+      lat: searchCenter.lat,
+      lon: searchCenter.lon,
+      radius_miles: 0.5,
+      offset: nextOffset,
+    });
     const data = res.data;
     const extra = (data.candidates || []).slice(0, 3);
     const search = await base44.entities.SearchHistory.create({
@@ -374,7 +387,7 @@ export default function SiteSearch() {
       longitude: searchCenter.lon,
       status: "completed",
       results_count: extra.length,
-      search_label: `More Results @ ${searchCenter.lat.toFixed(4)}, ${searchCenter.lon.toFixed(4)}`,
+      search_label: `More Results @ ${searchCenter.lat.toFixed(4)}, ${searchCenter.lon.toFixed(4)} (offset ${nextOffset})`,
     });
     const saved = [];
     for (const parcel of extra) {
@@ -396,7 +409,10 @@ export default function SiteSearch() {
       });
       saved.push({ ...r, match_reason: parcel.match_reason });
     }
-    setExtraResults(saved);
+    // Append to extraResults so successive "Need More" calls accumulate
+    setExtraResults((prev) => [...prev, ...saved]);
+    setNextOffset(data.next_offset ?? null);
+    setHasMore(Boolean(data.has_more));
     setSearchesThisMonth((prev) => prev + 1);
     setLoadingMore(false);
   };
@@ -516,23 +532,6 @@ export default function SiteSearch() {
             </div>
           ))}
 
-          {extraResults.length === 0 && (
-            <div className="text-center pt-2">
-              <button
-                onClick={handleNeedMore}
-                disabled={loadingMore || atLimit}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-primary/30 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loadingMore ? (
-                  <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> Loading more...</>
-                ) : (
-                  <>Need More? Get 3 Additional Candidates</>
-                )}
-              </button>
-              {atLimit && <p className="text-xs text-muted-foreground mt-2">Upgrade your plan to run more searches.</p>}
-            </div>
-          )}
-
           {extraResults.length > 0 && (
             <>
               <div className="flex items-center gap-3 pt-2">
@@ -552,6 +551,23 @@ export default function SiteSearch() {
                 </div>
               ))}
             </>
+          )}
+
+          {hasMore && (
+            <div className="text-center pt-2">
+              <button
+                onClick={handleNeedMore}
+                disabled={loadingMore || atLimit || nextOffset == null}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-primary/30 bg-primary/5 text-primary text-sm font-semibold hover:bg-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loadingMore ? (
+                  <><div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> Loading more...</>
+                ) : (
+                  <>Need More? Get Next 3 Candidates</>
+                )}
+              </button>
+              {atLimit && <p className="text-xs text-muted-foreground mt-2">Upgrade your plan to run more searches.</p>}
+            </div>
           )}
 
           {/* PDF Download — gated to Hawkeyes+ */}
