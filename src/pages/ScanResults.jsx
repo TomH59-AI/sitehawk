@@ -28,7 +28,7 @@ export default function ScanResults() {
 
   useEffect(() => {
     base44.auth.me().then(u => {
-      setUserTier(u?.tier || "blind");
+      setUserTier(u?.role === "admin" ? "hawkeye_apex" : (u?.tier || "blind"));
       setFreeTrialUsed(!!u?.free_trial_used);
     });
   }, []);
@@ -38,7 +38,16 @@ export default function ScanResults() {
     else setDisplayedResults(state.results);
   }, [state, navigate]);
 
-  if (!state?.results) return null;
+  if (!state?.results) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Returning you to Site Search...</p>
+        </div>
+      </div>
+    );
+  }
 
   const { results, ordinance, searchCenter, searchId, usage, plan } = state;
   const shown = displayedResults ?? results;
