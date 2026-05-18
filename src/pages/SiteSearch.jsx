@@ -87,10 +87,11 @@ export default function SiteSearch() {
     }
 
     const tier = user?.tier || "free";
-    const limit = TIER_LIMITS[tier] ?? 0;
+    const isAdmin = user?.role === "admin";
+    const limit = isAdmin ? Infinity : (TIER_LIMITS[tier] ?? 0);
     const isFreeTrialEligible = (tier === "blind" || tier === "free") && !user.free_trial_used;
 
-    if ((!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible) {
+    if (!isAdmin && (!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible) {
       toast({
         title: "Upgrade required",
         description: "Subscribe to Hawk Site or higher to start scanning.",
@@ -99,7 +100,7 @@ export default function SiteSearch() {
       return;
     }
 
-    if (!isFreeTrialEligible && limit !== Infinity && searchesThisMonth >= limit) {
+    if (!isAdmin && !isFreeTrialEligible && limit !== Infinity && searchesThisMonth >= limit) {
       toast({
         title: "Daily search limit reached",
         description: `Your ${tier === "hawk_site" ? "Hawk Site" : "Hawkeyes"} plan allows ${limit} Target Search${limit !== 1 ? "es" : ""}/day. Upgrade to continue.`,
@@ -342,10 +343,11 @@ export default function SiteSearch() {
   }
 
   const tier = user?.tier || "free";
-  const limit = TIER_LIMITS[tier] ?? 0;
+  const isAdmin = user?.role === "admin";
+  const limit = isAdmin ? Infinity : (TIER_LIMITS[tier] ?? 0);
   const isFreeTrialEligible = (tier === "blind" || tier === "free") && !user?.free_trial_used;
-  const isBlind = (!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible;
-  const atLimit = isBlind || (limit !== Infinity && !isFreeTrialEligible && searchesThisMonth >= limit);
+  const isBlind = !isAdmin && (!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible;
+  const atLimit = !isAdmin && (isBlind || (limit !== Infinity && !isFreeTrialEligible && searchesThisMonth >= limit));
 
   const handleSkipTraceResult = (candidateId, data) => {
     setSkipTraceResults(prev => ({ ...prev, [candidateId]: data }));

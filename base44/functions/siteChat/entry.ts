@@ -36,7 +36,8 @@ Deno.serve(async (req) => {
     }
 
     const tier = user.tier || 'blind';
-    if (tier === 'blind' || tier === 'free') {
+    const isAdmin = user.role === 'admin';
+    if (!isAdmin && (tier === 'blind' || tier === 'free')) {
       return Response.json({ error: 'Upgrade required' }, { status: 403 });
     }
 

@@ -28,9 +28,10 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const tier = user.tier || 'blind';
+    const isAdmin = user.role === 'admin';
     const isFreeTrialSkip = (tier === 'blind' || tier === 'free') && user.free_trial_used && !user.free_trial_skip_trace_used;
 
-    if ((tier === 'blind' || tier === 'free') && !isFreeTrialSkip) {
+    if (!isAdmin && (tier === 'blind' || tier === 'free') && !isFreeTrialSkip) {
       return Response.json({ error: 'Upgrade required' }, { status: 403 });
     }
 

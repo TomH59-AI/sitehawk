@@ -133,13 +133,14 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const tier = user.tier || 'blind';
+    const isAdmin = user.role === 'admin';
     const isFreeTrialEligible = (tier === 'blind' || tier === 'free') && !user.free_trial_used;
 
-    if ((tier === 'blind' || tier === 'free') && !isFreeTrialEligible) {
+    if (!isAdmin && (tier === 'blind' || tier === 'free') && !isFreeTrialEligible) {
       return Response.json({ error: 'Upgrade required' }, { status: 403 });
     }
 
-    if (isFreeTrialEligible) {
+    if (!isAdmin && isFreeTrialEligible) {
       console.log(`Free trial scan: user=${user.email}`);
       const users = await base44.asServiceRole.entities.User.filter({ email: user.email });
       if (users.length) {
