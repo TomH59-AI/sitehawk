@@ -126,8 +126,6 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
     if (!mapboxReady || !mapboxToken || !centerLat || !centerLon || mapRef.current) return;
     const mapboxgl = window.mapboxgl;
     mapboxgl.accessToken = mapboxToken;
-    // Disable telemetry so Mapbox never prompts users for data-sharing permission
-    mapboxgl.config.EVENTS_URL = "";
     const map = new mapboxgl.Map({
       container: mapContainer.current,
       style: SATELLITE_STYLE,
