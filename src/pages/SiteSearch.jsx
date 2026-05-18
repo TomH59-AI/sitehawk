@@ -11,6 +11,9 @@ import AIChatPanel from "../components/search/AIChatPanel";
 import PDFReportButton from "../components/search/PDFReportButton";
 import HawkIcon from "../components/HawkIcon";
 import FilterPanel from "../components/search/FilterPanel";
+import ScanProgressLoader from "../components/search/ScanProgressLoader";
+import DemoModeButton from "../components/search/DemoModeButton";
+import { DEMO_RESULTS, DEMO_ORDINANCE } from "@/lib/demoData";
 import { siteSearch } from "@/functions/siteSearch";
 import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
 import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
@@ -129,8 +132,30 @@ export default function SiteSearch() {
     });
 
     // Call via Base44 backend proxy — always starts at offset 0 for a new site
-    const res = await siteSearch({ lat: latitude, lon: longitude, radius_miles: 0.5, offset: 0 });
-    const data = res.data;
+    let res, data;
+    try {
+      res = await siteSearch({ lat: latitude, lon: longitude, radius_miles: 0.5, offset: 0 });
+      data = res.data;
+    } catch (err) {
+      // OFFLINE FALLBACK: if the live scan completely fails (network/API down), serve demo data
+      // so a live presentation never shows a red error screen.
+      console.warn("[SiteSearch] Live scan failed — serving offline demo fallback:", err);
+      await base44.entities.SearchHistory.update(search.id, { status: "failed" });
+      navigate("/results", {
+        state: {
+          results: DEMO_RESULTS,
+          ordinance: DEMO_ORDINANCE,
+          searchCenter: { lat: latitude, lon: longitude },
+          searchId: search.id,
+          usage: { searches_used_today: searchesThisMonth + 1, daily_search_limit: 999 },
+          plan: { id: tier, features: { exports: ["pdf", "csv"], mailer: true, skip_trace: true } },
+          isDemo: true,
+          fallbackReason: "Live data temporarily unavailable — showing sample results.",
+        },
+      });
+      setLoading(false);
+      return;
+    }
 
     if (data.error) {
       setScanError(data.error);
@@ -457,15 +482,18 @@ export default function SiteSearch() {
         ordinance={ordinance}
       />
       {/* Header */}
-      <div>
-        <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Site Search</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          {isFreeTrialEligible
-            ? "🎁 You have 1 free trial scan — enter coordinates to see it in action."
-            : isBlind
-            ? "Subscribe to Hawk Site or higher to start scanning."
-            : "Enter coordinates to find buildable parcels for a 199-ft cell tower"}
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="font-heading font-bold text-2xl md:text-3xl text-foreground">Site Search</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {isFreeTrialEligible
+              ? "🎁 You have 1 free trial scan — enter coordinates to see it in action."
+              : isBlind
+              ? "Subscribe to Hawk Site or higher to start scanning."
+              : "Enter coordinates to find buildable parcels for a 199-ft cell tower"}
+          </p>
+        </div>
+        {isAdmin && <DemoModeButton />}
       </div>
 
       {/* Search Form */}
@@ -500,14 +528,8 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* Loading state */}
-      {loading && (
-        <div className="rounded-xl border border-border bg-card p-12 text-center">
-          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-          <p className="font-heading font-semibold text-foreground">Scanning area...</p>
-          <p className="text-sm text-muted-foreground mt-1">Analyzing parcels within 0.5-mile radius</p>
-        </div>
-      )}
+      {/* Loading state — progressive AI scan loader */}
+      {loading && <ScanProgressLoader />}
 
       {/* Results */}
       {ordinance && <OrdinanceCard ordinance={ordinance} />}
