@@ -5,6 +5,7 @@ const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 const STREETS_STYLE = "mapbox://styles/mapbox/streets-v12";
 const RADIUS_MILES = 0.5;
 const RADIUS_METERS = RADIUS_MILES * 1609.344;
+const OUTER_RADIUS_METERS = 1.0 * 1609.344;
 
 function getScoreColor(score) {
   if (score >= 70) return "#16A34A";
@@ -158,18 +159,25 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
     markersRef.current = [];
 
     // Remove existing layers/sources
-    ["search-ring-fill", "search-ring-outline"].forEach(id => {
+    ["search-ring-fill", "search-ring-outline", "search-ring-outer-fill", "search-ring-outer-outline"].forEach(id => {
       if (map.getLayer(id)) map.removeLayer(id);
     });
     if (map.getSource("search-ring")) map.removeSource("search-ring");
+    if (map.getSource("search-ring-outer")) map.removeSource("search-ring-outer");
 
     const center = [centerLon, centerLat];
 
-    // Search ring
+    // Outer 1-mile red ring (drawn first so the inner ring sits on top)
+    const outerGeo = createGeoJSONCircle(center, OUTER_RADIUS_METERS);
+    map.addSource("search-ring-outer", { type: "geojson", data: outerGeo });
+    map.addLayer({ id: "search-ring-outer-fill", type: "fill", source: "search-ring-outer", paint: { "fill-color": "#DC2626", "fill-opacity": 0.05 } });
+    map.addLayer({ id: "search-ring-outer-outline", type: "line", source: "search-ring-outer", paint: { "line-color": "#DC2626", "line-width": 2.5, "line-dasharray": [4, 2] } });
+
+    // Inner 0.5-mile yellow ring
     const circleGeo = createGeoJSONCircle(center, RADIUS_METERS);
     map.addSource("search-ring", { type: "geojson", data: circleGeo });
-    map.addLayer({ id: "search-ring-fill", type: "fill", source: "search-ring", paint: { "fill-color": "#2563EB", "fill-opacity": 0.08 } });
-    map.addLayer({ id: "search-ring-outline", type: "line", source: "search-ring", paint: { "line-color": "#2563EB", "line-width": 2.5, "line-dasharray": [4, 2] } });
+    map.addLayer({ id: "search-ring-fill", type: "fill", source: "search-ring", paint: { "fill-color": "#EAB308", "fill-opacity": 0.10 } });
+    map.addLayer({ id: "search-ring-outline", type: "line", source: "search-ring", paint: { "line-color": "#EAB308", "line-width": 2.5, "line-dasharray": [4, 2] } });
 
     // Hawk center marker
     const hawkEl = createHawkMarkerEl();
@@ -246,6 +254,9 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
       bounds.extend([r.longitude, r.latitude]);
     });
 
+    // Always include the full 1-mile outer ring so the user sees both rings
+    bounds.extend(outerGeo.geometry.coordinates[0][0]);
+    bounds.extend(outerGeo.geometry.coordinates[0][Math.floor(outerGeo.geometry.coordinates[0].length / 2)]);
     map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
   }, [mapLoaded, results, centerLat, centerLon]);
 
@@ -375,8 +386,12 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
             <div className="flex items-center gap-2"><span className="text-base">🔭</span><span style={{ color: "#D97706" }} className="font-semibold">Amber</span><span className="text-foreground/60">Score 40–69</span></div>
             <div className="flex items-center gap-2"><span className="text-base">🔭</span><span style={{ color: "#DC2626" }} className="font-semibold">Red</span><span className="text-foreground/60">Score &lt;40</span></div>
             <div className="flex items-center gap-2">
-              <div style={{ width: 18, height: 3, background: "#2563EB", borderRadius: 2 }} />
+              <div style={{ width: 18, height: 3, background: "#EAB308", borderRadius: 2 }} />
               <span className="text-foreground/60">0.5-mi Ring</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div style={{ width: 18, height: 3, background: "#DC2626", borderRadius: 2 }} />
+              <span className="text-foreground/60">1.0-mi Ring</span>
             </div>
           </div>
         )}
