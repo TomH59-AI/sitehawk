@@ -14,7 +14,7 @@ import Pricing from './pages/Pricing';
 import About from './pages/About';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
-import ScanResults from './pages/ScanResults.jsx';
+import ScanResults from './pages/ScanResults';
 import SendUpdate from './pages/SendUpdate';
 import MailOrders from './pages/MailOrders';
 import CRM from './pages/CRM';
