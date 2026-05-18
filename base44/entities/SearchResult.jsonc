@@ -239,6 +239,30 @@
     "wetland_proximity": {
       "type": "string",
       "description": "on-site or adjacent (~100m)"
+    },
+    "wetland_type": {
+      "type": "string",
+      "description": "Primary NWI wetland type (from Identify) \u2014 e.g. Freshwater Forested/Shrub Wetland"
+    },
+    "wetland_code": {
+      "type": "string",
+      "description": "Cowardin classification code (NWI ATTRIBUTE) \u2014 e.g. PFO1A"
+    },
+    "wetland_acres": {
+      "type": "number",
+      "description": "Approximate acres of the primary mapped NWI wetland feature"
+    },
+    "wetlands_map_url": {
+      "type": "string",
+      "description": "USFWS NWI export PNG \u2014 1-mile bbox around site"
+    },
+    "wetlands_topo_map_url": {
+      "type": "string",
+      "description": "USFWS NWI on USGS topographic base \u2014 1-mile bbox around site"
+    },
+    "wetlands_detail_map_url": {
+      "type": "string",
+      "description": "USFWS NWI export PNG \u2014 500-ft detail bbox around site"
     }
   },
   "required": [

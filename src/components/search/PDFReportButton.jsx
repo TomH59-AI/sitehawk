@@ -628,6 +628,113 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
     });
 
     // ──────────────────────────────────────────────────────────
+    // ENVIRONMENTAL — USFWS NWI WETLANDS (one page per candidate that has data)
+    // ──────────────────────────────────────────────────────────
+    const wetlandCandidates = allCands.filter(c => c.wetlands_topo_map_url || c.wetlands_map_url || c.wetlands_detail_map_url);
+
+    if (wetlandCandidates.length > 0) {
+      // Pre-load all wetland exhibit images in parallel
+      const wetlandImageSets = await Promise.all(
+        wetlandCandidates.map(c => Promise.all([
+          c.wetlands_topo_map_url ? loadImageAsBase64(c.wetlands_topo_map_url) : Promise.resolve(null),
+          c.wetlands_map_url ? loadImageAsBase64(c.wetlands_map_url) : Promise.resolve(null),
+          c.wetlands_detail_map_url ? loadImageAsBase64(c.wetlands_detail_map_url) : Promise.resolve(null),
+        ]))
+      );
+
+      wetlandCandidates.forEach((c, ci) => {
+        const [topoData, vicData, detailData] = wetlandImageSets[ci];
+        const candIdx = allCands.indexOf(c);
+        const present = c.wetlands_present === true ? "Yes" : c.wetlands_present === false ? "No" : "Unknown";
+
+        doc.addPage();
+        pageHeader(doc);
+        let wy = 56;
+
+        wy = drawSectionHeader(doc, wy, W, margin, `ENVIRONMENTAL — USFWS NWI WETLANDS · SITE ${candIdx + 1}`);
+
+        // Heading
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...TEXT);
+        doc.text("USFWS National Wetlands Inventory Review", margin, wy + 4);
+        wy += 16;
+
+        // Auto-text paragraph
+        const paragraph = present === "Yes"
+          ? `According to the U.S. Fish & Wildlife Service National Wetlands Inventory, the proposed site IS located within a mapped wetland. The mapped feature is classified as ${c.wetland_type || "an NWI wetland"} (Cowardin code: ${c.wetland_code || "N/A"}), comprising approximately ${c.wetland_acres != null ? c.wetland_acres + " acres" : "an unspecified area"}.`
+          : present === "No"
+            ? `According to the U.S. Fish & Wildlife Service National Wetlands Inventory, the proposed site IS NOT located within a mapped wetland. No mapped wetland features intersect the candidate site.`
+            : `USFWS National Wetlands Inventory data was not retrieved for this site.`;
+
+        doc.setFillColor(...LIGHT);
+        doc.setDrawColor(...BORDER);
+        const paraLines = doc.splitTextToSize(paragraph, W - margin * 2 - 16);
+        const paraH = paraLines.length * 11 + 14;
+        doc.roundedRect(margin, wy, W - margin * 2, paraH, 3, 3, "FD");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...TEXT);
+        doc.text(paraLines, margin + 8, wy + 12);
+        wy += paraH + 10;
+
+        // Three exhibits — full-width, stacked
+        const exhibits = [
+          { data: topoData, caption: "Exhibit A — USFWS NWI Wetlands on USGS Topographic Base (1-mile radius)" },
+          { data: vicData, caption: "Exhibit B — USFWS NWI Wetlands — Site Vicinity (1-mile radius)" },
+          { data: detailData, caption: "Exhibit C — USFWS NWI Wetlands — Site Detail (500 ft)" },
+        ];
+
+        const exhibitW = W - margin * 2;
+        const exhibitH = 200;
+
+        exhibits.forEach((ex) => {
+          // Page-break if needed
+          if (wy + exhibitH + 24 > H - 50) {
+            doc.addPage();
+            pageHeader(doc);
+            wy = 56;
+          }
+
+          if (ex.data) {
+            doc.addImage(ex.data, "PNG", margin, wy, exhibitW, exhibitH);
+          } else {
+            // Placeholder if image failed to load
+            doc.setFillColor(...LIGHT);
+            doc.setDrawColor(...BORDER);
+            doc.rect(margin, wy, exhibitW, exhibitH, "FD");
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(8);
+            doc.setTextColor(...MUTED);
+            doc.text("Map image unavailable", W / 2, wy + exhibitH / 2, { align: "center" });
+          }
+          wy += exhibitH + 4;
+
+          // Caption
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(7.5);
+          doc.setTextColor(...MUTED);
+          doc.text(ex.caption, W / 2, wy + 8, { align: "center" });
+          wy += 16;
+        });
+
+        // Footer line for the section
+        if (wy + 14 > H - 50) {
+          doc.addPage();
+          pageHeader(doc);
+          wy = 56;
+        }
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(...MUTED);
+        doc.text(
+          "Source: U.S. Fish & Wildlife Service, National Wetlands Inventory (NWI). Topographic base: USGS The National Map.",
+          margin, wy + 6
+        );
+      });
+    }
+
+    // ──────────────────────────────────────────────────────────
     // FOOTER on every page
     // ──────────────────────────────────────────────────────────
     const pageCount = doc.internal.getNumberOfPages();
