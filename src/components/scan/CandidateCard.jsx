@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { skipTrace } from "@/functions/skipTrace";
 import ViewshedPanel from "./ViewshedPanel";
 import RFCoveragePanel from "./RFCoveragePanel";
@@ -80,7 +80,8 @@ function ContactSection({ contact }) {
   );
 }
 
-export default function CandidateCard({ result, rank, isSelected, userTier, contactCache, onContactFound }) {
+export default function CandidateCard({ result, rank, isSelected, userTier, contactCache, onContactFound, ordinance, searchCenter }) {
+  const navigate = useNavigate();
   const color = scoreColor(result.match_score);
   const [loading, setLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -88,6 +89,11 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
   const [showRFCoverage, setShowRFCoverage] = useState(false);
   const isPaid = PAID_TIERS.includes(userTier);
   const cachedContact = contactCache?.[result.id];
+
+  const handleViewSCIP = (e) => {
+    e.stopPropagation();
+    navigate("/scip", { state: { candidate: result, ordinance, searchCenter } });
+  };
 
   const handleGetContact = async (e) => {
     e.stopPropagation();
@@ -254,6 +260,27 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
           </button>
         </div>
       )}
+
+      {/* ── View SCIP Button ── */}
+      <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+        <button
+          onClick={handleViewSCIP}
+          style={{
+            width: "100%", padding: "8px 10px", borderRadius: 7, cursor: "pointer",
+            background: "linear-gradient(135deg, #0C1B2E 0%, #1e3a6e 100%)",
+            border: "1px solid #2563eb66",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = "#00d4ff"}
+          onMouseLeave={e => e.currentTarget.style.borderColor = "#2563eb66"}
+        >
+          <span style={{ fontSize: 13 }}>📋</span>
+          <span style={{ fontSize: 11, color: "#fff", fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>
+            View SCIP · Print PDF / Excel
+          </span>
+        </button>
+      </div>
 
       {/* ── Viewshed Button ── */}
       {result.latitude && result.longitude && (

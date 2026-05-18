@@ -118,6 +118,8 @@ export default function ScanResultsSidebar({
               userTier={userTier}
               contactCache={contactCache}
               onContactFound={onContactFound}
+              ordinance={ordinance}
+              searchCenter={searchCenter}
             />
           </div>
         ))}
