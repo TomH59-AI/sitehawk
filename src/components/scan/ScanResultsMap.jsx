@@ -220,7 +220,14 @@ export default function ScanResultsMap({ results, searchCenter, selectedIndex, o
       }).addTo(layer);
 
       L.marker([tower.lat, tower.lon], { icon: createTowerIcon(L) })
-        .bindPopup(`<div style="font-family:'Rajdhani',sans-serif;background:#111827;color:#e2e8f0;border:1px solid #ef444455;border-radius:8px;padding:10px;min-width:170px;"><b style="color:#fecaca;">Competitor Tower</b><br/><span style="color:#94a3b8;font-size:12px;">${tower.operator || "Unknown operator"}</span><br/><span style="color:#94a3b8;font-size:12px;">${tower.type || "Communication"}</span></div>`, { className: "hawk-popup" })
+        .bindPopup(`<div style="font-family:'Rajdhani',sans-serif;background:#111827;color:#e2e8f0;border:1px solid #ef444455;border-radius:8px;padding:10px;min-width:180px;">
+          <b style="color:#fecaca;">Competitor Tower</b><br/>
+          <span style="color:#f8fafc;font-size:13px;font-weight:600;">${tower.operator || "Unknown operator"}</span>
+          ${tower.operator_confidence === "matched" ? `<span style="background:#22c55e22;color:#22c55e;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:6px;font-family:'Space Mono',monospace;">✓ CARRIER</span>` : ""}
+          ${tower.operator_confidence === "raw_osm" ? `<span style="background:#64748b22;color:#94a3b8;font-size:9px;padding:1px 6px;border-radius:8px;margin-left:6px;font-family:'Space Mono',monospace;">OSM</span>` : ""}
+          <br/><span style="color:#94a3b8;font-size:11px;">${tower.type || "Communication"}</span>
+          ${tower.asrn ? `<br/><span style="color:#00d4ff;font-size:10px;font-family:'Space Mono',monospace;">FCC ASRN: ${tower.asrn}</span>` : ""}
+        </div>`, { className: "hawk-popup" })
         .addTo(layer);
     });
 

@@ -7,6 +7,67 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.openstreetmap.ru/api/interpreter",
 ];
 
+// ─── Carrier Inference Registry ───────────────────────────────────────────
+// Real U.S. mobile carriers + the four largest neutral-host tower owners.
+// Match order matters: more specific patterns first.
+const CARRIER_PATTERNS = [
+  // Big 4 Mobile Carriers
+  { name: "AT&T", regex: /\b(at\s*&\s*t|at&t|att\s*mobility|cingular|new\s*cingular|sbc)\b/i },
+  { name: "Verizon", regex: /\b(verizon|cellco|vzw|bell\s*atlantic\s*mobile|airtouch|nynex\s*mobile|gte\s*mobilnet)\b/i },
+  { name: "T-Mobile", regex: /\b(t[\s\-]*mobile|tmobile|metropcs|sprint|nextel|voicestream|powertel|sun\s*cellular|aerial\s*comm)\b/i },
+  { name: "Dish Wireless", regex: /\b(dish\s*wireless|dish\s*network|boost\s*mobile|boost\s*infinite|project\s*genesis)\b/i },
+
+  // Regional Carriers
+  { name: "US Cellular", regex: /\b(u\.?s\.?\s*cellular|uscc|united\s*states\s*cellular)\b/i },
+  { name: "C Spire", regex: /\bc\s*spire\b/i },
+  { name: "Cellular South", regex: /\bcellular\s*south\b/i },
+
+  // Tower Owners (Neutral Host / Tower-Cos)
+  { name: "American Tower", regex: /\b(american\s*tower|ATC\b|amer\s*tower)\b/i },
+  { name: "Crown Castle", regex: /\b(crown\s*castle|crown\s*comm|global\s*signal)\b/i },
+  { name: "SBA Communications", regex: /\b(sba\s*communications|sba\s*towers|sba\s*network|sba\s*sites)\b/i },
+  { name: "Vertical Bridge", regex: /\b(vertical\s*bridge|vert\s*bridge)\b/i },
+  { name: "Tillman Infrastructure", regex: /\btillman\b/i },
+  { name: "Diamond Communications", regex: /\bdiamond\s*comm/i },
+
+  // Broadcast / Media (lower confidence as cellular)
+  { name: "iHeartMedia", regex: /\b(iheart|clear\s*channel)\b/i },
+  { name: "Cumulus Media", regex: /\bcumulus\s*media\b/i },
+];
+
+function inferCarrier(tags) {
+  // Search across every plausible OSM text field — this is where carrier names hide.
+  const haystack = [
+    tags.operator,
+    tags.name,
+    tags["name:en"],
+    tags.ref,
+    tags["ref:fcc:asrn"],
+    tags["communication:operator"],
+    tags.owner,
+    tags.brand,
+    tags.description,
+    tags.note,
+    tags.site_name,
+    tags["communication:wireless"],
+  ].filter(Boolean).join(" | ");
+
+  if (!haystack) return { operator: "Unknown", confidence: "none" };
+
+  for (const c of CARRIER_PATTERNS) {
+    if (c.regex.test(haystack)) {
+      return { operator: c.name, confidence: "matched", raw: haystack.slice(0, 80) };
+    }
+  }
+
+  // No carrier pattern matched — return the raw OSM operator/name as-is rather than "Unknown"
+  const rawName = tags.operator || tags.owner || tags["communication:operator"] || tags.name;
+  if (rawName && rawName.trim().length > 1) {
+    return { operator: rawName.trim(), confidence: "raw_osm" };
+  }
+  return { operator: "Unknown", confidence: "none" };
+}
+
 function haversineMiles(lat1, lon1, lat2, lon2) {
   const R = 3958.8;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -23,10 +84,6 @@ function towerType(tags) {
   return "Tower";
 }
 
-function towerOperator(tags) {
-  return tags.operator || tags.name || tags["communication:operator"] || "Unknown";
-}
-
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -38,7 +95,7 @@ Deno.serve(async (req) => {
 
     const radiusMeters = Math.round((radius_miles || 2) * 1609.344);
 
-    // Overpass QL — OSM tower/mast features commonly used for communications
+    // Overpass QL — OSM tower/mast features. Fetch tags so we can infer carrier.
     const query = `[out:json][timeout:25];(
       node["man_made"="mast"](around:${radiusMeters},${lat},${lon});
       node["man_made"="tower"]["tower:type"="communication"](around:${radiusMeters},${lat},${lon});
@@ -76,12 +133,15 @@ Deno.serve(async (req) => {
         if (!tLat || !tLon) return null;
         const tags = el.tags || {};
         const distMiles = haversineMiles(lat, lon, tLat, tLon);
+        const carrier = inferCarrier(tags);
         return {
-          operator: towerOperator(tags),
+          operator: carrier.operator,
+          operator_confidence: carrier.confidence, // "matched" | "raw_osm" | "none"
           type: towerType(tags),
           distance_miles: parseFloat(distMiles.toFixed(2)),
           lat: tLat,
           lon: tLon,
+          asrn: tags["ref:fcc:asrn"] || null,
         };
       })
       .filter(Boolean)
