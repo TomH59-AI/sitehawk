@@ -37,6 +37,10 @@
       "type": "object",
       "description": "GeoJSON geometry (Polygon or MultiPolygon) of the parcel boundary"
     },
+    "ground_elevation_ft": {
+      "type": "number",
+      "description": "Ground elevation at parcel centroid in feet AMSL (USGS EPQS / 3DEP)"
+    },
     "fema_risk_factor": {
       "type": "string",
       "description": "FEMA flood zone code (AE, X, VE, etc.) from NFHL"

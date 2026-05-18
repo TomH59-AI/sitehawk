@@ -1,4 +1,4 @@
-import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff, Radio, FileText } from "lucide-react";
+import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff, Radio, FileText, Mountain } from "lucide-react";
 import SkipTraceButton from "./SkipTraceButton";
 import { Badge } from "@/components/ui/badge";
 import CRMPanel from "@/components/crm/CRMPanel";
@@ -67,6 +67,9 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
           )}
         </div>
         <InfoRow icon={MapPin} label="Coordinates" value={`${result.latitude?.toFixed(5)}, ${result.longitude?.toFixed(5)}`} />
+        {result.ground_elevation_ft != null && (
+          <InfoRow icon={Mountain} label="Ground Elevation (AMSL)" value={`${result.ground_elevation_ft} ft`} />
+        )}
         <div className="flex items-start gap-2">
           <Shield className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
           <div className="text-xs">

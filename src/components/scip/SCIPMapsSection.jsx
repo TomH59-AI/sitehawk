@@ -1,7 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, LayersControl } from "react-leaflet";
+import { MapContainer, TileLayer, WMSTileLayer, Marker, Popup, LayersControl, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { pointElevation } from "@/functions/pointElevation";
+
+function ElevationProbe({ onProbe }) {
+  useMapEvents({
+    click: async (e) => {
+      const { lat, lng } = e.latlng;
+      onProbe({ lat, lon: lng, elevation_ft: null, loading: true });
+      try {
+        const res = await pointElevation({ lat, lon: lng });
+        onProbe({ lat, lon: lng, elevation_ft: res.data?.elevation_ft, loading: false });
+      } catch {
+        onProbe({ lat, lon: lng, elevation_ft: null, loading: false, error: true });
+      }
+    },
+  });
+  return null;
+}
 
 // Fix default Leaflet icon paths (react-leaflet requires this)
 delete L.Icon.Default.prototype._getIconUrl;
@@ -13,6 +30,7 @@ L.Icon.Default.mergeOptions({
 
 export default function SCIPMapsSection({ candidate }) {
   const [open, setOpen] = useState(true);
+  const [probe, setProbe] = useState(null);
   const lat = candidate?.latitude;
   const lon = candidate?.longitude;
 
@@ -42,8 +60,33 @@ export default function SCIPMapsSection({ candidate }) {
         <div className="p-4 space-y-3">
           <p className="text-xs text-muted-foreground">
             Interactive overlay of <span className="font-semibold text-foreground">USFWS National Wetlands Inventory</span> and{" "}
-            <span className="font-semibold text-foreground">USGS 3DEP Elevation Contours (ft AMSL)</span>. Toggle layers using the control in the top-right of the map.
+            <span className="font-semibold text-foreground">USGS 3DEP Elevation Contours (ft AMSL)</span>. Toggle layers in the top-right.{" "}
+            <span className="text-cyan-600 font-semibold">Click anywhere on the map to query ground elevation.</span>
           </p>
+
+          {candidate?.ground_elevation_ft != null && (
+            <div className="rounded-lg bg-cyan-500/10 border border-cyan-500/30 px-3 py-2 text-xs flex items-center gap-2">
+              <span className="text-sm">⛰</span>
+              <span className="text-muted-foreground">Site ground elevation:</span>
+              <span className="font-bold text-foreground">{candidate.ground_elevation_ft} ft AMSL</span>
+              <span className="text-muted-foreground">· Source: USGS EPQS / 3DEP</span>
+            </div>
+          )}
+
+          {probe && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-xs flex items-center gap-2">
+              <span className="text-sm">📍</span>
+              <span className="text-muted-foreground font-mono">{probe.lat.toFixed(5)}, {probe.lon.toFixed(5)}</span>
+              <span className="text-muted-foreground">→</span>
+              {probe.loading ? (
+                <span className="text-muted-foreground italic">Querying USGS EPQS...</span>
+              ) : probe.elevation_ft != null ? (
+                <span className="font-bold text-foreground">{probe.elevation_ft} ft AMSL</span>
+              ) : (
+                <span className="text-red-500">No data at this location</span>
+              )}
+            </div>
+          )}
 
           <div className="rounded-lg overflow-hidden border border-border" style={{ height: 520 }}>
             <MapContainer
@@ -105,9 +148,14 @@ export default function SCIPMapsSection({ candidate }) {
                     <div className="font-bold">{candidate?.site_name || "Candidate Site"}</div>
                     <div className="text-xs">{candidate?.parcel_address || ""}</div>
                     <div className="text-xs mt-1 font-mono">{lat.toFixed(5)}, {lon.toFixed(5)}</div>
+                    {candidate?.ground_elevation_ft != null && (
+                      <div className="text-xs mt-1">⛰ <b>{candidate.ground_elevation_ft} ft AMSL</b></div>
+                    )}
                   </div>
                 </Popup>
               </Marker>
+
+              <ElevationProbe onProbe={setProbe} />
             </MapContainer>
           </div>
 

@@ -19,6 +19,7 @@ import { nearestAirport } from "@/functions/nearestAirport";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
+import { pointElevation } from "@/functions/pointElevation";
 import { extractTelecomOrdinance } from "@/functions/extractTelecomOrdinance";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
 
@@ -161,7 +162,7 @@ export default function SiteSearch() {
     }
 
     // Look up all external data sources in parallel
-    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups, femaLookups, windLookups, utilityLookups] = await Promise.all([
+    const [airportLookups, cellTowerLookups, fccLookups, wetlandLookups, femaLookups, windLookups, utilityLookups, elevationLookups] = await Promise.all([
       Promise.all(
         parcels.map(async (parcel) => {
           try {
@@ -218,6 +219,14 @@ export default function SiteSearch() {
           } catch (e) { return {}; }
         })
       ),
+      Promise.all(
+        parcels.map(async (parcel) => {
+          try {
+            const res = await pointElevation({ lat: parcel.latitude, lon: parcel.longitude });
+            return res.data || {};
+          } catch (e) { return {}; }
+        })
+      ),
     ]);
 
     // Save results to DB
@@ -231,6 +240,7 @@ export default function SiteSearch() {
       const fema = femaLookups[i] || {};
       const wind = windLookups[i] || {};
       const utility = utilityLookups[i] || {};
+      const elevation = elevationLookups[i] || {};
       const saved = await base44.entities.SearchResult.create({
         search_id: search.id,
         site_name: parcel.site_name,
@@ -288,6 +298,7 @@ export default function SiteSearch() {
         wind_risk_level: wind.wind_risk_level || null,
         in_hurricane_prone_region: wind.in_hurricane_prone_region ?? null,
         in_special_wind_region: wind.in_special_wind_region ?? null,
+        ground_elevation_ft: elevation.elevation_ft ?? null,
       });
       savedResults.push({ ...saved, match_reason: parcel.match_reason });
     }
