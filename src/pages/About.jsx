@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Mail, Globe, Radio } from "lucide-react";
+import { SUPPORT_EMAIL_DISPLAY, SUPPORT_EMAIL_MAILTO } from "@/lib/contactEmail";
 
 export default function About() {
   return (
@@ -29,15 +30,15 @@ export default function About() {
         <h2 className="font-heading font-semibold text-lg text-foreground">Contact SkyWave LLC</h2>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Mail className="w-4 h-4 text-primary shrink-0" />
-          <span>Support: <a href="mailto:support@site-hawk-pro.com" className="text-primary hover:underline">support@site-hawk-pro.com</a></span>
+          <span>Support: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a></span>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Mail className="w-4 h-4 text-primary shrink-0" />
-          <span>Inquiries: <a href="mailto:info@site-hawk-pro.com" className="text-primary hover:underline">info@site-hawk-pro.com</a></span>
+          <span>Inquiries: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">info@sitehawk.com</a></span>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Mail className="w-4 h-4 text-primary shrink-0" />
-          <span>Founder: <a href="mailto:tom@site-hawk-pro.com" className="text-primary hover:underline">tom@site-hawk-pro.com</a></span>
+          <span>Founder: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">tom@sitehawk.com</a></span>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Globe className="w-4 h-4 text-primary shrink-0" />

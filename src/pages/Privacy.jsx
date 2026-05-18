@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
+import { SUPPORT_EMAIL_DISPLAY, SUPPORT_EMAIL_MAILTO } from "@/lib/contactEmail";
 
 export default function Privacy() {
   return (
@@ -76,7 +77,7 @@ export default function Privacy() {
           <p>
             We retain your account and usage data for as long as your account is active or as needed to provide the Service.
             Search history and scan results are retained to support your dashboard and historical reporting. You may request
-            deletion of your data at any time by contacting us at <a href="mailto:support@site-hawk-pro.com" className="text-primary hover:underline">support@site-hawk-pro.com</a>.
+            deletion of your data at any time by contacting us at <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a>.
           </p>
         </section>
 
@@ -108,7 +109,7 @@ export default function Privacy() {
             <li>Object to or restrict certain processing of your data.</li>
             <li>Data portability (receive a copy of your data in a structured format).</li>
           </ul>
-          <p>To exercise any of these rights, contact us at <a href="mailto:support@site-hawk-pro.com" className="text-primary hover:underline">support@site-hawk-pro.com</a>.</p>
+          <p>To exercise any of these rights, contact us at <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a>.</p>
         </section>
 
         <section className="space-y-2">
@@ -132,7 +133,7 @@ export default function Privacy() {
           <p>If you have questions or concerns about this Privacy Policy, please contact us:</p>
           <div className="pt-1 space-y-1">
             <p><span className="font-medium text-foreground">SkyWave LLC</span> — Michigan, USA</p>
-            <p>Email: <a href="mailto:support@site-hawk-pro.com" className="text-primary hover:underline">support@site-hawk-pro.com</a></p>
+            <p>Email: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a></p>
             <p>Website: <a href="https://skywave-ai.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">skywave-ai.com</a></p>
           </div>
         </section>

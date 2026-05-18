@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { RotateCcw } from "lucide-react";
+import { SUPPORT_EMAIL_DISPLAY, SUPPORT_EMAIL_MAILTO } from "@/lib/contactEmail";
 
 export default function RefundPolicy() {
   return (
@@ -28,7 +29,7 @@ export default function RefundPolicy() {
           <h2 className="font-heading font-semibold text-base text-foreground">Monthly Subscriptions (Hawk 20/20 Vision — $49/month)</h2>
           <p>
             If you cancel within the first 7 days of your initial subscription and have used fewer than 5 scans, you may request a full refund
-            by emailing <a href="mailto:support@skywavellc.com" className="text-primary hover:underline">support@skywavellc.com</a>.
+            by emailing <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a>.
             After 7 days or 5 scans (whichever comes first), no refunds will be issued for the current billing period.
             You will not be charged for future months after cancellation.
           </p>
@@ -38,7 +39,7 @@ export default function RefundPolicy() {
           <h2 className="font-heading font-semibold text-base text-foreground">Annual Subscriptions (Hawk 20-4 AI Vision — $490/year)</h2>
           <p>
             If you cancel within the first 14 days of your initial subscription and have used fewer than 10 scans, you may request a full refund
-            by emailing <a href="mailto:support@skywavellc.com" className="text-primary hover:underline">support@skywavellc.com</a>.
+            by emailing <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a>.
             After 14 days or 10 scans (whichever comes first), no refunds will be issued. Partial-year refunds are not available.
           </p>
         </section>
@@ -53,7 +54,7 @@ export default function RefundPolicy() {
         <section className="space-y-2">
           <h2 className="font-heading font-semibold text-base text-foreground">How to Request a Refund</h2>
           <p>
-            Email <a href="mailto:support@skywavellc.com" className="text-primary hover:underline">support@skywavellc.com</a> with
+            Email <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a> with
             your account email, subscription type, and reason for the refund request. Refunds are processed within 5–10 business days
             back to the original payment method.
           </p>
@@ -89,7 +90,7 @@ export default function RefundPolicy() {
           <h2 className="font-heading font-semibold text-base text-foreground">Contact</h2>
           <div className="pt-1 space-y-1">
             <p><span className="font-medium text-foreground">SkyWave LLC</span></p>
-            <p>Email: <a href="mailto:support@skywavellc.com" className="text-primary hover:underline">support@skywavellc.com</a></p>
+            <p>Email: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a></p>
           </div>
         </section>
 

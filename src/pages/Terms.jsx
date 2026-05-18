@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { FileText } from "lucide-react";
+import { SUPPORT_EMAIL_DISPLAY, SUPPORT_EMAIL_MAILTO } from "@/lib/contactEmail";
 
 export default function Terms() {
   return (
@@ -171,7 +172,7 @@ export default function Terms() {
           <p>For questions or concerns regarding these Terms, please contact us:</p>
           <div className="pt-1 space-y-1">
             <p><span className="font-medium text-foreground">SkyWave LLC</span> — Michigan, USA</p>
-            <p>Email: <a href="mailto:support@site-hawk-pro.com" className="text-primary hover:underline">support@site-hawk-pro.com</a></p>
+            <p>Email: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a></p>
             <p>Website: <a href="https://skywave-ai.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">skywave-ai.com</a></p>
           </div>
         </section>
