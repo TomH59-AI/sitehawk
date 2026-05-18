@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { MapPin, Zap, Plus, ChevronRight } from "lucide-react";
 import MessageBubble from "@/components/agent/MessageBubble";
+import ParcelScoutMap from "@/components/parcelScout/ParcelScoutMap";
 
 const QUICK_PROMPTS = [
   "Add a 2.3-acre agricultural parcel at 36.1540, -95.9928 in Tulsa County, OK",
@@ -16,15 +17,35 @@ export default function ParcelScout() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
+  const [searchResults, setSearchResults] = useState([]);
   const bottomRef = useRef(null);
 
   useEffect(() => {
     init();
+    loadSearchResults();
+
+    const unsubscribe = base44.entities.SearchResult.subscribe((event) => {
+      if (event.type === "create") {
+        setSearchResults((prev) => [event.data, ...prev]);
+      } else if (event.type === "update") {
+        setSearchResults((prev) => prev.map((r) => r.id === event.id ? event.data : r));
+      } else if (event.type === "delete") {
+        setSearchResults((prev) => prev.filter((r) => r.id !== event.id));
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  const loadSearchResults = async () => {
+    const me = await base44.auth.me();
+    const data = await base44.entities.SearchResult.filter({ created_by: me.email }, "-created_date", 250);
+    setSearchResults(data);
+  };
 
   const init = async () => {
     try {
@@ -71,7 +92,7 @@ export default function ParcelScout() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-3xl mx-auto px-4 py-6">
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-6xl mx-auto px-4 py-6">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -85,6 +106,10 @@ export default function ParcelScout() {
           <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
           <span className="text-xs text-green-400 font-medium">Active</span>
         </div>
+      </div>
+
+      <div className="mb-5">
+        <ParcelScoutMap results={searchResults} />
       </div>
 
       {/* Chat area */}
