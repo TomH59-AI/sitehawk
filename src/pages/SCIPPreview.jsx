@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
+import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPExportButtons from "../components/scip/SCIPExportButtons";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 
@@ -104,6 +105,9 @@ export default function SCIPPreview() {
             onFieldChange={handleFieldChange}
           />
         ))}
+
+        {/* Maps section — NWI Wetlands + USGS Contours */}
+        <SCIPMapsSection candidate={candidate} />
       </div>
 
       {/* Bottom export bar */}
