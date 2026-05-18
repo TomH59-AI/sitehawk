@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { loadPublicConfig } from "@/lib/publicConfig";
 
-const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ";
-const TILE_URL = `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}@2x?access_token=${MAPBOX_TOKEN}`;
+const buildTileUrl = (token) => `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}@2x?access_token=${token}`;
 
 // Friis path-loss + terrain-naïve model
 // Returns signal strength in dBm at distance d (meters) for given params
@@ -71,13 +71,18 @@ const FREQ_PRESETS = [
 export default function RFCoveragePanel({ candidate, onClose }) {
   const [params, setParams] = useState(DEFAULT_PARAMS);
   const [applied, setApplied] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState("");
   const mapRef = useRef(null);
   const LRef = useRef(null);
   const canvasLayerRef = useRef(null);
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    loadPublicConfig().then((config) => setMapboxToken(config.mapboxAccessToken || ""));
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current || !mapboxToken) return;
 
     // Load Leaflet if not already present
     const initMap = () => {
@@ -90,11 +95,13 @@ export default function RFCoveragePanel({ candidate, onClose }) {
         zoomControl: true,
       });
 
-      L.tileLayer(TILE_URL, {
-        tileSize: 512, zoomOffset: -1,
-        attribution: "© Mapbox",
-        maxZoom: 19,
-      }).addTo(map);
+      if (mapboxToken) {
+        L.tileLayer(buildTileUrl(mapboxToken), {
+          tileSize: 512, zoomOffset: -1,
+          attribution: "© Mapbox",
+          maxZoom: 19,
+        }).addTo(map);
+      }
 
       // Tower marker
       const icon = L.divIcon({
@@ -136,7 +143,7 @@ export default function RFCoveragePanel({ candidate, onClose }) {
     return () => {
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     };
-  }, []);
+  }, [mapboxToken]);
 
   const applyHeatmap = () => {
     const map = mapRef.current;

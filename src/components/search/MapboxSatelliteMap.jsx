@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import UtilityTerritoryOverlay from "./UtilityTerritoryOverlay";
-
-const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ";
+import { loadPublicConfig } from "@/lib/publicConfig";
 const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 const STREETS_STYLE = "mapbox://styles/mapbox/streets-v12";
 const RADIUS_MILES = 0.5;
@@ -101,8 +100,13 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapStyle, setMapStyle] = useState("satellite");
   const [mapboxReady, setMapboxReady] = useState(false);
+  const [mapboxToken, setMapboxToken] = useState("");
   const [exporting, setExporting] = useState(false);
   const [tooltip, setTooltip] = useState(null); // { x, y, candidate, idx }
+
+  useEffect(() => {
+    loadPublicConfig().then((config) => setMapboxToken(config.mapboxAccessToken || ""));
+  }, []);
 
   // Load MapBox GL JS from CDN
   useEffect(() => {
@@ -119,9 +123,9 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
 
   // Initialize map
   useEffect(() => {
-    if (!mapboxReady || !centerLat || !centerLon || mapRef.current) return;
+    if (!mapboxReady || !mapboxToken || !centerLat || !centerLon || mapRef.current) return;
     const mapboxgl = window.mapboxgl;
-    mapboxgl.accessToken = MAPBOX_TOKEN;
+    mapboxgl.accessToken = mapboxToken;
     // Disable telemetry so Mapbox never prompts users for data-sharing permission
     mapboxgl.config.EVENTS_URL = "";
     const map = new mapboxgl.Map({
@@ -143,7 +147,7 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
     return () => {
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
     };
-  }, [mapboxReady, centerLat, centerLon]);
+  }, [mapboxReady, mapboxToken, centerLat, centerLon]);
 
   // Add/update layers and markers
   useEffect(() => {

@@ -8,10 +8,9 @@
  * and obstructions for each azimuth sector.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Compass, Download, ChevronDown, ChevronUp } from "lucide-react";
-
-const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ";
+import { loadPublicConfig } from "@/lib/publicConfig";
 
 // Directions: bearing = degrees from north (0=N, 90=E, 180=S, 270=W)
 const DIRECTIONS = [
@@ -44,7 +43,7 @@ function offsetCoord(lat, lon, bearing, distMiles = 0.25) {
   };
 }
 
-function buildViewshedUrl(lat, lon, bearing, width = 600, height = 340) {
+function buildViewshedUrl(mapboxToken, lat, lon, bearing, width = 600, height = 340) {
   const center = offsetCoord(lat, lon, bearing, 0.18);
   // pitch=60 gives a strong low-angle "antenna eye" perspective
   // zoom=14 shows roughly 0.5mi corridor
@@ -57,14 +56,14 @@ function buildViewshedUrl(lat, lon, bearing, width = 600, height = 340) {
     `${marker}/` +
     `${center.lon},${center.lat},14,${bearing},60/` +
     `${width}x${height}@2x` +
-    `?access_token=${MAPBOX_TOKEN}`
+    `?access_token=${mapboxToken}`
   );
 }
 
-function DirectionCard({ dir, lat, lon, expanded, onToggle }) {
+function DirectionCard({ dir, lat, lon, expanded, onToggle, mapboxToken }) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const url = buildViewshedUrl(lat, lon, dir.bearing);
+  const url = buildViewshedUrl(mapboxToken, lat, lon, dir.bearing);
 
   return (
     <div style={{
@@ -211,6 +210,11 @@ function DirectionCard({ dir, lat, lon, expanded, onToggle }) {
 
 export default function ViewshedPanel({ candidate, onClose }) {
   const { latitude: lat, longitude: lon, site_name, match_score } = candidate;
+  const [mapboxToken, setMapboxToken] = useState("");
+
+  useEffect(() => {
+    loadPublicConfig().then((config) => setMapboxToken(config.mapboxAccessToken || ""));
+  }, []);
 
   // Default: all 4 expanded
   const [expanded, setExpanded] = useState({ N: true, E: true, S: true, W: true });
@@ -300,7 +304,12 @@ export default function ViewshedPanel({ candidate, onClose }) {
 
         {/* 4 Direction Cards */}
         <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {DIRECTIONS.map(dir => (
+          {!mapboxToken && (
+            <div style={{ color: "#64748b", fontFamily: "'Space Mono', monospace", fontSize: 10, textAlign: "center", padding: 24 }}>
+              Loading secure map configuration...
+            </div>
+          )}
+          {mapboxToken && DIRECTIONS.map(dir => (
             <DirectionCard
               key={dir.short}
               dir={dir}
@@ -308,6 +317,7 @@ export default function ViewshedPanel({ candidate, onClose }) {
               lon={lon}
               expanded={expanded[dir.short]}
               onToggle={() => toggle(dir.short)}
+              mapboxToken={mapboxToken}
             />
           ))}
         </div>

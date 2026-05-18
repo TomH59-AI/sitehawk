@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Download, FileText } from "lucide-react";
 import { jsPDF } from "jspdf";
+import { loadPublicConfig } from "@/lib/publicConfig";
 
 const LOGO_URL = "https://media.base44.com/images/public/69dd277f9504047a559d5834/8441edcc4_logo-skyhawk.png";
 
@@ -136,9 +137,7 @@ function loadImageAsBase64(url) {
   });
 }
 
-const MAPBOX_TOKEN = "pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ";
-
-function buildStaticMapUrl(lat, lon, candidates, width = 800, height = 400, zoom = 14) {
+function buildStaticMapUrl(mapboxToken, lat, lon, candidates, width = 800, height = 400, zoom = 14) {
   const colors = ["22c55e", "00d4ff", "f59e0b", "f43f5e", "a78bfa"];
 
   // Build GeoJSON overlay for parcel boundaries
@@ -167,11 +166,11 @@ function buildStaticMapUrl(lat, lon, candidates, width = 800, height = 400, zoom
     overlayParts = [`geojson(${encodeURIComponent(JSON.stringify(geojson))})`, center, ...pins];
   }
 
-  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${overlayParts.join(",")}/${lon},${lat},${zoom},0/${width}x${height}@2x?access_token=${MAPBOX_TOKEN}`;
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${overlayParts.join(",")}/${lon},${lat},${zoom},0/${width}x${height}@2x?access_token=${mapboxToken}`;
 }
 
 // Generate a small inset map per candidate, with parcel boundary if geometry available
-function buildCandidateMapUrl(lat, lon, geometry, width = 300, height = 160, zoom = 16) {
+function buildCandidateMapUrl(mapboxToken, lat, lon, geometry, width = 300, height = 160, zoom = 16) {
   const pin = `pin-s+00d4ff(${lon},${lat})`;
 
   if (geometry && (geometry.type === "Polygon" || geometry.type === "MultiPolygon")) {
@@ -188,11 +187,11 @@ function buildCandidateMapUrl(lat, lon, geometry, width = 300, height = 160, zoo
     };
     const encoded = encodeURIComponent(JSON.stringify(geojson));
     const overlay = `geojson(${encoded}),${pin}`;
-    return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${overlay}/auto/${width}x${height}@2x?padding=30&access_token=${MAPBOX_TOKEN}`;
+    return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${overlay}/auto/${width}x${height}@2x?padding=30&access_token=${mapboxToken}`;
   }
 
   // Fallback: just pin
-  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${pin}/${lon},${lat},${zoom},0/${width}x${height}@2x?access_token=${MAPBOX_TOKEN}`;
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${pin}/${lon},${lat},${zoom},0/${width}x${height}@2x?access_token=${mapboxToken}`;
 }
 
 export default function PDFReportButton({ results, extraResults, ordinance, searchCenter, mapImageGetterRef, skipTraceResults = {} }) {
@@ -203,15 +202,16 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
 
     // Pre-load logo + maps in parallel
     const allCands = [...(results || []), ...(extraResults || [])];
+    const { mapboxAccessToken } = await loadPublicConfig();
     const overviewMapUrl = searchCenter
-      ? buildStaticMapUrl(searchCenter.lat, searchCenter.lon, allCands, 1060, 500, 14)
+      ? buildStaticMapUrl(mapboxAccessToken, searchCenter.lat, searchCenter.lon, allCands, 1060, 500, 14)
       : null;
 
     const [logoData, overviewMapData, ...candidateMapDatas] = await Promise.all([
       loadImageAsBase64(LOGO_URL),
       overviewMapUrl ? loadImageAsBase64(overviewMapUrl) : Promise.resolve(null),
       ...allCands.slice(0, 8).map(c =>
-        loadImageAsBase64(buildCandidateMapUrl(c.latitude, c.longitude, c.parcel_geometry, 400, 200, 17))
+        loadImageAsBase64(buildCandidateMapUrl(mapboxAccessToken, c.latitude, c.longitude, c.parcel_geometry, 400, 200, 17))
       ),
     ]);
 

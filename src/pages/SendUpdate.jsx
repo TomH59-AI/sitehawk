@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { sendUpdateNotify } from "@/functions/sendUpdateNotify";
 import HawkIcon from "../components/HawkIcon";
 
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcHhlb3V2aWt6Z3NhdXJrb2hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI5MzcxNDgsImV4cCI6MjA1ODUxMzE0OH0.GMm2u8HJeCv8vboySM8CNgIAdbCS27-wrCnMmlRzFCY";
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 
 const TIER_OPTIONS = [
@@ -45,16 +45,8 @@ export default function SendUpdate() {
       test_only: testOnly,
       ...(testOnly ? {} : { tier_filter: tierFilter }),
     };
-    const res = await fetch("https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-notify", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
-    return res.json();
+    const res = await sendUpdateNotify(payload);
+    return res.data;
   };
 
   const handleTestSend = async () => {

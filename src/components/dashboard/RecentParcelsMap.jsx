@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapPin } from "lucide-react";
-
-const MAPBOX_TOKEN = "pk.eyJ1IjoidGFncmlmZmluIiwiYSI6ImNtZjV5MjQzaTBpNGoybHBxNjY1OG44N2sifQ.kEjuM-aJV0rRj4-wAlEZTw";
+import { loadPublicConfig } from "@/lib/publicConfig";
 
 function getScoreColor(score) {
   if (score >= 80) return "#10b981"; // emerald
@@ -41,9 +40,9 @@ export default function RecentParcelsMap({ results = [] }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const mapboxgl = await loadMapbox();
+      const [mapboxgl, config] = await Promise.all([loadMapbox(), loadPublicConfig()]);
       if (cancelled || !containerRef.current) return;
-      mapboxgl.accessToken = MAPBOX_TOKEN;
+      mapboxgl.accessToken = config.mapboxAccessToken || "";
 
       // Center on US if no pins, else fit to pins
       const map = new mapboxgl.Map({
