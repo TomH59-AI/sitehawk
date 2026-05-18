@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import AppFooter from "./AppFooter";
+import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import { useTheme } from "../hooks/useTheme";
 import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass } from "lucide-react";
 import HawkIcon from "./HawkIcon";
@@ -158,6 +159,7 @@ export default function Layout() {
         </div>
         <AppFooter />
       </main>
+      <HawkBotWidget />
     </div>
   );
 }
