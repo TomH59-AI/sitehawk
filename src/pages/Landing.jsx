@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import HawkIcon from "../components/HawkIcon";
 import { useState, useEffect } from "react";
+import DataUseCaseCards from "../components/landing/DataUseCaseCards";
 
 const FEATURES = [
   {
@@ -214,6 +215,9 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* ── DATA USE CASE CARDS (1–5) ── */}
+      <DataUseCaseCards />
 
       {/* ── HOW IT WORKS ── */}
       <section className="py-24 px-6 bg-gradient-to-b from-transparent to-blue-950/20">
