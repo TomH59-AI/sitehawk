@@ -1,18 +1,18 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import Stripe from 'npm:stripe@14.21.0';
 
-// Direct mail pricing (you charge the user, you fulfill via a print/mail vendor)
-// 3-letter: charge $79, cost ~$15-20, profit ~$55+
-// 5-letter: charge $119, cost ~$25-30, profit ~$85+
+// Direct mail pricing (you charge the user, you fulfill via Lob first-class)
+// 3-letter: charge $19.99, cost ~$3 (Lob B&W first-class), profit ~$16 (80% margin)
+// 5-letter: charge $29.00, cost ~$5 (Lob B&W first-class), profit ~$23 (78% margin)
 const MAIL_PLANS = {
   "3_letters": {
     name: "3-Letter Direct Mail Campaign",
-    price_cents: 7900,
+    price_cents: 1999,
     letters: 3,
   },
   "5_letters": {
     name: "5-Letter Direct Mail Campaign",
-    price_cents: 11900,
+    price_cents: 2900,
     letters: 5,
   },
 };
