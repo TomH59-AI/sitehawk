@@ -94,6 +94,11 @@ export default function SCIPMapsSection({ candidate }) {
               zoom={15}
               style={{ height: "100%", width: "100%" }}
               scrollWheelZoom={true}
+              zoomControl={true}
+              doubleClickZoom={true}
+              touchZoom={true}
+              minZoom={3}
+              maxZoom={19}
             >
               <LayersControl position="topright">
                 <LayersControl.BaseLayer checked name="Satellite (Esri)">

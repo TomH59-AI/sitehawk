@@ -4,10 +4,12 @@ import HawkIcon from "../HawkIcon";
 import { siteChat } from "@/functions/siteChat";
 
 const QUICK_ACTIONS = [
-  "How do I pick the best parcel?",
-  "Explain telecom zoning basics",
-  "What is a SCIP?",
-  "Setback & height rules?",
+  "Which candidate has the best fiber + zoning combo?",
+  "What's the FAA risk for the top candidate?",
+  "Run a 199-ft tower compliance check",
+  "Explain RF coverage and propagation models",
+  "What is a SCIP and why does it matter?",
+  "Setback & height rules in this jurisdiction?",
 ];
 
 const WELCOME = "👋 I'm HawkBot, your SiteHawk AI consultant. Ask me anything about parcel selection, telecom zoning, ordinances, permits, or SCIP reports.";
@@ -59,7 +61,7 @@ export default function HawkBotWidget() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-5 right-5 z-50 w-[min(380px,calc(100vw-2.5rem))] h-[min(600px,calc(100vh-6rem))] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed bottom-5 right-5 z-50 w-[min(440px,calc(100vw-2.5rem))] h-[min(680px,calc(100vh-6rem))] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
             <div className="flex items-center gap-2">

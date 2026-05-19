@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
+import SCIPRFCoverageSection from "../components/scip/SCIPRFCoverageSection";
 import SCIPExportButtons from "../components/scip/SCIPExportButtons";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 
@@ -108,6 +109,9 @@ export default function SCIPPreview() {
 
         {/* Maps section — NWI Wetlands + USGS Contours */}
         <SCIPMapsSection candidate={candidate} />
+
+        {/* RF Coverage — CloudRF propagation simulation */}
+        <SCIPRFCoverageSection candidate={candidate} />
       </div>
 
       {/* Bottom export bar */}
