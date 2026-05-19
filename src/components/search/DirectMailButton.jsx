@@ -8,7 +8,7 @@ const PLANS = [
   {
     id: "3_letters",
     letters: 3,
-    price: "$79",
+    price: "$19.99",
     label: "Starter",
     desc: "3 personalized letters mailed over 3 weeks",
     badge: null,
@@ -16,7 +16,7 @@ const PLANS = [
   {
     id: "5_letters",
     letters: 5,
-    price: "$119",
+    price: "$29.00",
     label: "Best Results",
     desc: "5 letters with increasing urgency over 5 weeks",
     badge: "Most Popular",
