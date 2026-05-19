@@ -267,6 +267,38 @@
     "wetlands_detail_map_url": {
       "type": "string",
       "description": "USFWS NWI export PNG \u2014 500-ft detail bbox around site"
+    },
+    "police_name": {
+      "type": "string",
+      "description": "Nearest police station name (OSM Overpass)"
+    },
+    "police_address": {
+      "type": "string",
+      "description": "Nearest police station street address"
+    },
+    "police_phone": {
+      "type": "string",
+      "description": "Nearest police station non-emergency phone"
+    },
+    "police_distance_miles": {
+      "type": "number",
+      "description": "Distance in miles to nearest police station"
+    },
+    "fire_name": {
+      "type": "string",
+      "description": "Nearest fire station name (OSM Overpass)"
+    },
+    "fire_address": {
+      "type": "string",
+      "description": "Nearest fire station street address"
+    },
+    "fire_phone": {
+      "type": "string",
+      "description": "Nearest fire station non-emergency phone"
+    },
+    "fire_distance_miles": {
+      "type": "number",
+      "description": "Distance in miles to nearest fire station"
     }
   },
   "required": [
