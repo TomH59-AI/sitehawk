@@ -1,0 +1,39 @@
+{
+  "name": "Jurisdiction",
+  "type": "object",
+  "description": "Local telecom ordinance rules for a city/county used to generate compliant site renders.",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Jurisdiction name (e.g. 'City of Tampa, FL')"
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter state code"
+    },
+    "height_limit_ft": {
+      "type": "number",
+      "description": "Maximum allowed tower height in feet"
+    },
+    "setback_ft": {
+      "type": "number",
+      "description": "Minimum setback from property line in feet"
+    },
+    "fall_zone_ft": {
+      "type": "number",
+      "description": "Required fall-zone radius in feet"
+    },
+    "stealth_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if jurisdiction requires stealth/concealment design"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes on ordinance specifics"
+    }
+  },
+  "required": [
+    "name"
+  ]
+}

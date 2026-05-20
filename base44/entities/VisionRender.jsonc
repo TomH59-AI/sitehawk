@@ -1,0 +1,66 @@
+{
+  "name": "VisionRender",
+  "type": "object",
+  "description": "AI-generated elevation and cross-section renders for a candidate site.",
+  "properties": {
+    "jurisdiction_id": {
+      "type": "string",
+      "description": "Linked Jurisdiction record id"
+    },
+    "source_image_url": {
+      "type": "string",
+      "description": "Original site photo used as input"
+    },
+    "compound_width_ft": {
+      "type": "number"
+    },
+    "compound_depth_ft": {
+      "type": "number"
+    },
+    "tower_height_ft": {
+      "type": "number"
+    },
+    "tower_type": {
+      "type": "string",
+      "description": "monopole, lattice, guyed, stealth, etc."
+    },
+    "elevation_render_url": {
+      "type": "string",
+      "description": "Generated right-side elevation render URL"
+    },
+    "cross_section_render_url": {
+      "type": "string",
+      "description": "Generated cross-section/profile render URL"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Snapshot of jurisdiction limits used at render time"
+    }
+  },
+  "required": [
+    "jurisdiction_id"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}
