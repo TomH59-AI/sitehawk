@@ -53,15 +53,21 @@ Deno.serve(async (req) => {
       check("Notion", async () => {
         if (!notionToken) return { ok: false, error: "NOTION_API_TOKEN secret not set" };
         if (!notionDbId) return { ok: false, error: "NOTION_MASTER_ZONING_PAGE_ID secret not set" };
-        const r = await fetch(`https://api.notion.com/v1/databases/${notionDbId}`, {
+        // Strip whitespace/non-hex chars, then insert canonical UUID dashes (8-4-4-4-12).
+        const clean = notionDbId.trim().replace(/[^a-fA-F0-9]/g, "").toLowerCase();
+        if (clean.length !== 32) {
+          return { ok: false, error: `Notion DB ID has ${clean.length} hex chars (expected 32). Raw value: "${notionDbId.slice(0, 60)}"` };
+        }
+        const formattedId = `${clean.slice(0,8)}-${clean.slice(8,12)}-${clean.slice(12,16)}-${clean.slice(16,20)}-${clean.slice(20)}`;
+        const r = await fetch(`https://api.notion.com/v1/databases/${formattedId}`, {
           headers: {
-            Authorization: `Bearer ${notionToken}`,
+            Authorization: `Bearer ${notionToken.trim()}`,
             "Notion-Version": "2022-06-28",
           },
         });
         if (!r.ok) {
           const body = await r.text();
-          return { ok: false, error: `Notion HTTP ${r.status}: ${body.slice(0, 200)}` };
+          return { ok: false, error: `Notion HTTP ${r.status} (id=${formattedId}): ${body.slice(0, 200)}` };
         }
         return { ok: true };
       }),
