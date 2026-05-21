@@ -59,7 +59,8 @@ Deno.serve(async (req) => {
           return { ok: false, error: `Notion DB ID has ${clean.length} hex chars (expected 32). Raw value: "${notionDbId.slice(0, 60)}"` };
         }
         const formattedId = `${clean.slice(0,8)}-${clean.slice(8,12)}-${clean.slice(12,16)}-${clean.slice(16,20)}-${clean.slice(20)}`;
-        const r = await fetch(`https://api.notion.com/v1/databases/${formattedId}`, {
+        // ID points to a Notion page (zoning content lives on a page, not a queryable DB)
+        const r = await fetch(`https://api.notion.com/v1/pages/${formattedId}`, {
           headers: {
             Authorization: `Bearer ${notionToken.trim()}`,
             "Notion-Version": "2022-06-28",
