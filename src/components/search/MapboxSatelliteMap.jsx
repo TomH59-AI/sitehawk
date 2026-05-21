@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import UtilityTerritoryOverlay from "./UtilityTerritoryOverlay";
+import MapOverlayControls from "./MapOverlayControls";
+import CesiumViewer from "./CesiumViewer";
 import { loadPublicConfig } from "@/lib/publicConfig";
 const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 const STREETS_STYLE = "mapbox://styles/mapbox/streets-v12";
@@ -115,6 +117,7 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
   const [mapboxToken, setMapboxToken] = useState("");
   const [exporting, setExporting] = useState(false);
   const [tooltip, setTooltip] = useState(null); // { x, y, candidate, idx }
+  const [viewMode, setViewMode] = useState("mapbox"); // "mapbox" | "split"
 
   useEffect(() => {
     loadPublicConfig().then((config) => setMapboxToken(config.mapboxAccessToken || ""));
@@ -292,6 +295,27 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
 
   return (
     <div className="space-y-2">
+      {/* View mode toggle */}
+      {centerLat && !loading && (
+        <div className="flex justify-end">
+          <div className="inline-flex rounded-lg overflow-hidden border border-border shadow-sm text-xs font-semibold">
+            <button
+              onClick={() => setViewMode("mapbox")}
+              className={`px-3 py-1.5 transition-all ${viewMode === "mapbox" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
+            >
+              Mapbox
+            </button>
+            <button
+              onClick={() => setViewMode("split")}
+              className={`px-3 py-1.5 transition-all ${viewMode === "split" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-secondary"}`}
+            >
+              Mapbox + Cesium 2D
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={`grid gap-2 ${viewMode === "split" ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"}`}>
       <div className="relative rounded-xl border border-border overflow-hidden" style={{ height: 500 }}>
         {/* Loading overlay */}
         {(loading || !centerLat) && (
@@ -306,6 +330,11 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
 
         {/* Map */}
         <div ref={mapContainer} style={{ width: "100%", height: "100%" }} />
+
+        {/* Overlay toggles (USGS Topo + USFWS NWI) */}
+        {centerLat && !loading && mapLoaded && (
+          <MapOverlayControls map={mapRef.current} mapLoaded={mapLoaded} />
+        )}
 
         {/* Hover Tooltip */}
         {tooltip && (
@@ -405,6 +434,17 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
             </div>
           </div>
         )}
+      </div>
+
+      {/* Cesium 2D side-by-side viewer */}
+      {viewMode === "split" && centerLat && !loading && (
+        <div className="relative rounded-xl border border-border overflow-hidden" style={{ height: 500 }}>
+          <CesiumViewer centerLat={centerLat} centerLon={centerLon} />
+          <div className="absolute top-2 left-2 px-2 py-1 rounded bg-[#0C1B2E]/90 text-white text-[10px] font-bold uppercase tracking-wider">
+            Cesium Ion 2D
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Export */}

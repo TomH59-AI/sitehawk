@@ -1,19 +1,24 @@
 // Maps a SearchResult + ordinance + searchCenter into the SCIP template field structure.
 // Mirrors the official Site-Hawk SCIP Fillable Template (Candidate sheet).
+// Extra sources: geocode (Mapbox reverse-geocode), zoning (Notion zoning record), neighbors (Realie parcels).
+// Source-of-truth rule: leave fields blank if no real source — never fabricate.
 
-export function buildScipData(candidate, ordinance, searchCenter, agent = {}) {
+export function buildScipData(candidate, ordinance, searchCenter, agent = {}, extras = {}) {
   const c = candidate || {};
   const o = ordinance || {};
   const sc = searchCenter || {};
+  const geo = extras.geocode || {};
+  const zoning = extras.zoning || {};
+  const neighbors = extras.neighbors || [];
 
-  // Parse address into parts
-  const addr = c.parcel_address || "";
+  // Parse address into parts — prefer Mapbox geocode results when available
+  const addr = c.parcel_address || geo.full_address || "";
   const parts = addr.split(",").map((s) => s.trim());
-  const street = parts[0] || "";
-  const city = parts[1] || "";
+  const street = geo.street || parts[0] || "";
+  const city = geo.city || parts[1] || "";
   const stateZip = (parts[2] || "").split(" ");
-  const state = stateZip[0] || o.state || "";
-  const zip = stateZip[1] || "";
+  const state = geo.state || stateZip[0] || o.state || "";
+  const zip = geo.zip || stateZip[1] || "";
 
   return {
     site_acquisition: {
@@ -51,7 +56,7 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}) {
     site_info: {
       title: "SITE INFORMATION (from Property Appraiser's Office)",
       fields: [
-        ["Parcel County", o.jurisdiction || ""],
+        ["Parcel County", geo.county || o.jurisdiction || ""],
         ["Parcel ID Number", c.parcel_id || ""],
         ["Owner Name (on Deed)", c.owner_name || ""],
         ["Parcel Street Address", street],
@@ -123,14 +128,14 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}) {
     zoning: {
       title: "ZONING OVERVIEW",
       fields: [
-        ["Zoning Jurisdiction", o.jurisdiction || ""],
+        ["Zoning Jurisdiction", zoning.name || geo.county || o.jurisdiction || ""],
         ["Zoning Contact Information", o.contact_info || ""],
         ["Zoning Process", o.permit_process || ""],
         ["Zoning Fees", o.permit_fees || ""],
         ["Zoning Approval Timeframe", o.approval_timeframe || ""],
-        ["Property Zoning District", c.zoning_classification || ""],
+        ["Property Zoning District", zoning.zoning_code || c.zoning_classification || ""],
         ["Property Future Land Use", ""],
-        ["Property Current Usage", ""],
+        ["Property Current Usage", zoning.allowed_uses || ""],
         ["Meets minimum lot requirements?", ""],
       ],
     },
@@ -138,10 +143,10 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}) {
       title: "TOWER SPECIFICS",
       fields: [
         ["LDC Section Reference(s)", o.code_section || ""],
-        ["Maximum Tower Height", o.max_tower_height || ""],
+        ["Maximum Tower Height", zoning.height_limit || o.max_tower_height || ""],
         ["Stealth Required?", o.stealth_required ? "Yes" : o.stealth_required === false ? "No" : ""],
         ["Required Collocations (#)", o.collocation_required || ""],
-        ["Residential Separation (ft or %)", o.residential_setback || ""],
+        ["Residential Separation (ft or %)", zoning.setbacks || o.residential_setback || ""],
         ["Tower Separation (ft or %)", o.tower_separation || ""],
         ["Measured from base or center", ""],
         ["Fall Zone Requirements", o.fall_zone || ""],
@@ -150,7 +155,21 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}) {
     },
     zoning_notes: {
       title: "ZONING NOTES",
-      fields: [["Zoning concerns, fees, etc.", o.notes || ""]],
+      fields: [["Zoning concerns, fees, etc.", zoning.notes || o.notes || ""]],
+    },
+    neighboring_parcels: {
+      title: `NEIGHBORING PARCELS (within 1-mi ring · ${neighbors.length} via Realie)`,
+      fields: neighbors.length > 0
+        ? neighbors.slice(0, 10).map((n, i) => [
+            `Parcel ${i + 1}`,
+            [
+              n.apn ? `APN ${n.apn}` : null,
+              n.owner_name,
+              n.acreage ? `${n.acreage} ac` : null,
+              n.land_use,
+            ].filter(Boolean).join(" · "),
+          ])
+        : [["No neighboring parcels", ""]],
     },
     site_plan: {
       title: "SITE PLAN OVERVIEW",
@@ -211,6 +230,7 @@ export const SCIP_SECTION_ORDER = [
   "zoning",
   "tower_specs",
   "zoning_notes",
+  "neighboring_parcels",
   "site_plan",
   "site_plan_notes",
   "building_permit",

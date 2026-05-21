@@ -5,8 +5,12 @@ import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPRFCoverageSection from "../components/scip/SCIPRFCoverageSection";
+import SCIPSpectrumSection from "../components/scip/SCIPSpectrumSection";
 import SCIPExportButtons from "../components/scip/SCIPExportButtons";
+import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
+import { notionZoningLookup } from "@/functions/notionZoningLookup";
+import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 
 export default function SCIPPreview() {
   const { state } = useLocation();
@@ -34,7 +38,22 @@ export default function SCIPPreview() {
         return;
       }
       setCandidate(c);
-      setScipData(buildScipData(c, ord, ctr, agentInfo));
+
+      // First render with what we already have, then enrich with geocode + zoning + Realie neighbors.
+      setScipData(buildScipData(c, ord, ctr, agentInfo, {}));
+
+      const lat = c.latitude ?? ctr?.lat;
+      const lon = c.longitude ?? ctr?.lon;
+      if (lat != null && lon != null) {
+        const [zoningRes, parcelsRes] = await Promise.allSettled([
+          notionZoningLookup({ lat, lon }),
+          realieParcelsInRing({ lat, lon, radius_miles: 1.0 }),
+        ]);
+        const geocode = zoningRes.status === "fulfilled" ? (zoningRes.value.data?.geocode || {}) : {};
+        const zoning = zoningRes.status === "fulfilled" ? (zoningRes.value.data?.zoning || {}) : {};
+        const neighbors = parcelsRes.status === "fulfilled" ? (parcelsRes.value.data?.parcels || []) : [];
+        setScipData(buildScipData(c, ord, ctr, agentInfo, { geocode, zoning, neighbors }));
+      }
     }
     init();
   }, [state, navigate]);
@@ -60,9 +79,9 @@ export default function SCIPPreview() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div id="scip-print-root" className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 no-print">
         <div>
           <button
             onClick={() => navigate(-1)}
@@ -74,10 +93,13 @@ export default function SCIPPreview() {
             Site Candidate Information Package
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Review and edit all fields below — then print as PDF or export to Excel.
+            Review and edit all fields below — then print, download PDF, or export to Excel.
           </p>
         </div>
-        <SCIPExportButtons scipData={scipData} candidate={candidate} />
+        <div className="flex gap-2 flex-wrap">
+          <PrintSCIPButton />
+          <SCIPExportButtons scipData={scipData} candidate={candidate} />
+        </div>
       </div>
 
       {/* Candidate summary banner */}
@@ -112,14 +134,20 @@ export default function SCIPPreview() {
 
         {/* RF Coverage — CloudRF propagation simulation */}
         <SCIPRFCoverageSection candidate={candidate} />
+
+        {/* Spectrum survey — CloudRF interference/spectrum endpoint */}
+        <SCIPSpectrumSection candidate={candidate} />
       </div>
 
       {/* Bottom export bar */}
-      <div className="sticky bottom-4 bg-card border border-border shadow-xl rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
+      <div className="sticky bottom-4 bg-card border border-border shadow-xl rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 no-print">
         <div className="text-sm text-muted-foreground">
           ✓ All edits are reflected in the exported file.
         </div>
-        <SCIPExportButtons scipData={scipData} candidate={candidate} />
+        <div className="flex gap-2 flex-wrap">
+          <PrintSCIPButton />
+          <SCIPExportButtons scipData={scipData} candidate={candidate} />
+        </div>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       mapboxAccessToken: Deno.env.get("MAPBOX_ACCESS_TOKEN") || "",
+      cesiumIonToken: Deno.env.get("CESIUM_ION_API") || "",
     });
   } catch (error) {
     console.error("getPublicConfig error:", error.message);

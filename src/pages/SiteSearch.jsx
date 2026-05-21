@@ -13,6 +13,8 @@ import HawkIcon from "../components/HawkIcon";
 import FilterPanel from "../components/search/FilterPanel";
 import ScanProgressLoader from "../components/search/ScanProgressLoader";
 import DemoModeButton from "../components/search/DemoModeButton";
+import DiagnosticsPanel from "../components/search/DiagnosticsPanel";
+import RealieParcelsTable from "../components/search/RealieParcelsTable";
 import { DEMO_RESULTS, DEMO_ORDINANCE } from "@/lib/demoData";
 import { siteSearch } from "@/functions/siteSearch";
 import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
@@ -517,6 +519,9 @@ export default function SiteSearch() {
       {/* Search Form */}
       <SearchForm onSearch={handleSearch} isLoading={loading} disabled={atLimit} />
 
+      {/* Integration Diagnostics — green/red dots per integration */}
+      <DiagnosticsPanel />
+
       {scanError && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
           <span className="text-destructive text-sm font-medium">Error: {scanError}</span>
@@ -543,6 +548,15 @@ export default function SiteSearch() {
           loading={loading}
           mapImageGetterRef={mapImageGetterRef}
           filteredResultIds={filteredResultIds}
+        />
+      )}
+
+      {/* Realie parcels within 1-mile ring — source for owner mailers */}
+      {searchCenter && !loading && (
+        <RealieParcelsTable
+          centerLat={searchCenter.lat}
+          centerLon={searchCenter.lon}
+          searchId={currentSearchId}
         />
       )}
 
