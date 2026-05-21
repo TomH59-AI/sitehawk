@@ -31,10 +31,11 @@ function createGeoJSONCircle(center, radiusMeters, points = 64) {
   return { type: "Feature", geometry: { type: "Polygon", coordinates: [coords] } };
 }
 
-// Create hawk center marker element
-function createHawkMarkerEl() {
+// Create hawk center marker element with coordinate label
+function createHawkMarkerEl(lat, lon) {
   const el = document.createElement("div");
   el.style.cssText = "display:flex;flex-direction:column;align-items:center;cursor:default;user-select:none;";
+  const coordText = (lat != null && lon != null) ? `${lat.toFixed(6)}, ${lon.toFixed(6)}` : "";
   el.innerHTML = `
     <div style="
       width:52px;height:52px;border-radius:50%;
@@ -53,6 +54,16 @@ function createHawkMarkerEl() {
       letter-spacing:0.08em;white-space:nowrap;
       box-shadow:0 2px 6px rgba(0,0,0,0.4);
     ">SARF CENTER</div>
+    ${coordText ? `<div style="
+      margin-top:3px;
+      background:rgba(255,255,255,0.95);
+      color:#0C1B2E;font-size:10px;font-weight:700;
+      padding:2px 7px;border-radius:6px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+      white-space:nowrap;
+      box-shadow:0 2px 6px rgba(0,0,0,0.35);
+      border:1px solid rgba(37,99,235,0.4);
+    ">${coordText}</div>` : ""}
   `;
   // Inject animation keyframe once
   if (!document.getElementById("hawk-pulse-style")) {
@@ -148,9 +159,9 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
     };
   }, [mapboxReady, mapboxToken, centerLat, centerLon]);
 
-  // Add/update layers and markers
+  // Add/update layers and markers — runs as soon as center coords exist
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || results.length === 0) return;
+    if (!mapLoaded || !mapRef.current || centerLat == null || centerLon == null) return;
     const map = mapRef.current;
     const mapboxgl = window.mapboxgl;
 
@@ -179,8 +190,8 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
     map.addLayer({ id: "search-ring-fill", type: "fill", source: "search-ring", paint: { "fill-color": "#EAB308", "fill-opacity": 0.10 } });
     map.addLayer({ id: "search-ring-outline", type: "line", source: "search-ring", paint: { "line-color": "#EAB308", "line-width": 2.5, "line-dasharray": [4, 2] } });
 
-    // Hawk center marker
-    const hawkEl = createHawkMarkerEl();
+    // Hawk center marker with coordinate label
+    const hawkEl = createHawkMarkerEl(centerLat, centerLon);
     const hawkMarker = new mapboxgl.Marker({ element: hawkEl, anchor: "bottom" })
       .setLngLat(center)
       .addTo(map);
@@ -254,11 +265,10 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
       bounds.extend([r.longitude, r.latitude]);
     });
 
-    // Always include the full 1-mile outer ring so the user sees both rings
-    bounds.extend(outerGeo.geometry.coordinates[0][0]);
-    bounds.extend(outerGeo.geometry.coordinates[0][Math.floor(outerGeo.geometry.coordinates[0].length / 2)]);
+    // Fit bounds to the full 1-mile outer ring (waypoint + both rings always visible)
+    outerGeo.geometry.coordinates[0].forEach((pt) => bounds.extend(pt));
     map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
-  }, [mapLoaded, results, centerLat, centerLon]);
+  }, [mapLoaded, results, centerLat, centerLon, filteredResultIds]);
 
   const toggleStyle = () => {
     if (!mapRef.current) return;
