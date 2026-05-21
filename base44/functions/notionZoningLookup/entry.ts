@@ -27,53 +27,77 @@ async function mapboxReverseGeocode(lat, lon, mapboxToken) {
   };
 }
 
-async function notionQueryZoning(jurisdiction, notionToken, dbId) {
-  // Try filtering by a "Jurisdiction" title/text property; if the DB shape differs
-  // we'll return the raw error so diagnostics can surface it.
-  const candidates = [jurisdiction.county, jurisdiction.city, jurisdiction.state].filter(Boolean);
-  if (!candidates.length) return null;
+function normalizeNotionId(raw) {
+  const clean = (raw || "").trim().replace(/[^a-fA-F0-9]/g, "").toLowerCase();
+  if (clean.length !== 32) return null;
+  return `${clean.slice(0,8)}-${clean.slice(8,12)}-${clean.slice(12,16)}-${clean.slice(16,20)}-${clean.slice(20)}`;
+}
 
-  // We try each candidate term as a "contains" filter against a Title property.
-  // Notion DBs vary — this is a best-effort match.
-  for (const term of candidates) {
-    const body = {
-      filter: {
-        or: [
-          { property: "Name", title: { contains: term } },
-          { property: "Jurisdiction", rich_text: { contains: term } },
-        ],
-      },
-      page_size: 5,
-    };
+function blockToText(block) {
+  const t = block.type;
+  const content = block[t];
+  if (!content?.rich_text) return "";
+  return content.rich_text.map((r) => r.plain_text || "").join("");
+}
 
-    const r = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
-      method: "POST",
+// Fetch all child blocks of a Notion page (handles pagination)
+async function fetchPageBlocks(pageId, notionToken) {
+  const blocks = [];
+  let cursor = null;
+  do {
+    const url = `https://api.notion.com/v1/blocks/${pageId}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ""}`;
+    const r = await fetch(url, {
       headers: {
         Authorization: `Bearer ${notionToken}`,
         "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
     });
     if (!r.ok) {
-      const errBody = await r.text();
-      throw new Error(`Notion HTTP ${r.status}: ${errBody.slice(0, 200)}`);
+      const body = await r.text();
+      throw new Error(`Notion HTTP ${r.status}: ${body.slice(0, 200)}`);
     }
     const data = await r.json();
-    if (data.results?.length) return data.results[0];
-  }
-  return null;
+    blocks.push(...(data.results || []));
+    cursor = data.has_more ? data.next_cursor : null;
+  } while (cursor);
+  return blocks;
 }
 
-function extractPropText(prop) {
-  if (!prop) return null;
-  if (prop.type === "title") return prop.title.map((t) => t.plain_text).join("") || null;
-  if (prop.type === "rich_text") return prop.rich_text.map((t) => t.plain_text).join("") || null;
-  if (prop.type === "number") return prop.number;
-  if (prop.type === "select") return prop.select?.name || null;
-  if (prop.type === "multi_select") return prop.multi_select.map((s) => s.name).join(", ");
-  if (prop.type === "url") return prop.url || null;
-  return null;
+// Walk the block list and find a heading whose text contains one of the jurisdiction
+// terms (county / city). Return the heading text + the text content following it
+// until the next same-or-higher-level heading.
+function extractJurisdictionSection(blocks, jurisdiction) {
+  const terms = [jurisdiction.county, jurisdiction.city, jurisdiction.state]
+    .filter(Boolean)
+    .map((t) => t.toLowerCase().replace(/\bcounty\b/g, "").trim());
+
+  let matchedHeading = null;
+  let matchedLevel = null;
+  const sectionLines = [];
+
+  for (const block of blocks) {
+    const isHeading = ["heading_1", "heading_2", "heading_3"].includes(block.type);
+    const text = blockToText(block).trim();
+    if (!text) continue;
+
+    if (matchedHeading) {
+      // We've already matched — collect text until next heading of same/higher level
+      if (isHeading) {
+        const level = parseInt(block.type.split("_")[1]);
+        if (level <= matchedLevel) break; // section ended
+      }
+      sectionLines.push(text);
+    } else if (isHeading) {
+      const low = text.toLowerCase();
+      if (terms.some((t) => t && low.includes(t))) {
+        matchedHeading = text;
+        matchedLevel = parseInt(block.type.split("_")[1]);
+      }
+    }
+  }
+
+  if (!matchedHeading) return null;
+  return { heading: matchedHeading, content: sectionLines.join("\n").trim() };
 }
 
 Deno.serve(async (req) => {
@@ -96,23 +120,26 @@ Deno.serve(async (req) => {
     let zoning = null;
     let notionError = null;
     if (notionToken && notionDbId) {
-      try {
-        const page = await notionQueryZoning(geo, notionToken, notionDbId);
-        if (page) {
-          const props = page.properties || {};
-          zoning = {
-            notion_page_id: page.id,
-            name: extractPropText(props["Name"]) || extractPropText(props["Jurisdiction"]),
-            zoning_code: extractPropText(props["Zoning Code"]) || extractPropText(props["Code"]),
-            allowed_uses: extractPropText(props["Allowed Uses"]) || extractPropText(props["Permitted Uses"]),
-            height_limit: extractPropText(props["Height Limit"]) || extractPropText(props["Max Height"]),
-            setbacks: extractPropText(props["Setbacks"]) || extractPropText(props["Setback"]),
-            notes: extractPropText(props["Notes"]),
-            url: page.url,
-          };
+      const formattedId = normalizeNotionId(notionDbId);
+      if (!formattedId) {
+        notionError = `Notion page ID has invalid format (expected 32 hex chars): "${notionDbId.slice(0, 60)}"`;
+      } else {
+        try {
+          const blocks = await fetchPageBlocks(formattedId, notionToken.trim());
+          const section = extractJurisdictionSection(blocks, geo);
+          if (section) {
+            zoning = {
+              notion_page_id: formattedId,
+              jurisdiction: section.heading,
+              content: section.content,
+              source: "Notion master zoning page",
+            };
+          } else {
+            notionError = `No section found for ${[geo.county, geo.city, geo.state].filter(Boolean).join(" / ")} in Notion page`;
+          }
+        } catch (e) {
+          notionError = e.message;
         }
-      } catch (e) {
-        notionError = e.message;
       }
     } else {
       notionError = "Notion not configured (NOTION_API_TOKEN or NOTION_MASTER_ZONING_PAGE_ID missing)";
