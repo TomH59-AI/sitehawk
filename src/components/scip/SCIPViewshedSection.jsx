@@ -90,9 +90,9 @@ export default function SCIPViewshedSection({ candidate }) {
         <div className="p-4 space-y-3">
           <p className="text-xs text-muted-foreground">
             High-resolution pitched satellite viewsheds (60° tilt, ~0.5-mi corridor) generated for{" "}
-            <span className="font-semibold text-foreground">Target A — {candidate?.site_name || "this candidate"}</span>.
-            These slot into the SCIP <span className="font-semibold">PHOTOGRAPHS</span> section to document treeline,
-            building obstructions, and line-of-sight per cardinal sector.
+            <span className="font-semibold text-foreground">Target A — {candidate?.site_name || "this candidate"}</span>,
+            each overlaid with a transparent <span className="font-semibold">conical RF propagation lobe</span> so you can
+            visually check for treeline or building obstructions along the frequency path per cardinal sector.
           </p>
 
           {!token ? (
@@ -135,23 +135,69 @@ export default function SCIPViewshedSection({ candidate }) {
                       </span>
                     </div>
 
-                    {/* Image */}
-                    <img
-                      src={url}
-                      alt={`${dir.label} viewshed for ${candidate?.site_name}`}
-                      crossOrigin="anonymous"
-                      className="w-full block"
-                      style={{ aspectRatio: "16/9", objectFit: "cover", background: "#0a0e17" }}
-                    />
+                    {/* Image + RF propagation cone overlay */}
+                    <div className="relative" style={{ aspectRatio: "16/9" }}>
+                      <img
+                        src={url}
+                        alt={`${dir.label} viewshed for ${candidate?.site_name}`}
+                        crossOrigin="anonymous"
+                        className="absolute inset-0 w-full h-full block"
+                        style={{ objectFit: "cover", background: "#0a0e17" }}
+                      />
+                      {/* Transparent conical RF propagation overlay — apex at tower (bottom-center), fanning to horizon */}
+                      <svg
+                        viewBox="0 0 100 100"
+                        preserveAspectRatio="none"
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                      >
+                        <defs>
+                          <radialGradient
+                            id={`cone-grad-${dir.short}`}
+                            cx="50%"
+                            cy="100%"
+                            r="100%"
+                            fx="50%"
+                            fy="100%"
+                          >
+                            <stop offset="0%" stopColor={dir.color} stopOpacity="0.55" />
+                            <stop offset="55%" stopColor={dir.color} stopOpacity="0.22" />
+                            <stop offset="100%" stopColor={dir.color} stopOpacity="0" />
+                          </radialGradient>
+                        </defs>
+                        {/* 60° main lobe cone */}
+                        <polygon
+                          points="50,100 15,15 85,15"
+                          fill={`url(#cone-grad-${dir.short})`}
+                          stroke={dir.color}
+                          strokeOpacity="0.5"
+                          strokeWidth="0.3"
+                        />
+                        {/* Beam centerline */}
+                        <line
+                          x1="50"
+                          y1="100"
+                          x2="50"
+                          y2="15"
+                          stroke={dir.color}
+                          strokeOpacity="0.7"
+                          strokeWidth="0.25"
+                          strokeDasharray="1.5 1"
+                        />
+                        {/* Edge bearings */}
+                        <line x1="50" y1="100" x2="15" y2="15" stroke={dir.color} strokeOpacity="0.4" strokeWidth="0.2" />
+                        <line x1="50" y1="100" x2="85" y2="15" stroke={dir.color} strokeOpacity="0.4" strokeWidth="0.2" />
+                      </svg>
+                    </div>
 
                     {/* Caption */}
                     <div
                       className="px-3 py-1.5 text-[10px] font-mono text-slate-500 flex flex-wrap gap-x-3"
                       style={{ background: "#0d1829" }}
                     >
-                      <span>📡 Bearing {dir.bearing}°</span>
+                      <span style={{ color: dir.color }}>📡 RF cone · {dir.bearing}°</span>
+                      <span>· 60° beamwidth</span>
                       <span>· 60° pitch</span>
-                      <span>· ~0.5 mi corridor</span>
+                      <span>· ~0.5 mi</span>
                       <span>· 2560×1440</span>
                     </div>
                   </div>
