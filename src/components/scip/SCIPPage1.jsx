@@ -12,6 +12,7 @@
 
 import { useState } from "react";
 import SCIPPage1SARFMap from "./SCIPPage1SARFMap";
+import SCIPPage1SiteOwnerBlock from "./SCIPPage1SiteOwnerBlock";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -144,6 +145,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
 
       {/* SARF — auto-generated search ring map from lat/lon/radius above */}
       <SCIPPage1SARFMap values={values} />
+
+      {/* SITE INFORMATION + OWNER INFORMATION — auto-found via Notion zoning + Realie + Enformion */}
+      <SCIPPage1SiteOwnerBlock page1Values={values} onChange={(siteOwner) => onChange?.({ ...values, _siteOwner: siteOwner })} />
     </div>
   );
 }
