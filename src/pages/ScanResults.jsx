@@ -8,6 +8,7 @@ import HeadlineMapErrorBoundary from "../components/scan/HeadlineMapErrorBoundar
 import AIChatPanel from "../components/search/AIChatPanel";
 import { applyFiltersAndSort } from "../components/scan/ResultsFilterSort";
 import { FEATURE_LEAFLET_MAP } from "@/lib/featureFlags";
+import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 
 const DEFAULT_FILTERS = {
   minScore: 0, maxScore: 100,
@@ -31,7 +32,7 @@ export default function ScanResults() {
 
   useEffect(() => {
     base44.auth.me().then(u => {
-      setUserTier(u?.role === "admin" ? "hawkeye_apex" : (u?.tier || "blind"));
+      setUserTier(hasUnlimitedAccess(u) ? "hawkeye_apex" : getEffectiveTier(u));
       setFreeTrialUsed(!!u?.free_trial_used);
     });
   }, []);

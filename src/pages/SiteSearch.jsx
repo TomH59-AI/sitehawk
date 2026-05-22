@@ -28,6 +28,7 @@ import { pointElevation } from "@/functions/pointElevation";
 import { publicSafetyLookup } from "@/functions/publicSafetyLookup";
 import { extractTelecomOrdinance } from "@/functions/extractTelecomOrdinance";
 import { runSkipTrace } from "../components/search/SkipTraceButton";
+import { getEffectiveTier, hasUnlimitedAccess, isTester } from "@/lib/testAccess";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
 
@@ -93,8 +94,8 @@ export default function SiteSearch() {
       return;
     }
 
-    const tier = user?.tier || "free";
-    const isAdmin = user?.role === "admin";
+    const tier = getEffectiveTier(user);
+    const isAdmin = hasUnlimitedAccess(user);
     const limit = isAdmin ? Infinity : (TIER_LIMITS[tier] ?? 0);
     const isFreeTrialEligible = (tier === "blind" || tier === "free") && !user.free_trial_used;
 
@@ -404,8 +405,8 @@ export default function SiteSearch() {
     );
   }
 
-  const tier = user?.tier || "free";
-  const isAdmin = user?.role === "admin";
+  const tier = getEffectiveTier(user);
+  const isAdmin = hasUnlimitedAccess(user);
   const limit = isAdmin ? Infinity : (TIER_LIMITS[tier] ?? 0);
   const isFreeTrialEligible = (tier === "blind" || tier === "free") && !user?.free_trial_used;
   const isBlind = !isAdmin && (!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible;

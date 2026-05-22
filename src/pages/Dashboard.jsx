@@ -11,6 +11,7 @@ import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import ReferralPanel from "../components/referral/ReferralPanel";
 import FieldConnectCard from "../components/dashboard/FieldConnectCard";
 import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
+import { getEffectiveTier } from "@/lib/testAccess";
 
 const TIER_LIMITS = {
   blind: 0,
@@ -68,7 +69,7 @@ export default function Dashboard() {
     );
   }
 
-  const tier = user?.tier || "free";
+  const tier = getEffectiveTier(user);
   const limit = TIER_LIMITS[tier] || 1;
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
