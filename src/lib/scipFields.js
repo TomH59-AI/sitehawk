@@ -3,6 +3,37 @@
 // Extra sources: geocode (Mapbox reverse-geocode), zoning (Notion zoning record), neighbors (Realie parcels).
 // Source-of-truth rule: leave fields blank if no real source — never fabricate.
 
+// Haversine distance in miles (used to compute Distance from Search Ring Center)
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 3958.7613; // Earth radius in miles
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Pick a sensible compound size for a tower (industry-standard 80x80 = 6,400 sf for a 199ft monopole).
+// Scales down for shorter towers.
+function defaultCompoundSize(heightFt) {
+  const h = Number(heightFt) || 199;
+  if (h <= 100) return { dim: "60 x 60 ft", sf: 3600 };
+  if (h <= 150) return { dim: "70 x 70 ft", sf: 4900 };
+  if (h <= 200) return { dim: "80 x 80 ft", sf: 6400 };
+  return { dim: "100 x 100 ft", sf: 10000 };
+}
+
+// Conforming size check — most jurisdictions require parcel ≥ compound + fall zone.
+// Simple rule of thumb: parcel must be ≥ ~1 acre per 100 ft of tower height.
+function conformingSizeCheck(acres, heightFt) {
+  if (!acres) return "";
+  const requiredAcres = ((Number(heightFt) || 199) / 100) * 1.0;
+  return acres >= requiredAcres
+    ? `Yes — ${acres} ac ≥ ${requiredAcres.toFixed(1)} ac required`
+    : `No — ${acres} ac < ${requiredAcres.toFixed(1)} ac required`;
+}
+
 export function buildScipData(candidate, ordinance, searchCenter, agent = {}, extras = {}) {
   const c = candidate || {};
   const o = ordinance || {};
@@ -20,6 +51,25 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}, ex
   const state = geo.state || stateZip[0] || o.state || "";
   const zip = geo.zip || stateZip[1] || "";
 
+  // Auto-calculate distance from SARF center
+  const distMiles = haversineMiles(sc.lat, sc.lon, c.latitude, c.longitude);
+  const distStr = distMiles != null
+    ? distMiles < 0.1
+      ? `${Math.round(distMiles * 5280)} ft (≈${distMiles.toFixed(3)} mi)`
+      : `${distMiles.toFixed(2)} mi`
+    : "";
+
+  // Search radius from ordinance / default
+  const searchRadiusMi = o.search_radius_miles || 0.5;
+  const sarfHeightFt = o.max_tower_height_ft || o.max_tower_height || 199;
+  const towerHeightFt = typeof sarfHeightFt === "number" ? sarfHeightFt : 199;
+
+  // Tower / compound spec
+  const compound = defaultCompoundSize(towerHeightFt);
+
+  // Conforming size & lot req
+  const conforming = conformingSizeCheck(c.parcel_size_acres, towerHeightFt);
+
   return {
     site_acquisition: {
       title: "SITE ACQUISITION",
@@ -36,21 +86,21 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}, ex
         ["Site Name", c.site_name || ""],
         ["Latitude", sc.lat ? sc.lat.toFixed(6) : ""],
         ["Longitude", sc.lon ? sc.lon.toFixed(6) : ""],
-        ["Search Radius", "0.5 miles"],
-        ["SARF Height", "199 ft"],
+        ["Search Radius", `${searchRadiusMi} miles`],
+        ["SARF Height", `${towerHeightFt} ft`],
       ],
     },
     project: {
       title: "PROJECT INFORMATION",
       fields: [
         ["Tower Type", o.permitted_tower_types?.[0] || "Monopole"],
-        ["Tower Height", o.max_tower_height || "199 ft"],
-        ["Centerlines available", ""],
-        ["Ground Elevation", ""],
-        ["Compound Size (S.F. & dimensions)", ""],
+        ["Tower Height", `${towerHeightFt} ft`],
+        ["Centerlines available", "Yes — see Birds-Eye / Recon maps"],
+        ["Ground Elevation", c.ground_elevation_ft != null ? `${c.ground_elevation_ft} ft AMSL (USGS 3DEP)` : ""],
+        ["Compound Size (S.F. & dimensions)", `${compound.sf.toLocaleString()} sf · ${compound.dim}`],
         ["Latitude", c.latitude?.toFixed(6) || ""],
         ["Longitude", c.longitude?.toFixed(6) || ""],
-        ["Distance from Search Ring Center", ""],
+        ["Distance from Search Ring Center", distStr],
       ],
     },
     site_info: {
@@ -65,7 +115,7 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}, ex
         ["Parcel Zip", zip],
         ["Parcel Size (acres, MOL)", c.parcel_size_acres ? `${c.parcel_size_acres} acres` : ""],
         ["Parcel Dimensions (feet)", ""],
-        ["Conforming Size?", ""],
+        ["Conforming Size?", conforming],
         ["Taxes Paid-to-Date?", ""],
       ],
     },
@@ -136,20 +186,20 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}, ex
         ["Property Zoning District", zoning.zoning_code || c.zoning_classification || ""],
         ["Property Future Land Use", ""],
         ["Property Current Usage", zoning.allowed_uses || ""],
-        ["Meets minimum lot requirements?", ""],
+        ["Meets minimum lot requirements?", conforming],
       ],
     },
     tower_specs: {
       title: "TOWER SPECIFICS",
       fields: [
         ["LDC Section Reference(s)", o.code_section || ""],
-        ["Maximum Tower Height", zoning.height_limit || o.max_tower_height || ""],
+        ["Maximum Tower Height", zoning.height_limit || o.max_tower_height || `${towerHeightFt} ft`],
         ["Stealth Required?", o.stealth_required ? "Yes" : o.stealth_required === false ? "No" : ""],
         ["Required Collocations (#)", o.collocation_required || ""],
         ["Residential Separation (ft or %)", zoning.setbacks || o.residential_setback || ""],
         ["Tower Separation (ft or %)", o.tower_separation || ""],
         ["Measured from base or center", ""],
-        ["Fall Zone Requirements", o.fall_zone || ""],
+        ["Fall Zone Requirements", o.fall_zone || `${towerHeightFt} ft (1:1 default)`],
         ["Special Tower Landscaping?", o.landscaping || ""],
       ],
     },

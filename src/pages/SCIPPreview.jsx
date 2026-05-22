@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
+import SCIPCoverPage from "../components/scip/SCIPCoverPage";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
@@ -108,20 +109,12 @@ export default function SCIPPreview() {
         </div>
       </div>
 
-      {/* Candidate summary banner */}
-      <div className="bg-[#0C1B2E] text-white rounded-xl p-4 border border-[#1e3a5f]">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <div className="text-xs text-cyan-400 font-bold uppercase tracking-wider">Candidate</div>
-            <div className="font-heading font-bold text-lg">{candidate?.site_name || "—"}</div>
-            <div className="text-sm text-slate-300">{candidate?.parcel_address || ""}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-xs text-cyan-400 font-bold uppercase tracking-wider">Match Score</div>
-            <div className="font-heading font-bold text-3xl">{candidate?.match_score || 0}%</div>
-          </div>
-        </div>
-      </div>
+      {/* Cinematic recon-style SCIP cover page */}
+      <SCIPCoverPage
+        candidate={candidate}
+        searchCenter={state?.searchCenter}
+        agent={agent}
+      />
 
       {/* Sections */}
       <div className="space-y-3">
