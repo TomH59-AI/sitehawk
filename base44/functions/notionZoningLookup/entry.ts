@@ -1,7 +1,9 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // Reverse-geocode coords via Mapbox, then query Notion zoning DB filtered by jurisdiction.
-// Returns zoning record with zoning_code, allowed_uses, height_limit, setbacks, notes.
+// Pulls the jurisdiction's ordinance section out of the Notion master zoning page,
+// then uses the LLM to parse it into structured zoning + permitting fields with
+// approval timeframes so every SCIP gets fully filled out.
 
 async function mapboxReverseGeocode(lat, lon, mapboxToken) {
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=${mapboxToken}&types=address,place,locality,district,region&limit=1`;
@@ -33,11 +35,21 @@ function normalizeNotionId(raw) {
   return `${clean.slice(0,8)}-${clean.slice(8,12)}-${clean.slice(12,16)}-${clean.slice(16,20)}-${clean.slice(20)}`;
 }
 
+// Convert any Notion block to its plain-text representation. Handles all the
+// block types Apify / Municode scrapes typically produce (paragraphs, lists,
+// toggles, quotes, callouts, code, child_page titles, etc.).
 function blockToText(block) {
   const t = block.type;
   const content = block[t];
-  if (!content?.rich_text) return "";
-  return content.rich_text.map((r) => r.plain_text || "").join("");
+  if (!content) return "";
+  // Standard rich-text bearing blocks
+  if (content.rich_text) {
+    return content.rich_text.map((r) => r.plain_text || "").join("");
+  }
+  // Child page block — title only (full body is fetched recursively)
+  if (t === "child_page" && content.title) return content.title;
+  if (t === "child_database" && content.title) return content.title;
+  return "";
 }
 
 // Fetch all child blocks of a Notion page (handles pagination)
@@ -63,41 +75,169 @@ async function fetchPageBlocks(pageId, notionToken) {
   return blocks;
 }
 
+// Recursively flatten a block tree to plain text. Follows `child_page` blocks
+// (where Apify-scraped ordinance content lives) and `has_children` toggles up
+// to a sensible depth. Caps total output to avoid huge LLM prompts.
+async function expandBlocksToText(blocks, notionToken, depth = 0, budget = { chars: 60000 }) {
+  if (depth > 3 || budget.chars <= 0) return "";
+  const lines = [];
+  for (const block of blocks) {
+    if (budget.chars <= 0) break;
+    const text = blockToText(block).trim();
+    if (text) {
+      const take = text.slice(0, budget.chars);
+      lines.push(take);
+      budget.chars -= take.length;
+    }
+    // Recurse into child pages (where the 50,000-char Municode scrape lives)
+    // and into any block that has children (toggles, callouts, columns).
+    if (block.has_children || block.type === "child_page") {
+      try {
+        const children = await fetchPageBlocks(block.id, notionToken);
+        const nested = await expandBlocksToText(children, notionToken, depth + 1, budget);
+        if (nested) lines.push(nested);
+      } catch (e) {
+        // Don't fail the whole section if one child page is inaccessible
+        console.error(`expandBlocksToText: child fetch failed for ${block.id}: ${e.message}`);
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
 // Walk the block list and find a heading whose text contains one of the jurisdiction
-// terms (county / city). Return the heading text + the text content following it
-// until the next same-or-higher-level heading.
-function extractJurisdictionSection(blocks, jurisdiction) {
+// terms (county / city). Return the heading text + the flattened text of every
+// block (and child page) under it, until the next same-or-higher-level heading.
+async function extractJurisdictionSection(blocks, jurisdiction, notionToken) {
   const terms = [jurisdiction.county, jurisdiction.city, jurisdiction.state]
     .filter(Boolean)
     .map((t) => t.toLowerCase().replace(/\bcounty\b/g, "").trim());
 
   let matchedHeading = null;
   let matchedLevel = null;
-  const sectionLines = [];
+  const sectionBlocks = [];
 
   for (const block of blocks) {
     const isHeading = ["heading_1", "heading_2", "heading_3"].includes(block.type);
     const text = blockToText(block).trim();
-    if (!text) continue;
 
     if (matchedHeading) {
-      // We've already matched — collect text until next heading of same/higher level
-      if (isHeading) {
+      // We've matched — collect blocks until next heading of same/higher level
+      if (isHeading && text) {
         const level = parseInt(block.type.split("_")[1]);
-        if (level <= matchedLevel) break; // section ended
+        if (level <= matchedLevel) break;
       }
-      sectionLines.push(text);
-    } else if (isHeading) {
+      sectionBlocks.push(block);
+    } else if (isHeading && text) {
       const low = text.toLowerCase();
       if (terms.some((t) => t && low.includes(t))) {
         matchedHeading = text;
         matchedLevel = parseInt(block.type.split("_")[1]);
       }
     }
+
+    // ALSO match jurisdiction headings stored as child_page blocks (very common
+    // in our master zoning DB — each city/county is a sub-page, not a heading).
+    if (!matchedHeading && block.type === "child_page" && text) {
+      const low = text.toLowerCase();
+      if (terms.some((t) => t && low.includes(t))) {
+        // Treat the matched child page as the section root: pull its content
+        // and return immediately.
+        const childBlocks = await fetchPageBlocks(block.id, notionToken);
+        const content = await expandBlocksToText(childBlocks, notionToken);
+        return { heading: text, content };
+      }
+    }
   }
 
   if (!matchedHeading) return null;
-  return { heading: matchedHeading, content: sectionLines.join("\n").trim() };
+  const content = await expandBlocksToText(sectionBlocks, notionToken);
+  return { heading: matchedHeading, content };
+}
+
+// Extract the Source URL out of the Notion stub. Our master zoning DB stores
+// each jurisdiction as `LDC Section + Source URL + 50,000-char scraped reference`
+// — the source URL is what we feed the LLM (with internet context enabled) so it
+// can read the live ordinance.
+function extractSourceUrl(text) {
+  if (!text) return null;
+  const urlMatch = text.match(/https?:\/\/[^\s)]+/i);
+  if (!urlMatch) return null;
+  return urlMatch[0].replace(/[.,)\]]+$/, "");
+}
+
+// Use the LLM (with live internet context) to parse the actual telecom ordinance
+// for the matched jurisdiction into structured zoning + permitting fields, including
+// approval timeframes. We pass the Notion stub + source URL + jurisdiction so the
+// LLM can fetch the live Municode/eCode page and extract real values.
+async function parseOrdinanceWithLLM(base44, notionStub, sourceUrl, ctx) {
+  const juris = ctx.jurisdiction || `${ctx.county || ""} ${ctx.city || ""} ${ctx.state || ""}`.trim();
+
+  const prompt =
+    `You are a telecom site-acquisition zoning analyst preparing a Site Candidate Information Package (SCIP) ` +
+    `for ${juris}.\n\n` +
+    `Look up and read the actual local telecommunications-tower ordinance for this jurisdiction. The reference ` +
+    `URL from our master zoning database is:\n${sourceUrl || "(no URL — search by jurisdiction name)"}\n\n` +
+    `Master zoning database stub:\n${notionStub}\n\n` +
+    `If the source page is paywalled or unreachable, search the open web (the jurisdiction's official municode.com / ecode360 / amlegal page, ` +
+    `the city/county website, or municipal PDFs) for the same code section.\n\n` +
+    `Extract every field below using the EXACT language from the ordinance. ` +
+    `If a value is not stated in the ordinance, return an empty string — DO NOT GUESS or fabricate. ` +
+    `For timeframes, quote the exact language (e.g. "60 days", "90 days from complete submittal", "two public hearings within 120 days"). ` +
+    `For fees, quote the exact dollar amounts and any per-unit modifiers. ` +
+    `For contact info, include the department name, street address, phone, and email when present. ` +
+    `Cite the section number you're pulling each value from when possible (e.g. "Sec. 27-282.6(b)(3): 199 ft").`;
+
+  const schema = {
+    type: "object",
+    properties: {
+      // Zoning overview
+      zoning_contact: { type: "string", description: "Zoning dept name, address, phone, email" },
+      zoning_process: { type: "string", description: "Permit/approval process steps (e.g. admin review, special use, public hearing)" },
+      zoning_fees: { type: "string", description: "Zoning application fees in exact dollar amounts" },
+      zoning_approval_timeframe: { type: "string", description: "Time from submittal to zoning decision (exact language)" },
+      property_future_land_use: { type: "string", description: "Future Land Use designation if mentioned" },
+      // Tower specifics
+      code_section: { type: "string", description: "LDC / UDC / municipal code section reference(s) for telecom towers" },
+      max_tower_height: { type: "string", description: "Maximum allowed tower height (with units)" },
+      stealth_required: { type: "string", description: "Yes / No / Conditional with notes" },
+      collocation_required: { type: "string", description: "Required # of collocations or collocation policy" },
+      residential_separation: { type: "string", description: "Setback from residential property (ft or % of height)" },
+      tower_separation: { type: "string", description: "Separation between towers (ft or % of height)" },
+      measured_from: { type: "string", description: "Base or center of tower" },
+      fall_zone: { type: "string", description: "Fall zone requirements (e.g. 1:1, 110%, 50% of height)" },
+      landscaping: { type: "string", description: "Required landscaping / buffering / screening" },
+      // Site plan
+      site_plan_jurisdiction: { type: "string" },
+      site_plan_contact: { type: "string" },
+      site_plan_fees: { type: "string" },
+      site_plan_timeframe: { type: "string", description: "Time from site plan submittal to approval (exact language)" },
+      site_plan_concurrent: { type: "string", description: "Can site plan run concurrent with zoning or building permit?" },
+      site_plan_submittal_format: { type: "string", description: "Electronic, hard copy, or both" },
+      // Building permit
+      building_permit_jurisdiction: { type: "string" },
+      building_permit_contact: { type: "string" },
+      building_permit_gc_submits: { type: "string", description: "Yes / No — does GC have to submit?" },
+      building_permit_fees: { type: "string" },
+      building_permit_timeframe: { type: "string", description: "Time from BP submittal to issuance (exact language)" },
+      building_permit_bond_required: { type: "string", description: "Yes / No / amount" },
+      e911_address_required: { type: "string", description: "Yes / No / process" },
+    },
+    required: [],
+  };
+
+  try {
+    const result = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      response_json_schema: schema,
+      add_context_from_internet: true,
+      model: "gemini_3_1_pro",
+    });
+    return result || {};
+  } catch (e) {
+    console.error("parseOrdinanceWithLLM failed:", e.message);
+    return {};
+  }
 }
 
 Deno.serve(async (req) => {
@@ -125,14 +265,27 @@ Deno.serve(async (req) => {
         notionError = `Notion page ID has invalid format (expected 32 hex chars): "${notionDbId.slice(0, 60)}"`;
       } else {
         try {
-          const blocks = await fetchPageBlocks(formattedId, notionToken.trim());
-          const section = extractJurisdictionSection(blocks, geo);
+          const trimmedToken = notionToken.trim();
+          const blocks = await fetchPageBlocks(formattedId, trimmedToken);
+          const section = await extractJurisdictionSection(blocks, geo, trimmedToken);
           if (section) {
+            // Feed the LLM the Notion stub + source URL + jurisdiction, and let
+            // it read the live ordinance over the web (Municode/eCode/etc.) to
+            // extract structured zoning + permitting + approval-timeframe fields.
+            const sourceUrl = extractSourceUrl(section.content);
+            const parsed = await parseOrdinanceWithLLM(base44, section.content, sourceUrl, {
+              jurisdiction: section.heading,
+              county: geo.county,
+              city: geo.city,
+              state: geo.state,
+            });
             zoning = {
               notion_page_id: formattedId,
               jurisdiction: section.heading,
               content: section.content,
-              source: "Notion master zoning page",
+              source_url: sourceUrl,
+              source: "Notion stub + live ordinance lookup",
+              ...parsed,
             };
           } else {
             notionError = `No section found for ${[geo.county, geo.city, geo.state].filter(Boolean).join(" / ")} in Notion page`;
