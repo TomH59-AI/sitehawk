@@ -16,6 +16,7 @@ import SCIPPage1SiteOwnerBlock from "./SCIPPage1SiteOwnerBlock";
 import SCIPPage1ExistingConditions from "./SCIPPage1ExistingConditions";
 import SCIPPage1SiteNotes from "./SCIPPage1SiteNotes";
 import SCIPPage1ZoningBlock from "./SCIPPage1ZoningBlock";
+import SCIPPage1MapsBlock from "./SCIPPage1MapsBlock";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -163,6 +164,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
 
       {/* ZONING / TOWER SPECIFICS / SITE PLAN / BUILDING PERMIT — pulled from Notion ordinance DB */}
       <SCIPPage1ZoningBlock page1Values={values} siteOwner={values._siteOwner} />
+
+      {/* MAPS — Proposed Site + 4 directional viewsheds + 2 access maps */}
+      <SCIPPage1MapsBlock page1Values={values} siteOwner={values._siteOwner} />
     </div>
   );
 }
