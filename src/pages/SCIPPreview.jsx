@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
+import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
 import SCIPRFCoverageSection from "../components/scip/SCIPRFCoverageSection";
 import SCIPSpectrumSection from "../components/scip/SCIPSpectrumSection";
@@ -130,10 +131,13 @@ export default function SCIPPreview() {
           />
         ))}
 
+        {/* Cell 14 + Cell 57 — Birds-eye SARF overview + Target A placement */}
+        <SCIPBirdsEyeMaps candidate={candidate} searchCenter={state?.searchCenter} />
+
         {/* Maps section — NWI Wetlands + USGS Contours */}
         <SCIPMapsSection candidate={candidate} />
 
-        {/* PHOTOGRAPHS — N/S/E/W tree-line 2D viewsheds for Target A */}
+        {/* PHOTOGRAPHS — N/S/E/W tree-line 2D viewsheds for Target A (saved for later) */}
         <SCIPViewshedSection candidate={candidate} />
 
         {/* RF Coverage — CloudRF propagation simulation */}
