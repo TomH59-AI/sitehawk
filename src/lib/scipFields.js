@@ -128,7 +128,7 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}, ex
     zoning: {
       title: "ZONING OVERVIEW",
       fields: [
-        ["Zoning Jurisdiction", zoning.name || geo.county || o.jurisdiction || ""],
+        ["Zoning Jurisdiction", zoning.jurisdiction || zoning.name || geo.county || o.jurisdiction || ""],
         ["Zoning Contact Information", o.contact_info || ""],
         ["Zoning Process", o.permit_process || ""],
         ["Zoning Fees", o.permit_fees || ""],
@@ -154,8 +154,10 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}, ex
       ],
     },
     zoning_notes: {
-      title: "ZONING NOTES",
-      fields: [["Zoning concerns, fees, etc.", zoning.notes || o.notes || ""]],
+      title: "ZONING NOTES — Source: Local Telecom Ordinance",
+      fields: [
+        ["Local Ordinance / Code Source", zoning.content || zoning.notes || o.notes || "No zoning ordinance retrieved — verify with local jurisdiction."],
+      ],
     },
     neighboring_parcels: {
       title: `NEIGHBORING PARCELS (within 1-mi ring · ${neighbors.length} via Realie)`,

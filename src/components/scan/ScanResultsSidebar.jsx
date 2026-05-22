@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import CandidateCard from "./CandidateCard";
 import HawkIcon from "../HawkIcon";
 import DirectMailButton from "../search/DirectMailButton";
@@ -8,6 +9,17 @@ import BatchSkipTrace from "../search/BatchSkipTrace";
 import ResultsFilterSort from "./ResultsFilterSort";
 import FreeTrialUpsellBanner from "./FreeTrialUpsellBanner";
 import TelecomOrdinanceSummary from "./TelecomOrdinanceSummary";
+
+// Pick the single best candidate for SCIP generation.
+// Priority: must have valid zoning_classification, then highest match_score.
+function pickBestCandidate(candidates) {
+  if (!candidates?.length) return null;
+  const zoned = candidates.filter(
+    (c) => c.zoning_classification && c.zoning_classification.trim() && c.zoning_classification !== "N/A"
+  );
+  const pool = zoned.length > 0 ? zoned : candidates;
+  return [...pool].sort((a, b) => (b.match_score ?? 0) - (a.match_score ?? 0))[0];
+}
 
 export default function ScanResultsSidebar({
   results,
@@ -29,8 +41,15 @@ export default function ScanResultsSidebar({
   onFiltered,
   freeTrialUsed,
 }) {
+  const navigate = useNavigate();
   const cardRefs = useRef([]);
   const scrollRef = useRef(null);
+  const bestCandidate = pickBestCandidate(allResults || results);
+
+  const handleGenerateBestScip = () => {
+    if (!bestCandidate) return;
+    navigate("/scip", { state: { candidate: bestCandidate, ordinance, searchCenter } });
+  };
 
   // Auto-scroll to selected card
   useEffect(() => {
@@ -101,6 +120,40 @@ export default function ScanResultsSidebar({
           onSortChange={onSortChange}
         />
       </div>
+
+      {/* Best Candidate SCIP banner — only one SCIP per scan, picked by zoning fitness */}
+      {bestCandidate && (
+        <div style={{
+          padding: "10px 12px", borderBottom: "1px solid #1e293b", flexShrink: 0,
+          background: "linear-gradient(135deg, #0C1B2E 0%, #1e3a6e 100%)",
+        }}>
+          <div style={{ fontSize: 9, color: "#00d4ff", fontFamily: "'Space Mono', monospace", fontWeight: 700, letterSpacing: "0.1em", marginBottom: 4 }}>
+            ⭐ BEST CANDIDATE · SELECTED BY ZONING + SCORE
+          </div>
+          <div style={{ color: "#f8fafc", fontWeight: 700, fontSize: 13, fontFamily: "'Rajdhani', sans-serif", marginBottom: 2 }}>
+            {bestCandidate.site_name || bestCandidate.parcel_address || "Top match"}
+          </div>
+          <div style={{ color: "#94a3b8", fontSize: 11, fontFamily: "'Space Mono', monospace", marginBottom: 8 }}>
+            {bestCandidate.zoning_classification || "—"} · {bestCandidate.match_score}% match
+            {bestCandidate.parcel_size_acres ? ` · ${bestCandidate.parcel_size_acres} ac` : ""}
+          </div>
+          <button
+            onClick={handleGenerateBestScip}
+            style={{
+              width: "100%", padding: "9px 10px", borderRadius: 8, cursor: "pointer",
+              background: "#00d4ff", border: "1px solid #00d4ff",
+              color: "#0a0e17", fontWeight: 700, fontSize: 12,
+              fontFamily: "'Space Mono', monospace", letterSpacing: "0.05em",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              transition: "background 0.15s",
+            }}
+            onMouseOver={e => e.currentTarget.style.background = "#22d3ee"}
+            onMouseOut={e => e.currentTarget.style.background = "#00d4ff"}
+          >
+            📋 GENERATE SCIP — PRINT PDF / EXCEL
+          </button>
+        </div>
+      )}
 
       {/* Candidate list */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", scrollbarWidth: "thin", scrollbarColor: "#1e293b #0a0e17" }}>
