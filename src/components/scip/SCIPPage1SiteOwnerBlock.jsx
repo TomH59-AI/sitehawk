@@ -96,7 +96,7 @@ export default function SCIPPage1SiteOwnerBlock({ page1Values, onChange }) {
       setSite(data.site_information || SITE_DEFAULTS);
       setOwner(data.owner_information || OWNER_DEFAULTS);
       setReasoning(data.reasoning || null);
-      onChange?.({ site: data.site_information, owner: data.owner_information });
+      onChange?.({ site: data.site_information, owner: data.owner_information, targets: data.targets || [] });
     } catch (e) {
       setError(e.message || "Lookup failed");
     } finally {

@@ -267,8 +267,32 @@ Deno.serve(async (req) => {
 
     const best = candidates[0];
 
-    // 4. Skip-trace winning owner for phone + email
-    const contact = await skipTraceOwner(best);
+    // 4. Skip-trace top 3 owners in parallel — Target A (best), Target B (2nd), Target C (3rd)
+    const top3 = candidates.slice(0, 3);
+    const contacts = await Promise.all(top3.map((p) => skipTraceOwner(p)));
+    const contact = contacts[0];
+
+    // Build a compact summary of all 3 targets for the Candidates Summary block
+    const targets = top3.map((p, i) => {
+      const a = splitAddress(p.parcel_address);
+      return {
+        label: ["A", "B", "C"][i],
+        parcel_id: p.apn || "",
+        owner_name: p.owner_name || "",
+        parcel_address: p.parcel_address || "",
+        parcel_city: a.city,
+        parcel_state: a.state,
+        parcel_zip: a.zip,
+        acreage: p.acreage != null ? Number(p.acreage) : null,
+        zoning: p.zoning_classification || p.land_use || "",
+        county: p.county || "",
+        latitude: p.latitude != null ? Number(p.latitude) : null,
+        longitude: p.longitude != null ? Number(p.longitude) : null,
+        score: p._score,
+        phone: contacts[i]?.phone || "",
+        email: contacts[i]?.email || "",
+      };
+    });
 
     // 5. Build Page 1 SITE INFORMATION + OWNER INFORMATION payload
     const addr = splitAddress(best.parcel_address);
@@ -307,6 +331,7 @@ Deno.serve(async (req) => {
     return Response.json({
       site_information,
       owner_information,
+      targets,
       reasoning: {
         jurisdiction,
         allowable_zones: allowableZones,

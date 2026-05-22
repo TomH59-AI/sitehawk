@@ -18,6 +18,7 @@ import SCIPPage1SiteNotes from "./SCIPPage1SiteNotes";
 import SCIPPage1ZoningBlock from "./SCIPPage1ZoningBlock";
 import SCIPPage1MapsBlock from "./SCIPPage1MapsBlock";
 import SCIPPage1SCIPMaps from "./SCIPPage1SCIPMaps";
+import SCIPPage1CandidatesSummary from "./SCIPPage1CandidatesSummary";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -171,6 +172,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
 
       {/* SCIP MAPS — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind / Airport */}
       <SCIPPage1SCIPMaps page1Values={values} siteOwner={values._siteOwner} />
+
+      {/* CANDIDATES SUMMARY — Targets A/B/C with skip-traced contacts + SARF map with numbered waypoints */}
+      <SCIPPage1CandidatesSummary page1Values={values} siteOwner={values._siteOwner} />
     </div>
   );
 }
