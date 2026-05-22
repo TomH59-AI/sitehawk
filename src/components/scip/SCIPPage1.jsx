@@ -11,6 +11,7 @@
  */
 
 import { useState } from "react";
+import SCIPPage1SARFMap from "./SCIPPage1SARFMap";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -140,6 +141,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
         placeholder="e.g. 10,000 SF / 100' x 100'"
         onChange={(v) => update("compound_size", v)}
       />
+
+      {/* SARF — auto-generated search ring map from lat/lon/radius above */}
+      <SCIPPage1SARFMap values={values} />
     </div>
   );
 }
