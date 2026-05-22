@@ -19,6 +19,7 @@ import { useMemo } from "react";
 import { Compass } from "lucide-react";
 import { computeTowerPlacement } from "@/lib/towerPlacement";
 import SitePlanSVG from "../tower/SitePlanSVG";
+import SCIPCompoundOverlayMap from "./SCIPCompoundOverlayMap";
 
 // Parse "100x100", "100 x 100", "10000 SF", "100' x 100'" → side length in feet
 function parseCompoundSize(raw) {
@@ -155,7 +156,10 @@ export default function SCIPPage1TowerPlacement({ page1Values, candidate }) {
             </div>
           )}
 
-          {/* Scale-accurate site plan */}
+          {/* True-scale satellite overlay — compound + fall-zone on actual parcel */}
+          <SCIPCompoundOverlayMap candidate={candidate} analysis={analysis} />
+
+          {/* Scale-accurate site plan (vector view) */}
           <div className="rounded-md border border-border overflow-hidden">
             <SitePlanSVG analysis={analysis} parcel={candidate} />
           </div>
