@@ -166,6 +166,95 @@ function extractSourceUrl(text) {
   return urlMatch[0].replace(/[.,)\]]+$/, "");
 }
 
+// Heuristic: a parse result is "thin" if all four critical fields are empty.
+// When the LLM gave up on the live URL (paywall / JS SPA / geo-block), we fall
+// back to Oxylabs to get rendered HTML and re-parse.
+function isThinParse(parsed) {
+  if (!parsed) return true;
+  const critical = ['zoning_fees', 'zoning_approval_timeframe', 'max_tower_height', 'code_section'];
+  return critical.every((k) => !parsed[k] || String(parsed[k]).trim() === '');
+}
+
+// Detect Municode / eCode360 / American Legal / Sterling Codifiers URLs so we
+// only burn Oxylabs credits on pages we know need JS rendering.
+function isMunicipalCodeUrl(url) {
+  if (!url) return false;
+  return /(municode\.com|ecode360\.com|amlegal\.com|sterlingcodifiers\.com|codepublishing\.com|municipal\.codes)/i.test(url);
+}
+
+// Oxylabs fallback — scrape rendered HTML, hand it back to the LLM to parse.
+async function scrapeWithOxylabs(base44, sourceUrl, ctx) {
+  try {
+    const res = await base44.functions.invoke('oxylabsScrape', { url: sourceUrl, render: 'html' });
+    const html = res?.data?.content || '';
+    if (!html || html.length < 500) {
+      console.error('Oxylabs returned empty/short content for', sourceUrl);
+      return null;
+    }
+    // Strip tags to keep the LLM prompt small. The LLM only needs the prose.
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 40000);
+
+    const juris = ctx.jurisdiction || `${ctx.county || ''} ${ctx.city || ''} ${ctx.state || ''}`.trim();
+    const result = await base44.integrations.Core.InvokeLLM({
+      prompt:
+        `You are a telecom zoning analyst preparing a SCIP for ${juris}. ` +
+        `Below is the FULL rendered text of the jurisdiction's live telecommunications-tower ordinance page ` +
+        `(scraped via Oxylabs from ${sourceUrl}). Extract every field using EXACT language from the ordinance. ` +
+        `If a value is not stated, return an empty string — never guess or fabricate. Cite section numbers when possible.\n\n` +
+        `ORDINANCE TEXT:\n${text}`,
+      response_json_schema: ORDINANCE_SCHEMA,
+      add_context_from_internet: false,
+      model: 'gemini_3_1_pro',
+    });
+    return result || null;
+  } catch (e) {
+    console.error('scrapeWithOxylabs failed:', e.message);
+    return null;
+  }
+}
+
+// Shared schema used by both LLM parse paths
+const ORDINANCE_SCHEMA = {
+  type: 'object',
+  properties: {
+    zoning_contact: { type: 'string' },
+    zoning_process: { type: 'string' },
+    zoning_fees: { type: 'string' },
+    zoning_approval_timeframe: { type: 'string' },
+    property_future_land_use: { type: 'string' },
+    code_section: { type: 'string' },
+    max_tower_height: { type: 'string' },
+    stealth_required: { type: 'string' },
+    collocation_required: { type: 'string' },
+    residential_separation: { type: 'string' },
+    tower_separation: { type: 'string' },
+    measured_from: { type: 'string' },
+    fall_zone: { type: 'string' },
+    landscaping: { type: 'string' },
+    site_plan_jurisdiction: { type: 'string' },
+    site_plan_contact: { type: 'string' },
+    site_plan_fees: { type: 'string' },
+    site_plan_timeframe: { type: 'string' },
+    site_plan_concurrent: { type: 'string' },
+    site_plan_submittal_format: { type: 'string' },
+    building_permit_jurisdiction: { type: 'string' },
+    building_permit_contact: { type: 'string' },
+    building_permit_gc_submits: { type: 'string' },
+    building_permit_fees: { type: 'string' },
+    building_permit_timeframe: { type: 'string' },
+    building_permit_bond_required: { type: 'string' },
+    e911_address_required: { type: 'string' },
+  },
+  required: [],
+};
+
 // Use the LLM (with live internet context) to parse the actual telecom ordinance
 // for the matched jurisdiction into structured zoning + permitting fields, including
 // approval timeframes. We pass the Notion stub + source URL + jurisdiction so the
@@ -188,48 +277,10 @@ async function parseOrdinanceWithLLM(base44, notionStub, sourceUrl, ctx) {
     `For contact info, include the department name, street address, phone, and email when present. ` +
     `Cite the section number you're pulling each value from when possible (e.g. "Sec. 27-282.6(b)(3): 199 ft").`;
 
-  const schema = {
-    type: "object",
-    properties: {
-      // Zoning overview
-      zoning_contact: { type: "string", description: "Zoning dept name, address, phone, email" },
-      zoning_process: { type: "string", description: "Permit/approval process steps (e.g. admin review, special use, public hearing)" },
-      zoning_fees: { type: "string", description: "Zoning application fees in exact dollar amounts" },
-      zoning_approval_timeframe: { type: "string", description: "Time from submittal to zoning decision (exact language)" },
-      property_future_land_use: { type: "string", description: "Future Land Use designation if mentioned" },
-      // Tower specifics
-      code_section: { type: "string", description: "LDC / UDC / municipal code section reference(s) for telecom towers" },
-      max_tower_height: { type: "string", description: "Maximum allowed tower height (with units)" },
-      stealth_required: { type: "string", description: "Yes / No / Conditional with notes" },
-      collocation_required: { type: "string", description: "Required # of collocations or collocation policy" },
-      residential_separation: { type: "string", description: "Setback from residential property (ft or % of height)" },
-      tower_separation: { type: "string", description: "Separation between towers (ft or % of height)" },
-      measured_from: { type: "string", description: "Base or center of tower" },
-      fall_zone: { type: "string", description: "Fall zone requirements (e.g. 1:1, 110%, 50% of height)" },
-      landscaping: { type: "string", description: "Required landscaping / buffering / screening" },
-      // Site plan
-      site_plan_jurisdiction: { type: "string" },
-      site_plan_contact: { type: "string" },
-      site_plan_fees: { type: "string" },
-      site_plan_timeframe: { type: "string", description: "Time from site plan submittal to approval (exact language)" },
-      site_plan_concurrent: { type: "string", description: "Can site plan run concurrent with zoning or building permit?" },
-      site_plan_submittal_format: { type: "string", description: "Electronic, hard copy, or both" },
-      // Building permit
-      building_permit_jurisdiction: { type: "string" },
-      building_permit_contact: { type: "string" },
-      building_permit_gc_submits: { type: "string", description: "Yes / No — does GC have to submit?" },
-      building_permit_fees: { type: "string" },
-      building_permit_timeframe: { type: "string", description: "Time from BP submittal to issuance (exact language)" },
-      building_permit_bond_required: { type: "string", description: "Yes / No / amount" },
-      e911_address_required: { type: "string", description: "Yes / No / process" },
-    },
-    required: [],
-  };
-
   try {
     const result = await base44.integrations.Core.InvokeLLM({
       prompt,
-      response_json_schema: schema,
+      response_json_schema: ORDINANCE_SCHEMA,
       add_context_from_internet: true,
       model: "gemini_3_1_pro",
     });
@@ -273,18 +324,32 @@ Deno.serve(async (req) => {
             // it read the live ordinance over the web (Municode/eCode/etc.) to
             // extract structured zoning + permitting + approval-timeframe fields.
             const sourceUrl = extractSourceUrl(section.content);
-            const parsed = await parseOrdinanceWithLLM(base44, section.content, sourceUrl, {
+            const ctx = {
               jurisdiction: section.heading,
               county: geo.county,
               city: geo.city,
               state: geo.state,
-            });
+            };
+            let parsed = await parseOrdinanceWithLLM(base44, section.content, sourceUrl, ctx);
+            let sourceLabel = "Notion stub + live ordinance lookup";
+
+            // If the LLM gave up on critical fields AND we have a Municode/eCode URL,
+            // fall back to Oxylabs to fetch rendered HTML and re-parse.
+            if (isThinParse(parsed) && isMunicipalCodeUrl(sourceUrl)) {
+              console.log("Thin LLM parse — falling back to Oxylabs for", sourceUrl);
+              const oxyParsed = await scrapeWithOxylabs(base44, sourceUrl, ctx);
+              if (oxyParsed && !isThinParse(oxyParsed)) {
+                parsed = oxyParsed;
+                sourceLabel = "Notion stub + Oxylabs scrape + LLM parse";
+              }
+            }
+
             zoning = {
               notion_page_id: formattedId,
               jurisdiction: section.heading,
               content: section.content,
               source_url: sourceUrl,
-              source: "Notion stub + live ordinance lookup",
+              source: sourceLabel,
               ...parsed,
             };
           } else {
