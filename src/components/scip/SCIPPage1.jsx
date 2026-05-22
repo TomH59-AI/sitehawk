@@ -15,6 +15,7 @@ import SCIPPage1SARFMap from "./SCIPPage1SARFMap";
 import SCIPPage1SiteOwnerBlock from "./SCIPPage1SiteOwnerBlock";
 import SCIPPage1ExistingConditions from "./SCIPPage1ExistingConditions";
 import SCIPPage1SiteNotes from "./SCIPPage1SiteNotes";
+import SCIPPage1ZoningBlock from "./SCIPPage1ZoningBlock";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -159,6 +160,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
 
       {/* SITE NOTES — free-form site development concerns, with LLM auto-generate */}
       <SCIPPage1SiteNotes page1Values={values} siteOwner={values._siteOwner} />
+
+      {/* ZONING / TOWER SPECIFICS / SITE PLAN / BUILDING PERMIT — pulled from Notion ordinance DB */}
+      <SCIPPage1ZoningBlock page1Values={values} siteOwner={values._siteOwner} />
     </div>
   );
 }
