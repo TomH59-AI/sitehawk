@@ -48,7 +48,7 @@ export default function ScanResultsSidebar({
 
   const handleGenerateBestScip = () => {
     if (!bestCandidate) return;
-    navigate("/scip", { state: { candidate: bestCandidate, ordinance, searchCenter } });
+    navigate("/scip", { state: { candidate: bestCandidate, ordinance, searchCenter, allResults: allResults || results } });
   };
 
   // Auto-scroll to selected card

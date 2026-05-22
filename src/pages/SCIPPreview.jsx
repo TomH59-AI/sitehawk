@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
+import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
 import SCIPThematicMaps from "../components/scip/SCIPThematicMaps";
 import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
 import SCIPGroundPhotosSection from "../components/scip/SCIPGroundPhotosSection";
@@ -135,6 +136,13 @@ export default function SCIPPreview() {
 
         {/* Cell 14 + Cell 57 — Birds-eye SARF overview + Target A placement */}
         <SCIPBirdsEyeMaps candidate={candidate} searchCenter={state?.searchCenter} />
+
+        {/* TAB 2 — Summary: Targets A/B/C with owner contact info from Enformion */}
+        <SCIPSummaryTab
+          candidate={candidate}
+          searchCenter={state?.searchCenter}
+          allResults={state?.allResults}
+        />
 
         {/* SCIP MAPS section — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind */}
         <SCIPThematicMaps candidate={candidate} searchCenter={state?.searchCenter} />
