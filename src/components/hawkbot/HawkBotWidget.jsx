@@ -1,20 +1,38 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Send, MessageCircle } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { X, Send, MessageCircle, FileText } from "lucide-react";
 import HawkIcon from "../HawkIcon";
 import { siteChat } from "@/functions/siteChat";
 
 const QUICK_ACTIONS = [
+  "Build a SCIP for my top candidate",
   "Which candidate has the best fiber + zoning combo?",
   "What's the FAA risk for the top candidate?",
   "Run a 199-ft tower compliance check",
-  "Explain RF coverage and propagation models",
-  "What is a SCIP and why does it matter?",
-  "Setback & height rules in this jurisdiction?",
+  "Explain the CloudRF propagation results",
+  "What's in the new SCIP Page 1 format?",
 ];
 
-const WELCOME = "👋 I'm HawkBot, your SiteHawk AI consultant. Ask me anything about parcel selection, telecom zoning, ordinances, permits, or SCIP reports.";
+const SCIP_CONTEXT = `You are HawkBot, the SiteHawk AI consultant. The platform produces a Site Candidate Information Package (SCIP) using this exact Page 1 format (in order):
+1. SITE ACQUISITION — agent name, phone, email, submittal date
+2. SEARCH RING INFORMATION — site name, lat/lon, search radius, SARF height, tower type, compound size
+3. SARF MAP — Mapbox satellite with 0.5 + 1.0 mi rings
+4. SITE INFORMATION + OWNER INFORMATION — auto-filled via findBestParcelForTower (Notion zoning + Realie parcels + Enformion skip-trace)
+5. EXISTING CONDITIONS — FEMA flood, NWI wetlands, HIFLD power utility, FCC broadband, OSM public-safety
+6. SITE NOTES — LLM-generated development concerns
+7. ZONING / TOWER SPECIFICS / SITE PLAN / BUILDING PERMIT — pulled from Notion ordinance DB
+8. MAPS — Proposed Site + 4 directional pitched viewsheds + 2 access maps
+9. SCIP MAPS — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind / Airport
+10. CANDIDATES SUMMARY — Targets A/B/C with skip-traced phones + SARF map with numbered waypoints
+11. RF PROPAGATION ANALYSIS — CloudRF composite footprint + N/E/S/W directional sectors + auto-calculated coverage metrics
+
+If the user asks to "build a SCIP" or "generate a SCIP", tell them to click the "Generate SCIP" button on the Scan Results page, or use the "Build SCIP →" shortcut at the top of this chat. Answer technical questions about each section using real industry knowledge (ITM/Longley-Rice, ASCE 7-22, FAA Part 77, FCC ASR, etc.).`;
+
+const WELCOME = "👋 I'm HawkBot, your SiteHawk AI consultant. I know the new SCIP format inside-out — Page 1 (Site Acquisition → SARF → Site/Owner → Zoning → Maps → Candidates A/B/C → CloudRF propagation). Ask me anything, or click \"Build SCIP →\" to jump to your top candidate.";
 
 export default function HawkBotWidget() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([{ role: "assistant", text: WELCOME }]);
   const [input, setInput] = useState("");
@@ -25,16 +43,48 @@ export default function HawkBotWidget() {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, open]);
 
+  // Detect "build/generate a SCIP" intent and route the user to /scip with whatever
+  // candidate context is already available (from ScanResults state, if present).
+  const handleScipIntent = () => {
+    const fromResults = location.state?.results?.[0] || location.state?.candidate;
+    if (fromResults) {
+      navigate("/scip", {
+        state: {
+          candidate: fromResults,
+          ordinance: location.state?.ordinance,
+          searchCenter: location.state?.searchCenter,
+          allResults: location.state?.results,
+        },
+      });
+    } else {
+      navigate("/search");
+    }
+    setOpen(false);
+  };
+
   const sendMessage = async (text) => {
     const msg = text || input.trim();
     if (!msg || loading) return;
+
+    // SCIP shortcut — if the user explicitly asks to build/generate one
+    if (/\b(build|generate|create|make|run)\b.*\bscip\b/i.test(msg)) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", text: msg },
+        { role: "assistant", text: "🦅 Routing you to the SCIP generator with your top candidate loaded. The new Page 1 format auto-fills via Notion zoning + Realie parcels + Enformion skip-trace + CloudRF propagation." },
+      ]);
+      setInput("");
+      setTimeout(handleScipIntent, 800);
+      return;
+    }
+
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text: msg }]);
     setLoading(true);
     try {
       const res = await siteChat({
         message: msg,
-        context: { source: "hawkbot_global" },
+        context: { source: "hawkbot_global", scip_format: SCIP_CONTEXT },
       });
       const data = res.data;
       const reply = data?.response || data?.message || data?.error || "Sorry, I couldn't get a response. Please try again.";
@@ -71,9 +121,18 @@ export default function HawkBotWidget() {
                 <p className="text-[10px] text-muted-foreground">Parcels · Zoning · SCIP</p>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" aria-label="Close HawkBot">
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleScipIntent}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-cyan-500 text-[#0C1B2E] hover:bg-cyan-400 text-[11px] font-bold tracking-wider transition-all"
+                aria-label="Build SCIP"
+              >
+                <FileText className="w-3 h-3" /> Build SCIP →
+              </button>
+              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" aria-label="Close HawkBot">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}

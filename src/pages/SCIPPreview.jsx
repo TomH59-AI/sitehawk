@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPCoverPage from "../components/scip/SCIPCoverPage";
+import SCIPPage1 from "../components/scip/SCIPPage1";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
@@ -122,6 +123,25 @@ export default function SCIPPreview() {
         candidate={candidate}
         searchCenter={state?.searchCenter}
         agent={agent}
+      />
+
+      {/* PAGE 1 — Official SCIP template format with all SiteHawk automation
+          (SARF map · Site/Owner auto-find · Existing Conditions · Site Notes ·
+           Zoning · Maps · SCIP Maps · Candidates Summary · RF Propagation) */}
+      <SCIPPage1
+        initialValues={{
+          agent_name: agent.name,
+          agent_phone: agent.phone,
+          agent_email: agent.email,
+          submittal_date: new Date().toLocaleDateString("en-US"),
+          site_name: candidate?.site_name || "",
+          latitude: candidate?.latitude ?? state?.searchCenter?.lat ?? "",
+          longitude: candidate?.longitude ?? state?.searchCenter?.lon ?? "",
+          search_radius: "1.0 mi",
+          sarf_height: "199 ft AGL",
+          tower_type: "Monopole",
+          compound_size: "10,000 SF / 100' x 100'",
+        }}
       />
 
       {/* Sections */}
