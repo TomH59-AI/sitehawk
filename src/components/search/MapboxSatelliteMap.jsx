@@ -5,9 +5,7 @@ import CesiumViewer from "./CesiumViewer";
 import { loadPublicConfig } from "@/lib/publicConfig";
 const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 const STREETS_STYLE = "mapbox://styles/mapbox/streets-v12";
-const RADIUS_MILES = 0.5;
-const RADIUS_METERS = RADIUS_MILES * 1609.344;
-const OUTER_RADIUS_METERS = 1.0 * 1609.344;
+const METERS_PER_MILE = 1609.344;
 
 function getScoreColor(score) {
   if (score >= 70) return "#16A34A";
@@ -107,7 +105,10 @@ function createCandidateMarkerEl(num, score) {
   return el;
 }
 
-export default function MapboxSatelliteMap({ centerLat, centerLon, results, loading, mapImageGetterRef, filteredResultIds }) {
+export default function MapboxSatelliteMap({ centerLat, centerLon, results, loading, mapImageGetterRef, filteredResultIds, radiusMiles = 0.5 }) {
+  const RADIUS_METERS = radiusMiles * METERS_PER_MILE;
+  // Outer guide ring = 2x the chosen radius (capped at 2 mi)
+  const OUTER_RADIUS_METERS = Math.min(radiusMiles * 2, 2.0) * METERS_PER_MILE;
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -268,10 +269,10 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
       bounds.extend([r.longitude, r.latitude]);
     });
 
-    // Fit bounds to the full 1-mile outer ring (waypoint + both rings always visible)
+    // Fit bounds to the outer ring (waypoint + both rings always visible)
     outerGeo.geometry.coordinates[0].forEach((pt) => bounds.extend(pt));
     map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
-  }, [mapLoaded, results, centerLat, centerLon, filteredResultIds]);
+  }, [mapLoaded, results, centerLat, centerLon, filteredResultIds, RADIUS_METERS, OUTER_RADIUS_METERS]);
 
   const toggleStyle = () => {
     if (!mapRef.current) return;
@@ -426,11 +427,11 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
             <div className="flex items-center gap-2"><span className="text-base">🔭</span><span style={{ color: "#DC2626" }} className="font-semibold">Red</span><span className="text-foreground/60">Score &lt;40</span></div>
             <div className="flex items-center gap-2">
               <div style={{ width: 18, height: 3, background: "#EAB308", borderRadius: 2 }} />
-              <span className="text-foreground/60">0.5-mi Ring</span>
+              <span className="text-foreground/60">{radiusMiles}-mi Ring</span>
             </div>
             <div className="flex items-center gap-2">
               <div style={{ width: 18, height: 3, background: "#DC2626", borderRadius: 2 }} />
-              <span className="text-foreground/60">1.0-mi Ring</span>
+              <span className="text-foreground/60">{Math.min(radiusMiles * 2, 2.0)}-mi Ring</span>
             </div>
           </div>
         )}

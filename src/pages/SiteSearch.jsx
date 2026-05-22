@@ -46,6 +46,7 @@ export default function SiteSearch() {
   const [nextOffset, setNextOffset] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [searchCenter, setSearchCenter] = useState(null);
+  const [searchParams, setSearchParams] = useState({ radius_miles: 0.5, tower_height_ft: 199, agent_name: "", compound_size: "100x100" });
   const [searchesThisMonth, setSearchesThisMonth] = useState(0);
   const [existingSearch, setExistingSearch] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -87,7 +88,10 @@ export default function SiteSearch() {
     init();
   }, []);
 
-  const handleSearch = async (latitude, longitude) => {
+  const handleSearch = async (latitude, longitude, params = {}) => {
+    // Persist params so the map preview + SCIP both pick them up
+    const merged = { ...searchParams, ...params };
+    setSearchParams(merged);
     // Require login for all scans (including free trial)
     if (!user) {
       base44.auth.redirectToLogin(window.location.href);
@@ -138,7 +142,7 @@ export default function SiteSearch() {
     // Call via Base44 backend proxy — always starts at offset 0 for a new site
     let res, data;
     try {
-      res = await siteSearch({ lat: latitude, lon: longitude, radius_miles: 0.5, offset: 0 });
+      res = await siteSearch({ lat: latitude, lon: longitude, radius_miles: merged.radius_miles, offset: 0 });
       data = res.data;
     } catch (err) {
       // OFFLINE FALLBACK: if the live scan completely fails (network/API down), serve demo data
@@ -399,6 +403,7 @@ export default function SiteSearch() {
           ordinance: ordinanceMetadata,
           searchCenter: { lat: latitude, lon: longitude },
           allResults: savedResults,
+          searchParams: merged,
         },
       });
     } else {
@@ -563,6 +568,7 @@ export default function SiteSearch() {
           loading={loading}
           mapImageGetterRef={mapImageGetterRef}
           filteredResultIds={filteredResultIds}
+          radiusMiles={searchParams.radius_miles}
         />
       )}
 

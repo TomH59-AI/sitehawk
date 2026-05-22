@@ -20,6 +20,7 @@ import SCIPPage1MapsBlock from "./SCIPPage1MapsBlock";
 import SCIPPage1SCIPMaps from "./SCIPPage1SCIPMaps";
 import SCIPPage1CandidatesSummary from "./SCIPPage1CandidatesSummary";
 import SCIPPage1RFPropagation from "./SCIPPage1RFPropagation";
+import SCIPPage1TowerPlacement from "./SCIPPage1TowerPlacement";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -46,7 +47,7 @@ function SectionHeader({ children }) {
   );
 }
 
-export default function SCIPPage1({ initialValues = {}, onChange }) {
+export default function SCIPPage1({ initialValues = {}, onChange, candidate = null }) {
   const [values, setValues] = useState({
     // SITE ACQUISITION (rows 3–6)
     agent_name: "",
@@ -176,6 +177,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
 
       {/* CANDIDATES SUMMARY — Targets A/B/C with skip-traced contacts + SARF map with numbered waypoints */}
       <SCIPPage1CandidatesSummary page1Values={values} siteOwner={values._siteOwner} />
+
+      {/* TOWER PLACEMENT & COMPOUND SITING — auto-runs setback math on Target A parcel geometry */}
+      <SCIPPage1TowerPlacement page1Values={values} candidate={candidate} />
 
       {/* RF PROPAGATION ANALYSIS — CloudRF composite + N/E/S/W sectors + metrics */}
       <SCIPPage1RFPropagation page1Values={values} siteOwner={values._siteOwner} />

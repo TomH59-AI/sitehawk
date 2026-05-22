@@ -3,9 +3,19 @@ import { Search, MapPin, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+const RADIUS_OPTIONS = [
+  { value: 0.25, label: "0.25 mi" },
+  { value: 0.5, label: "0.50 mi" },
+  { value: 1.0, label: "1.0 mi" },
+];
+
 export default function SearchForm({ onSearch, isLoading, disabled }) {
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
+  const [agentName, setAgentName] = useState("");
+  const [towerHeight, setTowerHeight] = useState("199");
+  const [radius, setRadius] = useState(0.5);
+  const [compound, setCompound] = useState("100x100");
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -13,7 +23,12 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
     const longitude = parseFloat(lon);
     if (isNaN(latitude) || isNaN(longitude)) return;
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return;
-    onSearch(latitude, longitude);
+    onSearch(latitude, longitude, {
+      agent_name: agentName,
+      tower_height_ft: parseFloat(towerHeight) || 199,
+      radius_miles: radius,
+      compound_size: compound,
+    });
   };
 
   const handleUseMyLocation = () => {
@@ -34,12 +49,71 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
           <MapPin className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h2 className="font-heading font-semibold text-foreground">Enter Coordinates</h2>
-          <p className="text-xs text-muted-foreground">Search 0.5-mile radius for buildable parcels</p>
+          <h2 className="font-heading font-semibold text-foreground">Site Parameters</h2>
+          <p className="text-xs text-muted-foreground">Tell SiteHawk what you're looking for, then drop your SARF center.</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Agent + Tower Specs row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Your Name</label>
+            <Input
+              type="text"
+              placeholder="e.g. Tom Hodges"
+              value={agentName}
+              onChange={(e) => setAgentName(e.target.value)}
+              className="bg-secondary border-border"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Tower Height (ft AGL)</label>
+            <Input
+              type="number"
+              step="1"
+              placeholder="e.g. 199"
+              value={towerHeight}
+              onChange={(e) => setTowerHeight(e.target.value)}
+              className="bg-secondary border-border"
+            />
+          </div>
+        </div>
+
+        {/* Radius + Compound row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Search Radius</label>
+            <div className="inline-flex rounded-lg overflow-hidden border border-border w-full">
+              {RADIUS_OPTIONS.map((opt) => (
+                <button
+                  type="button"
+                  key={opt.value}
+                  onClick={() => setRadius(opt.value)}
+                  className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
+                    radius === opt.value
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Compound Dimensions</label>
+            <Input
+              type="text"
+              placeholder="e.g. 100x100 or 10,000 SF"
+              value={compound}
+              onChange={(e) => setCompound(e.target.value)}
+              className="bg-secondary border-border"
+            />
+          </div>
+        </div>
+
+        {/* Coordinates row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Latitude</label>
@@ -76,7 +150,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
             ) : (
               <Search className="w-4 h-4" />
             )}
-            {isLoading ? "Scanning..." : "Scan Area"}
+            {isLoading ? "Scanning..." : `Scan ${radius} mi Area`}
           </Button>
           <Button
             type="button"

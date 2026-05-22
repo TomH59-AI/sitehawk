@@ -129,6 +129,7 @@ export default function SCIPPreview() {
           (SARF map · Site/Owner auto-find · Existing Conditions · Site Notes ·
            Zoning · Maps · SCIP Maps · Candidates Summary · RF Propagation) */}
       <SCIPPage1
+        candidate={candidate}
         initialValues={{
           agent_name: agent.name,
           agent_phone: agent.phone,
@@ -137,10 +138,10 @@ export default function SCIPPreview() {
           site_name: candidate?.site_name || "",
           latitude: candidate?.latitude ?? state?.searchCenter?.lat ?? "",
           longitude: candidate?.longitude ?? state?.searchCenter?.lon ?? "",
-          search_radius: "1.0 mi",
-          sarf_height: "199 ft AGL",
+          search_radius: state?.searchParams?.radius_miles ? `${state.searchParams.radius_miles} mi` : "1.0 mi",
+          sarf_height: state?.searchParams?.tower_height_ft ? `${state.searchParams.tower_height_ft} ft AGL` : "199 ft AGL",
           tower_type: "Monopole",
-          compound_size: "10,000 SF / 100' x 100'",
+          compound_size: state?.searchParams?.compound_size || "10,000 SF / 100' x 100'",
         }}
       />
 
