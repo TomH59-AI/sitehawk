@@ -14,6 +14,7 @@ import { useState } from "react";
 import SCIPPage1SARFMap from "./SCIPPage1SARFMap";
 import SCIPPage1SiteOwnerBlock from "./SCIPPage1SiteOwnerBlock";
 import SCIPPage1ExistingConditions from "./SCIPPage1ExistingConditions";
+import SCIPPage1SiteNotes from "./SCIPPage1SiteNotes";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -155,6 +156,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
 
       {/* EXISTING CONDITIONS — auto-filled from FEMA / NWI / HIFLD / FCC / OSM */}
       <SCIPPage1ExistingConditions page1Values={values} siteOwner={values._siteOwner} />
+
+      {/* SITE NOTES — free-form site development concerns, with LLM auto-generate */}
+      <SCIPPage1SiteNotes page1Values={values} siteOwner={values._siteOwner} />
     </div>
   );
 }
