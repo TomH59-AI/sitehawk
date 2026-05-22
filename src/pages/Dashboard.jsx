@@ -11,6 +11,7 @@ import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import ReferralPanel from "../components/referral/ReferralPanel";
 import FieldConnectCard from "../components/dashboard/FieldConnectCard";
 import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
+import ParcelEvaluationSummary from "../components/dashboard/ParcelEvaluationSummary";
 import { getEffectiveTier } from "@/lib/testAccess";
 
 const TIER_LIMITS = {
@@ -110,6 +111,9 @@ export default function Dashboard() {
 
       {/* Stats */}
       <StatsCards searches={searches} results={results} />
+
+      {/* Parcel Evaluation Summary — zoning + feasibility breakdown */}
+      <ParcelEvaluationSummary results={results} />
 
       {/* Top Parcels Map */}
       <RecentParcelsMap results={results} />
