@@ -13,6 +13,7 @@
 import { useState } from "react";
 import SCIPPage1SARFMap from "./SCIPPage1SARFMap";
 import SCIPPage1SiteOwnerBlock from "./SCIPPage1SiteOwnerBlock";
+import SCIPPage1ExistingConditions from "./SCIPPage1ExistingConditions";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -147,7 +148,13 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
       <SCIPPage1SARFMap values={values} />
 
       {/* SITE INFORMATION + OWNER INFORMATION — auto-found via Notion zoning + Realie + Enformion */}
-      <SCIPPage1SiteOwnerBlock page1Values={values} onChange={(siteOwner) => onChange?.({ ...values, _siteOwner: siteOwner })} />
+      <SCIPPage1SiteOwnerBlock page1Values={values} onChange={(siteOwner) => {
+        setValues((prev) => ({ ...prev, _siteOwner: siteOwner }));
+        onChange?.({ ...values, _siteOwner: siteOwner });
+      }} />
+
+      {/* EXISTING CONDITIONS — auto-filled from FEMA / NWI / HIFLD / FCC / OSM */}
+      <SCIPPage1ExistingConditions page1Values={values} siteOwner={values._siteOwner} />
     </div>
   );
 }
