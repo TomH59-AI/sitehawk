@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import MapLayerToggles from "./MapLayerToggles";
 
 const STYLE_URL = "mapbox://styles/mapbox/satellite-streets-v12";
 // Colored, high-visibility rings matching the Site Search map:
@@ -238,6 +239,8 @@ export default function HeadlineSatelliteMap({ results = [], searchCenter, onCan
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="absolute inset-0" style={{ background: "#0a0e17" }} />
+      {/* Layer toggles — Topography / Wetlands / FEMA Flood */}
+      <MapLayerToggles map={mapRef.current} styleLoaded={styleLoaded} />
       {/* Legend */}
       <div className="absolute bottom-3 left-3 z-10 bg-[#0a0e17]/85 backdrop-blur border border-[#1e293b] rounded-lg px-3 py-2 text-[11px] text-slate-200 space-y-1 pointer-events-none">
         <div className="flex items-center gap-2"><span className="text-base">🦅</span> SARF Center</div>
