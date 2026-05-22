@@ -19,6 +19,7 @@ import SCIPPage1ZoningBlock from "./SCIPPage1ZoningBlock";
 import SCIPPage1MapsBlock from "./SCIPPage1MapsBlock";
 import SCIPPage1SCIPMaps from "./SCIPPage1SCIPMaps";
 import SCIPPage1CandidatesSummary from "./SCIPPage1CandidatesSummary";
+import SCIPPage1RFPropagation from "./SCIPPage1RFPropagation";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -175,6 +176,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
 
       {/* CANDIDATES SUMMARY — Targets A/B/C with skip-traced contacts + SARF map with numbered waypoints */}
       <SCIPPage1CandidatesSummary page1Values={values} siteOwner={values._siteOwner} />
+
+      {/* RF PROPAGATION ANALYSIS — CloudRF composite + N/E/S/W sectors + metrics */}
+      <SCIPPage1RFPropagation page1Values={values} siteOwner={values._siteOwner} />
     </div>
   );
 }
