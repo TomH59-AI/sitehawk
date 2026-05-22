@@ -17,6 +17,7 @@ import SCIPPage1ExistingConditions from "./SCIPPage1ExistingConditions";
 import SCIPPage1SiteNotes from "./SCIPPage1SiteNotes";
 import SCIPPage1ZoningBlock from "./SCIPPage1ZoningBlock";
 import SCIPPage1MapsBlock from "./SCIPPage1MapsBlock";
+import SCIPPage1SCIPMaps from "./SCIPPage1SCIPMaps";
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -167,6 +168,9 @@ export default function SCIPPage1({ initialValues = {}, onChange }) {
 
       {/* MAPS — Proposed Site + 4 directional viewsheds + 2 access maps */}
       <SCIPPage1MapsBlock page1Values={values} siteOwner={values._siteOwner} />
+
+      {/* SCIP MAPS — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind / Airport */}
+      <SCIPPage1SCIPMaps page1Values={values} siteOwner={values._siteOwner} />
     </div>
   );
 }
