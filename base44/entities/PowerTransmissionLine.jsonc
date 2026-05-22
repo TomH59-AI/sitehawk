@@ -1,0 +1,55 @@
+{
+  "name": "PowerTransmissionLine",
+  "type": "object",
+  "description": "Aggregated US electric power transmission line connections (HIFLD-derived). Source: powerlines_llm_connections_aggregated.csv (82,066 rows). No lat/lon \u2014 use for owner/voltage/substation lookups, not proximity queries.",
+  "properties": {
+    "from": {
+      "type": "string",
+      "description": "Originating substation, tap, or named endpoint"
+    },
+    "to": {
+      "type": "string",
+      "description": "Terminating substation, tap, or named endpoint"
+    },
+    "owner": {
+      "type": "string",
+      "description": "Utility / operator name (may be blank)"
+    },
+    "kv": {
+      "type": "string",
+      "description": "Operating voltage in kV (as text \u2014 some values are ranges)"
+    },
+    "vclass": {
+      "type": "string",
+      "description": "Voltage class bucket (e.g. '500', '735 AND ABOVE', 'UNDER 100')"
+    },
+    "status": {
+      "type": "string",
+      "description": "active / proposed / construction / inactive (may be blank)"
+    },
+    "type": {
+      "type": "string",
+      "description": "Construction type (e.g. 'AC overhead', 'DC underground')"
+    },
+    "segments": {
+      "type": "number",
+      "description": "Number of underlying segments aggregated into this connection"
+    },
+    "len_m_total": {
+      "type": "number",
+      "description": "Total length of all segments in meters"
+    },
+    "sample_ids": {
+      "type": "string",
+      "description": "Pipe-delimited original HIFLD line IDs included in this aggregate"
+    },
+    "inferred_segments": {
+      "type": "string",
+      "description": "Count of segments where the connection endpoints were inferred (blank if none)"
+    }
+  },
+  "required": [
+    "from",
+    "to"
+  ]
+}
