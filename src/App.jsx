@@ -25,6 +25,7 @@ import MarketAnalytics from './pages/MarketAnalytics';
 import MailAnalytics from './pages/MailAnalytics';
 import TowerPlacement from './pages/TowerPlacement';
 import SCIPPreview from './pages/SCIPPreview';
+import SCIPShareView from './pages/SCIPShareView';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -63,6 +64,7 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/scip-share" element={<SCIPShareView />} />
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />

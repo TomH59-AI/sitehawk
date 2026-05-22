@@ -14,14 +14,17 @@ import HawkIcon from "../HawkIcon";
 function buildCoverMapUrl(token, lat, lon) {
   if (!token || lat == null || lon == null) return null;
   // Build same SARF ring overlay as the rest of the SCIP for visual consistency
-  function buildCircle(centerLat, centerLon, radiusMiles, points = 96) {
+  function buildCircle(centerLat, centerLon, radiusMiles, points = 36) {
     const coords = [];
     const radiusM = radiusMiles * 1609.344;
     const dx = radiusM / (111320 * Math.cos((centerLat * Math.PI) / 180));
     const dy = radiusM / 110540;
     for (let i = 0; i < points; i++) {
       const t = (i / points) * 2 * Math.PI;
-      coords.push([centerLon + dx * Math.cos(t), centerLat + dy * Math.sin(t)]);
+      coords.push([
+        +(centerLon + dx * Math.cos(t)).toFixed(5),
+        +(centerLat + dy * Math.sin(t)).toFixed(5),
+      ]);
     }
     coords.push(coords[0]);
     return { type: "Polygon", coordinates: [coords] };

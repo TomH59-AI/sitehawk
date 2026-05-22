@@ -16,6 +16,7 @@ import SCIPRFCoverageSection from "../components/scip/SCIPRFCoverageSection";
 import SCIPSpectrumSection from "../components/scip/SCIPSpectrumSection";
 import SCIPExportButtons from "../components/scip/SCIPExportButtons";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
+import SCIPShareButton from "../components/scip/SCIPShareButton";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -105,6 +106,12 @@ export default function SCIPPreview() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <SCIPShareButton
+            candidate={candidate}
+            ordinance={state?.ordinance}
+            searchCenter={state?.searchCenter}
+            agent={agent}
+          />
           <PrintSCIPButton />
           <SCIPExportButtons scipData={scipData} candidate={candidate} />
         </div>
@@ -173,6 +180,12 @@ export default function SCIPPreview() {
           ✓ All edits are reflected in the exported file.
         </div>
         <div className="flex gap-2 flex-wrap">
+          <SCIPShareButton
+            candidate={candidate}
+            ordinance={state?.ordinance}
+            searchCenter={state?.searchCenter}
+            agent={agent}
+          />
           <PrintSCIPButton />
           <SCIPExportButtons scipData={scipData} candidate={candidate} />
         </div>

@@ -1,0 +1,55 @@
+{
+  "name": "SCIPShare",
+  "type": "object",
+  "description": "A public, read-only snapshot of a SCIP for sharing via link/email.",
+  "properties": {
+    "share_id": {
+      "type": "string",
+      "description": "Short random ID used in the public URL"
+    },
+    "shared_by_email": {
+      "type": "string",
+      "description": "Email of the user who created the share"
+    },
+    "candidate": {
+      "type": "object",
+      "description": "Snapshot of the SearchResult / candidate data at share time"
+    },
+    "ordinance": {
+      "type": "object",
+      "description": "Snapshot of the ordinance metadata"
+    },
+    "searchCenter": {
+      "type": "object",
+      "description": "{ lat, lon } SARF center"
+    },
+    "agent": {
+      "type": "object",
+      "description": "{ name, phone, email } of the agent who shared it"
+    }
+  },
+  "required": [
+    "share_id"
+  ],
+  "rls": {
+    "create": {
+      "shared_by_email": "{{user.email}}"
+    },
+    "read": {},
+    "update": {
+      "shared_by_email": "{{user.email}}"
+    },
+    "delete": {
+      "$or": [
+        {
+          "shared_by_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

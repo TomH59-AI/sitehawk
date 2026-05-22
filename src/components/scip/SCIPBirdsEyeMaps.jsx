@@ -20,15 +20,21 @@ const IMG_W = 1280;
 const IMG_H = 1024;
 const ZOOM = 13.6; // shows roughly a 2-mile box — fits both rings comfortably
 
-// Build a simple closed-polygon GeoJSON circle (96 points) for ring overlays.
-function buildCircle(lat, lon, radiusMiles, points = 96) {
+// Build a closed-polygon GeoJSON circle for ring overlays.
+// Use 36 points + 5-decimal precision to keep the encoded URL under Mapbox's
+// 8192-char static API limit (a 96-point ring at full precision blew past it
+// and silently dropped the overlay).
+function buildCircle(lat, lon, radiusMiles, points = 36) {
   const coords = [];
   const radiusM = radiusMiles * 1609.344;
   const dx = radiusM / (111320 * Math.cos((lat * Math.PI) / 180));
   const dy = radiusM / 110540;
   for (let i = 0; i < points; i++) {
     const theta = (i / points) * (2 * Math.PI);
-    coords.push([lon + dx * Math.cos(theta), lat + dy * Math.sin(theta)]);
+    coords.push([
+      +(lon + dx * Math.cos(theta)).toFixed(5),
+      +(lat + dy * Math.sin(theta)).toFixed(5),
+    ]);
   }
   coords.push(coords[0]);
   return { type: "Polygon", coordinates: [coords] };

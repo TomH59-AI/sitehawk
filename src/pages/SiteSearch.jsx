@@ -383,18 +383,32 @@ export default function SiteSearch() {
     setSearchesThisMonth((prev) => prev + 1);
     setLoading(false);
 
-    // Navigate to the interactive results page
-    const dailyLimit = TIER_LIMITS[tier] === Infinity ? 999 : (TIER_LIMITS[tier] || 1);
-    navigate("/results", {
-      state: {
-        results: savedResults,
-        ordinance: ordinanceMetadata,
-        searchCenter: { lat: latitude, lon: longitude },
-        searchId: search.id,
-        usage: data.usage || { searches_used_today: searchesThisMonth + 1, daily_search_limit: dailyLimit },
-        plan: data.plan || { id: tier, features: { exports: tier !== "hawk_site" ? ["pdf", "csv"] : [], mailer: tier === "hawkeye_apex", skip_trace: tier === "hawkeye_apex" } },
-      },
-    });
+    // NEW WORKFLOW: 1 SARF → 1 Target → SCIP.
+    // Auto-pick the single best candidate (must have valid zoning; if none have
+    // zoning fall back to the full pool, then take highest match_score).
+    const zoned = savedResults.filter(
+      (r) => r.zoning_classification && r.zoning_classification.trim() && r.zoning_classification !== "N/A"
+    );
+    const pool = zoned.length > 0 ? zoned : savedResults;
+    const bestTarget = [...pool].sort((a, b) => (b.match_score ?? 0) - (a.match_score ?? 0))[0];
+
+    if (bestTarget) {
+      navigate("/scip", {
+        state: {
+          candidate: bestTarget,
+          ordinance: ordinanceMetadata,
+          searchCenter: { lat: latitude, lon: longitude },
+          allResults: savedResults,
+        },
+      });
+    } else {
+      // No candidates at all → keep user on the search page with a message
+      toast({
+        title: "No buildable parcels found",
+        description: "Try a different SARF center or widen your search area.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (pageLoading) {

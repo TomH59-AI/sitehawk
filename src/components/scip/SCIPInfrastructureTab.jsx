@@ -26,14 +26,20 @@ const APWA_RED = "DC2626";    // Electric
 const APWA_ORANGE = "F97316"; // Communication / fiber
 
 // ─── Geometry ────────────────────────────────────────────────────────
-function buildCircle(lat, lon, radiusMiles, points = 96) {
+// 36 points + 5-decimal precision keeps the encoded GeoJSON small enough
+// to stay under Mapbox's static API 8192-char URL limit (96 points blew
+// past it and silently dropped the rings from every map).
+function buildCircle(lat, lon, radiusMiles, points = 36) {
   const coords = [];
   const radiusM = radiusMiles * 1609.344;
   const dx = radiusM / (111320 * Math.cos((lat * Math.PI) / 180));
   const dy = radiusM / 110540;
   for (let i = 0; i < points; i++) {
     const theta = (i / points) * (2 * Math.PI);
-    coords.push([lon + dx * Math.cos(theta), lat + dy * Math.sin(theta)]);
+    coords.push([
+      +(lon + dx * Math.cos(theta)).toFixed(5),
+      +(lat + dy * Math.sin(theta)).toFixed(5),
+    ]);
   }
   coords.push(coords[0]);
   return { type: "Polygon", coordinates: [coords] };

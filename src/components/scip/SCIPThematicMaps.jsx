@@ -24,14 +24,21 @@ const IMG_H = 1024;
 const ZOOM = 13.6;
 
 // ─── Geometry helpers ────────────────────────────────────────────────
-function buildCircle(lat, lon, radiusMiles, points = 96) {
+// CRITICAL: Mapbox Static API has a ~8192-char URL limit. A 96-point GeoJSON
+// polygon (with 7-digit lat/lon) blew that out and silently dropped overlays
+// — which is why the 0.5/1.0 mi rings never appeared on the printed SCIP.
+// 36 points is the sweet spot: visually smooth + URL safely under the limit.
+function buildCircle(lat, lon, radiusMiles, points = 36) {
   const coords = [];
   const radiusM = radiusMiles * 1609.344;
   const dx = radiusM / (111320 * Math.cos((lat * Math.PI) / 180));
   const dy = radiusM / 110540;
   for (let i = 0; i < points; i++) {
     const theta = (i / points) * (2 * Math.PI);
-    coords.push([lon + dx * Math.cos(theta), lat + dy * Math.sin(theta)]);
+    coords.push([
+      +(lon + dx * Math.cos(theta)).toFixed(5),
+      +(lat + dy * Math.sin(theta)).toFixed(5),
+    ]);
   }
   coords.push(coords[0]);
   return { type: "Polygon", coordinates: [coords] };
@@ -44,12 +51,12 @@ function buildRingsGeoJSON(lat, lon) {
       features: [
         {
           type: "Feature",
-          properties: { stroke: "#DC2626", "stroke-width": 3, "stroke-opacity": 0.95, "fill-opacity": 0 },
+          properties: { stroke: "#DC2626", "stroke-width": 3, "stroke-opacity": 1, "fill-opacity": 0 },
           geometry: buildCircle(lat, lon, 1.0),
         },
         {
           type: "Feature",
-          properties: { stroke: "#EAB308", "stroke-width": 3, "stroke-opacity": 0.95, "fill-opacity": 0 },
+          properties: { stroke: "#EAB308", "stroke-width": 3, "stroke-opacity": 1, "fill-opacity": 0 },
           geometry: buildCircle(lat, lon, 0.5),
         },
       ],
@@ -95,33 +102,41 @@ function buildMapboxBase(token, lat, lon, style = "satellite-streets-v12", extra
 }
 
 // ─── WMS overlay URL builders (semi-transparent raster on top of Mapbox base) ─
+// FEMA NFHL — full visible flood layers (zones AE/A/X/VE etc. live at layer ids
+// 28 = Flood Hazard Zones, but the export endpoint expects ALL visible layers
+// when you don't pass `layers`. Dropping the explicit layer filter lets FEMA
+// render the same composite the public NFHL viewer shows.
 function femaWmsUrl(lat, lon) {
   const bb = bboxFromCenter(lat, lon, ZOOM, IMG_W, IMG_H);
   return (
     `https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export` +
     `?bbox=${bb.west},${bb.south},${bb.east},${bb.north}` +
-    `&bboxSR=4326&imageSR=4326&size=${IMG_W * 2},${IMG_H * 2}` +
-    `&dpi=192&format=png32&transparent=true&f=image&layers=show:28`
+    `&bboxSR=4326&imageSR=4326&size=${IMG_W},${IMG_H}` +
+    `&dpi=96&format=png32&transparent=true&f=image`
   );
 }
 
+// USFWS Wetlands MapServer — layer 0 = Wetlands polygons. Without specifying
+// `layers=show:0` the service returns an empty PNG.
 function nwiWmsUrl(lat, lon) {
   const bb = bboxFromCenter(lat, lon, ZOOM, IMG_W, IMG_H);
   return (
     `https://www.fws.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/export` +
     `?bbox=${bb.west},${bb.south},${bb.east},${bb.north}` +
-    `&bboxSR=4326&imageSR=4326&size=${IMG_W * 2},${IMG_H * 2}` +
-    `&dpi=192&format=png32&transparent=true&f=image`
+    `&bboxSR=4326&imageSR=4326&size=${IMG_W},${IMG_H}` +
+    `&dpi=96&format=png32&transparent=true&f=image&layers=show:0`
   );
 }
 
+// USGS Contours — better topo overlay than the full USGSTopo basemap (which
+// returns opaque cartography). Contour lines = layer 0,1,2 from USGS 3DEP.
 function usgsTopoUrl(lat, lon) {
   const bb = bboxFromCenter(lat, lon, ZOOM, IMG_W, IMG_H);
   return (
-    `https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/export` +
+    `https://carto.nationalmap.gov/arcgis/rest/services/contours/MapServer/export` +
     `?bbox=${bb.west},${bb.south},${bb.east},${bb.north}` +
-    `&bboxSR=4326&imageSR=4326&size=${IMG_W * 2},${IMG_H * 2}` +
-    `&dpi=192&format=png32&transparent=true&f=image`
+    `&bboxSR=4326&imageSR=4326&size=${IMG_W},${IMG_H}` +
+    `&dpi=96&format=png32&transparent=true&f=image`
   );
 }
 
