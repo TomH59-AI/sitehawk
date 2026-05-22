@@ -6,6 +6,7 @@ import SCIPSection from "../components/scip/SCIPSection";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
+import SCIPGroundPhotosSection from "../components/scip/SCIPGroundPhotosSection";
 import SCIPRFCoverageSection from "../components/scip/SCIPRFCoverageSection";
 import SCIPSpectrumSection from "../components/scip/SCIPSpectrumSection";
 import SCIPExportButtons from "../components/scip/SCIPExportButtons";
@@ -139,6 +140,9 @@ export default function SCIPPreview() {
 
         {/* PHOTOGRAPHS — N/S/E/W tree-line 2D viewsheds for Target A (saved for later) */}
         <SCIPViewshedSection candidate={candidate} />
+
+        {/* GROUND LEVEL — Mapillary street-level photos of access drive, power, fiber */}
+        <SCIPGroundPhotosSection candidate={candidate} />
 
         {/* RF Coverage — CloudRF propagation simulation */}
         <SCIPRFCoverageSection candidate={candidate} />
