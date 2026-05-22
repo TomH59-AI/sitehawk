@@ -6,6 +6,7 @@ import SCIPSection from "../components/scip/SCIPSection";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
+import SCIPInfrastructureTab from "../components/scip/SCIPInfrastructureTab";
 import SCIPThematicMaps from "../components/scip/SCIPThematicMaps";
 import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
 import SCIPGroundPhotosSection from "../components/scip/SCIPGroundPhotosSection";
@@ -142,6 +143,12 @@ export default function SCIPPreview() {
           candidate={candidate}
           searchCenter={state?.searchCenter}
           allResults={state?.allResults}
+        />
+
+        {/* TAB 3 — Infrastructure: Clean satellite + Electric (APWA red) + Fiber (APWA orange) */}
+        <SCIPInfrastructureTab
+          candidate={candidate}
+          searchCenter={state?.searchCenter}
         />
 
         {/* SCIP MAPS section — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind */}
