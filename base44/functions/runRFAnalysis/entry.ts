@@ -1,0 +1,68 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SkyHawk Intelligence — proxies to Supabase Edge Function `run-rf-analysis`.
+//
+// The Supabase function combines:
+//   • Nearest airport (with line_geojson)
+//   • Nearest FCC-registered tower (with line_geojson)
+//   • CloudRF path/coverage verdict (strong / marginal / blocked / error)
+//
+// Service role key is used SERVER-SIDE ONLY here — never exposed to the browser.
+// CloudRF API key stays inside the edge function — never sent to the client.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SUPABASE_URL = "https://vkiwvctpxhbsoeagivnl.supabase.co";
+const EDGE_FUNCTION = "run-rf-analysis";
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { lat, lon, radius_miles = 5 } = await req.json();
+    if (lat == null || lon == null) {
+      return Response.json({ error: 'lat and lon are required' }, { status: 400 });
+    }
+
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceKey) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY not set");
+      return Response.json({ error: 'Server misconfiguration' }, { status: 500 });
+    }
+
+    const url = `${SUPABASE_URL}/functions/v1/${EDGE_FUNCTION}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": serviceKey,
+        "Authorization": `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify({
+        lat: Number(lat),
+        lon: Number(lon),
+        radius_miles: Number(radius_miles),
+      }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`run-rf-analysis HTTP ${res.status}: ${text.slice(0, 500)}`);
+      return Response.json({ error: `RF analysis failed: ${res.status}`, detail: text.slice(0, 300) }, { status: 502 });
+    }
+
+    const data = await res.json();
+    console.log(
+      `[runRFAnalysis] user=${user.email} (${lat},${lon}) r=${radius_miles}mi → ` +
+      `airport=${data?.airport?.call_letters || "—"} tower=${data?.tower?.call_letters || "—"} ` +
+      `rf=${data?.rf?.status || "—"} cached=${data?.cached === true}`
+    );
+
+    return Response.json(data);
+  } catch (error) {
+    console.error('runRFAnalysis error:', error.message);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+});
