@@ -8,6 +8,7 @@ import StatsCards from "../components/dashboard/StatsCards";
 import SearchHistoryTable from "../components/dashboard/SearchHistoryTable";
 import WelcomeModal from "../components/onboarding/WelcomeModal";
 import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
+import HowToUseInstructions from "../components/dashboard/HowToUseInstructions";
 import ReferralPanel from "../components/referral/ReferralPanel";
 import FieldConnectCard from "../components/dashboard/FieldConnectCard";
 import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
@@ -102,6 +103,9 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* How to Use — step-by-step instructions */}
+      <HowToUseInstructions />
 
       {/* Onboarding Checklist */}
       <OnboardingChecklist searches={searches.length} hasSkipTrace={hasSkipTrace} tier={tier} />
