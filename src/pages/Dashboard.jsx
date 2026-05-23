@@ -9,6 +9,7 @@ import SearchHistoryTable from "../components/dashboard/SearchHistoryTable";
 import WelcomeModal from "../components/onboarding/WelcomeModal";
 import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import HowToUseInstructions from "../components/dashboard/HowToUseInstructions";
+import ProspectingWorkflow from "../components/dashboard/ProspectingWorkflow";
 import ReferralPanel from "../components/referral/ReferralPanel";
 import FieldConnectCard from "../components/dashboard/FieldConnectCard";
 import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
@@ -39,6 +40,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [searches, setSearches] = useState([]);
   const [results, setResults] = useState([]);
+  const [deals, setDeals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -46,12 +48,14 @@ export default function Dashboard() {
     async function load() {
       const me = await base44.auth.me();
       setUser(me);
-      const [searchData, resultData] = await Promise.all([
+      const [searchData, resultData, dealData] = await Promise.all([
         base44.entities.SearchHistory.filter({ created_by: me.email }, "-created_date", 50),
         base44.entities.SearchResult.filter({ created_by: me.email }, "-match_score", 100),
+        base44.entities.CRMDeal.filter({ created_by: me.email }, "-created_date", 100).catch(() => []),
       ]);
       setSearches(searchData);
       setResults(resultData);
+      setDeals(dealData);
       setLoading(false);
       // Show welcome modal on first visit
       const seen = localStorage.getItem("sitehawk_welcome_seen");
@@ -103,6 +107,9 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* Tower Prospecting Workflow — what to do next, with hawk flying across the bar */}
+      <ProspectingWorkflow searches={searches} results={results} deals={deals} />
 
       {/* How to Use — step-by-step instructions */}
       <HowToUseInstructions />
