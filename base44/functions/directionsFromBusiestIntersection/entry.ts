@@ -75,13 +75,33 @@ Deno.serve(async (req) => {
       out tags geom;
     `;
 
-    const opRes = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      body: "data=" + encodeURIComponent(overpassQ),
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    });
-    if (!opRes.ok) throw new Error(`Overpass failed: ${opRes.status}`);
-    const op = await opRes.json();
+    // Use the same multi-endpoint fallback + headers pattern as cellTowerLookup —
+    // Overpass returns 406 when User-Agent/Accept are missing on some mirrors.
+    const OVERPASS_ENDPOINTS = [
+      "https://overpass-api.de/api/interpreter",
+      "https://overpass.kumi.systems/api/interpreter",
+      "https://overpass.openstreetmap.ru/api/interpreter",
+    ];
+    let op = null;
+    let lastStatus = null;
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      const opRes = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "User-Agent": "SiteHawk/1.0 (+https://sitehawk.app)",
+        },
+        body: new URLSearchParams({ data: overpassQ }),
+      });
+      if (opRes.ok) {
+        op = await opRes.json();
+        break;
+      }
+      lastStatus = opRes.status;
+      console.warn(`[directions] Overpass ${opRes.status} from ${endpoint}`);
+    }
+    if (!op) throw new Error(`Overpass failed: ${lastStatus || "no endpoints reachable"}`);
     const ways = op.elements || [];
 
     // Build nodeKey -> list of {wayName, weight} to find intersections.
