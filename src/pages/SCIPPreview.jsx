@@ -25,6 +25,7 @@ import HawkInstructions from "../components/scip/HawkInstructions";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
+import { directionsFromBusiestIntersection } from "@/functions/directionsFromBusiestIntersection";
 
 export default function SCIPPreview() {
   const { state } = useLocation();
@@ -60,14 +61,16 @@ export default function SCIPPreview() {
       const lat = c.latitude ?? ctr?.lat;
       const lon = c.longitude ?? ctr?.lon;
       if (lat != null && lon != null) {
-        const [zoningRes, parcelsRes] = await Promise.allSettled([
+        const [zoningRes, parcelsRes, directionsRes] = await Promise.allSettled([
           notionZoningLookup({ lat, lon }),
           realieParcelsInRing({ lat, lon, radius_miles: 1.0 }),
+          directionsFromBusiestIntersection({ lat, lon }),
         ]);
         const geocode = zoningRes.status === "fulfilled" ? (zoningRes.value.data?.geocode || {}) : {};
         const zoning = zoningRes.status === "fulfilled" ? (zoningRes.value.data?.zoning || {}) : {};
         const neighbors = parcelsRes.status === "fulfilled" ? (parcelsRes.value.data?.parcels || []) : [];
-        setScipData(buildScipData(c, ord, ctr, agentInfo, { geocode, zoning, neighbors }));
+        const directions = directionsRes.status === "fulfilled" ? (directionsRes.value.data || {}) : {};
+        setScipData(buildScipData(c, ord, ctr, agentInfo, { geocode, zoning, neighbors, directions }));
       }
     }
     init();

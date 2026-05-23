@@ -151,7 +151,13 @@ export function buildScipData(candidate, ordinance, searchCenter, agent = {}, ex
     },
     directions: {
       title: "DIRECTIONS TO SITE",
-      fields: [["General directions", ""]],
+      fields: [
+        ["From nearest busy intersection", extras.directions?.directions_text || ""],
+        ["Nearest major intersection", extras.directions?.intersection || ""],
+        ["Bearing from intersection", extras.directions?.cardinal_direction ? `${extras.directions.cardinal_direction} (${Math.round(extras.directions.bearing_deg || 0)}°)` : ""],
+        ["Distance from intersection", extras.directions?.distance_miles != null ? `${extras.directions.distance_miles} mi` : ""],
+        ["GPS Coordinates (paste into any GPS)", (c.latitude != null && c.longitude != null) ? `${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)}` : (sc.lat != null && sc.lon != null ? `${sc.lat.toFixed(6)}, ${sc.lon.toFixed(6)}` : "")],
+      ],
     },
     existing_conditions: {
       title: "EXISTING CONDITIONS",
