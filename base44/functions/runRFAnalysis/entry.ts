@@ -49,13 +49,19 @@ Deno.serve(async (req) => {
       }),
     });
 
-    if (!res.ok) {
-      const text = await res.text();
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.error(`run-rf-analysis non-JSON HTTP ${res.status}: ${text.slice(0, 500)}`);
+      return Response.json({ error: `RF analysis returned non-JSON: ${res.status}`, detail: text.slice(0, 300) }, { status: 502 });
+    }
+
+    if (!res.ok && !data?.airport && !data?.tower && !data?.rf) {
       console.error(`run-rf-analysis HTTP ${res.status}: ${text.slice(0, 500)}`);
       return Response.json({ error: `RF analysis failed: ${res.status}`, detail: text.slice(0, 300) }, { status: 502 });
     }
-
-    const data = await res.json();
     console.log(
       `[runRFAnalysis] user=${user.email} (${lat},${lon}) r=${radius_miles}mi → ` +
       `airport=${data?.airport?.call_letters || "—"} tower=${data?.tower?.call_letters || "—"} ` +
