@@ -7,6 +7,7 @@ import SCIPCoverPage from "../components/scip/SCIPCoverPage";
 import SCIPPage1 from "../components/scip/SCIPPage1";
 import Section1 from "../components/scip/section1/Section1";
 import Section2 from "../components/scip/section2/Section2";
+import Section3 from "../components/scip/section3/Section3";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
@@ -148,6 +149,14 @@ export default function SCIPPreview() {
       {/* SECTION 2 — Zoning Overview + Tower Specifics + Building Permits for Target One.
           Pulls from Notion Master Zoning DB with Oxylabs fallback. */}
       <Section2 targetOne={section1State.targets?.[0]} />
+
+      {/* SECTION 3 — Infrastructure: Mapbox map (power + fiber toggles, zoom, Target A
+          tower icon, utility contact sidebar) + N/E/S/W conical viewsheds. */}
+      <Section3
+        centerLat={section1State.acquisition?.latitude}
+        centerLon={section1State.acquisition?.longitude}
+        targetOne={section1State.targets?.[0]}
+      />
 
       {/* Sections */}
       <div className="space-y-3">
