@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { Compass, Lock, Search } from "lucide-react";
+import { Compass, Lock, Search, Ruler, Wand2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import TowerPlacementPanel from "@/components/tower/TowerPlacementPanel";
+import SiteVisualizationPanel from "@/components/tower/visualize/SiteVisualizationPanel";
 
 const ALLOWED_TIERS = ["hawkeye_20", "hawkeye_apex"];
 
@@ -117,7 +119,32 @@ export default function TowerPlacement() {
       </div>
 
       {selectedParcel && (
-        <TowerPlacementPanel parcel={selectedParcel} />
+        <Tabs defaultValue="visualize" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="visualize" className="gap-1.5">
+              <Wand2 className="w-3.5 h-3.5" /> Site Visualization
+            </TabsTrigger>
+            <TabsTrigger value="math" className="gap-1.5">
+              <Ruler className="w-3.5 h-3.5" /> Setback &amp; Fall-Zone
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="visualize" className="mt-4">
+            <SiteVisualizationPanel initialParcel={selectedParcel} />
+          </TabsContent>
+          <TabsContent value="math" className="mt-4">
+            <TowerPlacementPanel parcel={selectedParcel} />
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {/* Also allow running visualization without a saved scan */}
+      {!selectedParcel && searches.length > 0 && (
+        <div className="rounded-xl border border-dashed border-border p-4 text-center">
+          <p className="text-xs text-muted-foreground">Pick a parcel above, or run a visualization on any address below.</p>
+        </div>
+      )}
+      {!selectedParcel && (
+        <SiteVisualizationPanel initialParcel={null} />
       )}
     </div>
   );

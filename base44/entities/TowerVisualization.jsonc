@@ -1,0 +1,149 @@
+{
+  "name": "TowerVisualization",
+  "type": "object",
+  "description": "GenerateSiteVisualization run \u2014 stores Realie parcel metadata, Notion-derived zoning compliance flags, the user's clicked compound center, and the final Replicate-rendered visualization image URLs for landowner presentations.",
+  "properties": {
+    "parcel_id": {
+      "type": "string",
+      "description": "Linked SearchResult.id if originated from a saved scan parcel (optional)."
+    },
+    "property_address": {
+      "type": "string",
+      "description": "Property address the user submitted / Realie resolved."
+    },
+    "realie_parcel_id": {
+      "type": "string",
+      "description": "Official APN / parcel number from Realie."
+    },
+    "realie_owner_name": {
+      "type": "string"
+    },
+    "realie_acreage": {
+      "type": "number"
+    },
+    "realie_zoning_classification": {
+      "type": "string",
+      "description": "Baseline zoning string returned by Realie (e.g. 'A-1', 'R-1', 'C-2')."
+    },
+    "realie_parcel_geometry": {
+      "type": "object",
+      "description": "GeoJSON Polygon/MultiPolygon of the parcel boundary."
+    },
+    "realie_centroid_lat": {
+      "type": "number"
+    },
+    "realie_centroid_lon": {
+      "type": "number"
+    },
+    "notion_jurisdiction": {
+      "type": "string",
+      "description": "Jurisdiction matched in the Notion master zoning DB."
+    },
+    "requires_cup": {
+      "type": "boolean",
+      "description": "True if the ordinance requires a Conditional Use Permit for towers in this zoning class."
+    },
+    "requires_pe_letter": {
+      "type": "boolean",
+      "description": "True if a Professional Engineer structural letter is mandatory."
+    },
+    "zoning_flag_evidence": {
+      "type": "string",
+      "description": "Short LLM-quoted evidence (with section reference) explaining how the CUP / PE flags were determined."
+    },
+    "compound_size": {
+      "type": "string",
+      "description": "Compound dimensions as entered \u2014 e.g. '100x100'."
+    },
+    "compound_width_ft": {
+      "type": "number"
+    },
+    "compound_depth_ft": {
+      "type": "number"
+    },
+    "tower_height": {
+      "type": "string",
+      "description": "Tower height + type as entered \u2014 e.g. '199 monopole'."
+    },
+    "clicked_lat": {
+      "type": "number",
+      "description": "Latitude where the user dropped the compound center on the Mapbox map."
+    },
+    "clicked_lon": {
+      "type": "number",
+      "description": "Longitude where the user dropped the compound center on the Mapbox map."
+    },
+    "source_image_url": {
+      "type": "string",
+      "description": "URL of the user-uploaded base aerial / drone photo."
+    },
+    "render_image_urls": {
+      "type": "array",
+      "description": "Final Replicate Flux.1 Inpaint output URLs (one or more angles).",
+      "items": {
+        "type": "string"
+      }
+    },
+    "replicate_prediction_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "analyzing",
+        "rendering",
+        "completed",
+        "failed"
+      ],
+      "default": "pending"
+    },
+    "error": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "property_address"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
