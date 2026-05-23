@@ -18,7 +18,8 @@ import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import { nearestAirport } from "@/functions/nearestAirport";
-import { Loader2, Droplets, Grid3x3, Wind, Plane } from "lucide-react";
+import { pointElevation } from "@/functions/pointElevation";
+import { Loader2, Droplets, Grid3x3, Wind, Plane, Mountain } from "lucide-react";
 
 async function loadMapboxGL() {
   if (window.mapboxgl) return window.mapboxgl;
@@ -69,18 +70,21 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
   const [error, setError] = useState(null);
 
   // Toggle state
-  const [layers, setLayers] = useState({ wetlands: false, parcels: false, wind: false, airport: false });
+  const [layers, setLayers] = useState({ wetlands: false, parcels: false, wind: false, airport: false, topo: false });
 
   // Per-layer loading + data
-  const [loading, setLoading] = useState({ wetlands: false, parcels: false, wind: false, airport: false });
+  const [loading, setLoading] = useState({ wetlands: false, parcels: false, wind: false, airport: false, topo: false });
   const [parcels, setParcels] = useState([]);
   const [wind, setWind] = useState(null);
   const [airport, setAirport] = useState(null);
+  const [siteElevation, setSiteElevation] = useState(null);
 
   // Marker refs (so we can hide/show without re-fetching)
   const parcelMarkersRef = useRef([]);
   const airportMarkerRef = useRef(null);
   const windMarkerRef = useRef(null);
+  const elevationMarkersRef = useRef([]);
+  const topoClickHandlerRef = useRef(null);
 
   // ---------- Init the map once ----------
   useEffect(() => {
@@ -132,6 +136,22 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
               .addTo(map);
           }
 
+          // Pre-register USGS topo contours raster (3DEP via The National Map WMS)
+          map.addSource("usgs-contours", {
+            type: "raster",
+            tiles: [
+              "https://basemap.nationalmap.gov/arcgis/services/USGSTopo/MapServer/WmsServer?service=WMS&request=GetMap&layers=0&styles=&format=image/png&transparent=true&version=1.1.1&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=512&height=512",
+            ],
+            tileSize: 512,
+          });
+          map.addLayer({
+            id: "usgs-contours-layer",
+            type: "raster",
+            source: "usgs-contours",
+            paint: { "raster-opacity": 0.65 },
+            layout: { visibility: "none" },
+          });
+
           // Pre-register empty Wetlands raster source/layer so toggle just flips visibility
           map.addSource("nwi-wetlands", {
             type: "raster",
@@ -169,6 +189,88 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
       m.setLayoutProperty("nwi-wetlands-layer", "visibility", layers.wetlands ? "visible" : "none");
     }
   }, [layers.wetlands, ready]);
+
+  // ---------- Topo toggle: USGS contours + site AMSL probe + click-to-probe ----------
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !ready || !window.mapboxgl) return;
+
+    // Flip contour raster visibility
+    if (m.getLayer("usgs-contours-layer")) {
+      m.setLayoutProperty("usgs-contours-layer", "visibility", layers.topo ? "visible" : "none");
+    }
+
+    // Detach old click handler if any
+    if (topoClickHandlerRef.current) {
+      m.off("click", topoClickHandlerRef.current);
+      topoClickHandlerRef.current = null;
+    }
+
+    if (!layers.topo) {
+      // Clean up probe markers
+      elevationMarkersRef.current.forEach((mk) => mk.remove());
+      elevationMarkersRef.current = [];
+      m.getCanvas().style.cursor = "";
+      return;
+    }
+
+    m.getCanvas().style.cursor = "crosshair";
+
+    // Auto-probe the site center once
+    if (siteElevation == null && !loading.topo) {
+      const lat = parseFloat(centerLat);
+      const lon = parseFloat(centerLon);
+      if (isFinite(lat) && isFinite(lon)) {
+        setLoading((p) => ({ ...p, topo: true }));
+        pointElevation({ lat, lon })
+          .then((res) => {
+            const data = res?.data || res;
+            const ft = data?.elevation_ft;
+            setSiteElevation(ft);
+            // Drop a labeled marker at the site
+            const el = document.createElement("div");
+            el.style.cssText =
+              "background:#7c3aed;color:#fff;border:1.5px solid #fff;border-radius:4px;padding:2px 6px;font:bold 10px/1 ui-monospace,monospace;white-space:nowrap;transform:translate(-50%,-150%);box-shadow:0 2px 4px rgba(0,0,0,.5);";
+            el.textContent = ft != null ? `${ft} ft AMSL` : "elev —";
+            const mk = new window.mapboxgl.Marker({ element: el, anchor: "center" })
+              .setLngLat([lon, lat])
+              .addTo(m);
+            elevationMarkersRef.current.push(mk);
+          })
+          .finally(() => setLoading((p) => ({ ...p, topo: false })));
+      }
+    }
+
+    // Click-to-probe handler
+    const handler = async (e) => {
+      const { lng, lat } = e.lngLat;
+      const el = document.createElement("div");
+      el.style.cssText =
+        "background:#7c3aed;color:#fff;border:1.5px solid #fff;border-radius:4px;padding:2px 6px;font:bold 10px/1 ui-monospace,monospace;white-space:nowrap;transform:translate(-50%,-150%);box-shadow:0 2px 4px rgba(0,0,0,.5);";
+      el.textContent = "…";
+      const mk = new window.mapboxgl.Marker({ element: el, anchor: "center" })
+        .setLngLat([lng, lat])
+        .addTo(m);
+      elevationMarkersRef.current.push(mk);
+      try {
+        const res = await pointElevation({ lat, lon: lng });
+        const ft = (res?.data || res)?.elevation_ft;
+        el.textContent = ft != null ? `${ft} ft AMSL` : "no data";
+      } catch {
+        el.textContent = "error";
+      }
+    };
+    m.on("click", handler);
+    topoClickHandlerRef.current = handler;
+
+    return () => {
+      if (topoClickHandlerRef.current) {
+        m.off("click", topoClickHandlerRef.current);
+        topoClickHandlerRef.current = null;
+      }
+      m.getCanvas().style.cursor = "";
+    };
+  }, [layers.topo, ready, centerLat, centerLon, siteElevation, loading.topo]);
 
   // ---------- Parcels: fetch on first toggle-on, then show/hide markers ----------
   async function fetchParcels() {
@@ -440,9 +542,10 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
           <TogglePill k="parcels"  label="PARCELS"  icon={Grid3x3} activeColor="#d97706" />
           <TogglePill k="wind"     label="WIND"     icon={Wind} activeColor={windColor(wind?.wind_speed_mph)} />
           <TogglePill k="airport"  label="AIRPORT"  icon={Plane} activeColor="#facc15" />
+          <TogglePill k="topo"     label="TOPO"     icon={Mountain} activeColor="#7c3aed" />
         </div>
         <div className="text-[10px] font-mono text-muted-foreground tracking-wider">
-          USFWS · Realie · ASCE 7-22 · FAA
+          USFWS · Realie · ASCE 7-22 · FAA · USGS 3DEP
         </div>
       </div>
 
@@ -458,7 +561,12 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
         {windCaption && <span style={{ color: windColor(wind?.wind_speed_mph) }}>💨 {windCaption}</span>}
         {airportCaption && <span className="text-yellow-700">✈ {airportCaption}</span>}
         {layers.wetlands && <span className="text-cyan-700">💧 USFWS NWI overlay active</span>}
-        {!layers.wetlands && !layers.parcels && !layers.wind && !layers.airport && (
+        {layers.topo && (
+          <span className="text-purple-700">
+            ⛰ {siteElevation != null ? `Site ${siteElevation} ft AMSL · ` : ""}click map to probe elevation
+          </span>
+        )}
+        {!layers.wetlands && !layers.parcels && !layers.wind && !layers.airport && !layers.topo && (
           <span>Toggle a layer above to begin</span>
         )}
       </div>
