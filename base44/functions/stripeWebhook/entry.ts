@@ -20,6 +20,91 @@ function parseAddress(raw) {
   return { line1, city, state, zip };
 }
 
+async function fulfillSingleProposition(meta, base44) {
+  const { draft_key, user_email } = meta;
+  if (!draft_key || !user_email) throw new Error("Missing draft_key or user_email on single_proposition metadata");
+
+  // Pull draft back off the user record (we stashed it during checkout creation)
+  const users = await base44.asServiceRole.entities.User.filter({ email: user_email });
+  if (!users.length) throw new Error(`User ${user_email} not found`);
+  const u = users[0];
+  const drafts = u.pending_propositions || {};
+  const draft = drafts[draft_key];
+  if (!draft) throw new Error(`Draft ${draft_key} not found on user ${user_email}`);
+
+  const {
+    letter_body, owner_name, mailing_address, parcel_address,
+    sender_company, sender_address, sender_phone, sender_email, tonality,
+  } = draft;
+
+  const toAddr = parseAddress(mailing_address);
+  if (!toAddr) throw new Error(`Could not parse recipient address: ${mailing_address}`);
+  const fromAddr = parseAddress(sender_address) || { line1: "100 SkyWave HQ", city: "Miami", state: "FL", zip: "33101" };
+  const senderName = sender_company || user_email || "SiteHawk";
+
+  const contactLine = [
+    sender_phone ? `Phone: ${sender_phone}` : null,
+    sender_email ? `Email: ${sender_email}` : null,
+  ].filter(Boolean).join(" &nbsp;·&nbsp; ");
+
+  const html = `<html><body style="font-family:Georgia,serif;font-size:12.5px;line-height:1.7;padding:0.85in 0.9in;max-width:7.2in;color:#111;">
+    <div style="margin-bottom:24px;">
+      <div style="font-weight:bold;font-size:14px;">${senderName}</div>
+      ${sender_address ? `<div style="font-size:11px;color:#444;">${sender_address}</div>` : ""}
+      ${contactLine ? `<div style="font-size:11px;color:#444;">${contactLine}</div>` : ""}
+    </div>
+    <div style="margin-bottom:22px;font-size:11px;color:#555;">${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</div>
+    <div style="margin-bottom:22px;">
+      <div style="font-weight:bold;">${owner_name || "Property Owner"}</div>
+      <div>${mailing_address}</div>
+    </div>
+    ${parcel_address ? `<div style="margin-bottom:18px;"><strong>Re:</strong> Ground Lease Opportunity — ${parcel_address}</div>` : ""}
+    <div style="margin-bottom:18px;">Dear ${owner_name || "Property Owner"},</div>
+    <div style="white-space:pre-wrap;">${letter_body.replace(/</g, "&lt;").replace(/\n/g, "<br/>")}</div>
+    <div style="margin-top:28px;">Sincerely,</div>
+    <div style="margin-top:42px;font-weight:bold;">${senderName}</div>
+  </body></html>`;
+
+  const lobPayload = {
+    description: `Single-proposition letter (${tonality}) — ${owner_name}`,
+    to: {
+      name: owner_name || "Property Owner",
+      address_line1: toAddr.line1,
+      address_city: toAddr.city,
+      address_state: toAddr.state,
+      address_zip: toAddr.zip,
+      address_country: "US",
+    },
+    from: {
+      name: senderName,
+      address_line1: fromAddr.line1,
+      address_city: fromAddr.city,
+      address_state: fromAddr.state,
+      address_zip: fromAddr.zip,
+      address_country: "US",
+    },
+    file: html,
+    color: false,
+  };
+
+  const res = await fetch("https://api.lob.com/v1/letters", {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${btoa(LOB_API_KEY + ":")}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(lobPayload),
+  });
+  const result = await res.json();
+  if (!res.ok) throw new Error(`Lob single-proposition failed: ${JSON.stringify(result)}`);
+  console.log(`Single-proposition letter mailed: ${owner_name} → Lob ID ${result.id}, ETA ${result.expected_delivery_date}`);
+
+  // Clean up the stashed draft
+  const remaining = { ...drafts };
+  delete remaining[draft_key];
+  await base44.asServiceRole.entities.User.update(u.id, { pending_propositions: remaining });
+}
+
 async function fulfillDirectMail(meta) {
   const {
     letters, owner_name, mailing_address, parcel_address,
@@ -134,6 +219,16 @@ Deno.serve(async (req) => {
             await fulfillDirectMail(session.metadata);
           } catch (lobErr) {
             console.error('Lob fulfillment error:', lobErr.message);
+          }
+          break;
+        }
+
+        // ── Single-Landlord Proposition Letter via Lob ──
+        if (type === 'single_proposition') {
+          try {
+            await fulfillSingleProposition(session.metadata, base44);
+          } catch (lobErr) {
+            console.error('Single-proposition fulfillment error:', lobErr.message);
           }
           break;
         }

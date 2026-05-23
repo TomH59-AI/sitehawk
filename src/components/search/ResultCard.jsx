@@ -1,5 +1,6 @@
 import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff, Radio, FileText, Mountain } from "lucide-react";
 import SkipTraceButton from "./SkipTraceButton";
+import SendPropositionButton from "./SendPropositionButton";
 import { Badge } from "@/components/ui/badge";
 import CRMPanel from "@/components/crm/CRMPanel";
 import TowerPlacementButton from "@/components/tower/TowerPlacementButton";
@@ -184,6 +185,7 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
           result={skipTraceResult}
           onResult={onSkipTraceResult}
         />
+        <SendPropositionButton candidate={result} searchId={searchId} />
       </div>
 
       <CRMPanel result={result} searchId={searchId} />

@@ -42,6 +42,10 @@
       "type": "boolean",
       "description": "Whether the user has used their one free skip trace included with the trial",
       "default": false
+    },
+    "pending_propositions": {
+      "type": "object",
+      "description": "Keyed map of in-flight single-landlord proposition letter drafts awaiting Stripe payment. Cleared after Lob fulfillment."
     }
   },
   "required": [
