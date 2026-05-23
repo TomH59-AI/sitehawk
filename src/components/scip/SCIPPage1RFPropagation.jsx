@@ -103,37 +103,100 @@ export default function SCIPPage1RFPropagation({ page1Values, siteOwner }) {
   const [composite, setComposite] = useState(null);
   const [sectors, setSectors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [compositeLoading, setCompositeLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const updateParam = (k, v) => setParams((p) => ({ ...p, [k]: v }));
   const updateMetric = (k, v) => setMetrics((m) => ({ ...m, [k]: v }));
 
-  async function runAnalysis() {
+  // Resolve the inputs we need from the form context above. Returns null and
+  // sets an error if lat/lon aren't usable yet.
+  function resolveInputs() {
     const lat = parseFloat(siteOwner?.site?.latitude || page1Values?.latitude);
     const lon = parseFloat(siteOwner?.site?.longitude || page1Values?.longitude);
     const height = parseFloat(String(page1Values?.sarf_height || "").replace(/[^0-9.]/g, "")) || 199;
     const siteName = page1Values?.site_name || siteOwner?.site?.parcel_id || "SiteHawk Candidate";
-
     if (!isFinite(lat) || !isFinite(lon)) {
       setError("Enter Latitude / Longitude (or run Find Best Parcel) first.");
-      return;
+      return null;
     }
+    return { lat, lon, height, siteName };
+  }
+
+  // Pre-fill the parameter table from the inputs above so the table reflects
+  // whatever the user is about to send to CloudRF.
+  function syncParamsTable({ lat, lon, height, siteName }) {
+    setParams((p) => ({
+      ...p,
+      site_name: siteName,
+      center_lat: lat.toFixed(6),
+      center_lon: lon.toFixed(6),
+      rad_center_agl: String(height),
+      tower_height_agl: String(height),
+      analysis_date: new Date().toISOString().slice(0, 10),
+    }));
+  }
+
+  // Derive the coverage metrics block from a CloudRF composite response.
+  function deriveMetricsFromComposite(compData) {
+    const areaSqKm = compData?.area_covered_sq_km || 0;
+    const areaSqMi = areaSqKm * 0.386102;
+    const maxRangeKm = compData?.max_range_km || 0;
+    const maxRangeMi = maxRangeKm * 0.621371;
+    const popDensity = 94; // US national avg ~94 ppl/sq mi
+    const popCovered = Math.round(areaSqMi * popDensity);
+    const householdsPassed = Math.round(popCovered / 2.5);
+    const ringMi = parseFloat(String(page1Values?.search_radius || "1").replace(/[^0-9.]/g, "")) || 1.0;
+    const ringSqMi = Math.PI * ringMi * ringMi;
+    const vsRingPct = ringSqMi > 0 ? Math.min(100, (areaSqMi / ringSqMi) * 100) : 0;
+
+    setMetrics({
+      coverage_area_sq_mi: areaSqMi ? areaSqMi.toFixed(2) : "",
+      population_covered: popCovered ? popCovered.toLocaleString() : "",
+      max_range_mi: maxRangeMi ? maxRangeMi.toFixed(2) : "",
+      best_server_pct: "92",
+      mean_rsrp_dbm: "-88",
+      edge_rsrp_dbm: "-100",
+      households_passed: householdsPassed ? householdsPassed.toLocaleString() : "",
+      vs_search_ring_pct: vsRingPct ? vsRingPct.toFixed(1) : "",
+    });
+  }
+
+  // Composite-only run — used by the section's own button so the user can
+  // populate just the composite footprint without firing the 4 sector calls.
+  async function runComposite() {
+    const inputs = resolveInputs();
+    if (!inputs) return;
+    setCompositeLoading(true);
+    setError(null);
+    try {
+      syncParamsTable(inputs);
+      const comp = await cloudRFCoverage({
+        lat: inputs.lat, lon: inputs.lon,
+        height_ft: inputs.height, radius_mi: 5,
+        site_name: `${inputs.siteName} — Composite`,
+      });
+      const compData = comp?.data || comp;
+      setComposite(compData);
+      deriveMetricsFromComposite(compData);
+    } catch (e) {
+      setError(e.message || "CloudRF composite request failed");
+    } finally {
+      setCompositeLoading(false);
+    }
+  }
+
+  // Full run — composite + 4 directional sectors in parallel (unchanged behavior).
+  async function runAnalysis() {
+    const inputs = resolveInputs();
+    if (!inputs) return;
+    const { lat, lon, height, siteName } = inputs;
 
     setLoading(true);
     setError(null);
     try {
-      // Pre-fill parameter table from the inputs above
-      setParams((p) => ({
-        ...p,
-        site_name: siteName,
-        center_lat: lat.toFixed(6),
-        center_lon: lon.toFixed(6),
-        rad_center_agl: String(height),
-        tower_height_agl: String(height),
-        analysis_date: new Date().toISOString().slice(0, 10),
-      }));
+      syncParamsTable(inputs);
 
-      // 1 composite (omni) + 4 sectors in parallel
       const [comp, ...sec] = await Promise.all([
         cloudRFCoverage({ lat, lon, height_ft: height, radius_mi: 5, site_name: `${siteName} — Composite` }),
         ...SECTORS.map((s) =>
@@ -148,30 +211,7 @@ export default function SCIPPage1RFPropagation({ page1Values, siteOwner }) {
       sec.forEach((r, i) => { secMap[SECTORS[i].key] = r?.data || r; });
       setSectors(secMap);
 
-      // Derive metrics from composite
-      const areaSqKm = compData?.area_covered_sq_km || 0;
-      const areaSqMi = areaSqKm * 0.386102;
-      const maxRangeKm = compData?.max_range_km || 0;
-      const maxRangeMi = maxRangeKm * 0.621371;
-      // Rough population density — US national avg ~94 ppl/sq mi (can be refined later)
-      const popDensity = 94;
-      const popCovered = Math.round(areaSqMi * popDensity);
-      const householdsPassed = Math.round(popCovered / 2.5);
-      // Search ring area for coverage-vs-ring
-      const ringMi = parseFloat(String(page1Values?.search_radius || "1").replace(/[^0-9.]/g, "")) || 1.0;
-      const ringSqMi = Math.PI * ringMi * ringMi;
-      const vsRingPct = ringSqMi > 0 ? Math.min(100, (areaSqMi / ringSqMi) * 100) : 0;
-
-      setMetrics({
-        coverage_area_sq_mi: areaSqMi ? areaSqMi.toFixed(2) : "",
-        population_covered: popCovered ? popCovered.toLocaleString() : "",
-        max_range_mi: maxRangeMi ? maxRangeMi.toFixed(2) : "",
-        best_server_pct: "92",
-        mean_rsrp_dbm: "-88",
-        edge_rsrp_dbm: "-100",
-        households_passed: householdsPassed ? householdsPassed.toLocaleString() : "",
-        vs_search_ring_pct: vsRingPct ? vsRingPct.toFixed(1) : "",
-      });
+      deriveMetricsFromComposite(compData);
     } catch (e) {
       setError(e.message || "CloudRF analysis failed");
     } finally {
@@ -214,7 +254,20 @@ export default function SCIPPage1RFPropagation({ page1Values, siteOwner }) {
       <Row label="Analysis Date" value={params.analysis_date} onChange={(v) => updateParam("analysis_date", v)} />
 
       {/* COMPOSITE FOOTPRINT */}
-      <SectionHeader>Composite Coverage Footprint (SiteHawk → CloudRF)</SectionHeader>
+      <SectionHeader
+        action={
+          <button
+            onClick={runComposite}
+            disabled={compositeLoading || loading}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-bold tracking-wider bg-cyan-500 text-[#0C1B2E] hover:bg-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {compositeLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Radio className="w-3 h-3" />}
+            {compositeLoading ? "Pulling…" : composite ? "Re-pull from CloudRF" : "Pull Composite from CloudRF"}
+          </button>
+        }
+      >
+        Composite Coverage Footprint (SiteHawk → CloudRF)
+      </SectionHeader>
       <div className="px-3 py-2 text-[11px] text-muted-foreground bg-muted/20 border-b border-border italic">
         Image auto-populated by SiteHawk from the CloudRF area-coverage API.
       </div>
@@ -222,13 +275,13 @@ export default function SCIPPage1RFPropagation({ page1Values, siteOwner }) {
         <div className="relative rounded overflow-hidden border border-border bg-[#0a0e17]" style={{ aspectRatio: "16/10" }}>
           {composite?.png_url ? (
             <img src={composite.png_url} alt="CloudRF composite coverage" crossOrigin="anonymous" className="absolute inset-0 w-full h-full" style={{ objectFit: "contain" }} />
-          ) : loading ? (
+          ) : (loading || compositeLoading) ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
             </div>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-400">
-              Click "Run RF Analysis" to generate composite RF heatmap
+              Click "Pull Composite from CloudRF" to generate the RF heatmap
             </div>
           )}
           {composite && (
