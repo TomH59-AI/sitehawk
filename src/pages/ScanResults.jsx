@@ -5,6 +5,7 @@ import ScanResultsSidebar from "../components/scan/ScanResultsSidebar";
 import ScanResultsMap from "../components/scan/ScanResultsMap";
 import HeadlineSatelliteMap from "../components/scan/HeadlineSatelliteMap";
 import HeadlineMapErrorBoundary from "../components/scan/HeadlineMapErrorBoundary";
+import HeadlineMapSidebar from "../components/scan/HeadlineMapSidebar";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { applyFiltersAndSort } from "../components/scan/ResultsFilterSort";
 import { FEATURE_LEAFLET_MAP } from "@/lib/featureFlags";
@@ -88,15 +89,22 @@ export default function ScanResults() {
         .font-rajdhani { font-family: 'Rajdhani', sans-serif; }
       `}</style>
 
-      {/* HEADLINE Mapbox GL JS satellite map — full-width, top of page */}
-      <div className="w-full h-[300px] md:h-[480px] flex-shrink-0 border-b border-[#1e293b]">
-        <HeadlineMapErrorBoundary>
-          <HeadlineSatelliteMap
-            results={shown}
-            searchCenter={searchCenter}
-            onCandidateClick={handleSelectCandidate}
-          />
-        </HeadlineMapErrorBoundary>
+      {/* HEADLINE Mapbox GL JS satellite map + parcel info sidebar */}
+      <div className="w-full flex flex-col md:flex-row h-auto md:h-[480px] flex-shrink-0 border-b border-[#1e293b]">
+        <div className="flex-1 h-[300px] md:h-full">
+          <HeadlineMapErrorBoundary>
+            <HeadlineSatelliteMap
+              results={shown}
+              searchCenter={searchCenter}
+              onCandidateClick={handleSelectCandidate}
+            />
+          </HeadlineMapErrorBoundary>
+        </div>
+        <HeadlineMapSidebar
+          searchCenter={searchCenter}
+          candidate={selectedIndex != null ? shown[selectedIndex] : shown?.[0]}
+          rank={selectedIndex != null ? selectedIndex + 1 : (shown?.[0] ? 1 : null)}
+        />
       </div>
 
       {/* Working area — Leaflet map (feature-flagged) + sidebar */}
