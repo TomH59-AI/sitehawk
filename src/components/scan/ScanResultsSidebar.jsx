@@ -10,6 +10,7 @@ import ResultsFilterSort from "./ResultsFilterSort";
 import FreeTrialUpsellBanner from "./FreeTrialUpsellBanner";
 import TelecomOrdinanceSummary from "./TelecomOrdinanceSummary";
 import ZoningSummaryCard from "./ZoningSummaryCard";
+import HawkMailersEngagement from "./HawkMailersEngagement";
 
 // Pick the single best candidate for SCIP generation.
 // Priority: must have valid zoning_classification, then highest match_score.
@@ -160,6 +161,7 @@ export default function ScanResultsSidebar({
       {/* Candidate list */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", scrollbarWidth: "thin", scrollbarColor: "#1e293b #0a0e17" }}>
         <FreeTrialUpsellBanner userTier={userTier} freeTrialUsed={freeTrialUsed} />
+        <HawkMailersEngagement />
         {/* Zoning + planning contact summary — pulled directly from notionZoningLookup */}
         <ZoningSummaryCard
           searchCenter={searchCenter}
