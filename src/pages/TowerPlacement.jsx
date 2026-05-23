@@ -16,6 +16,7 @@ export default function TowerPlacement() {
   const [results, setResults] = useState([]);
   const [selectedSearchId, setSelectedSearchId] = useState("");
   const [selectedParcelId, setSelectedParcelId] = useState("");
+  const [launched, setLaunched] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -31,12 +32,16 @@ export default function TowerPlacement() {
   }, []);
 
   useEffect(() => {
-    if (!selectedSearchId) { setResults([]); setSelectedParcelId(""); return; }
+    if (!selectedSearchId) { setResults([]); setSelectedParcelId(""); setLaunched(false); return; }
     base44.entities.SearchResult.filter({ search_id: selectedSearchId }, "-match_score", 20).then(r => {
       setResults(r);
       if (r.length) setSelectedParcelId(r[0].id);
+      setLaunched(false);
     });
   }, [selectedSearchId]);
+
+  // Reset the launch state any time the user changes their target selection
+  useEffect(() => { setLaunched(false); }, [selectedParcelId]);
 
   if (loading) {
     return (
@@ -118,7 +123,26 @@ export default function TowerPlacement() {
         )}
       </div>
 
-      {selectedParcel && (
+      {/* Launch gate — target selected but user hasn't started yet */}
+      {selectedParcel && !launched && (
+        <div className="rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 p-6 text-center space-y-3">
+          <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">Target Locked</div>
+          <h3 className="font-heading font-bold text-lg text-foreground">
+            {selectedParcel.site_name || selectedParcel.parcel_address || `Parcel ${selectedParcel.parcel_id}`}
+          </h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            Ready to generate the photoreal site visualization, zoning checklist, and fall-zone math for this target.
+          </p>
+          <button
+            onClick={() => setLaunched(true)}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground font-semibold text-sm shadow-lg hover:bg-primary/90 transition"
+          >
+            <Compass className="w-4 h-4" /> Run Hawk Tower Placement
+          </button>
+        </div>
+      )}
+
+      {selectedParcel && launched && (
         <Tabs defaultValue="visualize" className="w-full">
           <TabsList className="grid w-full grid-cols-2 max-w-md">
             <TabsTrigger value="visualize" className="gap-1.5">
@@ -135,16 +159,6 @@ export default function TowerPlacement() {
             <TowerPlacementPanel parcel={selectedParcel} />
           </TabsContent>
         </Tabs>
-      )}
-
-      {/* Also allow running visualization without a saved scan */}
-      {!selectedParcel && searches.length > 0 && (
-        <div className="rounded-xl border border-dashed border-border p-4 text-center">
-          <p className="text-xs text-muted-foreground">Pick a parcel above, or run a visualization on any address below.</p>
-        </div>
-      )}
-      {!selectedParcel && (
-        <SiteVisualizationPanel initialParcel={null} />
       )}
     </div>
   );
