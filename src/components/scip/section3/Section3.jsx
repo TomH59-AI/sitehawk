@@ -16,7 +16,8 @@ import Section1Shell from "../section1/Section1Shell";
 import InfrastructureMap from "./InfrastructureMap";
 import InfrastructureSidebar from "./InfrastructureSidebar";
 import ViewshedQuadGrid from "./ViewshedQuadGrid";
-import { Network, Compass } from "lucide-react";
+import SCIPOverlayMap from "./SCIPOverlayMap";
+import { Network, Compass, Layers } from "lucide-react";
 
 export default function Section3({ centerLat, centerLon, targetOne }) {
   const targetLat = targetOne?.latitude;
@@ -51,6 +52,21 @@ export default function Section3({ centerLat, centerLon, targetOne }) {
       {/* 3.2 Conical viewsheds */}
       <Section1Shell step={10} title="Tree-Line Viewsheds — N / E / S / W" subtitle="Mapbox satellite · transparent conical RF beams · downloadable PNGs" icon={Compass}>
         <ViewshedQuadGrid targetLat={targetLat} targetLon={targetLon} />
+      </Section1Shell>
+
+      {/* 3.3 Multi-overlay toggle map — Wetlands · Parcels · Wind · Airport */}
+      <Section1Shell
+        step={11}
+        title="Overlay Map — Wetlands · Parcels · Wind · Airport"
+        subtitle="Toggle any layer · USFWS water overlay · APN labels · directional wind arrow · plane icon with crow-flies distance"
+        icon={Layers}
+      >
+        <SCIPOverlayMap
+          centerLat={centerLat}
+          centerLon={centerLon}
+          targetLat={targetLat}
+          targetLon={targetLon}
+        />
       </Section1Shell>
     </div>
   );
