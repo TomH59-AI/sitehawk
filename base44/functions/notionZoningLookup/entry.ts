@@ -166,13 +166,25 @@ function extractSourceUrl(text) {
   return urlMatch[0].replace(/[.,)\]]+$/, "");
 }
 
-// Heuristic: a parse result is "thin" if all four critical fields are empty.
-// When the LLM gave up on the live URL (paywall / JS SPA / geo-block), we fall
-// back to Oxylabs to get rendered HTML and re-parse.
+// Heuristic: a parse result is "thin" if 3+ of the 8 critical SCIP fields are
+// empty. Earlier version required ALL critical fields blank — which meant a
+// partially-filled response (e.g. has process + jurisdiction but missing fees,
+// phone, address) would skip Oxylabs and leave the SCIP useless. SCIPs need
+// every row filled, so we run the Oxylabs fallback much more aggressively.
 function isThinParse(parsed) {
   if (!parsed) return true;
-  const critical = ['zoning_fees', 'zoning_approval_timeframe', 'max_tower_height', 'code_section'];
-  return critical.every((k) => !parsed[k] || String(parsed[k]).trim() === '');
+  const critical = [
+    'zoning_fees',
+    'zoning_approval_timeframe',
+    'max_tower_height',
+    'code_section',
+    'zoning_department_address',
+    'zoning_department_phone',
+    'building_permit_fees',
+    'building_permit_timeframe',
+  ];
+  const empty = critical.filter((k) => !parsed[k] || String(parsed[k]).trim() === '').length;
+  return empty >= 3;
 }
 
 // Detect Municode / eCode360 / American Legal / Sterling Codifiers URLs so we
@@ -207,10 +219,16 @@ async function scrapeWithOxylabs(base44, sourceUrl, ctx) {
         `You are a telecom zoning analyst preparing a SCIP for ${juris}. ` +
         `Below is the FULL rendered text of the jurisdiction's live telecommunications-tower ordinance page ` +
         `(scraped via Oxylabs from ${sourceUrl}). Extract every field using EXACT language from the ordinance. ` +
-        `If a value is not stated, return an empty string — never guess or fabricate. Cite section numbers when possible.\n\n` +
+        `For contact info: zoning_contact is JUST the department name; put the street address in zoning_department_address, ` +
+        `phone in zoning_department_phone, email in zoning_department_email. ` +
+        `Do the same split for the building department (contact name vs address vs phone). ` +
+        `For property_current_usage: describe the typical permitted use of property with this zoning classification. ` +
+        `For fees and timeframes, quote the exact dollar amounts / day counts from the ordinance. ` +
+        `If a value is not stated, return an empty string — never guess or fabricate. Cite section numbers when possible. ` +
+        `EVERY field is required for the SCIP — be exhaustive.\n\n` +
         `ORDINANCE TEXT:\n${text}`,
       response_json_schema: ORDINANCE_SCHEMA,
-      add_context_from_internet: false,
+      add_context_from_internet: true,
       model: 'gemini_3_1_pro',
     });
     return result || null;
@@ -220,15 +238,22 @@ async function scrapeWithOxylabs(base44, sourceUrl, ctx) {
   }
 }
 
-// Shared schema used by both LLM parse paths
+// Shared schema used by both LLM parse paths. Explicit address + phone fields
+// for both the zoning AND building departments so the LLM doesn't roll them
+// into a single contact blob (which leaves Section 2 rows empty).
 const ORDINANCE_SCHEMA = {
   type: 'object',
   properties: {
-    zoning_contact: { type: 'string' },
+    // Zoning department contact — broken out explicitly
+    zoning_contact: { type: 'string', description: 'Department name only, e.g. "Orange County Zoning Division"' },
+    zoning_department_address: { type: 'string', description: 'Street address of the zoning department' },
+    zoning_department_phone: { type: 'string', description: 'Phone number of the zoning department' },
+    zoning_department_email: { type: 'string', description: 'Email of the zoning department' },
     zoning_process: { type: 'string' },
     zoning_fees: { type: 'string' },
     zoning_approval_timeframe: { type: 'string' },
     property_future_land_use: { type: 'string' },
+    property_current_usage: { type: 'string', description: 'Typical current usage allowed under this zoning (e.g. agricultural, light industrial)' },
     code_section: { type: 'string' },
     max_tower_height: { type: 'string' },
     stealth_required: { type: 'string' },
@@ -244,12 +269,16 @@ const ORDINANCE_SCHEMA = {
     site_plan_timeframe: { type: 'string' },
     site_plan_concurrent: { type: 'string' },
     site_plan_submittal_format: { type: 'string' },
+    // Building permit department contact — broken out explicitly
     building_permit_jurisdiction: { type: 'string' },
-    building_permit_contact: { type: 'string' },
+    building_permit_contact: { type: 'string', description: 'Department name only, e.g. "Orange County Building Division"' },
+    building_permit_department_address: { type: 'string', description: 'Street address of the building department' },
+    building_permit_department_phone: { type: 'string', description: 'Phone number of the building department' },
     building_permit_gc_submits: { type: 'string' },
     building_permit_fees: { type: 'string' },
     building_permit_timeframe: { type: 'string' },
     building_permit_bond_required: { type: 'string' },
+    building_permit_pe_letter_accepted: { type: 'string', description: 'Does the jurisdiction accept a PE letter in lieu of full structural review?' },
     e911_address_required: { type: 'string' },
   },
   required: [],
@@ -271,11 +300,18 @@ async function parseOrdinanceWithLLM(base44, notionStub, sourceUrl, ctx) {
     `If the source page is paywalled or unreachable, search the open web (the jurisdiction's official municode.com / ecode360 / amlegal page, ` +
     `the city/county website, or municipal PDFs) for the same code section.\n\n` +
     `Extract every field below using the EXACT language from the ordinance. ` +
-    `If a value is not stated in the ordinance, return an empty string — DO NOT GUESS or fabricate. ` +
+    `If a value is not stated in the ordinance, search the jurisdiction's official website for the missing field ` +
+    `(department contact pages, fee schedules, permitting handbooks). If still not found, return an empty string — DO NOT GUESS or fabricate. ` +
     `For timeframes, quote the exact language (e.g. "60 days", "90 days from complete submittal", "two public hearings within 120 days"). ` +
-    `For fees, quote the exact dollar amounts and any per-unit modifiers. ` +
-    `For contact info, include the department name, street address, phone, and email when present. ` +
-    `Cite the section number you're pulling each value from when possible (e.g. "Sec. 27-282.6(b)(3): 199 ft").`;
+    `For fees, quote the exact dollar amounts and any per-unit modifiers (e.g. "$1,250 base + $25 per antenna"). ` +
+    `For contact info: zoning_contact is JUST the department name; put the street address in zoning_department_address, ` +
+    `the phone number in zoning_department_phone, and the email in zoning_department_email. ` +
+    `Do the same split for the building department: building_permit_contact = department name only; ` +
+    `building_permit_department_address = street address; building_permit_department_phone = phone. ` +
+    `For property_current_usage: describe the typical permitted use of property with this zoning classification ` +
+    `(e.g. "Agricultural — single-family residential, farming, livestock"). ` +
+    `Cite the section number you're pulling each value from when possible (e.g. "Sec. 27-282.6(b)(3): 199 ft"). ` +
+    `EVERY field is required for the SCIP — leaving fields blank makes the report useless. Be exhaustive.`;
 
   try {
     const result = await base44.integrations.Core.InvokeLLM({

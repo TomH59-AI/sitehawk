@@ -116,18 +116,20 @@ export default function Section2({ targetOne }) {
   }
 
   function fillZoningOverview({ zoning, geo }) {
-    const contact = splitContact(zoning.zoning_contact);
+    // Prefer the explicit broken-out fields the LLM now returns; fall back to
+    // splitContact() only if the LLM rolled the contact info into one blob.
+    const fallback = splitContact(zoning.zoning_contact);
     setValues((p) => ({
       ...p,
       zoning_jurisdiction: zoning.jurisdiction || [geo.city, geo.county, geo.state].filter(Boolean).join(", "),
-      zoning_contact_name: contact.name,
-      zoning_department_address: contact.address,
-      zoning_department_phone: contact.phone,
+      zoning_contact_name: zoning.zoning_contact || fallback.name,
+      zoning_department_address: zoning.zoning_department_address || fallback.address,
+      zoning_department_phone: zoning.zoning_department_phone || fallback.phone,
       zoning_process: zoning.zoning_process || "",
       zoning_fees: zoning.zoning_fees || "",
       zoning_approval_timeframe: zoning.zoning_approval_timeframe || "",
       property_zoning_classification: targetOne?.zoning || zoning.code_section || "",
-      property_current_usage: targetOne?.land_use || "",
+      property_current_usage: zoning.property_current_usage || targetOne?.land_use || "",
     }));
   }
 
@@ -148,18 +150,18 @@ export default function Section2({ targetOne }) {
   }
 
   function fillBuildingPermit({ zoning }) {
-    const contact = splitContact(zoning.building_permit_contact);
+    const fallback = splitContact(zoning.building_permit_contact);
     setValues((p) => ({
       ...p,
       building_permit_jurisdiction: zoning.building_permit_jurisdiction || zoning.jurisdiction || "",
-      building_dept_contact_name: contact.name,
-      building_dept_phone: contact.phone,
-      building_dept_address: contact.address,
+      building_dept_contact_name: zoning.building_permit_contact || fallback.name,
+      building_dept_phone: zoning.building_permit_department_phone || fallback.phone,
+      building_dept_address: zoning.building_permit_department_address || fallback.address,
       gc_submits: zoning.building_permit_gc_submits || "",
       building_permit_fees: zoning.building_permit_fees || "",
       building_permit_timeframe: zoning.building_permit_timeframe || "",
       bond_required: zoning.building_permit_bond_required || "",
-      pe_letter_accepted: zoning.e911_address_required || "",
+      pe_letter_accepted: zoning.building_permit_pe_letter_accepted || zoning.e911_address_required || "",
     }));
   }
 
