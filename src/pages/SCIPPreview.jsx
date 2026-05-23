@@ -139,9 +139,13 @@ export default function SCIPPreview() {
           latitude: candidate?.latitude ?? state?.searchCenter?.lat ?? "",
           longitude: candidate?.longitude ?? state?.searchCenter?.lon ?? "",
           search_radius: state?.searchParams?.radius_miles ? `${state.searchParams.radius_miles} mi` : "1.0 mi",
-          sarf_height: state?.searchParams?.tower_height_ft ? `${state.searchParams.tower_height_ft} ft AGL` : "199 ft AGL",
-          tower_type: "Monopole",
-          compound_size: state?.searchParams?.compound_size || "10,000 SF / 100' x 100'",
+          sarf_height: state?.searchParams?.tower_height_ft
+            ? `${state.searchParams.tower_height_ft} ft AGL`
+            : (candidate?.tower_height_ft ? `${candidate.tower_height_ft} ft AGL` : "199 ft AGL"),
+          tower_type: state?.searchParams?.tower_type || "Monopole",
+          compound_size: state?.searchParams?.compound_width_ft && state?.searchParams?.compound_depth_ft
+            ? `${state.searchParams.compound_width_ft * state.searchParams.compound_depth_ft} SF / ${state.searchParams.compound_width_ft}' x ${state.searchParams.compound_depth_ft}'`
+            : (state?.searchParams?.compound_size || "10,000 SF / 100' x 100'"),
         }}
       />
 

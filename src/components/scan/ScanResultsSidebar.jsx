@@ -26,6 +26,7 @@ export default function ScanResultsSidebar({
   allResults,
   ordinance,
   searchCenter,
+  searchParams,
   selectedIndex,
   onSelectCandidate,
   onOpenChat,
@@ -48,7 +49,7 @@ export default function ScanResultsSidebar({
 
   const handleGenerateBestScip = () => {
     if (!bestCandidate) return;
-    navigate("/scip", { state: { candidate: bestCandidate, ordinance, searchCenter, allResults: allResults || results } });
+    navigate("/scip", { state: { candidate: bestCandidate, ordinance, searchCenter, allResults: allResults || results, searchParams } });
   };
 
   // Auto-scroll to selected card
@@ -173,6 +174,7 @@ export default function ScanResultsSidebar({
               onContactFound={onContactFound}
               ordinance={ordinance}
               searchCenter={searchCenter}
+              searchParams={searchParams}
             />
           </div>
         ))}

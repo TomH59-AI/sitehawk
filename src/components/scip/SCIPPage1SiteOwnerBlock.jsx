@@ -14,9 +14,50 @@
  * and the user can still hand-edit any row before exporting.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Target } from "lucide-react";
 import { findBestParcelForTower } from "@/functions/findBestParcelForTower";
+
+// Split a single-line address into street / city / state / zip.
+function splitAddress(addr) {
+  if (!addr) return { street: "", city: "", state: "", zip: "" };
+  const m = addr.match(/^(.*?),\s*([^,]+?),\s*([A-Z]{2})\s*(\d{5}(?:-\d{4})?)?$/i);
+  if (m) return { street: m[1].trim(), city: m[2].trim(), state: m[3].trim().toUpperCase(), zip: m[4] || "" };
+  return { street: addr, city: "", state: "", zip: "" };
+}
+
+// Map a SearchResult candidate to the SITE / OWNER row shapes.
+function candidateToRows(c) {
+  if (!c) return null;
+  const addr = splitAddress(c.parcel_address);
+  return {
+    site: {
+      parcel_county: c.parcel_county || "",
+      parcel_id: c.parcel_id || "",
+      owner_name_on_deed: c.owner_name || "",
+      parcel_street_address: addr.street,
+      parcel_city: addr.city,
+      parcel_state: addr.state,
+      parcel_zip: addr.zip,
+      parcel_size_acres: c.parcel_size_acres ? `${c.parcel_size_acres} ac MOL` : "",
+      latitude: c.latitude != null ? String(c.latitude) : "",
+      longitude: c.longitude != null ? String(c.longitude) : "",
+      tower_height: "",
+      parcel_dimensions: "",
+      conforming_size: "",
+      taxes_paid_to_date: "",
+      // Extra fields used by ZoningBlock
+      zoning_classification: c.zoning_classification || "",
+    },
+    owner: {
+      names: c.owner_name || "",
+      contact_person: "",
+      mailing_address: c.owner_mailing_address || "",
+      email_address: c.email || "",
+      phone_number: c.phone || "",
+    },
+  };
+}
 
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
@@ -52,12 +93,23 @@ const OWNER_DEFAULTS = {
   names: "", contact_person: "", mailing_address: "", email_address: "", phone_number: "",
 };
 
-export default function SCIPPage1SiteOwnerBlock({ page1Values, onChange }) {
+export default function SCIPPage1SiteOwnerBlock({ page1Values, candidate, onChange }) {
   const [site, setSite] = useState(SITE_DEFAULTS);
   const [owner, setOwner] = useState(OWNER_DEFAULTS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [reasoning, setReasoning] = useState(null);
+
+  // Pre-populate from the candidate the user actually selected — no extra lookup,
+  // no overwriting fields the user has manually edited.
+  useEffect(() => {
+    const rows = candidateToRows(candidate);
+    if (!rows) return;
+    setSite((prev) => ({ ...prev, ...rows.site }));
+    setOwner((prev) => ({ ...prev, ...rows.owner }));
+    onChange?.({ site: rows.site, owner: rows.owner });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidate?.id]);
 
   const updateSite = (k, v) => {
     const next = { ...site, [k]: v };

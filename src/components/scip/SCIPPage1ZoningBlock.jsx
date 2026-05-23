@@ -12,7 +12,7 @@
  * blank for the user to elaborate.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Loader2, FileSearch } from "lucide-react";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
 
@@ -104,8 +104,22 @@ export default function SCIPPage1ZoningBlock({ page1Values, siteOwner }) {
   const [values, setValues] = useState(DEFAULTS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const autoPulledRef = useRef(false);
 
   const update = (k, v) => setValues((prev) => ({ ...prev, [k]: v }));
+
+  // Auto-pull from Notion once we have valid coords. The user can still hit
+  // the "Pull from Notion" button to refresh.
+  useEffect(() => {
+    if (autoPulledRef.current) return;
+    const lat = parseFloat(siteOwner?.site?.latitude || page1Values?.latitude);
+    const lon = parseFloat(siteOwner?.site?.longitude || page1Values?.longitude);
+    if (isFinite(lat) && isFinite(lon)) {
+      autoPulledRef.current = true;
+      pullFromNotion();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [siteOwner?.site?.latitude, siteOwner?.site?.longitude, page1Values?.latitude, page1Values?.longitude]);
 
   async function pullFromNotion() {
     const lat = parseFloat(siteOwner?.site?.latitude || page1Values?.latitude);

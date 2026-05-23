@@ -80,7 +80,7 @@ function ContactSection({ contact }) {
   );
 }
 
-export default function CandidateCard({ result, rank, isSelected, userTier, contactCache, onContactFound, ordinance, searchCenter }) {
+export default function CandidateCard({ result, rank, isSelected, userTier, contactCache, onContactFound, ordinance, searchCenter, searchParams }) {
   const navigate = useNavigate();
   const color = scoreColor(result.match_score);
   const [loading, setLoading] = useState(false);
@@ -92,7 +92,7 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
 
   const handleViewSCIP = (e) => {
     e.stopPropagation();
-    navigate("/scip", { state: { candidate: result, ordinance, searchCenter } });
+    navigate("/scip", { state: { candidate: result, ordinance, searchCenter, searchParams } });
   };
 
   const handleGetContact = async (e) => {

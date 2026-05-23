@@ -155,7 +155,7 @@ export default function SCIPPage1({ initialValues = {}, onChange, candidate = nu
       <SCIPPage1SARFMap values={values} />
 
       {/* SITE INFORMATION + OWNER INFORMATION — auto-found via Notion zoning + Realie + Enformion */}
-      <SCIPPage1SiteOwnerBlock page1Values={values} onChange={(siteOwner) => {
+      <SCIPPage1SiteOwnerBlock page1Values={values} candidate={candidate} onChange={(siteOwner) => {
         setValues((prev) => ({ ...prev, _siteOwner: siteOwner }));
         onChange?.({ ...values, _siteOwner: siteOwner });
       }} />

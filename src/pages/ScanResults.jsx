@@ -53,7 +53,7 @@ export default function ScanResults() {
     );
   }
 
-  const { results, ordinance, searchCenter, searchId, usage, plan } = state;
+  const { results, ordinance, searchCenter, searchId, usage, plan, searchParams } = state;
   const shown = displayedResults ?? results;
 
   const handleContactFound = (candidateId, data) => {
@@ -119,6 +119,7 @@ export default function ScanResults() {
             allResults={results}
             ordinance={ordinance}
             searchCenter={searchCenter}
+            searchParams={searchParams}
             selectedIndex={selectedIndex}
             onSelectCandidate={handleSelectCandidate}
             onOpenChat={() => setChatOpen(true)}
