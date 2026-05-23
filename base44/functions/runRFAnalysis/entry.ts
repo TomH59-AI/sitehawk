@@ -39,11 +39,13 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
         "apikey": serviceKey,
         "Authorization": `Bearer ${serviceKey}`,
+        "x-supabase-service-role-key": serviceKey,
       },
       body: JSON.stringify({
         lat: Number(lat),
         lon: Number(lon),
         radius_miles: Number(radius_miles),
+        base44_user_id: user.id,
       }),
     });
 
