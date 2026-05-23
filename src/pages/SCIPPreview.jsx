@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPCoverPage from "../components/scip/SCIPCoverPage";
 import SCIPPage1 from "../components/scip/SCIPPage1";
+import Section1 from "../components/scip/section1/Section1";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
@@ -125,27 +126,19 @@ export default function SCIPPreview() {
         agent={agent}
       />
 
-      {/* PAGE 1 — Official SCIP template format with all SiteHawk automation
-          (SARF map · Site/Owner auto-find · Existing Conditions · Site Notes ·
-           Zoning · Maps · SCIP Maps · Candidates Summary · RF Propagation) */}
-      <SCIPPage1
-        candidate={candidate}
-        initialValues={{
+      {/* SECTION 1 — new strict hierarchy: Site Acquisition → SARF → Hawk Vision Targets → Existing Conditions → Site Notes.
+          Each section has its own Generate button on the top-right. */}
+      <Section1
+        initialAcquisition={{
           agent_name: agent.name,
-          agent_phone: agent.phone,
-          agent_email: agent.email,
-          submittal_date: new Date().toLocaleDateString("en-US"),
-          site_name: candidate?.site_name || "",
+          tower_height_ft: state?.searchParams?.tower_height_ft || (candidate?.tower_height_ft ?? "199"),
+          search_radius: state?.searchParams?.radius_miles ? String(state.searchParams.radius_miles) : "1.0",
+          compound_dimensions:
+            state?.searchParams?.compound_width_ft && state?.searchParams?.compound_depth_ft
+              ? `${state.searchParams.compound_width_ft}' x ${state.searchParams.compound_depth_ft}' (${state.searchParams.compound_width_ft * state.searchParams.compound_depth_ft} SF)`
+              : "100' x 100' (10,000 SF)",
           latitude: candidate?.latitude ?? state?.searchCenter?.lat ?? "",
           longitude: candidate?.longitude ?? state?.searchCenter?.lon ?? "",
-          search_radius: state?.searchParams?.radius_miles ? `${state.searchParams.radius_miles} mi` : "1.0 mi",
-          sarf_height: state?.searchParams?.tower_height_ft
-            ? `${state.searchParams.tower_height_ft} ft AGL`
-            : (candidate?.tower_height_ft ? `${candidate.tower_height_ft} ft AGL` : "199 ft AGL"),
-          tower_type: state?.searchParams?.tower_type || "Monopole",
-          compound_size: state?.searchParams?.compound_width_ft && state?.searchParams?.compound_depth_ft
-            ? `${state.searchParams.compound_width_ft * state.searchParams.compound_depth_ft} SF / ${state.searchParams.compound_width_ft}' x ${state.searchParams.compound_depth_ft}'`
-            : (state?.searchParams?.compound_size || "10,000 SF / 100' x 100'"),
         }}
       />
 
