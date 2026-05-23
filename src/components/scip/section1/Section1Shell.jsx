@@ -25,7 +25,7 @@ export default function Section1Shell({
   children,
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="rounded-xl border border-border bg-card overflow-hidden" data-scip-step={step ?? undefined}>
       <div className="px-4 py-3 bg-gradient-to-r from-[#0C1B2E] to-[#13294a] text-white flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {step != null && (

@@ -21,6 +21,7 @@ import SCIPSpectrumSection from "../components/scip/SCIPSpectrumSection";
 import SCIPExportButtons from "../components/scip/SCIPExportButtons";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import SCIPShareButton from "../components/scip/SCIPShareButton";
+import HawkInstructions from "../components/scip/HawkInstructions";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -93,7 +94,8 @@ export default function SCIPPreview() {
   }
 
   return (
-    <div id="scip-print-root" className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div id="scip-print-root" className="space-y-6 max-w-5xl mx-auto pb-12 relative">
+      <HawkInstructions />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 no-print">
         <div>
