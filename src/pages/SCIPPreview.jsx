@@ -6,6 +6,7 @@ import SCIPSection from "../components/scip/SCIPSection";
 import SCIPCoverPage from "../components/scip/SCIPCoverPage";
 import SCIPPage1 from "../components/scip/SCIPPage1";
 import Section1 from "../components/scip/section1/Section1";
+import Section2 from "../components/scip/section2/Section2";
 import SCIPMapsSection from "../components/scip/SCIPMapsSection";
 import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
@@ -29,6 +30,7 @@ export default function SCIPPreview() {
   const [scipData, setScipData] = useState(null);
   const [candidate, setCandidate] = useState(null);
   const [agent, setAgent] = useState({ name: "", phone: "", email: "" });
+  const [section1State, setSection1State] = useState({ acquisition: {}, targets: [], siteNotes: "" });
 
   useEffect(() => {
     async function init() {
@@ -140,7 +142,12 @@ export default function SCIPPreview() {
           latitude: candidate?.latitude ?? state?.searchCenter?.lat ?? "",
           longitude: candidate?.longitude ?? state?.searchCenter?.lon ?? "",
         }}
+        onChange={setSection1State}
       />
+
+      {/* SECTION 2 — Zoning Overview + Tower Specifics + Building Permits for Target One.
+          Pulls from Notion Master Zoning DB with Oxylabs fallback. */}
+      <Section2 targetOne={section1State.targets?.[0]} />
 
       {/* Sections */}
       <div className="space-y-3">
