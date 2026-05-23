@@ -24,6 +24,22 @@
     "zoning_classification": {
       "type": "string"
     },
+    "zoning_jurisdiction": {
+      "type": "string",
+      "description": "Local zoning jurisdiction (e.g. 'City of Tampa, FL' or 'Hillsborough County, FL')"
+    },
+    "zoning_contact": {
+      "type": "string",
+      "description": "Zoning department contact info \u2014 dept name, address, phone, email"
+    },
+    "zoning_process": {
+      "type": "string",
+      "description": "Approval path (e.g. Admin Review / Special Use Permit / Public Hearing)"
+    },
+    "zoning_fees": {
+      "type": "string",
+      "description": "Zoning application / approval fees as quoted by the ordinance"
+    },
     "owner_mailing_address": {
       "type": "string"
     },
