@@ -8,6 +8,7 @@
 
 import { User, Building2, Hash, Ruler, Map as MapIcon, Mail, Crosshair, Phone, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import PushToNotionButton from "./PushToNotionButton";
 
 const LABELS = ["TARGET ONE", "TARGET TWO", "TARGET THREE"];
 const ACCENTS = [
@@ -37,7 +38,7 @@ function Row({ icon: Icon, label, value, mono = true, highlight = false }) {
   );
 }
 
-export default function HawkVisionTargetCard({ target, index }) {
+export default function HawkVisionTargetCard({ target, index, searchCenter }) {
   const accent = ACCENTS[index] || ACCENTS[0];
   const label = LABELS[index] || `TARGET ${index + 1}`;
   const fmtCoord = (n) => (Number.isFinite(n) ? Number(n).toFixed(6) : "—");
@@ -93,6 +94,9 @@ export default function HawkVisionTargetCard({ target, index }) {
         >
           <Radio className="w-4 h-4" /> HAWK FREQUENCY — RF ANALYSIS
         </button>
+
+        {/* Push this target's feasibility snapshot into the Notion Master Zoning DB */}
+        <PushToNotionButton target={target} searchCenter={searchCenter} />
       </div>
     </div>
   );

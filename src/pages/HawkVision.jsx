@@ -193,7 +193,12 @@ export default function HawkVision() {
               <Target className="w-3.5 h-3.5" /> TARGETS LOCKED · {targets.length} OF 3
             </div>
             {targets.slice(0, 3).map((t, i) => (
-              <HawkVisionTargetCard key={t.parcel_id || i} target={t} index={i} />
+              <HawkVisionTargetCard
+                key={t.parcel_id || i}
+                target={t}
+                index={i}
+                searchCenter={{ lat: parseFloat(lat), lon: parseFloat(lon) }}
+              />
             ))}
           </div>
         )}
