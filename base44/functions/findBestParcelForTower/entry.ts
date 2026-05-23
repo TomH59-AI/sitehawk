@@ -206,8 +206,10 @@ async function skipTraceOwner(parcel) {
   }
 }
 
-function splitAddress(addr) {
-  if (!addr) return { street: "", city: "", state: "", zip: "" };
+function splitAddress(addr, fallbackGeo = {}) {
+  if (!addr) return {
+    street: "", city: fallbackGeo.city || "", state: fallbackGeo.state || "", zip: fallbackGeo.zip || "",
+  };
   // Common formats: "123 Main St, Tampa, FL 33602"
   const parts = String(addr).split(",").map((p) => p.trim()).filter(Boolean);
   if (parts.length >= 3) {
@@ -215,12 +217,39 @@ function splitAddress(addr) {
     const stateZip = last.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/);
     return {
       street: parts[0] || "",
-      city: parts[1] || "",
-      state: stateZip?.[1] || "",
-      zip: stateZip?.[2] || "",
+      city: parts[1] || fallbackGeo.city || "",
+      state: stateZip?.[1] || fallbackGeo.state || "",
+      zip: stateZip?.[2] || fallbackGeo.zip || "",
     };
   }
-  return { street: parts[0] || addr, city: "", state: "", zip: "" };
+  // Rural single-line address — fall back to reverse-geocoded city/state/zip
+  return {
+    street: parts[0] || addr,
+    city: fallbackGeo.city || "",
+    state: fallbackGeo.state || "",
+    zip: fallbackGeo.zip || "",
+  };
+}
+
+async function reverseGeocode(lat, lon) {
+  const token = Deno.env.get("MAPBOX_ACCESS_TOKEN");
+  if (!token) return {};
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=${token}&types=address,place,postcode,region,district`;
+    const r = await fetch(url);
+    if (!r.ok) return {};
+    const j = await r.json();
+    const ctx = {};
+    for (const f of j.features || []) {
+      for (const c of f.context || []) {
+        if (c.id?.startsWith("place")) ctx.city = c.text;
+        else if (c.id?.startsWith("region")) ctx.state = c.short_code?.replace(/^us-/i, "").toUpperCase() || c.text;
+        else if (c.id?.startsWith("postcode")) ctx.zip = c.text;
+      }
+      if (ctx.city && ctx.state) break;
+    }
+    return ctx;
+  } catch { return {}; }
 }
 
 Deno.serve(async (req) => {
@@ -234,9 +263,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
 
-    // 1. Allowable zoning from Notion + LLM
-    const { zones: allowableZones, jurisdiction } = await getAllowableZones(base44, lat, lon);
-    console.log(`Allowable zones for ${jurisdiction}:`, allowableZones);
+    // 1. Allowable zoning from Notion + LLM, and reverse-geocode the center
+    //    for city/state/zip fallback on rural single-line parcel addresses.
+    const [{ zones: allowableZones, jurisdiction }, geo] = await Promise.all([
+      getAllowableZones(base44, lat, lon),
+      reverseGeocode(lat, lon),
+    ]);
+    console.log(`Allowable zones for ${jurisdiction}:`, allowableZones, "geo:", geo);
 
     // 2. Parcels in the SARF ring
     const parcels = await getParcels(lat, lon, Math.min(radius_miles, 2.0));
@@ -274,7 +307,7 @@ Deno.serve(async (req) => {
 
     // Build a compact summary of all 3 targets for the Candidates Summary block
     const targets = top3.map((p, i) => {
-      const a = splitAddress(p.parcel_address);
+      const a = splitAddress(p.parcel_address, geo);
       return {
         label: ["A", "B", "C"][i],
         parcel_id: p.apn || "",
@@ -295,7 +328,7 @@ Deno.serve(async (req) => {
     });
 
     // 5. Build Page 1 SITE INFORMATION + OWNER INFORMATION payload
-    const addr = splitAddress(best.parcel_address);
+    const addr = splitAddress(best.parcel_address, geo);
     const mailing = best.mailing_address || best.parcel_address || "";
 
     const site_information = {
