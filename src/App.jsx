@@ -26,6 +26,7 @@ import MailAnalytics from './pages/MailAnalytics';
 import TowerPlacement from './pages/TowerPlacement';
 import SCIPPreview from './pages/SCIPPreview';
 import SCIPShareView from './pages/SCIPShareView';
+import HawkVision from './pages/HawkVision';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -83,6 +84,7 @@ const AuthenticatedApp = () => {
         <Route path="/mail-analytics" element={<MailAnalytics />} />
         <Route path="/tower-placement" element={<TowerPlacement />} />
         <Route path="/scip" element={<SCIPPreview />} />
+        <Route path="/hawk-vision" element={<HawkVision />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
