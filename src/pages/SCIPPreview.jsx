@@ -21,7 +21,9 @@ import SCIPSpectrumSection from "../components/scip/SCIPSpectrumSection";
 import SCIPExportButtons from "../components/scip/SCIPExportButtons";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import SCIPShareButton from "../components/scip/SCIPShareButton";
+import PushToHubSpotButton from "../components/scip/PushToHubSpotButton";
 import HawkInstructions from "../components/scip/HawkInstructions";
+import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -54,6 +56,15 @@ export default function SCIPPreview() {
         return;
       }
       setCandidate(c);
+
+      // Auto-fire HubSpot lead capture once per SCIP load (idempotent — keyed by APN)
+      const autoSyncKey = `scip-hs-synced:${c.id || c.parcel_id}`;
+      if (!sessionStorage.getItem(autoSyncKey)) {
+        sessionStorage.setItem(autoSyncKey, "1");
+        hubspotSyncDeal({ candidate: c, agent: agentInfo, source: "scip" }).catch((err) => {
+          console.warn("HubSpot auto-sync failed:", err.message);
+        });
+      }
 
       // First render with what we already have, then enrich with geocode + zoning + Realie neighbors.
       setScipData(buildScipData(c, ord, ctr, agentInfo, {}));
@@ -116,6 +127,7 @@ export default function SCIPPreview() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <PushToHubSpotButton candidate={candidate} agent={agent} />
           <SCIPShareButton
             candidate={candidate}
             ordinance={state?.ordinance}
