@@ -6,7 +6,8 @@
  * address, lat/lon, and phone.
  */
 
-import { User, Building2, Hash, Ruler, Map as MapIcon, Mail, Crosshair, Phone } from "lucide-react";
+import { User, Building2, Hash, Ruler, Map as MapIcon, Mail, Crosshair, Phone, Radio } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const LABELS = ["TARGET ONE", "TARGET TWO", "TARGET THREE"];
 const ACCENTS = [
@@ -40,6 +41,7 @@ export default function HawkVisionTargetCard({ target, index }) {
   const accent = ACCENTS[index] || ACCENTS[0];
   const label = LABELS[index] || `TARGET ${index + 1}`;
   const fmtCoord = (n) => (Number.isFinite(n) ? Number(n).toFixed(6) : "—");
+  const navigate = useNavigate();
 
   return (
     <div
@@ -83,6 +85,14 @@ export default function HawkVisionTargetCard({ target, index }) {
         </div>
 
         <Row icon={Phone} label="Phone" value={target.phone} highlight />
+
+        {/* Hawk Frequency launch — runs CloudRF analysis for this exact target */}
+        <button
+          onClick={() => navigate("/hawk-frequency", { state: { target } })}
+          className="mt-4 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg font-mono font-bold text-[11px] tracking-[0.15em] bg-cyan-400 text-[#0a0e17] hover:bg-cyan-300 transition-colors"
+        >
+          <Radio className="w-4 h-4" /> HAWK FREQUENCY — RF ANALYSIS
+        </button>
       </div>
     </div>
   );
