@@ -28,6 +28,7 @@ import SCIPPreview from './pages/SCIPPreview';
 import SCIPShareView from './pages/SCIPShareView';
 import HawkVision from './pages/HawkVision';
 import HawkFrequency from './pages/HawkFrequency';
+import Infrastructure from './pages/Infrastructure';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -87,6 +88,7 @@ const AuthenticatedApp = () => {
         <Route path="/scip" element={<SCIPPreview />} />
         <Route path="/hawk-vision" element={<HawkVision />} />
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
+        <Route path="/infrastructure" element={<Infrastructure />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation } from "react-router-dom";
 import AppFooter from "./AppFooter";
 import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass, Network } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
@@ -17,6 +17,7 @@ const BASE_NAV = [
   { path: "/crm", icon: Briefcase, label: "Deal Pipeline" },
   { path: "/parcel-scout", icon: ScanSearch, label: "Parcel Scout" },
   { path: "/tower-placement", icon: Compass, label: "Tower Placement" },
+  { path: "/infrastructure", icon: Network, label: "Infrastructure" },
   { path: "/ai-vision", icon: Eye, label: "AI Vision" },
   { path: "/market-analytics", icon: TrendingUp, label: "Market Analytics" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
