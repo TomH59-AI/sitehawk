@@ -22,6 +22,8 @@ import SCIPExportButtons from "../components/scip/SCIPExportButtons";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import SCIPShareButton from "../components/scip/SCIPShareButton";
 import PushToHubSpotButton from "../components/scip/PushToHubSpotButton";
+import GeneratePropertyInfoButton from "../components/scip/GeneratePropertyInfoButton";
+import PropertyInfoTargetsBlock from "../components/scip/PropertyInfoTargetsBlock";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import ZoningPermitReport from "../components/scip/ZoningPermitReport";
@@ -42,6 +44,7 @@ export default function SCIPPreview() {
   const [zoningReportDone, setZoningReportDone] = useState(false);
   const [generatedMaps, setGeneratedMaps] = useState(new Set());
   const [generatingMap, setGeneratingMap] = useState(null);
+  const [propertyInfoData, setPropertyInfoData] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -189,6 +192,14 @@ export default function SCIPPreview() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <GeneratePropertyInfoButton
+            lat={lat}
+            lon={lon}
+            towerHeightFt={state?.searchParams?.tower_height_ft}
+            setbackFt={state?.searchParams?.setback_ft}
+            searchId={state?.searchId || candidate?.search_id}
+            onComplete={setPropertyInfoData}
+          />
           <PushToHubSpotButton candidate={candidate} agent={agent} />
           <SCIPShareButton
             candidate={candidate}
@@ -200,6 +211,9 @@ export default function SCIPPreview() {
           <SCIPExportButtons scipData={scipData} candidate={candidate} />
         </div>
       </div>
+
+      {/* Property Info Targets — A / B / C from Realie, filtered + ranked by ordinance */}
+      {propertyInfoData && <PropertyInfoTargetsBlock data={propertyInfoData} />}
 
       {/* Cinematic recon-style SCIP cover page */}
       <SCIPCoverPage
