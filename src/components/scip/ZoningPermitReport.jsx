@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { generateZoningPermitReport } from "@/functions/generateZoningPermitReport";
 import { Loader2, FileSearch, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import SyncToNotionButton from "./SyncToNotionButton";
 
 const SOURCE_COLORS = {
   Municode:        "bg-blue-100 text-blue-800 border-blue-200",
@@ -149,11 +150,12 @@ export default function ZoningPermitReport({ lat, lon, candidate, onComplete }) 
       <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap items-center gap-3">
         <FileSearch className="w-5 h-5 text-primary" />
         <div className="font-heading font-semibold text-foreground">Zoning & Permit Report — {data.jurisdiction_resolved}</div>
-        <div className="flex flex-wrap gap-1.5 ml-auto">
+        <div className="flex flex-wrap gap-1.5 ml-auto items-center">
           {sources.municode && <Badge className="bg-blue-100 text-blue-800 border-blue-200"><CheckCircle2 className="w-3 h-3 mr-1" />Municode</Badge>}
           {sources.notion && <Badge className="bg-purple-100 text-purple-800 border-purple-200"><CheckCircle2 className="w-3 h-3 mr-1" />Notion: {sources.notion_folder}</Badge>}
           {sources.oxylabs_scrapes > 0 && <Badge className="bg-amber-100 text-amber-800 border-amber-200"><CheckCircle2 className="w-3 h-3 mr-1" />Oxylabs ({sources.oxylabs_scrapes})</Badge>}
           {sources.realie && <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle2 className="w-3 h-3 mr-1" />Realie</Badge>}
+          <SyncToNotionButton reportData={data} candidate={candidate} />
         </div>
       </div>
 
