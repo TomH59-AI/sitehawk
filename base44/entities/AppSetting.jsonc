@@ -1,0 +1,32 @@
+{
+  "name": "AppSetting",
+  "type": "object",
+  "description": "Per-user app-level settings (key/value). Used to remember things like the Google Sheets spreadsheet ID for the permitting pipeline sync.",
+  "properties": {
+    "key": {
+      "type": "string",
+      "description": "Setting key (e.g. 'permitting_pipeline_sheet_id')"
+    },
+    "value": {
+      "type": "string",
+      "description": "Setting value (free-form string)"
+    }
+  },
+  "required": [
+    "key"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "created_by": "{{user.email}}"
+    },
+    "update": {
+      "created_by": "{{user.email}}"
+    },
+    "delete": {
+      "created_by": "{{user.email}}"
+    }
+  }
+}

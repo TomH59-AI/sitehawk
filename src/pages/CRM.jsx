@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Briefcase, Phone, Mail, Users, FileText, Send, Plus, Calendar, ChevronRight, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import SyncToGoogleSheetButton from "@/components/crm/SyncToGoogleSheetButton";
 
 const STAGES = ["prospect", "contacted", "interested", "negotiating", "signed", "lost"];
 const STAGE_COLORS = {
@@ -80,11 +81,14 @@ export default function CRM() {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">{deals.length} deals tracked · {activities.length} interactions logged</p>
         </div>
-        <Link to="/search">
-          <Button className="gap-2 font-heading font-semibold" variant="outline">
-            <Search className="w-4 h-4" /> Find New Sites
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <SyncToGoogleSheetButton />
+          <Link to="/search">
+            <Button className="gap-2 font-heading font-semibold" variant="outline">
+              <Search className="w-4 h-4" /> Find New Sites
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Pipeline summary bar */}
