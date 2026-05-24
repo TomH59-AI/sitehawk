@@ -23,6 +23,9 @@ import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import SCIPShareButton from "../components/scip/SCIPShareButton";
 import PushToHubSpotButton from "../components/scip/PushToHubSpotButton";
 import HawkInstructions from "../components/scip/HawkInstructions";
+import SCIPStageProgress from "../components/scip/SCIPStageProgress";
+import ZoningPermitReport from "../components/scip/ZoningPermitReport";
+import MapGenerationButtons from "../components/scip/MapGenerationButtons";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -36,6 +39,9 @@ export default function SCIPPreview() {
   const [candidate, setCandidate] = useState(null);
   const [agent, setAgent] = useState({ name: "", phone: "", email: "" });
   const [section1State, setSection1State] = useState({ acquisition: {}, targets: [], siteNotes: "" });
+  const [zoningReportDone, setZoningReportDone] = useState(false);
+  const [generatedMaps, setGeneratedMaps] = useState(new Set());
+  const [generatingMap, setGeneratingMap] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -107,9 +113,65 @@ export default function SCIPPreview() {
     );
   }
 
+  const lat = candidate?.latitude ?? state?.searchCenter?.lat;
+  const lon = candidate?.longitude ?? state?.searchCenter?.lon;
+  const coordsReady = lat != null && lon != null;
+
+  const stages = [
+    { key: "coords",   label: "Coordinates",     status: coordsReady ? "done" : "active" },
+    { key: "zoning",   label: "Zoning Report",   status: zoningReportDone ? "done" : coordsReady ? "active" : "pending" },
+    { key: "sarf",     label: "SARF Map",        status: generatedMaps.has("sarf") ? "done" : zoningReportDone ? "active" : "pending" },
+    { key: "rf",       label: "RF Coverage",     status: generatedMaps.has("rf_coverage") ? "done" : generatedMaps.has("sarf") ? "active" : "pending" },
+    { key: "infra",    label: "Infrastructure",  status: generatedMaps.has("infra") ? "done" : generatedMaps.has("rf_coverage") ? "active" : "pending" },
+    { key: "compound", label: "Compound",        status: generatedMaps.has("compound") ? "done" : generatedMaps.has("infra") ? "active" : "pending" },
+  ];
+
+  const handleGenerateMap = (key) => {
+    setGeneratingMap(key);
+    // Each map type triggers a scroll to its existing rendered section.
+    const targetMap = {
+      sarf: "scip-sarf-section",
+      rf_coverage: "scip-rf-section",
+      infra: "scip-infra-section",
+      compound: "scip-compound-section",
+    };
+    const id = targetMap[key];
+    if (id) {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setTimeout(() => {
+      setGeneratedMaps((prev) => new Set(prev).add(key));
+      setGeneratingMap(null);
+    }, 800);
+  };
+
   return (
     <div id="scip-print-root" className="space-y-6 max-w-5xl mx-auto pb-12 relative">
       <HawkInstructions />
+
+      {/* Stage 3 — Hawk progress timeline */}
+      <SCIPStageProgress stages={stages} />
+
+      {/* Stage 1 — Auto-run zoning + permit report as soon as coordinates arrive */}
+      {coordsReady && (
+        <ZoningPermitReport
+          lat={lat}
+          lon={lon}
+          candidate={candidate}
+          onComplete={() => setZoningReportDone(true)}
+        />
+      )}
+
+      {/* Stage 2 — Map generation buttons unlock after the zoning report finishes */}
+      {zoningReportDone && (
+        <MapGenerationButtons
+          onGenerate={handleGenerateMap}
+          completed={generatedMaps}
+          loadingKey={generatingMap}
+        />
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 no-print">
         <div>
