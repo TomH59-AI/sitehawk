@@ -1,7 +1,0 @@
-{
-  "type": "notion",
-  "scopes": [
-    "read_content",
-    "insert_content"
-  ]
-}
