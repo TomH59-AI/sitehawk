@@ -86,14 +86,55 @@ async function fetchMunicode(jurisdictions, state) {
 }
 
 // ─── Notion ─────────────────────────────────────────────────────────────────
-async function notionReq(path, token) {
+async function notionReq(path, token, init = {}) {
   const t = token || Deno.env.get('NOTION_API_TOKEN');
   if (!t) return null;
   const res = await fetch(`${NOTION_API}${path}`, {
-    headers: { Authorization: `Bearer ${t}`, 'Notion-Version': NOTION_VERSION },
+    ...init,
+    headers: {
+      Authorization: `Bearer ${t}`,
+      'Notion-Version': NOTION_VERSION,
+      'Content-Type': 'application/json',
+      ...(init.headers || {}),
+    },
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '');
+    console.warn(`Notion ${path} → ${res.status} ${txt.slice(0, 200)}`);
+    return null;
+  }
   return res.json();
+}
+
+// Workspace-wide search for a page titled like "{ST}-Zoning" / "{ST} Zoning".
+// Works regardless of where the page lives in Team Spaces, as long as the
+// Notion integration has been added to that team space.
+async function notionSearchStateFolder(stateCode, token) {
+  const norm = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const target = norm(stateCode);
+  const queries = [`${stateCode}-Zoning`, `${stateCode} Zoning`, `${stateCode}-zoning`];
+  for (const q of queries) {
+    const d = await notionReq('/search', token, {
+      method: 'POST',
+      body: JSON.stringify({
+        query: q,
+        filter: { property: 'object', value: 'page' },
+        page_size: 25,
+      }),
+    });
+    const results = d?.results || [];
+    for (const r of results) {
+      if (r.object !== 'page') continue;
+      // Title is in properties.title.title[] OR properties.Name.title[]
+      const titleProp = r.properties && Object.values(r.properties).find(p => p.type === 'title');
+      const title = titleProp?.title?.map(t => t.plain_text).join('') || '';
+      const n = norm(title);
+      if (n === `${target}ZONING` || n.startsWith(`${target}ZONING`) || n === target) {
+        return { id: r.id, title };
+      }
+    }
+  }
+  return null;
 }
 
 async function getAllChildren(blockId, token) {
@@ -136,34 +177,59 @@ async function collectNotionText(blockId, depth, token, lines = []) {
 }
 
 async function getNotionStateContext(stateCode, jurisdictionHints, token) {
-  const masterId = Deno.env.get('NOTION_MASTER_ZONING_PAGE_ID');
-  if (!masterId || !stateCode) return { found: false, text: '', folder_title: null };
+  if (!stateCode) return { found: false, text: '', folder_title: null };
 
-  const children = await getAllChildren(masterId, token);
-  const norm = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const target = norm(stateCode);
-  const folder = children.find(b => {
-    const t = b.child_page?.title || '';
-    const n = norm(t);
-    return b.type === 'child_page' && (n === `${target}FOLDER` || n.startsWith(target));
-  });
+  // PRIMARY: workspace-wide search for "{ST}-Zoning" — finds pages in Team Spaces
+  // as long as the Notion integration has been added to that team space.
+  let folder = await notionSearchStateFolder(stateCode, token);
 
-  if (!folder) return { found: false, text: '', folder_title: null };
+  // FALLBACK: if configured, also scan direct children of NOTION_MASTER_ZONING_PAGE_ID.
+  if (!folder) {
+    const masterId = Deno.env.get('NOTION_MASTER_ZONING_PAGE_ID');
+    if (masterId) {
+      const children = await getAllChildren(masterId, token);
+      const norm = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const target = norm(stateCode);
+      const hit = children.find(b => {
+        if (b.type !== 'child_page') return false;
+        const n = norm(b.child_page?.title || '');
+        return n === `${target}ZONING` || n.startsWith(`${target}ZONING`) || n === target;
+      });
+      if (hit) folder = { id: hit.id, title: hit.child_page?.title || '' };
+    }
+  }
+
+  if (!folder) {
+    console.warn(`Notion: no "${stateCode}-Zoning" page found. Make sure the Notion integration is connected to the Team Space containing your zoning folders (Notion → Settings → Connections → add this integration to that Team Space).`);
+    return { found: false, text: '', folder_title: null };
+  }
 
   const lines = await collectNotionText(folder.id, 0, token);
+  console.log(`Notion: matched "${folder.title}" (${folder.id}) → ${lines.join('\n').length} chars`);
   return {
     found: lines.length > 0,
     text: lines.join('\n').slice(0, MAX_NOTION_CHARS),
-    folder_title: folder.child_page?.title || stateCode,
+    folder_title: folder.title,
     jurisdiction_hints: jurisdictionHints,
   };
 }
 
 async function getNotionAccessToken(base44) {
+  // Prefer the Base44 Notion connector (OAuth) — it's the source of truth.
+  // Fall back to the NOTION_API_TOKEN secret only if the connector isn't available.
   try {
     const c = await base44.asServiceRole.connectors.getConnection('notion');
-    return c?.accessToken || null;
-  } catch (_) { return null; }
+    if (c?.accessToken) {
+      console.log('Notion: using OAuth connector token');
+      return c.accessToken;
+    }
+    console.warn('Notion: connector returned no accessToken');
+  } catch (e) {
+    console.warn('Notion: connector lookup failed:', e?.message);
+  }
+  const envTok = Deno.env.get('NOTION_API_TOKEN');
+  if (envTok) console.log('Notion: falling back to NOTION_API_TOKEN secret');
+  return envTok || null;
 }
 
 // ─── Oxylabs scrape ─────────────────────────────────────────────────────────
