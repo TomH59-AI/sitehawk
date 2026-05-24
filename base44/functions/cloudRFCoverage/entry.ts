@@ -5,13 +5,23 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 const CLOUDRF_BASE = "https://api.cloudrf.com";
 
+// Carrier presets — keep in sync with src/lib/carrierPresets.js
+const CARRIER_PRESETS = {
+  verizon:        { frequency_mhz: 700,  power_w: 40, antenna_gain_dbi: 16, hbw: 65 },
+  verizon_cband:  { frequency_mhz: 3700, power_w: 20, antenna_gain_dbi: 24, hbw: 65 },
+  att:            { frequency_mhz: 850,  power_w: 40, antenna_gain_dbi: 16, hbw: 65 },
+  tmobile:        { frequency_mhz: 600,  power_w: 40, antenna_gain_dbi: 16, hbw: 65 },
+  tmobile_2500:   { frequency_mhz: 2500, power_w: 30, antenna_gain_dbi: 20, hbw: 65 },
+  generic:        { frequency_mhz: 700,  power_w: 40, antenna_gain_dbi: 12, hbw: 360 },
+};
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { lat, lon, height_ft = 199, radius_mi = 5, site_name = "SiteHawk Candidate" } = await req.json();
+    const { lat, lon, height_ft = 199, radius_mi = 5, site_name = "SiteHawk Candidate", carrier = "verizon" } = await req.json();
     if (typeof lat !== "number" || typeof lon !== "number") {
       return Response.json({ error: "lat and lon are required numbers" }, { status: 400 });
     }
@@ -19,20 +29,23 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get("CloudRF_API_KEY");
     if (!apiKey) return Response.json({ error: "CloudRF_API_KEY not configured" }, { status: 500 });
 
+    // Resolve carrier preset → CloudRF inputs
+    const preset = CARRIER_PRESETS[carrier] || CARRIER_PRESETS.verizon;
+
     // Convert ft → meters
     const txHeightM = Math.round(height_ft * 0.3048);
     const radiusKm = Math.round(radius_mi * 1.60934);
 
-    // CloudRF /area request — sensible defaults for 4G LTE @ 700 MHz omni
+    // CloudRF /area request — defaults tuned per carrier preset
     const payload = {
       site: site_name.substring(0, 60),
       network: "SiteHawk",
       transmitter: {
-        lat, lon, alt: txHeightM, frq: 700, txw: 40, bwi: 10, powerUnit: "W"
+        lat, lon, alt: txHeightM, frq: preset.frequency_mhz, txw: preset.power_w, bwi: 10, powerUnit: "W"
       },
       receiver: { lat: 0, lon: 0, alt: 2, rxg: 2, rxs: -100 },
       antenna: {
-        txg: 12, txl: 0, ant: 1, azi: 0, tlt: 0, hbw: 360, vbw: 30, fbr: 0,
+        txg: preset.antenna_gain_dbi, txl: 0, ant: 1, azi: 0, tlt: 0, hbw: preset.hbw, vbw: 30, fbr: 0,
         pol: "v"
       },
       model: {
@@ -79,9 +92,10 @@ Deno.serve(async (req) => {
       key_data: {
         center: { lat, lon },
         tx_height_m: txHeightM,
-        frequency_mhz: 700,
-        power_w: 40,
-        antenna_gain_dbi: 12,
+        carrier,
+        frequency_mhz: preset.frequency_mhz,
+        power_w: preset.power_w,
+        antenna_gain_dbi: preset.antenna_gain_dbi,
         receiver_sensitivity_dbm: -100,
       },
       raw_id: data.id || null,

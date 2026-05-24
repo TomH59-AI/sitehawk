@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Radio } from "lucide-react";
+import { CARRIER_PRESETS, DEFAULT_CARRIER } from "@/lib/carrierPresets";
 
 const TOWER_TYPES = [
   { value: "self_support", label: "Self-Support Tower (SST)" },
@@ -27,6 +28,7 @@ export default function TowerSpecsForm({ onSubmit, defaultValues = {}, disabled 
   const [towerType, setTowerType] = useState(defaultValues.towerType || "self_support");
   const [compoundSizeFt, setCompoundSizeFt] = useState(defaultValues.compoundSizeFt || 100);
   const [accessPreference, setAccessPreference] = useState(defaultValues.accessPreference || "north");
+  const [carrier, setCarrier] = useState(defaultValues.carrier || DEFAULT_CARRIER);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -35,6 +37,7 @@ export default function TowerSpecsForm({ onSubmit, defaultValues = {}, disabled 
       towerType,
       compoundSizeFt: parseInt(compoundSizeFt) || 100,
       accessPreference,
+      carrier,
     });
   };
 
@@ -69,6 +72,20 @@ export default function TowerSpecsForm({ onSubmit, defaultValues = {}, disabled 
             </SelectContent>
           </Select>
           <p className="text-[10px] text-muted-foreground">Tower placed near this edge for shortest access road</p>
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="carrier">Carrier Preset (RF model)</Label>
+          <Select value={carrier} onValueChange={setCarrier}>
+            <SelectTrigger id="carrier"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(CARRIER_PRESETS).map(([key, p]) => (
+                <SelectItem key={key} value={key}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[10px] text-muted-foreground">
+            Sets CloudRF frequency, power &amp; antenna gain. Verizon 700 MHz is the macro default for most builds.
+          </p>
         </div>
       </div>
       <Button type="submit" disabled={disabled} className="w-full">
