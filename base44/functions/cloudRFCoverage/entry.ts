@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { lat, lon, height_ft = 199, radius_mi = 5, site_name = "SiteHawk Candidate", carrier = "verizon" } = await req.json();
+    const { lat, lon, height_ft = 199, radius_mi = 5, site_name = "SiteHawk Candidate", carrier = "verizon", frequency_mhz } = await req.json();
     if (typeof lat !== "number" || typeof lon !== "number") {
       return Response.json({ error: "lat and lon are required numbers" }, { status: 400 });
     }
@@ -29,8 +29,13 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get("CloudRF_API_KEY");
     if (!apiKey) return Response.json({ error: "CloudRF_API_KEY not configured" }, { status: 500 });
 
-    // Resolve carrier preset → CloudRF inputs
-    const preset = CARRIER_PRESETS[carrier] || CARRIER_PRESETS.verizon;
+    // Resolve carrier preset → CloudRF inputs. If frequency_mhz override is
+    // provided, swap it into the preset so the Coverage Analysis page can drive
+    // the simulation directly from its frequency dropdown.
+    const basePreset = CARRIER_PRESETS[carrier] || CARRIER_PRESETS.verizon;
+    const preset = typeof frequency_mhz === "number" && frequency_mhz > 0
+      ? { ...basePreset, frequency_mhz }
+      : basePreset;
 
     // Convert ft → meters
     const txHeightM = Math.round(height_ft * 0.3048);
@@ -56,8 +61,8 @@ Deno.serve(async (req) => {
         units: "m",
         col: "RAINBOW.dBm",
         out: 2,
-        ber: 0,
-        mod: 0,
+        ber: 1,
+        mod: 1,
         nf: -120,
         res: 30,
         rad: radiusKm

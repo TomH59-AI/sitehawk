@@ -31,6 +31,7 @@ import HawkView from './pages/HawkView';
 import PowerLinesDashboard from './pages/PowerLinesDashboard';
 import HawkFrequency from './pages/HawkFrequency';
 import Infrastructure from './pages/Infrastructure';
+import CoverageAnalysis from './pages/CoverageAnalysis';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -93,6 +94,7 @@ const AuthenticatedApp = () => {
         <Route path="/power-lines" element={<PowerLinesDashboard />} />
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
         <Route path="/infrastructure" element={<Infrastructure />} />
+        <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
