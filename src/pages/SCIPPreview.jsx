@@ -25,6 +25,7 @@ import PushToHubSpotButton from "../components/scip/PushToHubSpotButton";
 import GeneratePropertyInfoButton from "../components/scip/GeneratePropertyInfoButton";
 import PropertyInfoTargetsBlock from "../components/scip/PropertyInfoTargetsBlock";
 import TargetComparisonTable from "../components/scip/TargetComparisonTable";
+import Instant3DZoningSimulator from "../components/scip/Instant3DZoningSimulator";
 import SiteOwnerInfoBlock from "../components/scip/SiteOwnerInfoBlock";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
@@ -221,6 +222,18 @@ export default function SCIPPreview() {
       {propertyInfoData?.targets?.length > 1 && (
         <TargetComparisonTable targets={propertyInfoData.targets} />
       )}
+
+      {/* Instant 3D Zoning Simulator — Flux.1 renders for leasing & zoning presentations */}
+      <Instant3DZoningSimulator
+        defaultTowerHeight={Number(state?.searchParams?.tower_height_ft) || 120}
+        defaultDimensions={
+          state?.searchParams?.compound_width_ft && state?.searchParams?.compound_depth_ft
+            ? `${state.searchParams.compound_width_ft}x${state.searchParams.compound_depth_ft}`
+            : "200x200"
+        }
+        defaultSetbacks={Number(state?.searchParams?.setback_ft) || 50}
+        defaultSeparation={200}
+      />
 
       {/* Target A — Site & Owner Information (Realie + USGS + Enformion) */}
       <SiteOwnerInfoBlock
