@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, Loader2, Antenna, Ruler, Shield, Home, BadgeCheck, AlertTriangle, Download } from "lucide-react";
 import { replicateFluxRender } from "@/functions/replicateFluxRender";
+import SoaringHawkLoader from "@/components/ui/SoaringHawkLoader";
 
 export default function Instant3DZoningSimulator({
   defaultTowerHeight = 120,
@@ -164,6 +165,10 @@ export default function Instant3DZoningSimulator({
             <><Sparkles className="w-4 h-4 mr-2" />Generate 3D Site Simulation Layouts</>
           )}
         </Button>
+        <SoaringHawkLoader
+          active={loading}
+          message="SiteHawk is drafting photorealistic 3D zoning layouts..."
+        />
         {error && (
           <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded p-2 mt-3">
             {error}

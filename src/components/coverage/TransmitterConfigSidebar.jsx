@@ -58,7 +58,6 @@ export default function TransmitterConfigSidebar({
       </div>
 
       <div className="px-3 py-3 space-y-4">
-        {/* Coordinates */}
         <div className="bg-muted/40 rounded p-2 text-xs font-mono">
           <div className="text-[10px] text-muted-foreground tracking-wider mb-1">PIN LOCATION</div>
           <div>{pin.lat.toFixed(6)}, {pin.lon.toFixed(6)}</div>
@@ -69,7 +68,6 @@ export default function TransmitterConfigSidebar({
           )}
         </div>
 
-        {/* Height */}
         <div className="space-y-1.5">
           <Label className="text-xs flex items-center gap-1.5">
             <Antenna className="w-3.5 h-3.5" /> Antenna Height
@@ -89,7 +87,6 @@ export default function TransmitterConfigSidebar({
           <div className="text-[10px] text-muted-foreground">{Math.round(heightFt * 0.3048)} m</div>
         </div>
 
-        {/* Frequency */}
         <div className="space-y-1.5">
           <Label className="text-xs flex items-center gap-1.5">
             <Radio className="w-3.5 h-3.5" /> Frequency Band
@@ -106,7 +103,6 @@ export default function TransmitterConfigSidebar({
           </Select>
         </div>
 
-        {/* Radius */}
         <div className="space-y-1.5">
           <Label className="text-xs flex items-center justify-between">
             <span className="flex items-center gap-1.5"><Ruler className="w-3.5 h-3.5" /> Analysis Radius</span>
@@ -122,7 +118,6 @@ export default function TransmitterConfigSidebar({
           <div className="text-[10px] text-muted-foreground">{Math.round(radiusMi * 1.60934)} km</div>
         </div>
 
-        {/* Run */}
         <Button onClick={onRun} disabled={loading} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
           {loading ? (
             <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Running RF Simulation…</>

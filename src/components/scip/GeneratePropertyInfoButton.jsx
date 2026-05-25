@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { generatePropertyInfoTargets } from "@/functions/generatePropertyInfoTargets";
+import SoaringHawkLoader from "@/components/ui/SoaringHawkLoader";
 
 export default function GeneratePropertyInfoButton({ lat, lon, towerHeightFt, setbackFt, searchId, onComplete }) {
   const [loading, setLoading] = useState(false);
@@ -42,9 +43,15 @@ export default function GeneratePropertyInfoButton({ lat, lon, towerHeightFt, se
   };
 
   return (
-    <Button onClick={handleClick} disabled={loading} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
-      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-      {loading ? "Generating Targets…" : "Generate Property Info"}
-    </Button>
+    <div className="flex flex-col gap-2 min-w-[260px]">
+      <Button onClick={handleClick} disabled={loading} className="gap-2 bg-amber-600 hover:bg-amber-700 text-white">
+        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+        {loading ? "Generating Targets…" : "Generate Property Info"}
+      </Button>
+      <SoaringHawkLoader
+        active={loading}
+        message="SiteHawk is scouting parcels & ranking targets..."
+      />
+    </div>
   );
 }

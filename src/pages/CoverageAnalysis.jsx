@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { cloudRFCoverage } from "@/functions/cloudRFCoverage";
 import CoverageMap from "../components/coverage/CoverageMap.jsx";
 import TransmitterConfigSidebar from "../components/coverage/TransmitterConfigSidebar.jsx";
+import SoaringHawkLoader from "@/components/ui/SoaringHawkLoader";
 
 export default function CoverageAnalysis() {
   const [pin, setPin] = useState(null);
@@ -86,6 +87,11 @@ export default function CoverageAnalysis() {
           </p>
         </div>
       </div>
+
+      <SoaringHawkLoader
+        active={loading}
+        message="SiteHawk is mapping signal propagation..."
+      />
 
       {/* Map + sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
