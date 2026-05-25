@@ -19,7 +19,7 @@ import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import { nearestAirport } from "@/functions/nearestAirport";
 import { pointElevation } from "@/functions/pointElevation";
-import { Loader2, Droplets, Grid3x3, Wind, Plane, Mountain } from "lucide-react";
+import { Loader2, Droplets, Grid3x3, Wind, Plane, Mountain, Waves, Map as MapIcon, Satellite, Building2 } from "lucide-react";
 
 async function loadMapboxGL() {
   if (window.mapboxgl) return window.mapboxgl;
@@ -63,17 +63,20 @@ function windColor(mph) {
   return "#7f1d1d"; // dark red
 }
 
-export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, targetLon }) {
+export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, targetLon, radiusMiles = 1.0 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
 
+  // Base style: 'satellite' (Aerial) or 'streets'
+  const [baseStyle, setBaseStyle] = useState("satellite");
+
   // Toggle state
-  const [layers, setLayers] = useState({ wetlands: false, parcels: false, wind: false, airport: false, topo: false });
+  const [layers, setLayers] = useState({ wetlands: false, parcels: false, wind: false, airport: false, topo: false, floodplain: false, zoning: false });
 
   // Per-layer loading + data
-  const [loading, setLoading] = useState({ wetlands: false, parcels: false, wind: false, airport: false, topo: false });
+  const [loading, setLoading] = useState({ wetlands: false, parcels: false, wind: false, airport: false, topo: false, floodplain: false, zoning: false });
   const [parcels, setParcels] = useState([]);
   const [wind, setWind] = useState(null);
   const [airport, setAirport] = useState(null);
@@ -152,6 +155,66 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
             layout: { visibility: "none" },
           });
 
+          // Search ring radius circle (centered on SARF center)
+          if (isFinite(parseFloat(centerLat)) && isFinite(parseFloat(centerLon)) && radiusMiles > 0) {
+            const cLat = parseFloat(centerLat);
+            const cLon = parseFloat(centerLon);
+            const points = 64;
+            const distKm = radiusMiles * 1.609344;
+            const coords = [];
+            for (let i = 0; i <= points; i++) {
+              const bearing = (i * 360) / points;
+              const br = (bearing * Math.PI) / 180;
+              const lat1 = (cLat * Math.PI) / 180;
+              const lon1 = (cLon * Math.PI) / 180;
+              const dR = distKm / 6371;
+              const lat2 = Math.asin(Math.sin(lat1) * Math.cos(dR) + Math.cos(lat1) * Math.sin(dR) * Math.cos(br));
+              const lon2 = lon1 + Math.atan2(Math.sin(br) * Math.sin(dR) * Math.cos(lat1), Math.cos(dR) - Math.sin(lat1) * Math.sin(lat2));
+              coords.push([(lon2 * 180) / Math.PI, (lat2 * 180) / Math.PI]);
+            }
+            map.addSource("search-ring", {
+              type: "geojson",
+              data: { type: "Feature", geometry: { type: "Polygon", coordinates: [coords] } },
+            });
+            map.addLayer({
+              id: "search-ring-fill", type: "fill", source: "search-ring",
+              paint: { "fill-color": "#dc2626", "fill-opacity": 0.06 },
+            });
+            map.addLayer({
+              id: "search-ring-line", type: "line", source: "search-ring",
+              paint: { "line-color": "#dc2626", "line-width": 2, "line-dasharray": [3, 2], "line-opacity": 0.85 },
+            });
+          }
+
+          // FEMA NFHL Floodplain (FEMA's public WMS)
+          map.addSource("fema-floodplain", {
+            type: "raster",
+            tiles: [
+              "https://hazards.fema.gov/gis/nfhl/services/public/NFHL/MapServer/WmsServer?service=WMS&request=GetMap&layers=28&styles=&format=image/png&transparent=true&version=1.1.1&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=512&height=512",
+            ],
+            tileSize: 512,
+          });
+          map.addLayer({
+            id: "fema-floodplain-layer", type: "raster", source: "fema-floodplain",
+            paint: { "raster-opacity": 0.55 },
+            layout: { visibility: "none" },
+          });
+
+          // County / Local Zoning (MRLC NLCD land cover serves as a national zoning surrogate when local data is unavailable;
+          // shows urban/ag/forest classification colors that correlate with zoning districts)
+          map.addSource("zoning-overlay", {
+            type: "raster",
+            tiles: [
+              "https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms?service=WMS&request=GetMap&layers=NLCD_2021_Land_Cover_L48&styles=&format=image/png&transparent=true&version=1.1.1&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=512&height=512",
+            ],
+            tileSize: 512,
+          });
+          map.addLayer({
+            id: "zoning-overlay-layer", type: "raster", source: "zoning-overlay",
+            paint: { "raster-opacity": 0.55 },
+            layout: { visibility: "none" },
+          });
+
           // Pre-register empty Wetlands raster source/layer so toggle just flips visibility
           map.addSource("nwi-wetlands", {
             type: "raster",
@@ -189,6 +252,63 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
       m.setLayoutProperty("nwi-wetlands-layer", "visibility", layers.wetlands ? "visible" : "none");
     }
   }, [layers.wetlands, ready]);
+
+  // ---------- Floodplain toggle (FEMA NFHL) ----------
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !ready) return;
+    if (m.getLayer("fema-floodplain-layer")) {
+      m.setLayoutProperty("fema-floodplain-layer", "visibility", layers.floodplain ? "visible" : "none");
+    }
+  }, [layers.floodplain, ready]);
+
+  // ---------- Zoning toggle (NLCD land-cover surrogate) ----------
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !ready) return;
+    if (m.getLayer("zoning-overlay-layer")) {
+      m.setLayoutProperty("zoning-overlay-layer", "visibility", layers.zoning ? "visible" : "none");
+    }
+  }, [layers.zoning, ready]);
+
+  // ---------- Base style switcher (Aerial / Streets) ----------
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m || !ready) return;
+    const styleUrl = baseStyle === "streets"
+      ? "mapbox://styles/mapbox/streets-v12"
+      : "mapbox://styles/mapbox/satellite-streets-v12";
+    // setStyle nukes our custom sources/layers — re-add them after the style loads.
+    const reapply = () => {
+      // Force the layer-toggle effects to re-run by toggling+restoring each layer's state.
+      setReady(false);
+      setTimeout(() => setReady(true), 50);
+    };
+    m.once("style.load", () => {
+      // Re-register raster sources/layers after style swap
+      try {
+        if (!m.getSource("usgs-contours")) {
+          m.addSource("usgs-contours", { type: "raster", tiles: ["https://basemap.nationalmap.gov/arcgis/services/USGSTopo/MapServer/WmsServer?service=WMS&request=GetMap&layers=0&styles=&format=image/png&transparent=true&version=1.1.1&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=512&height=512"], tileSize: 512 });
+          m.addLayer({ id: "usgs-contours-layer", type: "raster", source: "usgs-contours", paint: { "raster-opacity": 0.65 }, layout: { visibility: layers.topo ? "visible" : "none" } });
+        }
+        if (!m.getSource("nwi-wetlands")) {
+          m.addSource("nwi-wetlands", { type: "raster", tiles: ["https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/services/Wetlands/MapServer/WmsServer?service=WMS&request=GetMap&layers=1&styles=&format=image/png&transparent=true&version=1.1.1&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=512&height=512"], tileSize: 512 });
+          m.addLayer({ id: "nwi-wetlands-layer", type: "raster", source: "nwi-wetlands", paint: { "raster-opacity": 0.72 }, layout: { visibility: layers.wetlands ? "visible" : "none" } });
+        }
+        if (!m.getSource("fema-floodplain")) {
+          m.addSource("fema-floodplain", { type: "raster", tiles: ["https://hazards.fema.gov/gis/nfhl/services/public/NFHL/MapServer/WmsServer?service=WMS&request=GetMap&layers=28&styles=&format=image/png&transparent=true&version=1.1.1&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=512&height=512"], tileSize: 512 });
+          m.addLayer({ id: "fema-floodplain-layer", type: "raster", source: "fema-floodplain", paint: { "raster-opacity": 0.55 }, layout: { visibility: layers.floodplain ? "visible" : "none" } });
+        }
+        if (!m.getSource("zoning-overlay")) {
+          m.addSource("zoning-overlay", { type: "raster", tiles: ["https://www.mrlc.gov/geoserver/mrlc_display/NLCD_2021_Land_Cover_L48/wms?service=WMS&request=GetMap&layers=NLCD_2021_Land_Cover_L48&styles=&format=image/png&transparent=true&version=1.1.1&srs=EPSG:3857&bbox={bbox-epsg-3857}&width=512&height=512"], tileSize: 512 });
+          m.addLayer({ id: "zoning-overlay-layer", type: "raster", source: "zoning-overlay", paint: { "raster-opacity": 0.55 }, layout: { visibility: layers.zoning ? "visible" : "none" } });
+        }
+      } catch (e) { console.warn("style reapply:", e?.message); }
+      reapply();
+    });
+    m.setStyle(styleUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseStyle]);
 
   // ---------- Topo toggle: USGS contours + site AMSL probe + click-to-probe ----------
   useEffect(() => {
@@ -538,14 +658,32 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
       {/* Toolbar */}
       <div className="px-3 py-2 border-b border-border flex flex-wrap items-center justify-between gap-2 bg-muted/30">
         <div className="flex items-center gap-2 flex-wrap">
-          <TogglePill k="wetlands" label="WETLANDS" icon={Droplets} activeColor="#0891b2" />
-          <TogglePill k="parcels"  label="PARCELS"  icon={Grid3x3} activeColor="#d97706" />
-          <TogglePill k="wind"     label="WIND"     icon={Wind} activeColor={windColor(wind?.wind_speed_mph)} />
-          <TogglePill k="airport"  label="AIRPORT"  icon={Plane} activeColor="#facc15" />
-          <TogglePill k="topo"     label="TOPO"     icon={Mountain} activeColor="#7c3aed" />
+          {/* Base style switcher */}
+          <div className="inline-flex rounded border border-slate-300 overflow-hidden mr-1">
+            <button
+              onClick={() => setBaseStyle("satellite")}
+              className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold tracking-wider transition-colors ${baseStyle === "satellite" ? "bg-slate-800 text-white" : "bg-card text-slate-700"}`}
+            >
+              <Satellite className="w-3 h-3" /> AERIAL
+            </button>
+            <button
+              onClick={() => setBaseStyle("streets")}
+              className={`inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold tracking-wider transition-colors border-l border-slate-300 ${baseStyle === "streets" ? "bg-slate-800 text-white" : "bg-card text-slate-700"}`}
+            >
+              <MapIcon className="w-3 h-3" /> STREETS
+            </button>
+          </div>
+
+          <TogglePill k="topo"       label="TOPO"       icon={Mountain} activeColor="#7c3aed" />
+          <TogglePill k="floodplain" label="FLOODPLAIN" icon={Waves}    activeColor="#0ea5e9" />
+          <TogglePill k="zoning"     label="ZONING"     icon={Building2} activeColor="#a16207" />
+          <TogglePill k="wetlands"   label="WETLANDS"   icon={Droplets} activeColor="#0891b2" />
+          <TogglePill k="parcels"    label="PARCELS"    icon={Grid3x3}  activeColor="#d97706" />
+          <TogglePill k="wind"       label="WIND"       icon={Wind}     activeColor={windColor(wind?.wind_speed_mph)} />
+          <TogglePill k="airport"    label="AIRPORT"    icon={Plane}    activeColor="#facc15" />
         </div>
         <div className="text-[10px] font-mono text-muted-foreground tracking-wider">
-          USFWS · Realie · ASCE 7-22 · FAA · USGS 3DEP
+          USFWS · FEMA NFHL · NLCD · Realie · ASCE 7-22 · FAA · USGS 3DEP
         </div>
       </div>
 
@@ -566,8 +704,10 @@ export default function SCIPOverlayMap({ centerLat, centerLon, targetLat, target
             ⛰ {siteElevation != null ? `Site ${siteElevation} ft AMSL · ` : ""}click map to probe elevation
           </span>
         )}
-        {!layers.wetlands && !layers.parcels && !layers.wind && !layers.airport && !layers.topo && (
-          <span>Toggle a layer above to begin</span>
+        {layers.floodplain && <span className="text-sky-700">🌊 FEMA NFHL floodplain overlay active</span>}
+        {layers.zoning && <span className="text-amber-700">🏛 Land-cover / zoning surrogate active</span>}
+        {!layers.wetlands && !layers.parcels && !layers.wind && !layers.airport && !layers.topo && !layers.floodplain && !layers.zoning && (
+          <span>Toggle a layer above to begin · Aerial / Streets base · search ring radius shown in red</span>
         )}
       </div>
     </div>

@@ -54,11 +54,11 @@ export default function Section3({ centerLat, centerLon, targetOne }) {
         <ViewshedQuadGrid targetLat={targetLat} targetLon={targetLon} />
       </Section1Shell>
 
-      {/* 3.3 Multi-overlay toggle map — Wetlands · Parcels · Wind · Airport */}
+      {/* 3.3 Multi-overlay toggle map — Aerial · Topo · Floodplain · Zoning · Wetlands · Parcels · Wind · Airport */}
       <Section1Shell
         step={11}
-        title="Overlay Map — Wetlands · Parcels · Wind · Airport"
-        subtitle="Toggle any layer · USFWS water overlay · APN labels · directional wind arrow · plane icon with crow-flies distance"
+        title="Overlay Map — Aerial · Topo · Floodplain · Zoning · Wetlands · Parcels · Wind · Airport"
+        subtitle="One map · Aerial/Streets base · 7 layer toggles · search ring drawn · Target A tower icon · USFWS · FEMA · NLCD · Realie · ASCE 7-22 · FAA · USGS 3DEP"
         icon={Layers}
       >
         <SCIPOverlayMap
@@ -66,6 +66,7 @@ export default function Section3({ centerLat, centerLon, targetOne }) {
           centerLon={centerLon}
           targetLat={targetLat}
           targetLon={targetLon}
+          radiusMiles={1.0}
         />
       </Section1Shell>
     </div>
