@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Home, Ruler, Building2, Mail, Hash, Crosshair, Trophy } from "lucide-react";
+import SaveToHubSpotButton from "@/components/crm/SaveToHubSpotButton";
 
 function Row({ icon: Icon, label, value }) {
   return (
@@ -13,7 +14,7 @@ function Row({ icon: Icon, label, value }) {
   );
 }
 
-function TargetCard({ target }) {
+function TargetCard({ target, towerHeightFt }) {
   const isA = target.label === "A";
   return (
     <div className={`bg-card border rounded-xl overflow-hidden ${isA ? "border-amber-400 ring-2 ring-amber-200" : "border-border"}`}>
@@ -57,11 +58,14 @@ function TargetCard({ target }) {
           </div>
         )}
       </div>
+      <div className="px-4 pb-4 flex justify-end">
+        <SaveToHubSpotButton target={target} towerHeightFt={towerHeightFt} />
+      </div>
     </div>
   );
 }
 
-export default function PropertyInfoTargetsBlock({ data }) {
+export default function PropertyInfoTargetsBlock({ data, towerHeightFt }) {
   if (!data?.targets?.length) return null;
   return (
     <div id="scip-property-info-targets" className="space-y-3">
@@ -77,7 +81,7 @@ export default function PropertyInfoTargetsBlock({ data }) {
         </span>
       </div>
       {data.targets.map((t) => (
-        <TargetCard key={t.label} target={t} />
+        <TargetCard key={t.label} target={t} towerHeightFt={towerHeightFt} />
       ))}
       {data.saved_deal_ids?.length > 0 && (
         <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">

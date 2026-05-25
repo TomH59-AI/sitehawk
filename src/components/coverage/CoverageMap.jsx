@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { arcgisPointFeatures } from "@/functions/arcgisPointFeatures";
-import CoverageLegend from "./CoverageLegend.jsx";
+import CoverageLegend from "./CoverageLegend";
 
 const PIN_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
@@ -27,7 +27,6 @@ export default function CoverageMap({ pin, onPlacePin, overlay }) {
   const markerRef = useRef(null);
   const [ready, setReady] = useState(false);
 
-  // Init map
   useEffect(() => {
     let cancelled = false;
     async function init() {
@@ -133,7 +132,6 @@ export default function CoverageMap({ pin, onPlacePin, overlay }) {
     };
   }, []);
 
-  // Sync pin marker
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
@@ -157,7 +155,6 @@ export default function CoverageMap({ pin, onPlacePin, overlay }) {
     }
   }, [pin, ready]);
 
-  // Sync RF overlay
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;

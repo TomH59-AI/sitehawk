@@ -13,8 +13,8 @@ import { useState } from "react";
 import { Radio } from "lucide-react";
 import { toast } from "sonner";
 import { cloudRFCoverage } from "@/functions/cloudRFCoverage";
-import CoverageMap from "../components/coverage/CoverageMap.jsx";
-import TransmitterConfigSidebar from "../components/coverage/TransmitterConfigSidebar.jsx";
+import CoverageMap from "@/components/coverage/CoverageMap";
+import TransmitterConfigSidebar from "@/components/coverage/TransmitterConfigSidebar";
 import SoaringHawkLoader from "@/components/ui/SoaringHawkLoader";
 
 export default function CoverageAnalysis() {

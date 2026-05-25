@@ -216,11 +216,19 @@ export default function SCIPPreview() {
       </div>
 
       {/* Property Info Targets — A / B / C from Realie, filtered + ranked by ordinance */}
-      {propertyInfoData && <PropertyInfoTargetsBlock data={propertyInfoData} />}
+      {propertyInfoData && (
+        <PropertyInfoTargetsBlock
+          data={propertyInfoData}
+          towerHeightFt={state?.searchParams?.tower_height_ft}
+        />
+      )}
 
       {/* Side-by-side comparison of Targets A / B / C for final selection */}
       {propertyInfoData?.targets?.length > 1 && (
-        <TargetComparisonTable targets={propertyInfoData.targets} />
+        <TargetComparisonTable
+          targets={propertyInfoData.targets}
+          towerHeightFt={state?.searchParams?.tower_height_ft}
+        />
       )}
 
       {/* Instant 3D Zoning Simulator — Flux.1 renders for leasing & zoning presentations */}

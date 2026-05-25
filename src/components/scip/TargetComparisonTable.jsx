@@ -9,6 +9,7 @@
  */
 
 import { Trophy, GitCompare } from "lucide-react";
+import SaveToHubSpotButton from "@/components/crm/SaveToHubSpotButton";
 
 // Numeric rows where a "higher is better" highlight is meaningful.
 const NUMERIC_HIGHER_BETTER = new Set(["score", "parcel_size_acres"]);
@@ -53,7 +54,7 @@ function findWinner(targets, rowKey) {
   return bestIdx;
 }
 
-export default function TargetComparisonTable({ targets }) {
+export default function TargetComparisonTable({ targets, towerHeightFt }) {
   if (!targets || targets.length < 2) return null;
 
   return (
@@ -123,8 +124,21 @@ export default function TargetComparisonTable({ targets }) {
         </table>
       </div>
 
-      <div className="px-3 py-2 bg-slate-50 border-t border-border text-[11px] text-slate-500 font-mono">
-        Amber cells = best value in that row (higher score / larger parcel). Target A is the system's top pick.
+      <div className="px-3 py-2 bg-slate-50 border-t border-border flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[11px] text-slate-500 font-mono">
+          Amber cells = best value in that row (higher score / larger parcel). Target A is the system's top pick.
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {targets.map((t) => (
+            <SaveToHubSpotButton
+              key={t.label}
+              target={t}
+              towerHeightFt={towerHeightFt}
+              size="sm"
+              className="text-xs"
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
