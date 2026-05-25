@@ -28,6 +28,7 @@ import SCIPPreview from './pages/SCIPPreview';
 import SCIPShareView from './pages/SCIPShareView';
 import HawkVision from './pages/HawkVision';
 import HawkView from './pages/HawkView';
+import PowerLinesDashboard from './pages/PowerLinesDashboard';
 import HawkFrequency from './pages/HawkFrequency';
 import Infrastructure from './pages/Infrastructure';
 
@@ -89,6 +90,7 @@ const AuthenticatedApp = () => {
         <Route path="/scip" element={<SCIPPreview />} />
         <Route path="/hawk-vision" element={<HawkVision />} />
         <Route path="/hawk-view" element={<HawkView />} />
+        <Route path="/power-lines" element={<PowerLinesDashboard />} />
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
         <Route path="/infrastructure" element={<Infrastructure />} />
         <Route path="*" element={<PageNotFound />} />
