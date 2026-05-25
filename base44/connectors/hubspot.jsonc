@@ -7,6 +7,8 @@
     "crm.objects.deals.write",
     "crm.schemas.deals.read",
     "crm.objects.owners.read",
-    "oauth"
+    "oauth",
+    "tickets",
+    "sales-email-read"
   ]
 }
