@@ -24,6 +24,7 @@ import SCIPShareButton from "../components/scip/SCIPShareButton";
 import PushToHubSpotButton from "../components/scip/PushToHubSpotButton";
 import GeneratePropertyInfoButton from "../components/scip/GeneratePropertyInfoButton";
 import PropertyInfoTargetsBlock from "../components/scip/PropertyInfoTargetsBlock";
+import TargetComparisonTable from "../components/scip/TargetComparisonTable";
 import SiteOwnerInfoBlock from "../components/scip/SiteOwnerInfoBlock";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
@@ -215,6 +216,11 @@ export default function SCIPPreview() {
 
       {/* Property Info Targets — A / B / C from Realie, filtered + ranked by ordinance */}
       {propertyInfoData && <PropertyInfoTargetsBlock data={propertyInfoData} />}
+
+      {/* Side-by-side comparison of Targets A / B / C for final selection */}
+      {propertyInfoData?.targets?.length > 1 && (
+        <TargetComparisonTable targets={propertyInfoData.targets} />
+      )}
 
       {/* Target A — Site & Owner Information (Realie + USGS + Enformion) */}
       <SiteOwnerInfoBlock
