@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
+import { arcgisPointFeatures } from "@/functions/arcgisPointFeatures";
 
 const LINE_COLOR_EXPR = [
   "case",
@@ -20,7 +21,7 @@ const LINE_COLOR_EXPR = [
   "#22d3ee",
 ];
 
-export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, initialCenter }) {
+export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, initialCenter, showCellTowers = false, onTowerCountChange }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -89,6 +90,32 @@ export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, in
         map.on("mouseenter", "hifld-lines-hit", () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", "hifld-lines-hit", () => (map.getCanvas().style.cursor = ""));
 
+        // Cell tower layer (HIFLD Cellular_Towers)
+        map.addSource("cell-towers", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+        map.addLayer({
+          id: "cell-towers-layer",
+          type: "circle",
+          source: "cell-towers",
+          layout: { visibility: "none" },
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2.5, 12, 6, 16, 9],
+            "circle-color": "#a855f7",
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 1,
+            "circle-opacity": 0.9,
+          },
+        });
+        map.on("click", "cell-towers-layer", (e) => {
+          const f = e.features?.[0];
+          if (!f) return;
+          onSelect?.({ __kind: "cell_tower", ...f.properties }, [e.lngLat.lng, e.lngLat.lat]);
+        });
+        map.on("mouseenter", "cell-towers-layer", () => (map.getCanvas().style.cursor = "pointer"));
+        map.on("mouseleave", "cell-towers-layer", () => (map.getCanvas().style.cursor = ""));
+
         setReady(true);
       });
 
@@ -136,6 +163,49 @@ export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, in
     return () => map.off("moveend", fetchForViewport);
   }, [ownerFilter, ready]);
 
+  // Toggle cell tower visibility + fetch on moveend when enabled
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+
+    map.setLayoutProperty("cell-towers-layer", "visibility", showCellTowers ? "visible" : "none");
+    if (!showCellTowers) {
+      map.getSource("cell-towers")?.setData({ type: "FeatureCollection", features: [] });
+      onTowerCountChange?.(0);
+      return;
+    }
+
+    let towerReqId = 0;
+    async function fetchTowers() {
+      if (map.getZoom() < 7) {
+        map.getSource("cell-towers")?.setData({ type: "FeatureCollection", features: [] });
+        onTowerCountChange?.(0);
+        return;
+      }
+      const b = map.getBounds();
+      const bbox = {
+        minLon: b.getWest(),
+        minLat: b.getSouth(),
+        maxLon: b.getEast(),
+        maxLat: b.getNorth(),
+      };
+      const reqId = ++towerReqId;
+      try {
+        const resp = await arcgisPointFeatures({ dataset: "cell_towers", bbox, limit: 2000 });
+        if (reqId !== towerReqId) return;
+        const fc = resp.data;
+        map.getSource("cell-towers")?.setData(fc);
+        onTowerCountChange?.(fc.count || 0);
+      } catch (err) {
+        console.warn("Cell tower fetch failed:", err.message);
+      }
+    }
+
+    fetchTowers();
+    map.on("moveend", fetchTowers);
+    return () => map.off("moveend", fetchTowers);
+  }, [showCellTowers, ready]);
+
   return (
     <div className="relative w-full h-[640px] rounded-lg overflow-hidden border border-border">
       <div ref={containerRef} className="absolute inset-0" />
@@ -150,6 +220,11 @@ export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, in
         <div><span className="inline-block w-3 h-1 bg-[#f97316] mr-1.5 align-middle" />≥ 230 kV</div>
         <div><span className="inline-block w-3 h-1 bg-[#eab308] mr-1.5 align-middle" />≥ 100 kV</div>
         <div><span className="inline-block w-3 h-1 bg-[#22d3ee] mr-1.5 align-middle" />&lt; 100 kV</div>
+        {showCellTowers && (
+          <div className="pt-1 mt-1 border-t border-white/20">
+            <div><span className="inline-block w-2 h-2 rounded-full bg-[#a855f7] mr-1.5 align-middle" />Cell Tower</div>
+          </div>
+        )}
       </div>
     </div>
   );

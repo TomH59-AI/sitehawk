@@ -12,7 +12,7 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Zap, Search } from "lucide-react";
+import { Zap, Search, Radio } from "lucide-react";
 import PowerLinesMap from "../components/powerlines/PowerLinesMap";
 import PowerLineDetailsPanel from "../components/powerlines/PowerLineDetailsPanel";
 
@@ -21,6 +21,8 @@ export default function PowerLinesDashboard() {
   const [ownerFilter, setOwnerFilter] = useState("");
   const [selected, setSelected] = useState(null);
   const [count, setCount] = useState(0);
+  const [showCellTowers, setShowCellTowers] = useState(false);
+  const [towerCount, setTowerCount] = useState(0);
 
   function handleSearch(e) {
     e.preventDefault();
@@ -67,6 +69,18 @@ export default function PowerLinesDashboard() {
         {ownerFilter && (
           <Button type="button" variant="outline" onClick={handleClear}>Clear</Button>
         )}
+        <button
+          type="button"
+          onClick={() => setShowCellTowers((v) => !v)}
+          className={`flex items-center gap-1.5 text-xs font-mono px-2.5 py-1.5 rounded border transition ${
+            showCellTowers
+              ? "bg-purple-500/15 border-purple-500/50 text-purple-700"
+              : "bg-transparent border-border text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5" />
+          Cell Towers {showCellTowers && `· ${towerCount}`}
+        </button>
         <div className="text-xs text-muted-foreground font-mono ml-auto">
           {ownerFilter && <span className="text-amber-600 mr-3">OWNER ~ {ownerFilter.toUpperCase()}</span>}
           {count} segments in view
@@ -79,6 +93,8 @@ export default function PowerLinesDashboard() {
           ownerFilter={ownerFilter}
           onSelect={handleSelect}
           onCountChange={setCount}
+          showCellTowers={showCellTowers}
+          onTowerCountChange={setTowerCount}
         />
         <PowerLineDetailsPanel
           selected={selected}
