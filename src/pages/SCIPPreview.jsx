@@ -24,6 +24,7 @@ import SCIPShareButton from "../components/scip/SCIPShareButton";
 import PushToHubSpotButton from "../components/scip/PushToHubSpotButton";
 import GeneratePropertyInfoButton from "../components/scip/GeneratePropertyInfoButton";
 import PropertyInfoTargetsBlock from "../components/scip/PropertyInfoTargetsBlock";
+import SiteOwnerInfoBlock from "../components/scip/SiteOwnerInfoBlock";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import ZoningPermitReport from "../components/scip/ZoningPermitReport";
@@ -214,6 +215,15 @@ export default function SCIPPreview() {
 
       {/* Property Info Targets — A / B / C from Realie, filtered + ranked by ordinance */}
       {propertyInfoData && <PropertyInfoTargetsBlock data={propertyInfoData} />}
+
+      {/* Target A — Site & Owner Information (Realie + USGS + Enformion) */}
+      <SiteOwnerInfoBlock
+        lat={lat}
+        lon={lon}
+        targetLat={propertyInfoData?.targets?.[0]?.latitude}
+        targetLon={propertyInfoData?.targets?.[0]?.longitude}
+        towerHeightFt={state?.searchParams?.tower_height_ft}
+      />
 
       {/* Cinematic recon-style SCIP cover page */}
       <SCIPCoverPage
