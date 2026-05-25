@@ -1,13 +1,6 @@
 /**
- * CoverageMap — Mapbox GL satellite map for the /coverage-analysis page.
- *
- * Responsibilities:
- *  - Click anywhere to drop a transmitter pin (calls onPlacePin).
- *  - Click on HIFLD cell tower dots to drop a pin pre-filled with the
- *    tower's height (calls onPlacePin with { source: "cell_tower", ... }).
- *  - Render the active pin as a purple marker.
- *  - Render the CloudRF coverage overlay (PNG_Mercator + bounds) as an
- *    image source above the satellite base.
+ * CoverageMap — Mapbox GL satellite map for /coverage-analysis.
+ * Click to drop a transmitter pin, render CloudRF PNG_Mercator overlay.
  */
 
 import { useEffect, useRef, useState } from "react";

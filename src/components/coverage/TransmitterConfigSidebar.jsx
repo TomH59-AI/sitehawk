@@ -1,8 +1,5 @@
 /**
- * TransmitterConfigSidebar — small panel for the /coverage-analysis page.
- * Lets the operator dial in tower height, frequency band, and analysis
- * radius, then fires `onRun` which the parent page wires to the CloudRF
- * backend proxy.
+ * TransmitterConfigSidebar — config panel for /coverage-analysis.
  */
 
 import { Antenna, Ruler, Radio, Play, X, Loader2 } from "lucide-react";

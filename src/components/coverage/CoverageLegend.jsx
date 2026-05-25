@@ -1,7 +1,6 @@
 /**
  * CoverageLegend — small legend overlay shown on the Coverage Analysis map
- * once an RF simulation overlay is rendered. Buckets follow CloudRF's
- * RAINBOW.dBm scale (excellent → poor).
+ * once an RF simulation overlay is rendered.
  */
 
 export default function CoverageLegend({ visible }) {

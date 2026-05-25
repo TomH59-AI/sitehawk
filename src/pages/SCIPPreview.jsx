@@ -31,6 +31,7 @@ import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import ZoningPermitReport from "../components/scip/ZoningPermitReport";
 import MapGenerationButtons from "../components/scip/MapGenerationButtons";
+import SiteParametersForm from "../components/scip/SiteParametersForm";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -48,6 +49,8 @@ export default function SCIPPreview() {
   const [generatedMaps, setGeneratedMaps] = useState(new Set());
   const [generatingMap, setGeneratingMap] = useState(null);
   const [propertyInfoData, setPropertyInfoData] = useState(null);
+  const [siteParams, setSiteParams] = useState(null);
+  const [scanStarted, setScanStarted] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -119,13 +122,13 @@ export default function SCIPPreview() {
     );
   }
 
-  const lat = candidate?.latitude ?? state?.searchCenter?.lat;
-  const lon = candidate?.longitude ?? state?.searchCenter?.lon;
+  const lat = siteParams?.lat ?? candidate?.latitude ?? state?.searchCenter?.lat;
+  const lon = siteParams?.lon ?? candidate?.longitude ?? state?.searchCenter?.lon;
   const coordsReady = lat != null && lon != null;
 
   const stages = [
-    { key: "coords",   label: "Coordinates",     status: coordsReady ? "done" : "active" },
-    { key: "zoning",   label: "Zoning Report",   status: zoningReportDone ? "done" : coordsReady ? "active" : "pending" },
+    { key: "params",   label: "Site Parameters", status: scanStarted ? "done" : "active" },
+    { key: "zoning",   label: "Zoning Report",   status: zoningReportDone ? "done" : scanStarted ? "active" : "pending" },
     { key: "sarf",     label: "SARF Map",        status: generatedMaps.has("sarf") ? "done" : zoningReportDone ? "active" : "pending" },
     { key: "rf",       label: "RF Coverage",     status: generatedMaps.has("rf_coverage") ? "done" : generatedMaps.has("sarf") ? "active" : "pending" },
     { key: "infra",    label: "Infrastructure",  status: generatedMaps.has("infra") ? "done" : generatedMaps.has("rf_coverage") ? "active" : "pending" },
@@ -159,12 +162,34 @@ export default function SCIPPreview() {
       {/* Stage 3 — Hawk progress timeline */}
       <SCIPStageProgress stages={stages} />
 
-      {/* Stage 1 — Auto-run zoning + permit report as soon as coordinates arrive */}
-      {coordsReady && (
+      {/* Stage 0 — Site Parameters entry. User must click Scan before any
+          downstream data (zoning report, maps) is generated. */}
+      <SiteParametersForm
+        initial={{
+          lat: candidate?.latitude ?? state?.searchCenter?.lat,
+          lon: candidate?.longitude ?? state?.searchCenter?.lon,
+          tower_height_ft: state?.searchParams?.tower_height_ft ?? candidate?.tower_height_ft,
+          compound_width_ft: state?.searchParams?.compound_width_ft,
+          compound_depth_ft: state?.searchParams?.compound_depth_ft,
+          setback_ft: state?.searchParams?.setback_ft,
+          radius_miles: state?.searchParams?.radius_miles,
+        }}
+        scanning={scanStarted && !zoningReportDone}
+        onScan={(params) => {
+          setSiteParams(params);
+          setScanStarted(true);
+          setZoningReportDone(false);
+        }}
+      />
+
+      {/* Stage 1 — Zoning + permit report. Runs ONLY after Scan is clicked.
+          Pulls every field below directly from the Notion Master Zoning folder
+          and the matching {STATE}-Zoning subfolder. */}
+      {scanStarted && coordsReady && (
         <ZoningPermitReport
           lat={lat}
           lon={lon}
-          candidate={candidate}
+          candidate={{ ...candidate, ...siteParams }}
           onComplete={() => setZoningReportDone(true)}
         />
       )}
