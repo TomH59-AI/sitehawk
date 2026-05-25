@@ -27,6 +27,7 @@ import TowerPlacement from './pages/TowerPlacement';
 import SCIPPreview from './pages/SCIPPreview';
 import SCIPShareView from './pages/SCIPShareView';
 import HawkVision from './pages/HawkVision';
+import HawkView from './pages/HawkView';
 import HawkFrequency from './pages/HawkFrequency';
 import Infrastructure from './pages/Infrastructure';
 
@@ -87,6 +88,7 @@ const AuthenticatedApp = () => {
         <Route path="/tower-placement" element={<TowerPlacement />} />
         <Route path="/scip" element={<SCIPPreview />} />
         <Route path="/hawk-vision" element={<HawkVision />} />
+        <Route path="/hawk-view" element={<HawkView />} />
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
         <Route path="/infrastructure" element={<Infrastructure />} />
         <Route path="*" element={<PageNotFound />} />
