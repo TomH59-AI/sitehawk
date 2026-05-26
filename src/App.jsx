@@ -33,6 +33,7 @@ import HawkFrequency from './pages/HawkFrequency';
 import Infrastructure from './pages/Infrastructure';
 import CoverageAnalysis from './pages/CoverageAnalysis';
 import SiteEvaluate from './pages/SiteEvaluate';
+import SARFMap from './pages/SARFMap';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -97,6 +98,7 @@ const AuthenticatedApp = () => {
         <Route path="/infrastructure" element={<Infrastructure />} />
         <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
         <Route path="/dashboard/evaluate" element={<SiteEvaluate />} />
+        <Route path="/sarf-map" element={<SARFMap />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

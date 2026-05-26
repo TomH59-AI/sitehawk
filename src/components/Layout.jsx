@@ -3,7 +3,7 @@ import AppFooter from "./AppFooter";
 import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SCIPWorkflowCoach from "./guide/SCIPWorkflowCoach";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass, Network, Plane } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass, Network, Plane, Map } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
@@ -22,6 +22,7 @@ const BASE_NAV = [
   { path: "/ai-vision", icon: Eye, label: "AI Vision" },
   { path: "/market-analytics", icon: TrendingUp, label: "Market Analytics" },
   { path: "/dashboard/evaluate", icon: Plane, label: "Aviation & Land Intel" },
+  { path: "/sarf-map", icon: Map, label: "SARF Map" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
   { path: "/about", icon: Radio, label: "About" },
 ];
