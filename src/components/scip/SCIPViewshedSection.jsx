@@ -13,10 +13,10 @@ import { useEffect, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 
 const DIRECTIONS = [
-  { label: "North from Site", short: "N", bearing: 0,   color: "#00d4ff" },
-  { label: "East from Site",  short: "E", bearing: 90,  color: "#22c55e" },
-  { label: "South from Site", short: "S", bearing: 180, color: "#f59e0b" },
-  { label: "West from Site",  short: "W", bearing: 270, color: "#a78bfa" },
+  { label: "Hawk North Viewshed", short: "N", bearing: 0,   color: "#00d4ff" },
+  { label: "Hawk East Viewshed",  short: "E", bearing: 90,  color: "#22c55e" },
+  { label: "Hawk South Viewshed", short: "S", bearing: 180, color: "#f59e0b" },
+  { label: "Hawk West Viewshed",  short: "W", bearing: 270, color: "#a78bfa" },
 ];
 
 // Offset the map center forward along the bearing so the horizon falls
