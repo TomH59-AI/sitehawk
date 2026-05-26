@@ -1,27 +1,9 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
-import SCIPSection from "../components/scip/SCIPSection";
-import SCIPCoverPage from "../components/scip/SCIPCoverPage";
-import Section1 from "../components/scip/section1/Section1";
-import Section2 from "../components/scip/section2/Section2";
-import Section3 from "../components/scip/section3/Section3";
-import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
-import SCIPPhotographsGrid from "../components/scip/SCIPPhotographsGrid";
 import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
-import SCIPGroundPhotosSection from "../components/scip/SCIPGroundPhotosSection";
-import SCIPRFCoverageSection from "../components/scip/SCIPRFCoverageSection";
-import SCIPSpectrumSection from "../components/scip/SCIPSpectrumSection";
-import SCIPExportButtons from "../components/scip/SCIPExportButtons";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
-import SCIPShareButton from "../components/scip/SCIPShareButton";
-import PushToHubSpotButton from "../components/scip/PushToHubSpotButton";
-import GeneratePropertyInfoButton from "../components/scip/GeneratePropertyInfoButton";
-import PropertyInfoTargetsBlock from "../components/scip/PropertyInfoTargetsBlock";
-import TargetComparisonTable from "../components/scip/TargetComparisonTable";
-import Instant3DZoningSimulator from "../components/scip/Instant3DZoningSimulator";
-import SiteOwnerInfoBlock from "../components/scip/SiteOwnerInfoBlock";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import SiteParametersForm from "../components/scip/SiteParametersForm";
@@ -30,7 +12,7 @@ import HawkZoningOverview from "../components/scip/HawkZoningOverview";
 import HawkParcelDetails from "../components/scip/HawkParcelDetails";
 import HawkAerialIntelligence from "../components/scip/HawkAerialIntelligence";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
-import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
+import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { directionsFromBusiestIntersection } from "@/functions/directionsFromBusiestIntersection";
@@ -41,8 +23,6 @@ export default function SCIPPreview() {
   const [scipData, setScipData] = useState(null);
   const [candidate, setCandidate] = useState(null);
   const [agent, setAgent] = useState({ name: "", phone: "", email: "" });
-  const [section1State, setSection1State] = useState({ acquisition: {}, targets: [], siteNotes: "" });
-  const [propertyInfoData, setPropertyInfoData] = useState(null);
   const [siteParams, setSiteParams] = useState(null);
   const [scanStarted, setScanStarted] = useState(false);
 
@@ -95,18 +75,6 @@ export default function SCIPPreview() {
     }
     init();
   }, [state, navigate]);
-
-  const handleFieldChange = (sectionKey, fieldIdx, newValue) => {
-    setScipData((prev) => {
-      const next = { ...prev };
-      const section = { ...next[sectionKey] };
-      section.fields = section.fields.map((f, i) =>
-        i === fieldIdx ? [f[0], newValue] : f
-      );
-      next[sectionKey] = section;
-      return next;
-    });
-  };
 
   if (!scipData) {
     return (
@@ -172,6 +140,9 @@ export default function SCIPPreview() {
 
           {/* Hawk Aerial Intelligence — Aerial / Topography / Wetlands (3 dedicated print pages) */}
           <HawkAerialIntelligence srcLat={Number(lat)} srcLon={Number(lon)} />
+
+          {/* Hawk N/S/E/W Viewsheds — Target A conical RF lobes */}
+          <SCIPViewshedSection candidate={candidate} />
         </div>
       )}
 
@@ -188,152 +159,21 @@ export default function SCIPPreview() {
             Site Candidate Information Package
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Review and edit all fields below — then print, download PDF, or export to Excel.
+            Review and edit all fields above — then print the dedicated Hawk Aerial Intelligence pages.
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <GeneratePropertyInfoButton
-            lat={lat}
-            lon={lon}
-            towerHeightFt={state?.searchParams?.tower_height_ft}
-            setbackFt={state?.searchParams?.setback_ft}
-            searchId={state?.searchId || candidate?.search_id}
-            onComplete={setPropertyInfoData}
-          />
-          <PushToHubSpotButton candidate={candidate} agent={agent} />
-          <SCIPShareButton
-            candidate={candidate}
-            ordinance={state?.ordinance}
-            searchCenter={state?.searchCenter}
-            agent={agent}
-          />
           <PrintSCIPButton />
-          <SCIPExportButtons scipData={scipData} candidate={candidate} />
         </div>
-      </div>
-
-      {/* Property Info Targets — A / B / C from Realie, filtered + ranked by ordinance */}
-      {propertyInfoData && (
-        <PropertyInfoTargetsBlock
-          data={propertyInfoData}
-          towerHeightFt={state?.searchParams?.tower_height_ft}
-        />
-      )}
-
-      {/* Side-by-side comparison of Targets A / B / C for final selection */}
-      {propertyInfoData?.targets?.length > 1 && (
-        <TargetComparisonTable
-          targets={propertyInfoData.targets}
-          towerHeightFt={state?.searchParams?.tower_height_ft}
-        />
-      )}
-
-      {/* Instant 3D Zoning Simulator — Flux.1 renders for leasing & zoning presentations */}
-      <Instant3DZoningSimulator
-        defaultTowerHeight={Number(state?.searchParams?.tower_height_ft) || 120}
-        defaultDimensions={
-          state?.searchParams?.compound_width_ft && state?.searchParams?.compound_depth_ft
-            ? `${state.searchParams.compound_width_ft}x${state.searchParams.compound_depth_ft}`
-            : "200x200"
-        }
-        defaultSetbacks={Number(state?.searchParams?.setback_ft) || 50}
-        defaultSeparation={200}
-      />
-
-      {/* Target A — Site & Owner Information (Realie + USGS + Enformion) */}
-      <SiteOwnerInfoBlock
-        lat={lat}
-        lon={lon}
-        targetLat={propertyInfoData?.targets?.[0]?.latitude}
-        targetLon={propertyInfoData?.targets?.[0]?.longitude}
-        towerHeightFt={state?.searchParams?.tower_height_ft}
-      />
-
-      {/* Cinematic recon-style SCIP cover page */}
-      <SCIPCoverPage
-        candidate={candidate}
-        searchCenter={state?.searchCenter}
-        agent={agent}
-      />
-
-      {/* SECTION 1 — new strict hierarchy: Site Acquisition → SARF → Hawk Vision Targets → Existing Conditions → Site Notes.
-          Each section has its own Generate button on the top-right. */}
-      <Section1
-        initialAcquisition={{
-          agent_name: agent.name,
-          tower_height_ft: state?.searchParams?.tower_height_ft || (candidate?.tower_height_ft ?? "199"),
-          search_radius: state?.searchParams?.radius_miles ? String(state.searchParams.radius_miles) : "1.0",
-          compound_dimensions:
-            state?.searchParams?.compound_width_ft && state?.searchParams?.compound_depth_ft
-              ? `${state.searchParams.compound_width_ft}' x ${state.searchParams.compound_depth_ft}' (${state.searchParams.compound_width_ft * state.searchParams.compound_depth_ft} SF)`
-              : "100' x 100' (10,000 SF)",
-          latitude: candidate?.latitude ?? state?.searchCenter?.lat ?? "",
-          longitude: candidate?.longitude ?? state?.searchCenter?.lon ?? "",
-        }}
-        onChange={setSection1State}
-      />
-
-      {/* SECTION 2 — Zoning Overview + Tower Specifics + Building Permits for Target One.
-          Pulls from Notion Master Zoning DB with Oxylabs fallback. */}
-      <Section2 targetOne={section1State.targets?.[0]} />
-
-      {/* SECTION 3 — Infrastructure: Mapbox map (power + fiber toggles, zoom, Target A
-          tower icon, utility contact sidebar) + N/E/S/W conical viewsheds. */}
-      <Section3
-        centerLat={section1State.acquisition?.latitude}
-        centerLon={section1State.acquisition?.longitude}
-        targetOne={section1State.targets?.[0]}
-      />
-
-      {/* Sections */}
-      <div className="space-y-3">
-        {SCIP_SECTION_ORDER.map((key) => (
-          <SCIPSection
-            key={key}
-            sectionKey={key}
-            title={scipData[key].title}
-            fields={scipData[key].fields}
-            onFieldChange={handleFieldChange}
-          />
-        ))}
-
-        {/* TAB 2 — Summary: Targets A/B/C with owner contact info from Enformion */}
-        <SCIPSummaryTab
-          candidate={candidate}
-          searchCenter={state?.searchCenter}
-          allResults={state?.allResults}
-        />
-
-        {/* PHOTOGRAPHS — 8-row grid mimicking the official SCIP template (Riverlane reference) */}
-        <SCIPPhotographsGrid candidate={candidate} />
-
-        {/* PHOTOGRAPHS — N/S/E/W tree-line 2D viewsheds for Target A (saved for later) */}
-        <SCIPViewshedSection candidate={candidate} />
-
-        {/* GROUND LEVEL — Mapillary street-level photos of access drive, power, fiber */}
-        <SCIPGroundPhotosSection candidate={candidate} />
-
-        {/* RF Coverage — CloudRF propagation simulation */}
-        <SCIPRFCoverageSection candidate={candidate} />
-
-        {/* Spectrum survey — CloudRF interference/spectrum endpoint */}
-        <SCIPSpectrumSection candidate={candidate} />
       </div>
 
       {/* Bottom export bar */}
       <div className="sticky bottom-4 bg-card border border-border shadow-xl rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 no-print">
         <div className="text-sm text-muted-foreground">
-          ✓ All edits are reflected in the exported file.
+          ✓ Hawk Aerial Intelligence renders 3 dedicated print pages.
         </div>
         <div className="flex gap-2 flex-wrap">
-          <SCIPShareButton
-            candidate={candidate}
-            ordinance={state?.ordinance}
-            searchCenter={state?.searchCenter}
-            agent={agent}
-          />
           <PrintSCIPButton />
-          <SCIPExportButtons scipData={scipData} candidate={candidate} />
         </div>
       </div>
     </div>
