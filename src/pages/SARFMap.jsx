@@ -23,6 +23,34 @@ async function ensureMapboxLoaded() {
   await mapboxLoadingPromise;
 }
 
+// Geodesic circle polygon using great-circle math (64 steps).
+function buildCircle(lat, lon, radiusMiles, steps = 64) {
+  const R = 3958.7613; // Earth radius in miles
+  const d = radiusMiles / R;
+  const latRad = (lat * Math.PI) / 180;
+  const lonRad = (lon * Math.PI) / 180;
+  const coords = [];
+  for (let i = 0; i <= steps; i++) {
+    const brng = (i * 2 * Math.PI) / steps;
+    const lat2 = Math.asin(
+      Math.sin(latRad) * Math.cos(d) +
+        Math.cos(latRad) * Math.sin(d) * Math.cos(brng)
+    );
+    const lon2 =
+      lonRad +
+      Math.atan2(
+        Math.sin(brng) * Math.sin(d) * Math.cos(latRad),
+        Math.cos(d) - Math.sin(latRad) * Math.sin(lat2)
+      );
+    coords.push([(lon2 * 180) / Math.PI, (lat2 * 180) / Math.PI]);
+  }
+  return {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: [coords] },
+    properties: {},
+  };
+}
+
 export default function SARFMap() {
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
@@ -62,18 +90,52 @@ export default function SARFMap() {
     map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
     map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
 
-    const el = document.createElement("div");
-    el.style.cssText = `
-      width: 22px; height: 22px; border-radius: 50%;
-      background: #06b6d4; border: 3px solid #fff;
-      box-shadow: 0 0 0 2px #06b6d4, 0 0 12px rgba(6,182,212,0.8);
-    `;
-    new window.mapboxgl.Marker({ element: el, anchor: "center" })
-      .setLngLat([lonNum, latNum])
-      .setPopup(new window.mapboxgl.Popup({ offset: 18 }).setHTML(
-        `<div style="font-family:monospace;font-size:11px;"><strong>SEARCH CENTER</strong><br/>${latNum.toFixed(6)}, ${lonNum.toFixed(6)}</div>`
-      ))
-      .addTo(map);
+    map.on("load", () => {
+      const halfMile = buildCircle(latNum, lonNum, 0.5);
+      const oneMile = buildCircle(latNum, lonNum, 1.0);
+
+      // 0.5-mile yellow ring
+      map.addSource("ring-half", { type: "geojson", data: halfMile });
+      map.addLayer({
+        id: "ring-half-fill",
+        type: "fill",
+        source: "ring-half",
+        paint: { "fill-color": "#facc15", "fill-opacity": 0.05 },
+      });
+      map.addLayer({
+        id: "ring-half-line",
+        type: "line",
+        source: "ring-half",
+        paint: { "line-color": "#facc15", "line-width": 3 },
+      });
+
+      // 1.0-mile red ring
+      map.addSource("ring-one", { type: "geojson", data: oneMile });
+      map.addLayer({
+        id: "ring-one-fill",
+        type: "fill",
+        source: "ring-one",
+        paint: { "fill-color": "#ef4444", "fill-opacity": 0.05 },
+      });
+      map.addLayer({
+        id: "ring-one-line",
+        type: "line",
+        source: "ring-one",
+        paint: { "line-color": "#ef4444", "line-width": 3 },
+      });
+
+      // Fit map to the 1-mile ring
+      const coords = oneMile.geometry.coordinates[0];
+      const lons = coords.map((c) => c[0]);
+      const lats = coords.map((c) => c[1]);
+      map.fitBounds(
+        [
+          [Math.min(...lons), Math.min(...lats)],
+          [Math.max(...lons), Math.max(...lats)],
+        ],
+        { padding: 60, duration: 0 }
+      );
+    });
 
     mapRef.current = map;
   }
