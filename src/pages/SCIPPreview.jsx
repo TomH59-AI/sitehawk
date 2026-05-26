@@ -25,9 +25,8 @@ import Instant3DZoningSimulator from "../components/scip/Instant3DZoningSimulato
 import SiteOwnerInfoBlock from "../components/scip/SiteOwnerInfoBlock";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
-import ZoningPermitReport from "../components/scip/ZoningPermitReport";
-import MapGenerationButtons from "../components/scip/MapGenerationButtons";
 import SiteParametersForm from "../components/scip/SiteParametersForm";
+import SARFMap from "../components/scip/SARFMap";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -41,9 +40,6 @@ export default function SCIPPreview() {
   const [candidate, setCandidate] = useState(null);
   const [agent, setAgent] = useState({ name: "", phone: "", email: "" });
   const [section1State, setSection1State] = useState({ acquisition: {}, targets: [], siteNotes: "" });
-  const [zoningReportDone, setZoningReportDone] = useState(false);
-  const [generatedMaps, setGeneratedMaps] = useState(new Set());
-  const [generatingMap, setGeneratingMap] = useState(null);
   const [propertyInfoData, setPropertyInfoData] = useState(null);
   const [siteParams, setSiteParams] = useState(null);
   const [scanStarted, setScanStarted] = useState(false);
@@ -123,43 +119,18 @@ export default function SCIPPreview() {
   const coordsReady = lat != null && lon != null;
 
   const stages = [
-    { key: "params",   label: "Site Parameters", status: scanStarted ? "done" : "active" },
-    { key: "zoning",   label: "Zoning Report",   status: zoningReportDone ? "done" : scanStarted ? "active" : "pending" },
-    { key: "sarf",     label: "SARF Map",        status: generatedMaps.has("sarf") ? "done" : zoningReportDone ? "active" : "pending" },
-    { key: "rf",       label: "RF Coverage",     status: generatedMaps.has("rf_coverage") ? "done" : generatedMaps.has("sarf") ? "active" : "pending" },
-    { key: "infra",    label: "Infrastructure",  status: generatedMaps.has("infra") ? "done" : generatedMaps.has("rf_coverage") ? "active" : "pending" },
-    { key: "compound", label: "Compound",        status: generatedMaps.has("compound") ? "done" : generatedMaps.has("infra") ? "active" : "pending" },
+    { key: "params", label: "Site Parameters", status: scanStarted ? "done" : "active" },
+    { key: "sarf",   label: "SARF Map",        status: scanStarted ? "done" : "pending" },
   ];
-
-  const handleGenerateMap = (key) => {
-    setGeneratingMap(key);
-    // Each map type triggers a scroll to its existing rendered section.
-    const targetMap = {
-      sarf: "scip-sarf-section",
-      rf_coverage: "scip-rf-section",
-      infra: "scip-infra-section",
-      compound: "scip-compound-section",
-    };
-    const id = targetMap[key];
-    if (id) {
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-    setTimeout(() => {
-      setGeneratedMaps((prev) => new Set(prev).add(key));
-      setGeneratingMap(null);
-    }, 800);
-  };
 
   return (
     <div id="scip-print-root" className="space-y-6 max-w-5xl mx-auto pb-12 relative">
       <HawkInstructions />
 
-      {/* Stage 3 — Hawk progress timeline */}
+      {/* Hawk progress timeline */}
       <SCIPStageProgress stages={stages} />
 
-      {/* Stage 0 — Site Parameters entry. User must click Scan before any
-          downstream data (zoning report, maps) is generated. */}
+      {/* Site Parameters entry. User must click Scan before the SARF map renders. */}
       <SiteParametersForm
         initial={{
           lat: candidate?.latitude ?? state?.searchCenter?.lat,
@@ -170,33 +141,27 @@ export default function SCIPPreview() {
           setback_ft: state?.searchParams?.setback_ft,
           radius_miles: state?.searchParams?.radius_miles,
         }}
-        scanning={scanStarted && !zoningReportDone}
+        scanning={false}
         onScan={(params) => {
           setSiteParams(params);
           setScanStarted(true);
-          setZoningReportDone(false);
         }}
       />
 
-      {/* Stage 1 — Zoning + permit report. Runs ONLY after Scan is clicked.
-          Pulls every field below directly from the Notion Master Zoning folder
-          and the matching {STATE}-Zoning subfolder. */}
+      {/* Single SARF map — search center waypoint + 0.5mi (yellow) & 1mi (red) rings */}
       {scanStarted && coordsReady && (
-        <ZoningPermitReport
-          lat={lat}
-          lon={lon}
-          candidate={{ ...candidate, ...siteParams }}
-          onComplete={() => setZoningReportDone(true)}
-        />
-      )}
-
-      {/* Stage 2 — Map generation buttons unlock after the zoning report finishes */}
-      {zoningReportDone && (
-        <MapGenerationButtons
-          onGenerate={handleGenerateMap}
-          completed={generatedMaps}
-          loadingKey={generatingMap}
-        />
+        <div className="space-y-2">
+          <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500/15 via-transparent to-transparent border border-cyan-500/30">
+            <div className="text-[10px] font-mono text-cyan-700 tracking-[0.3em] mb-0.5">SCIP · SARF</div>
+            <div className="font-heading font-bold text-lg text-foreground">
+              Site Area of Responsibility — {Number(lat).toFixed(6)}, {Number(lon).toFixed(6)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">
+              Search center waypoint with 0.50-mile (yellow) and 1.00-mile (red) radius rings.
+            </div>
+          </div>
+          <SARFMap lat={Number(lat)} lon={Number(lon)} label={candidate?.site_name} />
+        </div>
       )}
 
       {/* Header */}
