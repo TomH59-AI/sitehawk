@@ -13,9 +13,23 @@ import { useState } from "react";
 import { Radio } from "lucide-react";
 import { toast } from "sonner";
 import { cloudRFCoverage } from "@/functions/cloudRFCoverage";
-import CoverageMap from "@/components/coverage/CoverageMap.jsx";
-import TransmitterConfigSidebar from "@/components/coverage/TransmitterConfigSidebar.jsx";
 import SoaringHawkLoader from "@/components/ui/SoaringHawkLoader";
+
+// Placeholders — original components were removed. Build-safe stubs.
+function CoverageMap() {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/30 h-[500px] flex items-center justify-center text-sm text-muted-foreground">
+      Coverage map component is unavailable.
+    </div>
+  );
+}
+function TransmitterConfigSidebar() {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+      Transmitter config sidebar is unavailable.
+    </div>
+  );
+}
 
 export default function CoverageAnalysis() {
   const [pin, setPin] = useState(null);

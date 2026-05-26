@@ -9,7 +9,7 @@ import { useState } from "react";
 import { ClipboardList, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { notionZoningLookup } from "@/functions/notionZoningLookup";
+import { generateZoningPermitReport } from "@/functions/generateZoningPermitReport";
 
 const SECTIONS = [
   {
@@ -67,50 +67,102 @@ const SECTIONS = [
   },
 ];
 
-// Map Notion / zoning lookup payload keys → template row labels.
-function mapZoningToTemplate(z) {
-  if (!z) return {};
+// Map rich generateZoningPermitReport payload → template row labels.
+// Every cell reads report.<section>.<key>?.value. Anything missing/empty
+// is written as the literal sentinel 'NEEDS_HUMAN_REVIEW' — no inference.
+function mapZoningToTemplate(report) {
+  const NHR = "NEEDS_HUMAN_REVIEW";
+  const pick = (section, key) => {
+    const v = report?.[section]?.[key]?.value;
+    if (v === null || v === undefined || v === "") return NHR;
+    return String(v);
+  };
+  if (!report) {
+    return {
+      "ZONING OVERVIEW": {
+        "Zoning Jurisdiction": NHR,
+        "Zoning Contact Information": NHR,
+        "Zoning Process": NHR,
+        "Zoning Fees": NHR,
+        "Zoning Approval Timeframe": NHR,
+        "Property Zoning District": NHR,
+        "Property Future Land Use": NHR,
+        "Property Current Usage": NHR,
+        "Meets minimum lot requirements?": NHR,
+      },
+      "TOWER SPECIFICS": {
+        "LDC Section Reference(s)": NHR,
+        "Maximum Tower Height": NHR,
+        "Stealth Required?": NHR,
+        "Required Collocations (#)": NHR,
+        "Residential Separation (ft or %)": NHR,
+        "Tower Separation (ft or %)": NHR,
+        "Measured from base or center": NHR,
+        "Fall Zone Requirements": NHR,
+        "Special Tower Landscaping?": NHR,
+      },
+      "SITE PLAN OVERVIEW": {
+        "Site Plan Jurisdiction": NHR,
+        "Site Plan Contact Information": NHR,
+        "Site Plan Fees": NHR,
+        "Timeframe for approval": NHR,
+        "Existing Site Plan to Amend?": NHR,
+        "Concurrent to Zoning or BP?": NHR,
+        "Submittal deadlines?": NHR,
+        "Electronic, hard copy, or both?": NHR,
+      },
+      "BUILDING PERMIT INFORMATION": {
+        "Building Permit Jurisdiction": NHR,
+        "Building Department Contact Info": NHR,
+        "Does GC have to submit?": NHR,
+        "Building Permit Fees": NHR,
+        "Building Permit Timeframe": NHR,
+        "Bond Required?": NHR,
+        "E911 Address assigned?": NHR,
+      },
+    };
+  }
   return {
     "ZONING OVERVIEW": {
-      "Zoning Jurisdiction": z.jurisdiction || "",
-      "Zoning Contact Information": z.zoning_contact || "",
-      "Zoning Process": z.zoning_process || "",
-      "Zoning Fees": z.zoning_fees || "",
-      "Zoning Approval Timeframe": z.zoning_timeframe || "",
-      "Property Zoning District": z.zoning_district || z.zoning_classification || "",
-      "Property Future Land Use": z.future_land_use || "",
-      "Property Current Usage": z.current_usage || "",
-      "Meets minimum lot requirements?": z.meets_min_lot || "",
+      "Zoning Jurisdiction": pick("zoning_overview", "zoning_jurisdiction"),
+      "Zoning Contact Information": pick("zoning_overview", "zoning_contact_information"),
+      "Zoning Process": pick("zoning_overview", "zoning_process"),
+      "Zoning Fees": pick("zoning_overview", "zoning_fees"),
+      "Zoning Approval Timeframe": pick("zoning_overview", "zoning_approval_timeframe"),
+      "Property Zoning District": pick("zoning_overview", "property_zoning_district"),
+      "Property Future Land Use": pick("zoning_overview", "property_future_land_use"),
+      "Property Current Usage": pick("zoning_overview", "property_current_usage"),
+      "Meets minimum lot requirements?": pick("zoning_overview", "meets_minimum_lot_requirements"),
     },
     "TOWER SPECIFICS": {
-      "LDC Section Reference(s)": z.ldc_section || "",
-      "Maximum Tower Height": z.max_tower_height || "",
-      "Stealth Required?": z.stealth_required || "",
-      "Required Collocations (#)": z.required_collocations || "",
-      "Residential Separation (ft or %)": z.residential_separation || "",
-      "Tower Separation (ft or %)": z.tower_separation || "",
-      "Measured from base or center": z.measured_from || "",
-      "Fall Zone Requirements": z.fall_zone || "",
-      "Special Tower Landscaping?": z.tower_landscaping || "",
+      "LDC Section Reference(s)": pick("tower_specifics", "ldc_section_reference"),
+      "Maximum Tower Height": pick("tower_specifics", "maximum_tower_height"),
+      "Stealth Required?": pick("tower_specifics", "stealth_required"),
+      "Required Collocations (#)": pick("tower_specifics", "required_collocations"),
+      "Residential Separation (ft or %)": pick("tower_specifics", "residential_separation"),
+      "Tower Separation (ft or %)": pick("tower_specifics", "tower_separation"),
+      "Measured from base or center": pick("tower_specifics", "measured_from"),
+      "Fall Zone Requirements": pick("tower_specifics", "fall_zone_requirements"),
+      "Special Tower Landscaping?": pick("tower_specifics", "special_tower_landscaping"),
     },
     "SITE PLAN OVERVIEW": {
-      "Site Plan Jurisdiction": z.site_plan_jurisdiction || "",
-      "Site Plan Contact Information": z.site_plan_contact || "",
-      "Site Plan Fees": z.site_plan_fees || "",
-      "Timeframe for approval": z.site_plan_timeframe || "",
-      "Existing Site Plan to Amend?": z.existing_site_plan || "",
-      "Concurrent to Zoning or BP?": z.concurrent || "",
-      "Submittal deadlines?": z.submittal_deadlines || "",
-      "Electronic, hard copy, or both?": z.submittal_format || "",
+      "Site Plan Jurisdiction": pick("site_plan", "site_plan_jurisdiction"),
+      "Site Plan Contact Information": pick("site_plan", "site_plan_contact_information"),
+      "Site Plan Fees": pick("site_plan", "site_plan_fees"),
+      "Timeframe for approval": pick("site_plan", "timeframe_for_approval"),
+      "Existing Site Plan to Amend?": pick("site_plan", "existing_site_plan_to_amend"),
+      "Concurrent to Zoning or BP?": pick("site_plan", "concurrent_to_zoning_or_bp"),
+      "Submittal deadlines?": pick("site_plan", "submittal_deadlines"),
+      "Electronic, hard copy, or both?": pick("site_plan", "submittal_format"),
     },
     "BUILDING PERMIT INFORMATION": {
-      "Building Permit Jurisdiction": z.bp_jurisdiction || "",
-      "Building Department Contact Info": z.bp_contact || "",
-      "Does GC have to submit?": z.gc_submits || "",
-      "Building Permit Fees": z.bp_fees || "",
-      "Building Permit Timeframe": z.bp_timeframe || "",
-      "Bond Required?": z.bond_required || "",
-      "E911 Address assigned?": z.e911_assigned || "",
+      "Building Permit Jurisdiction": pick("building_permit", "building_permit_jurisdiction"),
+      "Building Department Contact Info": pick("building_permit", "building_department_contact_info"),
+      "Does GC have to submit?": pick("building_permit", "gc_submits"),
+      "Building Permit Fees": pick("building_permit", "building_permit_fees"),
+      "Building Permit Timeframe": pick("building_permit", "building_permit_timeframe"),
+      "Bond Required?": pick("building_permit", "bond_required"),
+      "E911 Address assigned?": pick("building_permit", "e911_address_assigned"),
     },
   };
 }
@@ -143,9 +195,9 @@ export default function HawkZoningOverview({ lat, lon }) {
     }
     setLoading(true);
     try {
-      const res = await notionZoningLookup({ lat, lon });
-      const z = res.data?.zoning || {};
-      const mapped = mapZoningToTemplate(z);
+      const res = await generateZoningPermitReport({ lat, lon });
+      const report = res.data?.report || null;
+      const mapped = mapZoningToTemplate(report);
       setValues((prev) => {
         const next = emptyState();
         for (const sec of SECTIONS) {
