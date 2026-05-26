@@ -12,6 +12,7 @@ import HawkZoningOverview from "../components/scip/HawkZoningOverview";
 import HawkParcelDetails from "../components/scip/HawkParcelDetails";
 import HawkAerialIntelligence from "../components/scip/HawkAerialIntelligence";
 import HawkUtilitiesIntelligence from "../components/scip/HawkUtilitiesIntelligence";
+import HawkCellAirportIntelligence from "../components/scip/HawkCellAirportIntelligence";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -150,6 +151,13 @@ export default function SCIPPreview() {
 
           {/* Hawk Utilities Intelligence — Power + Fiber overlays, centered on Target A */}
           <HawkUtilitiesIntelligence
+            srcLat={Number(lat)}
+            srcLon={Number(lon)}
+            targetA={targets3?.[0] || null}
+          />
+
+          {/* Hawk Cell Tower + Airport Intelligence — nearest FCC tower and nearest airport from Target A, with crow-flies distance */}
+          <HawkCellAirportIntelligence
             srcLat={Number(lat)}
             srcLon={Number(lon)}
             targetA={targets3?.[0] || null}
