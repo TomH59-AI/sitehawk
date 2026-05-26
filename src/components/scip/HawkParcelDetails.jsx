@@ -13,7 +13,9 @@ import { useState } from "react";
 import { LandPlot, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
+import { findBestParcelForTower } from "@/functions/findBestParcelForTower";
+
+const NHR = "NEEDS_HUMAN_REVIEW";
 
 const ROWS = [
   { key: "owner_name",            label: "Owner's Name:" },
@@ -26,7 +28,6 @@ const ROWS = [
   { key: "latitude",              label: "Latitude:" },
   { key: "longitude",             label: "Longitude:" },
   { key: "phone",                 label: "Phone:" },
-  { key: "fema_risk",             label: "FEMA Risk Factor Letter:" },
 ];
 
 function emptyTarget() {
@@ -38,23 +39,53 @@ function emptyState() {
   return { 1: emptyTarget(), 2: emptyTarget(), 3: emptyTarget() };
 }
 
-function mapParcel(p) {
-  if (!p) return emptyTarget();
+// Treat null/undefined/""/NaN as unresolved → 'NEEDS_HUMAN_REVIEW'.
+function nhr(v) {
+  if (v === null || v === undefined) return NHR;
+  if (typeof v === "number" && !Number.isFinite(v)) return NHR;
+  const s = String(v).trim();
+  return s === "" ? NHR : s;
+}
+
+function mapParcel(t) {
+  if (!t) return emptyTarget();
+
+  const owner = nhr(t.owner_name || t.owner);
+  const parcelAddress = nhr(t.parcel_address || t.address);
+  const parcelId = nhr(t.parcel_id || t.apn);
+
+  const acres = Number(t.acreage);
+  const parcelSize = Number.isFinite(acres) ? acres.toFixed(2) : NHR;
+
+  const zoning = nhr(t.zoning_classification || t.zoning);
+  const mailing = nhr(t.mailing_address);
+
+  const latRaw = t.latitude;
+  const lonRaw = t.longitude;
+  const hasLat = latRaw !== null && latRaw !== undefined && latRaw !== "" && Number.isFinite(Number(latRaw));
+  const hasLon = lonRaw !== null && lonRaw !== undefined && lonRaw !== "" && Number.isFinite(Number(lonRaw));
+  const latitude = hasLat ? String(latRaw) : NHR;
+  const longitude = hasLon ? String(lonRaw) : NHR;
+  // coordinates field intentionally not present in template inputs (header row only);
+  // we still resolve it per spec for downstream consumers if needed later.
+  // const coordinates = hasLat && hasLon ? `${latRaw}, ${lonRaw}` : NHR;
+
+  const phone = nhr(t.phone || t.phones?.[0]?.number);
+
   return {
-    owner_name: p.owner_name || p.owner || "",
-    parcel_address: p.parcel_address || p.address || "",
-    parcel_id: p.parcel_id || p.apn || "",
-    parcel_size: p.acreage != null ? Number(p.acreage).toFixed(2) : "",
-    zoning: p.zoning || p.zoning_classification || "",
-    mailing_address: p.mailing_address || p.owner_mailing_address || "",
-    latitude: p.latitude != null ? Number(p.latitude).toFixed(6) : "",
-    longitude: p.longitude != null ? Number(p.longitude).toFixed(6) : "",
-    phone: p.phone || "",
-    fema_risk: p.fema_risk_factor || p.fema_zone || "",
+    owner_name: owner,
+    parcel_address: parcelAddress,
+    parcel_id: parcelId,
+    parcel_size: parcelSize,
+    zoning,
+    mailing_address: mailing,
+    latitude,
+    longitude,
+    phone,
   };
 }
 
-export default function HawkParcelDetails({ lat, lon }) {
+export default function HawkParcelDetails({ lat, lon, radiusMiles = 1.0 }) {
   const [values, setValues] = useState(emptyState);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -73,15 +104,32 @@ export default function HawkParcelDetails({ lat, lon }) {
     }
     setLoading(true);
     try {
-      const res = await realieParcelsInRing({ lat, lon, radius_miles: 1.0 });
-      const parcels = res.data?.parcels || [];
-      const next = emptyState();
-      [1, 2, 3].forEach((n, idx) => {
-        if (parcels[idx]) next[n] = mapParcel(parcels[idx]);
+      const res = await findBestParcelForTower({ lat, lon, radiusMiles });
+      const targets = res.data?.targets || [];
+      setValues((prev) => {
+        const next = emptyState();
+        [1, 2, 3].forEach((n, idx) => {
+          if (targets[idx]) {
+            const mapped = mapParcel(targets[idx]);
+            // Preserve pre-existing user input only when new value is NEEDS_HUMAN_REVIEW.
+            const merged = {};
+            for (const k of Object.keys(mapped)) {
+              const newVal = mapped[k];
+              const prevVal = prev?.[n]?.[k];
+              merged[k] =
+                newVal === NHR && prevVal && prevVal !== "" && prevVal !== NHR
+                  ? prevVal
+                  : newVal;
+            }
+            next[n] = merged;
+          } else if (prev?.[n]) {
+            next[n] = prev[n];
+          }
+        });
+        return next;
       });
-      setValues(next);
       setGenerated(true);
-      toast.success(`Hawk Parcel Intelligence found ${Math.min(parcels.length, 3)} target parcel${parcels.length === 1 ? "" : "s"}.`);
+      toast.success(`Hawk Parcel Intelligence found ${Math.min(targets.length, 3)} target parcel${targets.length === 1 ? "" : "s"}.`);
     } catch (err) {
       console.error(err);
       toast.error(err?.message || "Hawk Parcel Intelligence lookup failed.");

@@ -168,7 +168,7 @@ export default function SCIPPreview() {
           <HawkZoningOverview lat={Number(lat)} lon={Number(lon)} />
 
           {/* Hawk Parcel Details — side-by-side Targets 1/2/3 with its own button */}
-          <HawkParcelDetails lat={Number(lat)} lon={Number(lon)} />
+          <HawkParcelDetails lat={Number(lat)} lon={Number(lon)} radiusMiles={siteParams?.radius_miles} />
         </div>
       )}
 
