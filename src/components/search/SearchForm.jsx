@@ -61,7 +61,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Your Name</label>
             <Input
               type="text"
-              placeholder="e.g. Tom Hodges"
+              placeholder="e.g. Nikola Tesla"
               value={agentName}
               onChange={(e) => setAgentName(e.target.value)}
               className="bg-secondary border-border"
