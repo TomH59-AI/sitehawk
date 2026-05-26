@@ -85,7 +85,7 @@ function mapParcel(t) {
   };
 }
 
-export default function HawkParcelDetails({ lat, lon, radiusMiles = 1.0 }) {
+export default function HawkParcelDetails({ lat, lon, radiusMiles = 1.0, onTargetsResolved }) {
   const [values, setValues] = useState(emptyState);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -106,6 +106,29 @@ export default function HawkParcelDetails({ lat, lon, radiusMiles = 1.0 }) {
     try {
       const res = await findBestParcelForTower({ lat, lon, radiusMiles });
       const targets = res.data?.targets || [];
+
+      // Emit resolved Target A/B/C up to parent (no-op if undefined).
+      if (typeof onTargetsResolved === "function") {
+        const labels = ["A", "B", "C"];
+        const resolved = [];
+        for (let i = 0; i < Math.min(targets.length, 3); i++) {
+          const t = targets[i];
+          if (!t) continue;
+          const latNum = Number(t.latitude);
+          const lonNum = Number(t.longitude);
+          if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) continue;
+          resolved.push({
+            label: labels[i],
+            latitude: latNum,
+            longitude: lonNum,
+            owner: t.owner_name || t.owner || null,
+            parcel_address: t.parcel_address || t.address || null,
+            parcel_id: t.parcel_id || t.apn || null,
+          });
+        }
+        onTargetsResolved(resolved);
+      }
+
       setValues((prev) => {
         const next = emptyState();
         [1, 2, 3].forEach((n, idx) => {

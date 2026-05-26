@@ -26,6 +26,7 @@ export default function SCIPPreview() {
   const [agent, setAgent] = useState({ name: "", phone: "", email: "" });
   const [siteParams, setSiteParams] = useState(null);
   const [scanStarted, setScanStarted] = useState(false);
+  const [targets3, setTargets3] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -137,13 +138,22 @@ export default function SCIPPreview() {
           <HawkZoningOverview lat={Number(lat)} lon={Number(lon)} />
 
           {/* Hawk Parcel Details — side-by-side Targets 1/2/3 with its own button */}
-          <HawkParcelDetails lat={Number(lat)} lon={Number(lon)} radiusMiles={siteParams?.radius_miles} />
+          <HawkParcelDetails
+            lat={Number(lat)}
+            lon={Number(lon)}
+            radiusMiles={siteParams?.radius_miles}
+            onTargetsResolved={setTargets3}
+          />
 
           {/* Hawk Aerial Intelligence — Aerial / Topography / Wetlands (3 dedicated print pages) */}
           <HawkAerialIntelligence srcLat={Number(lat)} srcLon={Number(lon)} />
 
-          {/* Hawk Utilities Intelligence — Power + Fiber overlays (scaffold) */}
-          <HawkUtilitiesIntelligence srcLat={Number(lat)} srcLon={Number(lon)} />
+          {/* Hawk Utilities Intelligence — Power + Fiber overlays, centered on Target A */}
+          <HawkUtilitiesIntelligence
+            srcLat={Number(lat)}
+            srcLon={Number(lon)}
+            targetA={targets3?.[0] || null}
+          />
 
           {/* Hawk N/S/E/W Viewsheds — Target A conical RF lobes */}
           <SCIPViewshedSection candidate={candidate} />
