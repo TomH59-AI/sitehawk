@@ -11,6 +11,7 @@ import SARFMap from "../components/scip/SARFMap";
 import HawkZoningOverview from "../components/scip/HawkZoningOverview";
 import HawkParcelDetails from "../components/scip/HawkParcelDetails";
 import HawkAerialIntelligence from "../components/scip/HawkAerialIntelligence";
+import HawkUtilitiesIntelligence from "../components/scip/HawkUtilitiesIntelligence";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -140,6 +141,9 @@ export default function SCIPPreview() {
 
           {/* Hawk Aerial Intelligence — Aerial / Topography / Wetlands (3 dedicated print pages) */}
           <HawkAerialIntelligence srcLat={Number(lat)} srcLon={Number(lon)} />
+
+          {/* Hawk Utilities Intelligence — Power + Fiber overlays (scaffold) */}
+          <HawkUtilitiesIntelligence srcLat={Number(lat)} srcLon={Number(lon)} />
 
           {/* Hawk N/S/E/W Viewsheds — Target A conical RF lobes */}
           <SCIPViewshedSection candidate={candidate} />
