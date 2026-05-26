@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Eye, MapPin, Compass } from "lucide-react";
-import ViewshedQuadGrid from "../components/scip/section3/ViewshedQuadGrid";
+import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import HawkIcon from "@/components/HawkIcon";
@@ -99,10 +99,14 @@ export default function HawkView() {
         </p>
       </div>
 
-      {/* The 4-up viewshed grid — has its own GENERATE button built-in */}
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <ViewshedQuadGrid targetLat={lat} targetLon={lon} />
-      </div>
+      {/* The 4-up viewshed grid */}
+      <SCIPViewshedSection
+        candidate={{
+          latitude: parseFloat(lat),
+          longitude: parseFloat(lon),
+          site_name: siteName,
+        }}
+      />
 
       <div className="text-center text-[10px] font-mono text-muted-foreground tracking-wider pt-2">
         MAPBOX SATELLITE @2x · 1280×1280 · ±22° BEAM · 0.6 MI REACH · CROSS-PROVIDER VIEWSHED

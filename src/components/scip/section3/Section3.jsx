@@ -15,9 +15,8 @@
 import Section1Shell from "../section1/Section1Shell";
 import InfrastructureMap from "./InfrastructureMap";
 import InfrastructureSidebar from "./InfrastructureSidebar";
-import ViewshedQuadGrid from "./ViewshedQuadGrid";
 import SCIPOverlayMap from "./SCIPOverlayMap";
-import { Network, Compass, Layers } from "lucide-react";
+import { Network, Layers } from "lucide-react";
 
 export default function Section3({ centerLat, centerLon, targetOne }) {
   const targetLat = targetOne?.latitude;
@@ -32,7 +31,7 @@ export default function Section3({ centerLat, centerLon, targetOne }) {
           Infrastructure — Premises, Access, Power / Fiber / Viewshed
         </div>
         <div className="text-xs text-muted-foreground mt-0.5">
-          One map · two toggles · utility contacts sidebar · four conical viewsheds for tree-line analysis.
+          One map · two toggles · utility contacts sidebar · multi-layer overlay map.
         </div>
       </div>
 
@@ -49,14 +48,9 @@ export default function Section3({ centerLat, centerLon, targetOne }) {
         </div>
       </Section1Shell>
 
-      {/* 3.2 Conical viewsheds */}
-      <Section1Shell step={10} title="Tree-Line Viewsheds — N / E / S / W" subtitle="Mapbox satellite · transparent conical RF beams · downloadable PNGs" icon={Compass}>
-        <ViewshedQuadGrid targetLat={targetLat} targetLon={targetLon} />
-      </Section1Shell>
-
-      {/* 3.3 Multi-overlay toggle map — Aerial · Topo · Floodplain · Zoning · Wetlands · Parcels · Wind · Airport */}
+      {/* 3.2 Multi-overlay toggle map — Aerial · Topo · Floodplain · Zoning · Wetlands · Parcels · Wind · Airport */}
       <Section1Shell
-        step={11}
+        step={10}
         title="Overlay Map — Aerial · Topo · Floodplain · Zoning · Wetlands · Parcels · Wind · Airport"
         subtitle="One map · Aerial/Streets base · 7 layer toggles · search ring drawn · Target A tower icon · USFWS · FEMA · NLCD · Realie · ASCE 7-22 · FAA · USGS 3DEP"
         icon={Layers}
