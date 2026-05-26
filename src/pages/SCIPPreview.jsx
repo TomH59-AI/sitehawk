@@ -27,6 +27,7 @@ import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import SiteParametersForm from "../components/scip/SiteParametersForm";
 import SARFMap from "../components/scip/SARFMap";
+import HawkZoningOverview from "../components/scip/HawkZoningOverview";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -161,6 +162,9 @@ export default function SCIPPreview() {
             </div>
           </div>
           <SARFMap lat={Number(lat)} lon={Number(lon)} label={candidate?.site_name} />
+
+          {/* Hawk Zoning Overview — independent template, populated by its own button */}
+          <HawkZoningOverview lat={Number(lat)} lon={Number(lon)} />
         </div>
       )}
 
