@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { arcgisPointFeatures } from "@/functions/arcgisPointFeatures";
-import CoverageLegend from "./CoverageLegend";
+import CoverageLegend from "./CoverageLegend.jsx";
 
 const PIN_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">

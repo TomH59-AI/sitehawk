@@ -8,12 +8,8 @@ import SCIPPage1 from "../components/scip/SCIPPage1";
 import Section1 from "../components/scip/section1/Section1";
 import Section2 from "../components/scip/section2/Section2";
 import Section3 from "../components/scip/section3/Section3";
-import SCIPMapsSection from "../components/scip/SCIPMapsSection";
-import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
 import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
-import SCIPInfrastructureTab from "../components/scip/SCIPInfrastructureTab";
 import SCIPPhotographsGrid from "../components/scip/SCIPPhotographsGrid";
-import SCIPThematicMaps from "../components/scip/SCIPThematicMaps";
 import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
 import SCIPGroundPhotosSection from "../components/scip/SCIPGroundPhotosSection";
 import SCIPRFCoverageSection from "../components/scip/SCIPRFCoverageSection";
@@ -325,27 +321,12 @@ export default function SCIPPreview() {
           />
         ))}
 
-        {/* Cell 14 + Cell 57 — Birds-eye SARF overview + Target A placement */}
-        <SCIPBirdsEyeMaps candidate={candidate} searchCenter={state?.searchCenter} />
-
         {/* TAB 2 — Summary: Targets A/B/C with owner contact info from Enformion */}
         <SCIPSummaryTab
           candidate={candidate}
           searchCenter={state?.searchCenter}
           allResults={state?.allResults}
         />
-
-        {/* TAB 3 — Infrastructure: Clean satellite + Electric (APWA red) + Fiber (APWA orange) */}
-        <SCIPInfrastructureTab
-          candidate={candidate}
-          searchCenter={state?.searchCenter}
-        />
-
-        {/* SCIP MAPS section — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind */}
-        <SCIPThematicMaps candidate={candidate} searchCenter={state?.searchCenter} />
-
-        {/* Maps section — NWI Wetlands + USGS Contours */}
-        <SCIPMapsSection candidate={candidate} />
 
         {/* PHOTOGRAPHS — 8-row grid mimicking the official SCIP template (Riverlane reference) */}
         <SCIPPhotographsGrid candidate={candidate} />

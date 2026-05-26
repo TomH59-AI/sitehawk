@@ -8,10 +8,6 @@ import { useEffect, useState } from "react";
 import { scipShare } from "@/functions/scipShare";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPCoverPage from "../components/scip/SCIPCoverPage";
-import SCIPMapsSection from "../components/scip/SCIPMapsSection";
-import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
-import SCIPInfrastructureTab from "../components/scip/SCIPInfrastructureTab";
-import SCIPThematicMaps from "../components/scip/SCIPThematicMaps";
 import SCIPPhotographsGrid from "../components/scip/SCIPPhotographsGrid";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
@@ -73,10 +69,6 @@ export default function SCIPShareView() {
             onFieldChange={() => {}}
           />
         ))}
-        <SCIPBirdsEyeMaps candidate={candidate} searchCenter={searchCenter} />
-        <SCIPInfrastructureTab candidate={candidate} searchCenter={searchCenter} />
-        <SCIPThematicMaps candidate={candidate} searchCenter={searchCenter} />
-        <SCIPMapsSection candidate={candidate} />
         <SCIPPhotographsGrid candidate={candidate} />
       </div>
     </div>
