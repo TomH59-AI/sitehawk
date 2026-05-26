@@ -61,6 +61,20 @@ export default function SARFMap() {
     });
     map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
     map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
+
+    const el = document.createElement("div");
+    el.style.cssText = `
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #06b6d4; border: 3px solid #fff;
+      box-shadow: 0 0 0 2px #06b6d4, 0 0 12px rgba(6,182,212,0.8);
+    `;
+    new window.mapboxgl.Marker({ element: el, anchor: "center" })
+      .setLngLat([lonNum, latNum])
+      .setPopup(new window.mapboxgl.Popup({ offset: 18 }).setHTML(
+        `<div style="font-family:monospace;font-size:11px;"><strong>SEARCH CENTER</strong><br/>${latNum.toFixed(6)}, ${lonNum.toFixed(6)}</div>`
+      ))
+      .addTo(map);
+
     mapRef.current = map;
   }
 
