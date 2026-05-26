@@ -4,7 +4,6 @@ import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPCoverPage from "../components/scip/SCIPCoverPage";
-import SCIPPage1 from "../components/scip/SCIPPage1";
 import Section1 from "../components/scip/section1/Section1";
 import Section2 from "../components/scip/section2/Section2";
 import Section3 from "../components/scip/section3/Section3";
