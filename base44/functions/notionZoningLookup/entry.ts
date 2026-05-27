@@ -47,8 +47,12 @@ Deno.serve(async (req) => {
           section_title: o.section_title || null,
           permit_type: o.permit_type || null,
           zoning_process: o.permit_type || null,
-          max_tower_height: o.height_limit_ft != null ? `${o.height_limit_ft} ft` : null,
-          height_limit_ft: o.height_limit_ft,
+          max_tower_height: o.max_tower_height_ft != null ? `${o.max_tower_height_ft} ft` : null,
+          // TODO: backward-compat alias for renamed height_limit_ft. Remove once all consumers
+          // (SCIP Manager app, React rebuild, any external callers of notionZoningLookup)
+          // confirmed on max_tower_height_ft. Added 2026-05-27.
+          height_limit_ft: o.max_tower_height_ft,
+          max_tower_height_ft: o.max_tower_height_ft,
           setback_ft: o.setback_ft,
           fall_zone: o.fall_zone_ft != null ? `${o.fall_zone_ft} ft` : null,
           fall_zone_ft: o.fall_zone_ft,

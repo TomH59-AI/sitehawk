@@ -11,9 +11,9 @@
       "type": "string",
       "description": "Two-letter state code"
     },
-    "height_limit_ft": {
+    "max_tower_height_ft": {
       "type": "number",
-      "description": "Maximum allowed tower height in feet"
+      "description": "Maximum allowed tower height in feet (renamed from height_limit_ft)"
     },
     "setback_ft": {
       "type": "number",
@@ -21,7 +21,7 @@
     },
     "fall_zone_ft": {
       "type": "number",
-      "description": "Required fall-zone radius in feet"
+      "description": "Required fall-zone radius in feet (canonical numeric)"
     },
     "stealth_required": {
       "type": "boolean",
@@ -31,6 +31,202 @@
     "notes": {
       "type": "string",
       "description": "Free-form notes on ordinance specifics"
+    },
+    "zoning_jurisdiction": {
+      "type": "string",
+      "description": "Group A \u2014 Zoning jurisdiction name"
+    },
+    "zoning_contact_name": {
+      "type": "string",
+      "description": "Group A \u2014 Zoning department contact name"
+    },
+    "zoning_contact_email": {
+      "type": "string",
+      "description": "Group A \u2014 Zoning department contact email"
+    },
+    "zoning_contact_phone": {
+      "type": "string",
+      "description": "Group A \u2014 Zoning department contact phone"
+    },
+    "zoning_process": {
+      "type": "string",
+      "description": "Group A \u2014 Approval process description (e.g. Admin Review / Special Use Permit)"
+    },
+    "zoning_fees": {
+      "type": "string",
+      "description": "Group A \u2014 Zoning application / approval fees"
+    },
+    "zoning_approval_timeframe": {
+      "type": "string",
+      "description": "Group A \u2014 Estimated approval timeframe"
+    },
+    "property_zoning_district": {
+      "type": "string",
+      "description": "Group B \u2014 Zoning district code for the specific property (e.g. A-1, R-1)"
+    },
+    "property_future_land_use": {
+      "type": "string",
+      "description": "Group B \u2014 Future Land Use designation from the comprehensive plan"
+    },
+    "property_current_usage": {
+      "type": "string",
+      "description": "Group B \u2014 Current use of the property (e.g. Vacant, Agricultural)"
+    },
+    "meets_minimum_lot_requirements": {
+      "type": "boolean",
+      "description": "Group B \u2014 True if the parcel meets the minimum lot size / frontage for a tower"
+    },
+    "ldc_section_reference": {
+      "type": "string",
+      "description": "Group C \u2014 LDC / ordinance section reference(s) for tower regulations"
+    },
+    "required_collocations": {
+      "type": "number",
+      "description": "Group C \u2014 Minimum number of collocations required before a new tower is approved"
+    },
+    "residential_separation": {
+      "type": "number",
+      "description": "Group C \u2014 Required separation from residential structures (numeric; unit in residential_separation_unit)"
+    },
+    "residential_separation_unit": {
+      "type": "string",
+      "enum": [
+        "ft",
+        "pct",
+        "multiple"
+      ],
+      "default": "ft",
+      "description": "Group C \u2014 Unit for residential_separation: ft (feet) | pct (% of tower height) | multiple (\u00d7 tower height)"
+    },
+    "tower_separation": {
+      "type": "number",
+      "description": "Group C \u2014 Required separation from other towers (numeric; unit in tower_separation_unit)"
+    },
+    "tower_separation_unit": {
+      "type": "string",
+      "enum": [
+        "ft",
+        "pct",
+        "multiple"
+      ],
+      "default": "ft",
+      "description": "Group C \u2014 Unit for tower_separation: ft | pct | multiple"
+    },
+    "measured_from": {
+      "type": "string",
+      "enum": [
+        "base",
+        "center"
+      ],
+      "default": "base",
+      "description": "Group C \u2014 Whether setbacks / separations are measured from the tower base or center"
+    },
+    "fall_zone_requirements": {
+      "type": "string",
+      "description": "Group C \u2014 Descriptive fall-zone requirement text (NEVER parsed; numeric in fall_zone_ft)"
+    },
+    "special_tower_landscaping": {
+      "type": "boolean",
+      "description": "Group C \u2014 True if the jurisdiction requires special landscaping/screening around the tower compound"
+    },
+    "site_plan_jurisdiction": {
+      "type": "string",
+      "description": "Group D \u2014 Site plan review jurisdiction"
+    },
+    "site_plan_contact_name": {
+      "type": "string",
+      "description": "Group D \u2014 Site plan department contact name"
+    },
+    "site_plan_contact_email": {
+      "type": "string",
+      "description": "Group D \u2014 Site plan department contact email"
+    },
+    "site_plan_contact_phone": {
+      "type": "string",
+      "description": "Group D \u2014 Site plan department contact phone"
+    },
+    "site_plan_fees": {
+      "type": "string",
+      "description": "Group D \u2014 Site plan application fees"
+    },
+    "site_plan_timeframe": {
+      "type": "string",
+      "description": "Group D \u2014 Site plan review timeframe"
+    },
+    "existing_site_plan_to_amend": {
+      "type": "boolean",
+      "description": "Group D \u2014 True if an existing site plan must be amended (rather than a new submittal)"
+    },
+    "concurrent_to_zoning_or_bp": {
+      "type": "boolean",
+      "description": "Group D \u2014 True if site plan review runs concurrently with zoning or building permit"
+    },
+    "site_plan_submittal_deadlines": {
+      "type": "string",
+      "description": "Group D \u2014 Submittal deadline schedule or cutoff notes"
+    },
+    "site_plan_submission_format": {
+      "type": "string",
+      "enum": [
+        "electronic",
+        "hard_copy",
+        "both"
+      ],
+      "description": "Group D \u2014 Required submission format"
+    },
+    "building_permit_jurisdiction": {
+      "type": "string",
+      "description": "Group E \u2014 Building permit jurisdiction"
+    },
+    "building_dept_contact_name": {
+      "type": "string",
+      "description": "Group E \u2014 Building department contact name"
+    },
+    "building_dept_contact_email": {
+      "type": "string",
+      "description": "Group E \u2014 Building department contact email"
+    },
+    "building_dept_contact_phone": {
+      "type": "string",
+      "description": "Group E \u2014 Building department contact phone"
+    },
+    "gc_must_submit": {
+      "type": "boolean",
+      "description": "Group E \u2014 True if a licensed General Contractor must submit the building permit application"
+    },
+    "building_permit_fees": {
+      "type": "string",
+      "description": "Group E \u2014 Building permit fees"
+    },
+    "building_permit_timeframe": {
+      "type": "string",
+      "description": "Group E \u2014 Building permit review/issuance timeframe"
+    },
+    "bond_required": {
+      "type": "boolean",
+      "description": "Group E \u2014 True if a performance or removal bond is required"
+    },
+    "e911_address_assigned": {
+      "type": "boolean",
+      "description": "Group E \u2014 True if an E911 address must be assigned before the permit is issued"
+    },
+    "last_researched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Group F \u2014 ISO 8601 datetime when this record was last researched"
+    },
+    "last_verified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Group F \u2014 ISO 8601 datetime when this record was last verified against source documents"
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Group F \u2014 Authoritative source URL (Municode, county code portal, etc.)"
+    },
+    "research_notes": {
+      "type": "string",
+      "description": "Group F \u2014 Free-form research notes and provenance comments"
     }
   },
   "required": [

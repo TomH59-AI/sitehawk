@@ -8,7 +8,9 @@ export default function OrdinanceCard({ ordinance }) {
   if (!ordinance) return null;
 
   // Fields to skip from the generic grid (handled specially)
-  const SKIP = new Set(["section_ref", "section_title", "ldc_display", "jurisdiction", "compliance_summary"]);
+  // height_limit_ft renamed to max_tower_height_ft — suppress the old key so it doesn't
+  // appear as a ghost column if a cached response still carries the old name.
+  const SKIP = new Set(["section_ref", "section_title", "ldc_display", "jurisdiction", "compliance_summary", "height_limit_ft"]);
   const entries = Object.entries(ordinance).filter(([k, v]) => !SKIP.has(k) && v !== null && v !== undefined && v !== "");
 
   const sections = ordinance.section_title
