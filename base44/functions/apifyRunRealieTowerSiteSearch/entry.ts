@@ -6,14 +6,20 @@
 // Uses the run-sync-get-dataset-items endpoint so the HTTP call blocks until
 // the actor finishes and returns the dataset items array in one shot.
 //
-// Input body (same shape as realieTowerSiteSearch):
+// Input body:
 // {
-//   latitude              // required
-//   longitude             // required
-//   radius                // miles, required
-//   limit                 // optional, default 100
-//   includeUnassignedAddress  // optional bool
+//   latitude              // required (number)
+//   longitude             // required (number)
+//   limit                 // accepted but not forwarded (ignored by actor)
+//   frequencyMHz          // optional string, default "700"
+//   losThresholdDbm       // optional string, default "-100"
+//   pathGatesDeliverable  // optional bool,   default false
+//   rxHeightM             // optional string, default "2"
+//   txHeightM             // optional string, default "60.7"
 // }
+//
+// NOTE: cloudRfApiKey and realieApiKey are stored as encrypted secrets
+// inside Apify itself — the actor pulls them from there; do NOT pass them here.
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
@@ -37,32 +43,44 @@ Deno.serve(async (req) => {
     const {
       latitude,
       longitude,
-      radius,
-      limit = 100,
-      includeUnassignedAddress = true,
+      limit,           // accepted for caller compatibility, not forwarded
+      frequencyMHz,
+      losThresholdDbm,
+      pathGatesDeliverable,
+      rxHeightM,
+      txHeightM,
     } = body || {};
 
     if (latitude == null || longitude == null) {
       return json({ error: "latitude and longitude are required" }, 400);
     }
-    if (radius == null) {
-      return json({ error: "radius (miles) is required" }, 400);
-    }
+
 
     const apifyToken = Deno.env.get("APIFY_API_TOKEN");
     if (!apifyToken) return json({ error: "APIFY_API_TOKEN not configured" }, 500);
 
+    const realieApiKey = Deno.env.get("REALIE_API_KEY");
+    if (!realieApiKey) return json({ error: "REALIE_API_KEY not configured" }, 500);
+
+    const cloudRfApiKey = Deno.env.get("CloudRF_API_KEY");
+    if (!cloudRfApiKey) return json({ error: "CloudRF_API_KEY not configured" }, 500);
+
     const url = `https://api.apify.com/v2/acts/${ACTOR_ID}/run-sync-get-dataset-items?token=${apifyToken}`;
 
     const actorInput = {
-      lat: latitude,
-      lon: longitude,
-      radius,
-      limit,
-      includeUnassignedAddress,
+      candidates: [{ name: "Candidate-1", lat: latitude, lon: longitude }],
+      lat: String(latitude),
+      lon: String(longitude),
+      frequencyMHz:         frequencyMHz         ?? "700",
+      losThresholdDbm:      losThresholdDbm      ?? "-100",
+      pathGatesDeliverable: pathGatesDeliverable ?? false,
+      rxHeightM:            rxHeightM            ?? "2",
+      txHeightM:            txHeightM            ?? "60.7",
+      realieApiKey,
+      cloudRfApiKey,
     };
 
-    console.log(`[apifyRunRealieTowerSiteSearch] Triggering actor for lat=${latitude} lon=${longitude} radius=${radius}mi limit=${limit}`);
+    console.log(`[apifyRunRealieTowerSiteSearch] Triggering actor for lat=${latitude} lon=${longitude}`);
 
     const r = await fetch(url, {
       method: "POST",
