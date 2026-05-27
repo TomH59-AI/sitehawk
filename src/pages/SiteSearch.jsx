@@ -15,6 +15,7 @@ import ScanProgressLoader from "../components/search/ScanProgressLoader";
 import DemoModeButton from "../components/search/DemoModeButton";
 import DiagnosticsPanel from "../components/search/DiagnosticsPanel";
 import RealieParcelsTable from "../components/search/RealieParcelsTable";
+import ApifyLOSSearch from "../components/search/ApifyLOSSearch";
 import { DEMO_RESULTS, DEMO_ORDINANCE } from "@/lib/demoData";
 import { siteSearch } from "@/functions/siteSearch";
 import { fccBroadbandLookup } from "@/functions/fccBroadbandLookup";
@@ -578,6 +579,14 @@ export default function SiteSearch() {
           centerLat={searchCenter.lat}
           centerLon={searchCenter.lon}
           searchId={currentSearchId}
+        />
+      )}
+
+      {/* Apify LOS analysis — manual trigger, sits below the auto-fetch Realie table */}
+      {searchCenter && !loading && (
+        <ApifyLOSSearch
+          centerLat={searchCenter.lat}
+          centerLon={searchCenter.lon}
         />
       )}
 
