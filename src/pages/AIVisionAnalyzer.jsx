@@ -2,10 +2,10 @@ import { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Upload, Eye, AlertTriangle, CheckCircle, Info, Loader2, MapPin, Search } from "lucide-react";
-import HawkIcon from "../components/HawkIcon";
+import { Upload, Eye, AlertTriangle, CheckCircle, Info, Loader2, MapPin, Map } from "lucide-react";
+import HawkIcon from "@/components/HawkIcon";
 import { aiVisionAnalyze } from "@/functions/aiVisionAnalyze";
-import SARFMapVision from "../components/ai-vision/SARFMapVision";
+import SARFMapInline from "@/components/ai-vision/SARFMapInline";
 
 const RADIUS_OPTIONS = [
   { value: 0.25, label: "0.25 mi" },
@@ -14,9 +14,9 @@ const RADIUS_OPTIONS = [
 ];
 
 const ANALYSIS_TYPES = [
-  { id: "aerial",      label: "Aerial / Satellite", icon: "🛰️", desc: "Analyze aerial or satellite imagery for tower placement zones and obstructions" },
+  { id: "aerial",      label: "Aerial / Satellite",    icon: "🛰️", desc: "Analyze aerial or satellite imagery for tower placement zones and obstructions" },
   { id: "blueprint",   label: "Blueprint / Floor Plan", icon: "📐", desc: "Analyze structural blueprints for DAS or small cell antenna mounting points" },
-  { id: "obstruction", label: "Obstruction Analysis", icon: "🏗️", desc: "Identify RF obstructions and calculate required tower height to clear them" },
+  { id: "obstruction", label: "Obstruction Analysis",   icon: "🏗️", desc: "Identify RF obstructions and calculate required tower height to clear them" },
 ];
 
 const SEVERITY_CONFIG = {
@@ -56,11 +56,9 @@ export default function AIVisionAnalyzer() {
   const [lon, setLon] = useState("");
   const [towerHeight, setTowerHeight] = useState("199");
   const [radius, setRadius] = useState(0.5);
+  const [sarfCoords, setSarfCoords] = useState(null);
 
-  // SARF map state — only set when user clicks "Generate SARF Map"
-  const [sarfCoords, setSarfCoords] = useState(null); // { lat, lon, radius }
-
-  // Step 2 — AI Vision (only after map is shown)
+  // Step 2 — AI Vision
   const [analysisType, setAnalysisType] = useState("aerial");
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -68,7 +66,6 @@ export default function AIVisionAnalyzer() {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
 
-  // ── Step 1: Generate SARF map only ──────────────────────────────────────
   const handleGenerateMap = (e) => {
     e.preventDefault();
     const parsedLat = parseFloat(lat);
@@ -81,12 +78,11 @@ export default function AIVisionAnalyzer() {
     setResult(null);
   };
 
-  // ── Step 2: Image upload helpers ─────────────────────────────────────────
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast({ title: "Invalid file", description: "Please upload an image file (JPG, PNG, etc.)", variant: "destructive" });
+      toast({ title: "Invalid file", description: "Please upload an image file.", variant: "destructive" });
       return;
     }
     setImageFile(file);
@@ -102,7 +98,6 @@ export default function AIVisionAnalyzer() {
     if (file) handleFileChange({ target: { files: [file] } });
   };
 
-  // ── Step 2: Run AI analysis ───────────────────────────────────────────────
   const handleAnalyze = async () => {
     if (!imageFile) {
       toast({ title: "No image", description: "Please upload an image first.", variant: "destructive" });
@@ -144,7 +139,7 @@ export default function AIVisionAnalyzer() {
 
       {/* ── STEP 1: Site Data + SARF Map ── */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2">
           <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">1</span>
           <h3 className="font-heading font-semibold text-foreground">Site Location & Search Radius</h3>
         </div>
@@ -203,7 +198,7 @@ export default function AIVisionAnalyzer() {
         </form>
       </div>
 
-      {/* SARF Map — only shown after Generate is clicked */}
+      {/* SARF Map — only renders after button click */}
       {sarfCoords && (
         <div className="rounded-xl border border-border overflow-hidden">
           <div className="px-4 py-3 bg-card border-b border-border">
@@ -212,32 +207,30 @@ export default function AIVisionAnalyzer() {
               {sarfCoords.lat.toFixed(6)}, {sarfCoords.lon.toFixed(6)} — {sarfCoords.radius} mile radius
             </div>
           </div>
-          <SARFMapVision lat={sarfCoords.lat} lon={sarfCoords.lon} radius={sarfCoords.radius} />
+          <SARFMapInline lat={sarfCoords.lat} lon={sarfCoords.lon} radius={sarfCoords.radius} />
         </div>
       )}
 
-      {/* ── STEP 2: AI Vision Analysis (only visible after map) ── */}
+      {/* ── STEP 2: AI Vision Analysis (only visible after map is generated) ── */}
       {sarfCoords && (
         <div className="rounded-xl border border-border bg-card p-5 space-y-5">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2">
             <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">2</span>
-            <h3 className="font-heading font-semibold text-foreground">AI Vision Analysis (optional)</h3>
+            <h3 className="font-heading font-semibold text-foreground">
+              AI Vision Analysis <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+            </h3>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left — Upload & Config */}
             <div className="space-y-4">
-              {/* Analysis Type */}
               <div className="space-y-2">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Analysis Type</h4>
                 {ANALYSIS_TYPES.map((type) => (
                   <button
-                    key={type.id}
-                    onClick={() => setAnalysisType(type.id)}
+                    key={type.id} onClick={() => setAnalysisType(type.id)}
                     className={`w-full text-left p-3 rounded-lg border transition-all ${
-                      analysisType === type.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border bg-card/50 hover:border-primary/40"
+                      analysisType === type.id ? "border-primary bg-primary/5" : "border-border bg-card/50 hover:border-primary/40"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -251,7 +244,6 @@ export default function AIVisionAnalyzer() {
                 ))}
               </div>
 
-              {/* Upload Zone */}
               <div
                 onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}
                 onClick={() => fileInputRef.current?.click()}
@@ -292,17 +284,13 @@ export default function AIVisionAnalyzer() {
                   <p className="text-xs text-muted-foreground/60 mt-1">Upload an image and click Analyze</p>
                 </div>
               )}
-
               {loading && (
                 <div className="h-full rounded-xl border border-border bg-card flex flex-col items-center justify-center p-12 text-center space-y-3">
                   <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                  <p className="font-heading font-semibold text-foreground">
-                    {uploading ? "Uploading image..." : "AI analyzing imagery..."}
-                  </p>
+                  <p className="font-heading font-semibold text-foreground">{uploading ? "Uploading image..." : "AI analyzing imagery..."}</p>
                   <p className="text-xs text-muted-foreground">This may take 15–30 seconds</p>
                 </div>
               )}
-
               {result && (
                 <div className="space-y-4">
                   <div className="rounded-xl border border-border bg-card p-5">
@@ -325,7 +313,6 @@ export default function AIVisionAnalyzer() {
                       </div>
                     </div>
                   </div>
-
                   {result.findings?.length > 0 && (
                     <div className="rounded-xl border border-border bg-card p-4 space-y-2">
                       <h4 className="font-heading font-semibold text-xs uppercase tracking-wider text-muted-foreground">Findings</h4>
@@ -344,7 +331,6 @@ export default function AIVisionAnalyzer() {
                       })}
                     </div>
                   )}
-
                   {result.recommendations?.length > 0 && (
                     <div className="rounded-xl border border-border bg-card p-4 space-y-2">
                       <h4 className="font-heading font-semibold text-xs uppercase tracking-wider text-muted-foreground">Recommendations</h4>
