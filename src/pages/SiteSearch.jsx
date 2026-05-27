@@ -139,7 +139,7 @@ export default function SiteSearch() {
       status: "pending",
       search_label: `Scan @ ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
       agent_name: merged.agent_name || "",
-      radius_miles: merged.radius_miles ?? 0.5,
+      radius_miles: merged.radius_miles,
       ring_name: merged.ring_name || "",
     });
 
