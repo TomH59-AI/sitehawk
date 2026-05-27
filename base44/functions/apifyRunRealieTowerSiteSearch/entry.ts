@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     if (!r.ok) {
       const text = await r.text().catch(() => "");
       console.error(`[apifyRunRealieTowerSiteSearch] Apify HTTP ${r.status}: ${text.slice(0, 500)}`);
-      return json({ error: `Apify HTTP ${r.status}`, detail: text.slice(0, 300) }, 502);
+      return json({ error: `Apify HTTP ${r.status}`, status: r.status, body: text.slice(0, 300) }, 502);
     }
 
     const items = await r.json();
