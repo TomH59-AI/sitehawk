@@ -2,17 +2,13 @@ import { useState } from "react";
 import { Search, MapPin, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-const RADIUS_OPTIONS = [
-  { value: 0.25, label: "0.25 mi" },
-  { value: 0.5, label: "0.50 mi" },
-  { value: 1.0, label: "1.0 mi" },
-];
+import { RADIUS_OPTIONS } from "./constants";
 
 export default function SearchForm({ onSearch, isLoading, disabled }) {
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
   const [agentName, setAgentName] = useState("");
+  const [ringName, setRingName] = useState("");
   const [towerHeight, setTowerHeight] = useState("199");
   const [radius, setRadius] = useState(0.5);
   const [compound, setCompound] = useState("100x100");
@@ -25,6 +21,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return;
     onSearch(latitude, longitude, {
       agent_name: agentName,
+      ring_name: ringName,
       tower_height_ft: parseFloat(towerHeight) || 199,
       radius_miles: radius,
       compound_size: compound,
@@ -55,7 +52,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Agent + Tower Specs row */}
+        {/* Agent + Ring Name row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Your Name</label>
@@ -67,6 +64,21 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               className="bg-secondary border-border"
             />
           </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Ring Name <span className="text-destructive">*</span></label>
+            <Input
+              type="text"
+              placeholder="e.g. Site A — Tampa I-75"
+              value={ringName}
+              onChange={(e) => setRingName(e.target.value)}
+              className="bg-secondary border-border"
+              required
+            />
+          </div>
+        </div>
+
+        {/* Tower Height row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Tower Height (ft AGL)</label>
             <Input

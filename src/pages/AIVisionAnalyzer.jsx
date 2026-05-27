@@ -6,12 +6,7 @@ import { Upload, Eye, AlertTriangle, CheckCircle, Info, Loader2, MapPin, Map } f
 import HawkIcon from "@/components/HawkIcon";
 import { aiVisionAnalyze } from "@/functions/aiVisionAnalyze";
 import SARFMapInline from "@/components/ai-vision/SARFMapInline";
-
-const RADIUS_OPTIONS = [
-  { value: 0.25, label: "0.25 mi" },
-  { value: 0.5,  label: "0.50 mi" },
-  { value: 1.0,  label: "1.00 mi" },
-];
+import { RADIUS_OPTIONS } from "@/components/search/constants";
 
 const ANALYSIS_TYPES = [
   { id: "aerial",      label: "Aerial / Satellite",    icon: "🛰️", desc: "Analyze aerial or satellite imagery for tower placement zones and obstructions" },

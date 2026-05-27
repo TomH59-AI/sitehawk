@@ -105,10 +105,14 @@ function createCandidateMarkerEl(num, score) {
   return el;
 }
 
+// The three fixed ring distances. The selected radius is emphasized; the other two are context.
+const FIXED_RINGS = [
+  { miles: 0.25, label: "0.25 mi" },
+  { miles: 0.5,  label: "0.50 mi" },
+  { miles: 1.0,  label: "1.0 mi"  },
+];
+
 export default function MapboxSatelliteMap({ centerLat, centerLon, results, loading, mapImageGetterRef, filteredResultIds, radiusMiles = 0.5 }) {
-  const RADIUS_METERS = radiusMiles * METERS_PER_MILE;
-  // Outer guide ring = 2x the chosen radius (capped at 2 mi)
-  const OUTER_RADIUS_METERS = Math.min(radiusMiles * 2, 2.0) * METERS_PER_MILE;
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -173,26 +177,34 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
-    // Remove existing layers/sources
-    ["search-ring-fill", "search-ring-outline", "search-ring-outer-fill", "search-ring-outer-outline"].forEach(id => {
-      if (map.getLayer(id)) map.removeLayer(id);
+    // Remove existing layers/sources for all three rings
+    FIXED_RINGS.forEach(({ miles }) => {
+      const key = `ring-${miles}`.replace(".", "_");
+      [`${key}-fill`, `${key}-outline`].forEach(id => { if (map.getLayer(id)) map.removeLayer(id); });
+      if (map.getSource(key)) map.removeSource(key);
     });
-    if (map.getSource("search-ring")) map.removeSource("search-ring");
-    if (map.getSource("search-ring-outer")) map.removeSource("search-ring-outer");
 
     const center = [centerLon, centerLat];
 
-    // Outer 1-mile red ring (drawn first so the inner ring sits on top)
-    const outerGeo = createGeoJSONCircle(center, OUTER_RADIUS_METERS);
-    map.addSource("search-ring-outer", { type: "geojson", data: outerGeo });
-    map.addLayer({ id: "search-ring-outer-fill", type: "fill", source: "search-ring-outer", paint: { "fill-color": "#DC2626", "fill-opacity": 0.05 } });
-    map.addLayer({ id: "search-ring-outer-outline", type: "line", source: "search-ring-outer", paint: { "line-color": "#DC2626", "line-width": 2.5, "line-dasharray": [4, 2] } });
+    // Draw all three rings — outermost first so inner rings sit on top
+    [...FIXED_RINGS].reverse().forEach(({ miles }) => {
+      const key = `ring-${miles}`.replace(".", "_");
+      const isSelected = miles === radiusMiles;
+      const geo = createGeoJSONCircle(center, miles * METERS_PER_MILE);
+      map.addSource(key, { type: "geojson", data: geo });
+      if (isSelected) {
+        // Emphasized: solid yellow, slightly thicker
+        map.addLayer({ id: `${key}-fill`,    type: "fill", source: key, paint: { "fill-color": "#EAB308", "fill-opacity": 0.12 } });
+        map.addLayer({ id: `${key}-outline`, type: "line", source: key, paint: { "line-color": "#EAB308", "line-width": 3 } });
+      } else {
+        // Context: dashed, muted blue-grey
+        map.addLayer({ id: `${key}-fill`,    type: "fill", source: key, paint: { "fill-color": "#94A3B8", "fill-opacity": 0.04 } });
+        map.addLayer({ id: `${key}-outline`, type: "line", source: key, paint: { "line-color": "#94A3B8", "line-width": 1.5, "line-dasharray": [4, 3] } });
+      }
+    });
 
-    // Inner 0.5-mile yellow ring
-    const circleGeo = createGeoJSONCircle(center, RADIUS_METERS);
-    map.addSource("search-ring", { type: "geojson", data: circleGeo });
-    map.addLayer({ id: "search-ring-fill", type: "fill", source: "search-ring", paint: { "fill-color": "#EAB308", "fill-opacity": 0.10 } });
-    map.addLayer({ id: "search-ring-outline", type: "line", source: "search-ring", paint: { "line-color": "#EAB308", "line-width": 2.5, "line-dasharray": [4, 2] } });
+    // Keep a reference to the outermost ring for fitBounds
+    const outerGeo = createGeoJSONCircle(center, 1.0 * METERS_PER_MILE);
 
     // Hawk center marker with coordinate label
     const hawkEl = createHawkMarkerEl(centerLat, centerLon);
@@ -269,10 +281,10 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
       bounds.extend([r.longitude, r.latitude]);
     });
 
-    // Fit bounds to the outer ring (waypoint + both rings always visible)
+    // Fit bounds to the 1.0-mile ring so all three rings are always visible
     outerGeo.geometry.coordinates[0].forEach((pt) => bounds.extend(pt));
     map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
-  }, [mapLoaded, results, centerLat, centerLon, filteredResultIds, RADIUS_METERS, OUTER_RADIUS_METERS]);
+  }, [mapLoaded, results, centerLat, centerLon, filteredResultIds, radiusMiles]);
 
   const toggleStyle = () => {
     if (!mapRef.current) return;
@@ -425,14 +437,15 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
             <div className="flex items-center gap-2"><span className="text-base">🔭</span><span style={{ color: "#16A34A" }} className="font-semibold">Green</span><span className="text-foreground/60">Score 70+</span></div>
             <div className="flex items-center gap-2"><span className="text-base">🔭</span><span style={{ color: "#D97706" }} className="font-semibold">Amber</span><span className="text-foreground/60">Score 40–69</span></div>
             <div className="flex items-center gap-2"><span className="text-base">🔭</span><span style={{ color: "#DC2626" }} className="font-semibold">Red</span><span className="text-foreground/60">Score &lt;40</span></div>
-            <div className="flex items-center gap-2">
-              <div style={{ width: 18, height: 3, background: "#EAB308", borderRadius: 2 }} />
-              <span className="text-foreground/60">{radiusMiles}-mi Ring</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div style={{ width: 18, height: 3, background: "#DC2626", borderRadius: 2 }} />
-              <span className="text-foreground/60">{Math.min(radiusMiles * 2, 2.0)}-mi Ring</span>
-            </div>
+            {FIXED_RINGS.map(({ miles, label }) => {
+              const isSelected = miles === radiusMiles;
+              return (
+                <div key={miles} className="flex items-center gap-2">
+                  <div style={{ width: 18, height: isSelected ? 3 : 2, background: isSelected ? "#EAB308" : "#94A3B8", borderRadius: 2, opacity: isSelected ? 1 : 0.6 }} />
+                  <span className={isSelected ? "text-foreground font-semibold" : "text-foreground/50"}>{label}{isSelected ? " ★" : ""}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
