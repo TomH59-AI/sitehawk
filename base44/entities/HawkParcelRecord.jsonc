@@ -75,6 +75,62 @@
     "created_at": {
       "type": "string",
       "description": "Insertion timestamp from Supabase."
+    },
+    "phone": {
+      "type": "string",
+      "description": "Primary phone number from skip trace."
+    },
+    "phone_source": {
+      "type": "string",
+      "description": "Provider that returned the phone: BatchData | Endato | Searchbug | OpenCorporates | TruePeopleSearch"
+    },
+    "phone_alt": {
+      "type": "string",
+      "description": "Secondary phone number if available from skip trace."
+    },
+    "email": {
+      "type": "string",
+      "description": "Primary email address from skip trace."
+    },
+    "email_source": {
+      "type": "string",
+      "description": "Provider that returned the email: BatchData | Endato | Searchbug | OpenCorporates | TruePeopleSearch"
+    },
+    "skip_traced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 datetime of the last skip trace attempt. Used for range queries (e.g. re-enrich if skip_traced_at < now - 90 days)."
+    },
+    "skip_trace_status": {
+      "type": "string",
+      "enum": [
+        "success",
+        "no_hit",
+        "pending",
+        "failed"
+      ],
+      "description": "Outcome of the most recent skip trace attempt."
+    },
+    "llc_pierced_owner": {
+      "type": "string",
+      "description": "Real human owner behind an LLC, resolved via OpenCorporates lookup."
+    },
+    "llc_registered_agent": {
+      "type": "string",
+      "description": "Registered agent name from state SOS filing."
+    },
+    "llc_state_of_formation": {
+      "type": "string",
+      "description": "Two-letter state where the LLC is registered."
+    },
+    "do_not_call": {
+      "type": "boolean",
+      "default": false,
+      "description": "DNC flag \u2014 do not contact this owner by phone."
+    },
+    "contact_confidence_score": {
+      "type": "number",
+      "description": "0\u2013100 confidence score for the quality of the contact data returned by skip trace."
     }
   },
   "required": [
