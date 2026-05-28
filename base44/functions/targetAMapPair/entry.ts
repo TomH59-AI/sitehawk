@@ -237,7 +237,6 @@ Deno.serve(async (req) => {
 
     const fallbacks = [];
     let cloudRfHit = false;
-    let cesiumHit = false;
 
     // ─── STEP 1: Compute shared geometry ONCE ───
     // This is the registration anchor. Both pages MUST use this exact object.
@@ -252,10 +251,9 @@ Deno.serve(async (req) => {
     let page1ViewshedUrl = null;
     try {
       page1ViewshedUrl = buildPage1ViewshedUrl({ geo: _geo, lat, lng, mapboxToken });
-      cesiumHit = true;
     } catch (e) {
-      fallbacks.push(`cesium:terrain_gap`);
-      console.log(`[INFO] MAP_FALLBACK cesium:terrain_gap site="${site_name}" reason=${e.message}`);
+      fallbacks.push(`terrain:render_gap`);
+      console.log(`[INFO] MAP_FALLBACK terrain:render_gap site="${site_name}" reason=${e.message}`);
       // Even on viewshed render fail, attempt a basic Mapbox basemap fallback
       page1ViewshedUrl = buildPage1ViewshedUrl({ geo: _geo, lat, lng, mapboxToken });
     }
@@ -287,10 +285,18 @@ Deno.serve(async (req) => {
     }
 
     // ─── File naming (informational — consumers may save with these names) ───
+    // Strip any existing "TargetA" token from site_name so it can't be duplicated,
+    // then add exactly one "_TargetA" segment.
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const safeSiteName = site_name.replace(/[^\w-]/g, "_").substring(0, 40);
-    const page1_filename = `${safeSiteName}_TargetA_Viewshed_${today}.png`;
-    const page2_filename = page2RfUrl ? `${safeSiteName}_TargetA_RF_${today}.png` : null;
+    const base = site_name
+      .replace(/[^\w-]/g, "_")
+      .replace(/_*TargetA/gi, "")
+      .replace(/_+$/, "")
+      .replace(/^_+/, "")
+      .trim()
+      .substring(0, 40);
+    const page1_filename = `${base}_TargetA_Viewshed_${today}.png`;
+    const page2_filename = page2RfUrl ? `${base}_TargetA_RF_${today}.png` : null;
 
     return Response.json({
       page1_viewshed_url: page1ViewshedUrl,
@@ -305,7 +311,10 @@ Deno.serve(async (req) => {
         compound_size,
         agent_name,
         cloudrf_hit: cloudRfHit,
-        cesium_hit: cesiumHit,
+        // terrain_source currently mapbox_terrain_dem (real Mapbox Terrain-DEM elevation).
+        // A true Cesium World Terrain render would require a headless-WebGL worker,
+        // out of scope for Deno backend as of 2026-05-28.
+        terrain_source: "mapbox_terrain_dem",
         fallbacks,
         duration_ms: Date.now() - t0,
       },
