@@ -511,7 +511,31 @@ Deno.serve(async (req) => {
       sources.calls_skipped.push("skipTrace");
     }
 
+    // ─── _regression: flat diagnostic surface (mirrors values, no new logic) ───
+    // Placed as FIRST key so it lands inside any truncation window for at-a-glance review.
+    const duration_ms = Date.now() - t0;
+    const zero_check = [
+      zoning.min_lot_area_sq_ft,
+      zoning.max_impervious_coverage_pct,
+      telecom_ordinance.fall_zone_ft,
+      telecom_ordinance.tower_height_limit_ft,
+      telecom_ordinance.tower_setback_ft,
+      parcel.parcel_size_acres,
+    ].some((v) => v === 0);
+
+    const _regression = {
+      min_lot_area_sq_ft: zoning.min_lot_area_sq_ft,
+      max_impervious_coverage_pct: zoning.max_impervious_coverage_pct,
+      fall_zone_source: telecom_ordinance.fall_zone_source,
+      tower_height_limit_source: telecom_ordinance.tower_height_limit_source,
+      tower_setback_source: telecom_ordinance.tower_setback_source,
+      height_note_present: !!zoning._zoneomics_notes?.height_note,
+      zero_check,
+      duration_ms,
+    };
+
     return Response.json({
+      _regression,
       ok: true,
       lookup_id: `pfl_${new Date().toISOString()}`,
       enrich_depth: "full",
@@ -523,7 +547,7 @@ Deno.serve(async (req) => {
       fema,
       contact,
       _meta: {
-        duration_ms: Date.now() - t0,
+        duration_ms,
         calls_made: sources.calls_made,
         calls_skipped: sources.calls_skipped,
         fallbacks: sources.fallbacks,
