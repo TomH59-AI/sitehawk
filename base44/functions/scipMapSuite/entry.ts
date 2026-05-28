@@ -1,4 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import bboxClip from 'npm:@turf/bbox-clip@7.1.0';
+import simplify from 'npm:@turf/simplify@7.1.0';
 
 /**
  * scipMapSuite — Full SCIP map suite generator (A=11, B/C=3 maps each).
@@ -17,8 +19,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
  */
 
 const MAPBOX_STATIC = "https://api.mapbox.com/styles/v1";
-const RENDER_WIDTH = 1080;
-const RENDER_HEIGHT = 1350;
+// Mapbox Static API hard limits: width and height must be 1–1280 px each.
+// We pick 1024×1280 to stay safely under both caps while keeping the 4:5
+// portrait aspect ratio SCIP pages were designed for.
+const RENDER_WIDTH = 1024;
+const RENDER_HEIGHT = 1280;
 const DEFAULT_RADIUS_MI = 1.0;
 
 // Supabase project hosting nearest_airport + nearest_cell_tower RPCs (same as
@@ -105,12 +110,166 @@ function buildFeatureMarker(lat, lng, label, color = "0a84ff") {
   return `pin-l-${label}+${color}(${lng},${lat})`;
 }
 
-/** Build a Mapbox polygon/path overlay from a GeoJSON FeatureCollection (zoning, FLU, wetlands, flood). */
-function buildGeoJsonOverlay(geojson) {
-  if (!geojson) return null;
-  // Mapbox static accepts a single geojson() param with a FeatureCollection;
-  // each feature's styling comes from its `properties` (stroke, fill, fill-opacity).
-  return `geojson(${encodeURIComponent(JSON.stringify(geojson))})`;
+// Mapbox Static API URL budget. Mapbox's hard cap is ~8192 bytes total URL;
+// we reserve ~1.5KB for base style + bbox + token + other overlays, leaving
+// ~6.5KB for the encoded geojson() param. Anything over and Mapbox returns 414.
+const MAPBOX_OVERLAY_BUDGET = 6500;
+
+/**
+ * Clip a FeatureCollection to a bbox, then simplify iteratively until the
+ * URL-encoded geojson() payload fits within the Mapbox budget.
+ *
+ * Cache stays RAW (caller passes the full county-wide polygon every time);
+ * clipping happens per-render so each target's bbox gets only its visible
+ * vertices. A second target in the same county hits the same cached raw
+ * polygon and gets its own bbox-correct clip — no cross-contamination.
+ *
+ * Returns { clipped, provenance_suffix } or { clipped: null, ... } if the
+ * polygon has no vertices inside the bbox.
+ */
+function clipAndSimplifyForMapbox(geojson, bbox) {
+  if (!geojson || !geojson.features || !geojson.features.length) {
+    return { clipped: null, provenance_suffix: "" };
+  }
+
+  // Step 1: clip each feature to the bbox. bboxClip works on individual
+  // Polygon/MultiPolygon features and returns the clipped geometry or an
+  // empty geometry if fully outside.
+  const clippedFeatures = [];
+  for (const f of geojson.features) {
+    if (!f.geometry) continue;
+    try {
+      const clipped = bboxClip(f, bbox);
+      const coords = clipped?.geometry?.coordinates;
+      // Drop features with no remaining vertices
+      const hasVertices = Array.isArray(coords) && coords.length > 0
+        && (clipped.geometry.type === "Polygon"
+            ? coords[0]?.length > 0
+            : coords.some((p) => p[0]?.length > 0));
+      if (hasVertices) {
+        // Preserve original styling properties
+        clippedFeatures.push({
+          ...clipped,
+          properties: f.properties || {},
+        });
+      }
+    } catch (_e) {
+      // bboxClip can throw on degenerate input — skip those features
+    }
+  }
+
+  if (!clippedFeatures.length) {
+    return { clipped: null, provenance_suffix: "_clipped_empty" };
+  }
+
+  let working = { type: "FeatureCollection", features: clippedFeatures };
+  let size = encodeURIComponent(JSON.stringify(working)).length;
+
+  // Step 2: if already under budget, ship it
+  if (size <= MAPBOX_OVERLAY_BUDGET) {
+    return { clipped: working, provenance_suffix: "_clipped" };
+  }
+
+  // Helper: rough polygon area in square degrees (good enough for sorting).
+  // We don't need true area — just a stable size proxy to keep the biggest zones.
+  const featureSize = (f) => {
+    const c = f.geometry?.coordinates;
+    if (!c) return 0;
+    const rings = f.geometry.type === "Polygon" ? [c[0]] : c.map((p) => p[0]);
+    let total = 0;
+    for (const ring of rings) {
+      if (!ring) continue;
+      for (let i = 0; i < ring.length - 1; i++) {
+        total += Math.abs(ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]);
+      }
+    }
+    return total / 2;
+  };
+
+  // Step 3: iterative simplification + feature pruning.
+  // FEMA NFHL can return hundreds of small features in a dense bbox — simplifying
+  // each polygon's vertices isn't enough; we also have to cap the feature count,
+  // keeping the largest (most visually important) zones.
+  const tolerances = [0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01];
+  const featureCaps = [working.features.length, 20, 10, 5, 3];
+
+  for (const tol of tolerances) {
+    let simplified;
+    try {
+      simplified = simplify(working, { tolerance: tol, highQuality: false, mutate: false });
+    } catch (_e) {
+      continue;
+    }
+    // Sort features by size descending so we keep the biggest zones first
+    const sorted = [...simplified.features].sort((a, b) => featureSize(b) - featureSize(a));
+    for (const cap of featureCaps) {
+      const fc = { type: "FeatureCollection", features: sorted.slice(0, cap) };
+      const newSize = encodeURIComponent(JSON.stringify(fc)).length;
+      if (newSize <= MAPBOX_OVERLAY_BUDGET) {
+        const suffix = cap < sorted.length
+          ? `_clipped+simplified(${tol})+top${cap}`
+          : `_clipped+simplified(${tol})`;
+        return { clipped: fc, provenance_suffix: suffix };
+      }
+    }
+    working = simplified;
+    size = encodeURIComponent(JSON.stringify(working)).length;
+  }
+
+  // Step 4: hard fallback — represent the top N features as their bounding
+  // rectangles. Loses vertex fidelity but preserves "there's a flood zone
+  // here" signal at SCIP context-map scale. Five rectangles ≈ 1 KB.
+  const sortedAll = [...working.features].sort((a, b) => featureSize(b) - featureSize(a));
+  for (const cap of [5, 3, 2, 1]) {
+    const rects = sortedAll.slice(0, cap).map((f) => {
+      const coords = f.geometry?.coordinates;
+      if (!coords) return null;
+      const flat = [];
+      const walk = (a) => {
+        if (typeof a[0] === "number") flat.push(a);
+        else a.forEach(walk);
+      };
+      walk(coords);
+      if (!flat.length) return null;
+      const xs = flat.map((p) => p[0]);
+      const ys = flat.map((p) => p[1]);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      return {
+        type: "Feature",
+        properties: f.properties || {},
+        geometry: {
+          type: "Polygon",
+          coordinates: [[[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY], [minX, minY]]],
+        },
+      };
+    }).filter(Boolean);
+    const fc = { type: "FeatureCollection", features: rects };
+    const newSize = encodeURIComponent(JSON.stringify(fc)).length;
+    if (newSize <= MAPBOX_OVERLAY_BUDGET) {
+      return { clipped: fc, provenance_suffix: `_bbox_fallback+top${cap}` };
+    }
+  }
+
+  // Step 5: even bbox rectangles can't fit — drop the overlay.
+  console.log(`[INFO] OVERLAY_DROPPED size_after_max_simplify=${size}B budget=${MAPBOX_OVERLAY_BUDGET}B`);
+  return { clipped: null, provenance_suffix: "_simplify_exhausted" };
+}
+
+/**
+ * Build a Mapbox polygon/path overlay from a GeoJSON FeatureCollection.
+ * Now requires bbox so we can clip+simplify before inlining.
+ * Returns { overlay, provenance_suffix } — overlay is null if the polygon
+ * can't fit in the URL budget (caller treats as fallback).
+ */
+function buildGeoJsonOverlay(geojson, bbox) {
+  if (!geojson) return { overlay: null, provenance_suffix: "" };
+  const { clipped, provenance_suffix } = clipAndSimplifyForMapbox(geojson, bbox);
+  if (!clipped) return { overlay: null, provenance_suffix };
+  return {
+    overlay: `geojson(${encodeURIComponent(JSON.stringify(clipped))})`,
+    provenance_suffix,
+  };
 }
 
 // ─────────────────────── cache layer (Base44 entity) ───────────────────────
@@ -302,12 +461,23 @@ async function buildFloodplainMap(ctx) {
   } else {
     cacheStats.hits++;
   }
-  const overlays = layer?.geojson ? [buildGeoJsonOverlay(layer.geojson)] : [];
+  let overlays = [];
+  if (layer?.geojson) {
+    const { overlay, provenance_suffix } = buildGeoJsonOverlay(layer.geojson, geo.bbox);
+    if (overlay) {
+      overlays = [overlay];
+      data_source = `${data_source}${provenance_suffix}`;
+    } else {
+      fallbacks.push(`floodplain:overlay_dropped${provenance_suffix}`);
+      console.log(`[INFO] MAP_FALLBACK floodplain:overlay_dropped${provenance_suffix}`);
+      data_source = `${data_source}:overlay_dropped`;
+    }
+  }
   return {
     type: "floodplain",
     url: buildMapUrl({ geo, basemap: "aerial", overlays, centerLat: lat, centerLng: lng, mapboxToken }),
     data_source,
-    data_source_note: data_source === "unavailable" ? "FEMA NFHL unavailable — verify flood zone with FEMA Map Service Center" : null,
+    data_source_note: data_source.startsWith("unavailable") ? "FEMA NFHL unavailable — verify flood zone with FEMA Map Service Center" : null,
   };
 }
 
@@ -333,13 +503,24 @@ async function buildZoningMap(ctx) {
     cacheStats.hits++;
     zone_code = layer.geojson?.features?.[0]?.properties?.zone_code || null;
   }
-  const overlays = layer?.geojson ? [buildGeoJsonOverlay(layer.geojson)] : [];
+  let overlays = [];
+  if (layer?.geojson) {
+    const { overlay, provenance_suffix } = buildGeoJsonOverlay(layer.geojson, geo.bbox);
+    if (overlay) {
+      overlays = [overlay];
+      data_source = `${data_source}${provenance_suffix}`;
+    } else {
+      fallbacks.push(`zoning:overlay_dropped${provenance_suffix}`);
+      console.log(`[INFO] MAP_FALLBACK zoning:overlay_dropped${provenance_suffix}`);
+      data_source = `${data_source}:overlay_dropped`;
+    }
+  }
   return {
     type: "zoning",
     url: buildMapUrl({ geo, basemap: "light", overlays, centerLat: lat, centerLng: lng, mapboxToken }),
     data_source,
     zone_code,
-    data_source_note: data_source === "unavailable" ? "Zoning polygon unavailable — verify with local zoning department" : null,
+    data_source_note: data_source.startsWith("unavailable") ? "Zoning polygon unavailable — verify with local zoning department" : null,
   };
 }
 
@@ -365,12 +546,23 @@ async function buildFLUMap(ctx) {
     cacheStats.hits++;
     data_source = layer.data_source === "state_fallback" ? "cache:flu:state_fallback" : "cache:flu";
   }
-  const overlays = layer?.geojson ? [buildGeoJsonOverlay(layer.geojson)] : [];
+  let overlays = [];
+  if (layer?.geojson) {
+    const { overlay, provenance_suffix } = buildGeoJsonOverlay(layer.geojson, geo.bbox);
+    if (overlay) {
+      overlays = [overlay];
+      data_source = `${data_source}${provenance_suffix}`;
+    } else {
+      fallbacks.push(`flu:overlay_dropped${provenance_suffix}`);
+      console.log(`[INFO] MAP_FALLBACK flu:overlay_dropped${provenance_suffix}`);
+      data_source = `${data_source}:overlay_dropped`;
+    }
+  }
   return {
     type: "flu",
     url: buildMapUrl({ geo, basemap: "light", overlays, centerLat: lat, centerLng: lng, mapboxToken }),
     data_source,
-    data_source_note: data_source === "unavailable"
+    data_source_note: data_source.startsWith("unavailable")
       ? `Future Land Use layer not published for ${jurisdiction} — verify with county planning`
       : null,
   };
@@ -397,12 +589,23 @@ async function buildWetlandsMap(ctx) {
   } else {
     cacheStats.hits++;
   }
-  const overlays = layer?.geojson ? [buildGeoJsonOverlay(layer.geojson)] : [];
+  let overlays = [];
+  if (layer?.geojson) {
+    const { overlay, provenance_suffix } = buildGeoJsonOverlay(layer.geojson, geo.bbox);
+    if (overlay) {
+      overlays = [overlay];
+      data_source = `${data_source}${provenance_suffix}`;
+    } else {
+      fallbacks.push(`wetlands:overlay_dropped${provenance_suffix}`);
+      console.log(`[INFO] MAP_FALLBACK wetlands:overlay_dropped${provenance_suffix}`);
+      data_source = `${data_source}:overlay_dropped`;
+    }
+  }
   return {
     type: "wetlands",
     url: buildMapUrl({ geo, basemap: "aerial", overlays, centerLat: lat, centerLng: lng, mapboxToken }),
     data_source,
-    data_source_note: data_source === "unavailable" ? "FWS NWI unavailable for this bbox" : null,
+    data_source_note: data_source.startsWith("unavailable") ? "FWS NWI unavailable for this bbox" : null,
   };
 }
 
@@ -688,6 +891,53 @@ Deno.serve(async (req) => {
     }
 
     const maps_generated = targetResults.reduce((sum, t) => sum + t.maps.length, 0);
+
+    // _render_test: if true, HEAD-fetch each map URL right here and return
+    // status/content-type/PNG-validity per map. Bypasses backend-to-backend
+    // 403s and response truncation. Used to prove Mapbox accepts the URLs.
+    if (body?._render_test) {
+      const renderResults = [];
+      for (const t of targetResults) {
+        for (const m of t.maps) {
+          try {
+            const r = await fetch(m.url);
+            const ct = r.headers.get("content-type") || "";
+            const cl = r.headers.get("content-length") || "?";
+            let valid_image = false;
+            let body_preview = null;
+            // Mapbox returns PNG for vector styles (light, outdoors) and JPEG
+            // for satellite imagery. Accept either as a valid render.
+            if (r.ok && ct.startsWith("image/")) {
+              const buf = await r.arrayBuffer();
+              const bytes = new Uint8Array(buf.slice(0, 4));
+              const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+              const isJpeg = bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
+              valid_image = isPng || isJpeg;
+            } else if (!r.ok) {
+              body_preview = (await r.text()).slice(0, 200);
+            }
+            renderResults.push({
+              target: t.label, type: m.type, data_source: m.data_source,
+              url_length: m.url?.length || 0,
+              status: r.status, content_type: ct, content_length: cl,
+              valid_image, body_preview,
+            });
+          } catch (e) {
+            renderResults.push({ target: t.label, type: m.type, error: e.message });
+          }
+        }
+      }
+      return Response.json({
+        render_test: true,
+        all_valid: renderResults.every((r) => r.valid_image),
+        results: renderResults,
+        _meta: {
+          jurisdiction, state, maps_tested: renderResults.length,
+          cache_hits: cacheStats.hits, cache_misses: cacheStats.misses,
+          fallbacks, duration_ms: Date.now() - t0,
+        },
+      });
+    }
 
     // Dev/test inspection mode — strips heavy URL strings so _meta is visible.
     const responseTargets = _meta_only
