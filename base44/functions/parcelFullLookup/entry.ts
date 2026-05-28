@@ -23,6 +23,61 @@ const ZONEOMICS_URL = "https://api.zoneomics.com/v2/zoneDetail";
 const sqYdsToAcres = (sy) => (sy ? sy / 4840 : null);
 const round2 = (n) => (n == null ? null : Math.round(n * 100) / 100);
 
+// Exhaustive sentinel list seen in Zoneomics responses. Anything matching these
+// (case-insensitive, trimmed) collapses to null. NEVER emit a fake zero.
+const ZONEOMICS_SENTINELS = new Set([
+  "", "na", "n/a", "stf", "see the file", "tbd", "n.a.",
+  "none", "null", "undefined", "-", "—", "–",
+]);
+
+/**
+ * coerceNumeric — the ONE helper used on every Zoneomics numeric field.
+ * Strips commas/units, parses the first clean number it finds.
+ * Returns null for sentinels, null/undefined, empty strings, or anything
+ * that doesn't yield a finite number after cleaning.
+ *
+ *   coerceNumeric("4,500")       → 4500
+ *   coerceNumeric("4500 sq ft")  → 4500
+ *   coerceNumeric("STF")         → null
+ *   coerceNumeric("NA")          → null
+ *   coerceNumeric("")            → null
+ *   coerceNumeric(null)          → null
+ *   coerceNumeric("All buildings: 30, 50, 200 ft...") → null (prose, not a clean number)
+ */
+function coerceNumeric(v) {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (ZONEOMICS_SENTINELS.has(s.toLowerCase())) return null;
+
+  // Reject prose: if there are 2+ digit groups OR a comma between digits and words,
+  // it's a conditional rule, not a clean number. We want strict numerics like
+  // "4500", "4,500", "85", "85 percent" — not "30, 50, 200 ft subject to...".
+  const digitGroups = s.match(/\d+(?:\.\d+)?/g) || [];
+  if (digitGroups.length > 1) return null;
+  if (digitGroups.length === 0) return null;
+
+  // Strip commas inside the matched number (e.g. "4,500" → "4500")
+  const cleaned = digitGroups[0].replace(/,/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * pickProse — return the raw non-standard string ONLY if it's prose (not a sentinel,
+ * not a clean number). Used to preserve conditional/FAA notes in _zoneomics_notes.
+ */
+function pickProse(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (ZONEOMICS_SENTINELS.has(s.toLowerCase())) return null;
+  // If it parses cleanly as a number, it's not prose — let coerceNumeric handle it
+  if (coerceNumeric(s) != null && s.replace(/[,\s]/g, "").match(/^\d+(\.\d+)?$/)) return null;
+  return s;
+}
+
 // Convert Zoneomics WKT MULTIPOLYGON string → GeoJSON MultiPolygon
 function wktToGeoJSON(wkt) {
   if (!wkt || typeof wkt !== "string") return null;
@@ -128,26 +183,53 @@ async function fetchZoneomics(lat, lng, apiKey) {
   const ctl = d.controls || {};
   const parcel = (d.parcels && d.parcels[0]) || null;
 
-  // Extract numeric setbacks / height from controls (Zoneomics returns these as strings often)
-  const num = (v) => {
-    if (v == null) return null;
-    const n = parseFloat(String(v).replace(/[^\d.]/g, ""));
-    return Number.isFinite(n) ? n : null;
+  // ─── ZONEOMICS POLICY ────────────────────────────────────────────────────
+  // Zoneomics provides GENERAL ZONING CONTEXT only. It is NOT a source of
+  // tower compliance numbers.
+  //   - height controls are sentinels ("STF") or FAA-cross-referenced prose
+  //     → tower_height_limit_ft comes from extractTelecomOrdinance, period.
+  //   - setbacks are conditional prose (e.g. "0 to 42 ft. high: 0 ft...")
+  //     → tower_setback_ft comes from extractTelecomOrdinance, period.
+  // What we DO extract here (clean numerics only, via coerceNumeric):
+  //   - min_lot_area_sq_ft           ← controls.lot_standard.standard.min_lot_area_sq_ft
+  //   - max_impervious_coverage_pct  ← controls.coverage_standard.standard.max_impervious_coverage_percentage
+  // Prose that's useful as a note (e.g. "Controlled by FAA Airport Zoning")
+  // is preserved in _zoneomics_notes for SCIP provenance.
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const lot = ctl.lot_standard?.standard || {};
+  const cov = ctl.coverage_standard?.standard || {};
+  const height = ctl.building_height_standard || {};
+  const multi = ctl.multi_standard || {};
+
+  const min_lot_area_sq_ft = coerceNumeric(lot.min_lot_area_sq_ft);
+  const max_impervious_coverage_pct = coerceNumeric(cov.max_impervious_coverage_percentage);
+
+  // Preserve prose notes (height conditionals, FAA refs, setback rules) — SCIP context only.
+  const _zoneomics_notes = {
+    height_note: pickProse(height["non-standard"]?.maximum_building_height_ft) ||
+                 pickProse(height["non-standard"]?.maximum_height_feet) || null,
+    setback_note: pickProse(multi["non-standard"]?.minimum_setback_ft) ||
+                  pickProse(multi["non-standard"]?.setback_ft) || null,
   };
+  // Strip null-only keys so the notes object is clean
+  if (!_zoneomics_notes.height_note && !_zoneomics_notes.setback_note) {
+    // leave both nulls — downstream can show "no notes" without breaking
+  }
 
   return {
     raw: d,
     zoning: {
+      // zone_code is a STRING code like "EC-2" — NEVER pass through coerceNumeric
       classification_code: zd.zone_code || null,
       classification_name: zd.zone_name || null,
       zone_type: zd.zone_type || null,
       zone_sub_type: zd.zone_sub_type || null,
-      max_height_ft: num(ctl.max_building_height) || num(ctl.height_max),
-      setback_front_ft: num(ctl.front_setback) || num(ctl.setback_front),
-      setback_side_ft: num(ctl.side_setback) || num(ctl.setback_side),
-      setback_rear_ft: num(ctl.rear_setback) || num(ctl.setback_rear),
-      min_lot_area_sqft: num(ctl.min_lot_area) || num(ctl.lot_area_min),
+      // General-zoning context numerics (clean only — sentinels → null)
+      min_lot_area_sq_ft,
+      max_impervious_coverage_pct,
       link: zd.link || null,
+      _zoneomics_notes,
     },
     parcel: parcel
       ? {
@@ -329,12 +411,35 @@ Deno.serve(async (req) => {
       sources.fallbacks.push("fall_zone:default_1x_height");
     }
 
+    // ─── Tower height limit (ordinance authoritative — NEVER from Zoneomics) ───
+    const ordinanceTowerHeight = coerceNumeric(
+      ord.max_tower_height_ft ?? ord.height_limit_ft ?? ord.telecom?.max_tower_height_ft
+    );
+    const tower_height_limit_ft = ordinanceTowerHeight; // null when ordinance silent
+    const tower_height_limit_source = ordinanceTowerHeight ? "ordinance" : "missing";
+    if (!ordinanceTowerHeight) sources.fallbacks.push("tower_height_limit:missing");
+
+    // ─── Tower setback (ordinance authoritative — NEVER from Zoneomics) ───
+    const ordinanceTowerSetback = coerceNumeric(
+      ord.tower_setback_ft ?? ord.setback_ft ?? ord.telecom?.tower_setback_ft
+    );
+    const tower_setback_ft = ordinanceTowerSetback; // null when ordinance silent
+    const tower_setback_source = ordinanceTowerSetback ? "ordinance" : "missing";
+    if (!ordinanceTowerSetback) sources.fallbacks.push("tower_setback:missing");
+
     const telecom_ordinance = {
+      // Fall zone — ordinance, fallback to 1× tower height (already built)
       fall_zone_ft: fallZoneFt,
       fall_zone_source: fallZoneSource,
       fall_zone_evidence:
         ord.fall_zone_evidence || ord.telecom?.fall_zone_evidence || (ordinanceFallZone ? null : "No fall-zone clause found in local ordinance — using industry-standard 1× tower height as conservative default."),
-      tower_height_max_ft: ord.max_tower_height_ft || ord.height_limit_ft || null,
+      // Tower height limit — ordinance only, null if silent
+      tower_height_limit_ft,
+      tower_height_limit_source,
+      // Tower setback — ordinance only, null if silent
+      tower_setback_ft,
+      tower_setback_source,
+      // Other compliance flags
       requires_cup: ord.requires_cup ?? null,
       requires_pe_letter: ord.requires_pe_letter ?? null,
       stealth_required: ord.stealth_required ?? null,
