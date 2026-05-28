@@ -48,9 +48,24 @@ function isValidEmail(e) {
 function parseOwnerName(fullName) {
   if (!fullName || typeof fullName !== "string") return { firstName: null, lastName: null, isEntity: false };
   const upper = fullName.toUpperCase();
-  const ENTITY_MARKERS = /\b(LLC|L\.L\.C|INC|INCORPORATED|CORP|CORPORATION|TRUST|LP|LLP|LTD|HOSPITAL|CHURCH|COMPANY|CO\.|HOLDINGS|PROPERTIES|PARTNERS|ASSOC|ASSOCIATION|AUTHORITY|FOUNDATION|FUND|GROUP)\b/;
+  const ENTITY_MARKERS = /\b(LLC|L\.L\.C|INC|INCORPORATED|CORP|CORPORATION|TRUST|LP|LLP|LTD|HOSPITAL|CHURCH|COMPANY|CO\.|HOLDINGS|PROPERTIES|PARTNERS|ASSOC|ASSOCIATION|AUTHORITY|FOUNDATION|FUND|GROUP|CITY OF|COUNTY OF|STATE OF|DEPT OF|DEPARTMENT)\b/;
   if (ENTITY_MARKERS.test(upper)) return { firstName: null, lastName: null, isEntity: true };
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+
+  const cleaned = fullName.trim().replace(/\s+/g, " ");
+
+  // Handle "LAST, FIRST [MIDDLE]" format (common from Realie/county records)
+  if (cleaned.includes(",")) {
+    const [lastPart, restPart] = cleaned.split(",").map((s) => s.trim());
+    const restTokens = (restPart || "").split(/\s+/).filter(Boolean);
+    return {
+      firstName: restTokens[0] || null,
+      lastName: lastPart || null,
+      isEntity: false,
+    };
+  }
+
+  // Handle "FIRST [MIDDLE] LAST" format
+  const parts = cleaned.split(/\s+/).filter(Boolean);
   if (parts.length < 2) return { firstName: parts[0] || null, lastName: null, isEntity: false };
   return { firstName: parts[0], lastName: parts[parts.length - 1], isEntity: false };
 }
@@ -283,8 +298,38 @@ Deno.serve(async (req) => {
     let confidence = "none";
     let enformionHit = false;
 
-    // ─── TIER 1: Enformion (skip for entities — needs a real person) ───
-    if (!_force_skip_enformion && !isEntity && firstName && lastName) {
+    // ─── ENTITY GATE: short-circuit the entire cascade for non-person owners ───
+    // Entity owners (LLC, INC, TRUST, HOSPITAL, CITY OF, etc.) cannot be resolved
+    // by person-search scrapers. Skip all tiers to save cost (~$0.32/call) and
+    // latency (~80s for 2B). Return clean nulls + "none" — this is a normal,
+    // expected state, not a failure. SCIP renders "owner is an entity — contact
+    // enrichment N/A" rather than "lookup failed."
+    if (isEntity) {
+      fallbacks.push("enformion:entity_owner", "apify:skipped_entity");
+      console.log(`[INFO] CONTACT_FALLBACK entity_short_circuit owner="${owner_name}" site="${site_name}"`);
+      return Response.json({
+        phone: null,
+        email: null,
+        phone_source: "missing",
+        email_source: "missing",
+        _contact_confidence: "none",
+        _meta: {
+          owner_name,
+          site_name,
+          is_entity_owner: true,
+          fallbacks,
+          enformion_hit: false,
+          duration_ms: Date.now() - t0,
+        },
+      });
+    }
+
+    // Log what we actually parsed and will send to Enformion — critical for
+    // diagnosing real-owner test misses (name-parse bug vs data gap)
+    console.log(`[INFO] CONTACT_ENRICH parsed owner_input="${owner_name}" → firstName="${firstName}" lastName="${lastName}" street="${street}" city="${city}" state="${state}" zip="${zip}"`);
+
+    // ─── TIER 1: Enformion ───
+    if (!_force_skip_enformion && firstName && lastName) {
       const t1 = await tier1Enformion({ firstName, lastName, street, city, state, zip });
       if (t1.ok) {
         enformionHit = !!(t1.phone || t1.email);
