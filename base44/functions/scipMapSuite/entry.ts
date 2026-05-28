@@ -661,6 +661,7 @@ Deno.serve(async (req) => {
       search_radius_mi = DEFAULT_RADIUS_MI,
       agent_name = null,
       _force_flu_miss = false, // protocol test #5
+      _meta_only = false, // dev/test flag: return only _meta + map summaries, no URLs
     } = body || {};
 
     if (!targets.length) return Response.json({ error: "targets[] required (1-3 entries)" }, { status: 400 });
@@ -688,8 +689,20 @@ Deno.serve(async (req) => {
 
     const maps_generated = targetResults.reduce((sum, t) => sum + t.maps.length, 0);
 
+    // Dev/test inspection mode — strips heavy URL strings so _meta is visible.
+    const responseTargets = _meta_only
+      ? targetResults.map((t) => ({
+          label: t.label,
+          maps: t.maps.map((m) => ({
+            type: m.type,
+            data_source: m.data_source,
+            url_kb: Math.round((typeof m.url === "string" ? m.url.length : 0) / 1024),
+          })),
+        }))
+      : targetResults;
+
     return Response.json({
-      targets: targetResults,
+      targets: responseTargets,
       _meta: {
         jurisdiction, state, agent_name,
         maps_generated,
