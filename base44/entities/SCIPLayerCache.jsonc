@@ -1,0 +1,38 @@
+{
+  "name": "SCIPLayerCache",
+  "type": "object",
+  "description": "Per-jurisdiction cache of static SCIP map data layers (FEMA, NWI wetlands, Zoneomics zoning, FLU). Keyed by (jurisdiction, layer_type). Second SCIP in the same county hits cache and skips external fetches.",
+  "properties": {
+    "jurisdiction": {
+      "type": "string",
+      "description": "Jurisdiction key (e.g. 'City of St. Petersburg, FL'). Combined with layer_type for the cache lookup."
+    },
+    "layer_type": {
+      "type": "string",
+      "enum": [
+        "fema",
+        "nwi",
+        "zoneomics_zoning",
+        "flu"
+      ],
+      "description": "Which static data layer this entry caches."
+    },
+    "geojson": {
+      "type": "object",
+      "description": "Cached GeoJSON FeatureCollection for the layer."
+    },
+    "data_source": {
+      "type": "string",
+      "description": "Provenance of the cached layer (e.g. 'fema_nfhl', 'fws_nwi', 'zoneomics', 'county_gis', 'state_fallback')."
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when this cache entry was written."
+    }
+  },
+  "required": [
+    "jurisdiction",
+    "layer_type"
+  ]
+}
