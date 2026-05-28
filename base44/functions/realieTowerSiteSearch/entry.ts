@@ -260,6 +260,12 @@ Deno.serve(async (req) => {
 });
 
 // ---------- trim Realie response to what SiteHawk needs ----------
+// CONTACT POLICY: This function returns parcel + zoning + FEMA data ONLY.
+// Phone and email are ALWAYS null here — for every candidate (the 5 selected
+// and the 3 that advance as Target A/B/C). Contact enrichment is handled
+// exclusively by the standalone targetAContactEnrich function, which runs
+// ONCE after Target A is confirmed as the best candidate.
+// Do NOT add skipTrace/enformion/contact lookups to this function.
 function toPublicParcel(p) {
   return {
     parcelId: p.parcelId,
@@ -283,6 +289,9 @@ function toPublicParcel(p) {
     geometry: p.geometry,         // GeoJSON MultiPolygon — feeds Mapbox directly
     location: p.location,         // GeoJSON Point — for fit-bounds
     buildability: p.buildability, // { score, reasons[], cupRiskFlag }
+    // Contact fields — always null here. Populated only by targetAContactEnrich.
+    phone: null,
+    email: null,
   };
 }
 
@@ -296,6 +305,7 @@ function buildDemoResponse({ lat, lon, radiusMiles, geom, batchOffset }) {
       buildability: { score: 82, reasons: ["Industrial zoning — tower-friendly", "2.6× required parcel size", "220 ft frontage — good access", "Commercial entity owner"], cupRiskFlag: "low" },
       location: { type: "Point", coordinates: [lon + 0.002, lat + 0.001] },
       geometry: null,
+      phone: null, email: null,
     },
     { parcelId: "DEMO-002", addressFull: "VACANT PARCEL — SR 66", ownerName: "HOLDINGS TRUST XYZ",
       acres: 6.2, landArea: 270_072, frontage: 0, zoningCode: "C-3", useCode: "8002",
@@ -303,6 +313,7 @@ function buildDemoResponse({ lat, lon, radiusMiles, geom, batchOffset }) {
       buildability: { score: 72, reasons: ["Vacant commercial/industrial land", "3.4× required parcel size", "Commercial entity owner"], cupRiskFlag: "low" },
       location: { type: "Point", coordinates: [lon - 0.003, lat + 0.002] },
       geometry: null,
+      phone: null, email: null,
     },
     { parcelId: "DEMO-003", addressFull: "0 COUNTY RD 14", ownerName: "JOHNSON FAMILY FARM",
       acres: 38.4, landArea: 1_672_704, frontage: 600, zoningCode: "AG", useCode: "7001",
@@ -310,6 +321,7 @@ function buildDemoResponse({ lat, lon, radiusMiles, geom, batchOffset }) {
       buildability: { score: 65, reasons: ["Agricultural — historically CUP-friendly", "21× required parcel size", "600 ft frontage — good access"], cupRiskFlag: "medium" },
       location: { type: "Point", coordinates: [lon + 0.004, lat - 0.002] },
       geometry: null,
+      phone: null, email: null,
     },
   ];
   return {
