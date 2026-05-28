@@ -54,15 +54,24 @@ Deno.serve(async (req) => {
       data?.code ||
       null;
 
+    // Surface the specific blocks we care about so they aren't lost to truncation
+    const height_standard = controls_raw?.building_height_standard ?? controls_raw?.height_standard ?? null;
+    const height_keys = height_standard && typeof height_standard === 'object'
+      ? {
+          standard: height_standard.standard ? Object.keys(height_standard.standard) : [],
+          non_standard: height_standard['non-standard'] ? Object.keys(height_standard['non-standard']) : [],
+        }
+      : null;
+
     return Response.json({
       zone,
-      controls_raw,
       controls_keys,
+      height_standard,        // <-- isolated so it fits in the test output window
+      height_keys,            // <-- flat key list for height_standard
       top_level_keys: json && typeof json === 'object' ? Object.keys(json) : [],
       data_keys: data && typeof data === 'object' ? Object.keys(data) : [],
       http_status: r.status,
       ok: r.ok,
-      full_response: json,
       _meta: { lat, lng, duration_ms: Date.now() - t0, requested_fields: output_fields },
     });
   } catch (error) {
