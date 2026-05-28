@@ -5,10 +5,6 @@
     "crm.objects.contacts.write",
     "crm.objects.deals.read",
     "crm.objects.deals.write",
-    "crm.schemas.deals.read",
-    "crm.objects.owners.read",
-    "oauth",
-    "tickets",
-    "sales-email-read"
+    "oauth"
   ]
 }
