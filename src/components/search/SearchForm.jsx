@@ -126,7 +126,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
         </div>
 
         {/* Coordinates row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div data-coach="sarf-fields" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Latitude</label>
             <Input
@@ -153,6 +153,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
 
         <div className="flex flex-col sm:flex-row gap-3">
           <Button
+            data-coach="sarf-scan"
             type="submit"
             disabled={!lat || !lon || isLoading || disabled}
             className="flex-1 gap-2 font-heading font-semibold"

@@ -1,7 +1,8 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import AppFooter from "./AppFooter";
 import HawkBotWidget from "./hawkbot/HawkBotWidget";
-import SCIPWorkflowCoach from "./guide/SCIPWorkflowCoach";
+import SARFCoachTour from "./guide/SARFCoachTour";
+import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
 import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass, Network, Plane, Map } from "lucide-react";
 import HawkIcon from "./HawkIcon";
@@ -84,6 +85,9 @@ export default function Layout() {
           })}
         </nav>
         <div className="p-4 border-t border-border space-y-1">
+          <div className="flex items-center justify-end pb-1">
+            <RestartTourButton />
+          </div>
           <button
             onClick={toggle}
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
@@ -115,6 +119,7 @@ export default function Layout() {
           <span className="font-heading font-bold text-foreground">SiteHawk</span>
         </Link>
         <div className="flex items-center gap-1">
+          <RestartTourButton />
           <Button variant="ghost" size="icon" onClick={toggle}>
             {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </Button>
@@ -164,7 +169,7 @@ export default function Layout() {
         <AppFooter />
       </main>
       <HawkBotWidget />
-      <SCIPWorkflowCoach />
+      <SARFCoachTour />
     </div>
   );
 }

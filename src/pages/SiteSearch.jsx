@@ -565,6 +565,7 @@ export default function SiteSearch() {
 
       {/* Map — only renders after scan completes */}
       {(searchCenter || loading) && (
+        <div data-coach="sarf-map">
         <MapboxSatelliteMap
           centerLat={searchCenter?.lat}
           centerLon={searchCenter?.lon}
@@ -574,6 +575,7 @@ export default function SiteSearch() {
           filteredResultIds={filteredResultIds}
           radiusMiles={searchParams.radius_miles}
         />
+        </div>
       )}
 
       {/* Realie parcels within 1-mile ring — source for owner mailers */}

@@ -104,6 +104,7 @@ export default function SCIPPreview() {
       <SCIPStageProgress stages={stages} />
 
       {/* Site Parameters entry. User must click Scan before the SARF map renders. */}
+      <div data-coach="scip-params">
       <SiteParametersForm
         initial={{
           lat: candidate?.latitude ?? state?.searchCenter?.lat,
@@ -120,6 +121,7 @@ export default function SCIPPreview() {
           setScanStarted(true);
         }}
       />
+      </div>
 
       {/* Single SARF map — search center waypoint + 0.5mi (yellow) & 1mi (red) rings */}
       {scanStarted && coordsReady && (
@@ -184,7 +186,7 @@ export default function SCIPPreview() {
             Review and edit all fields above — then print the dedicated Hawk Aerial Intelligence pages.
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div data-coach="scip-print" className="flex gap-2 flex-wrap">
           <PrintSCIPButton />
         </div>
       </div>
