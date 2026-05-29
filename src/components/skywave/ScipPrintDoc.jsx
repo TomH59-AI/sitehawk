@@ -140,8 +140,32 @@ export default function ScipPrintDoc({ record }) {
           <span style={{ color: SKYWAVE.muted }}>Basemap © Mapbox · © OpenStreetMap</span>
         </div>
 
-        <Footer page={2} right={`Page 2 of 2 · Generated ${fmtDate(r.submittal_date)}`} />
+        <Footer page={2} right={`Page 2 · Generated ${fmtDate(r.submittal_date)}`} />
       </div>
+
+      {/* PAGE 3 — Hawk Parcel Data (only when targets have been generated) */}
+      {Array.isArray(r.parcel_targets) && r.parcel_targets.length > 0 && (
+        <div className="page flex flex-col" style={{ width: "8.5in", minHeight: "11in", padding: "0.4in 0.5in", background: "#fff" }}>
+          <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: `3px solid ${SKYWAVE.blue}` }}>
+            <div className="text-[16pt] font-bold">
+              <span style={{ color: SKYWAVE.navy }}>HAWK</span>{" "}
+              <span style={{ color: SKYWAVE.yellow }}>PARCEL DATA</span>
+            </div>
+            <div className="text-[9pt] text-right" style={{ color: SKYWAVE.muted }}>
+              3 candidate targets · ★ = SCIP focus
+            </div>
+          </div>
+
+          <ScipParcelDataPage targets={r.parcel_targets} activeIdx={r.active_target_index || 0} />
+
+          <div className="mt-4 text-[8.5pt]" style={{ color: SKYWAVE.muted }}>
+            Targets ranked from all parcels in the {r.search_radius}-mi search ring against no-residential, lot size (setbacks · fall zone · tower separation · compound), zoning classification and FEMA flood risk.
+            The starred target is the focus of this SCIP; the remaining two are held in reserve.
+          </div>
+
+          <Footer page={3} right={`Hawk Parcel Data · Site: ${r.site_name || ""}`} />
+        </div>
+      )}
     </div>
   );
 }

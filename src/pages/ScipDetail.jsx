@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
 import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
+import HawkParcelTargets from "../components/skywave/HawkParcelTargets";
 
 const STATUS = {
   draft: { label: "Draft", bg: SKYWAVE.muted },
@@ -129,6 +130,11 @@ export default function ScipDetail() {
             <ToolbarBtn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />
             <ToolbarBtn icon={Copy} label="Duplicate" onClick={handleDuplicate} busy={busy} />
           </div>
+        </div>
+
+        {/* Step 3 — interactive parcel targeting (not printed) */}
+        <div className="mb-5">
+          <HawkParcelTargets record={record} onUpdate={setRecord} />
         </div>
 
         {/* The printable document (also the on-screen preview) */}
