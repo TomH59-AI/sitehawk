@@ -14,6 +14,7 @@ import HawkAerialIntelligence from "../components/scip/HawkAerialIntelligence";
 import HawkUtilitiesIntelligence from "../components/scip/HawkUtilitiesIntelligence";
 import HawkElectricServiceMap from "../components/scip/HawkElectricServiceMap";
 import HawkAirportDistanceMap from "../components/scip/HawkAirportDistanceMap";
+import HawkAmInterferenceMap from "../components/scip/HawkAmInterferenceMap";
 import HawkCellAirportIntelligence from "../components/scip/HawkCellAirportIntelligence";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
@@ -165,6 +166,9 @@ export default function SCIPPreview() {
 
           {/* Airport Distance Map — standalone nearest airport from Target A with plane icon + distance */}
           <HawkAirportDistanceMap targetA={targets3?.[0] || null} />
+
+          {/* AM Tower Interference Map — standalone FCC AM broadcast query + interference warning */}
+          <HawkAmInterferenceMap targetA={targets3?.[0] || null} />
 
           {/* Hawk Cell Tower + Airport Intelligence — nearest FCC tower and nearest airport from Target A, with crow-flies distance */}
           <HawkCellAirportIntelligence
