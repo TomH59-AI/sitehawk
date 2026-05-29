@@ -20,10 +20,8 @@ async function femaFlood(lat, lon) {
     headers: { "User-Agent": "SiteHawk/1.0", "Accept": "application/json" },
     signal: AbortSignal.timeout(20000),
   });
-  console.log(`FEMA HTTP ${res.status}`);
   if (!res.ok) throw new Error(`FEMA ${res.status}`);
   const data = await res.json();
-  console.log(`FEMA features: ${data.features?.length ?? 0}`);
   if (!data.features || data.features.length === 0) {
     return "Zone X — Area of Minimal Flood Hazard (outside SFHA)";
   }
