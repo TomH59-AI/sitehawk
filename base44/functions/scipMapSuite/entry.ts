@@ -286,13 +286,44 @@ async function cacheGet(base44, jurisdiction, layer_type) {
   }
 }
 
+// Mongo/BSON caps a single document at 16MB. County-wide FEMA/NWI polygons can
+// exceed 20MB raw, so we simplify the FeatureCollection until the serialized
+// payload comfortably fits before caching. Render-time clipping is unaffected —
+// this only reduces vertex density of the CACHED copy.
+const CACHE_BYTE_BUDGET = 12 * 1024 * 1024; // 12MB safety margin under 16MB cap
+
+function shrinkForCache(geojson) {
+  if (!geojson || !geojson.features?.length) return geojson;
+  let size = JSON.stringify(geojson).length;
+  if (size <= CACHE_BYTE_BUDGET) return geojson;
+  let working = geojson;
+  for (const tol of [0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005]) {
+    try {
+      working = simplify(working, { tolerance: tol, highQuality: false, mutate: false });
+    } catch (_e) {
+      continue;
+    }
+    size = JSON.stringify(working).length;
+    if (size <= CACHE_BYTE_BUDGET) {
+      console.log(`[INFO] CACHE_SHRINK tol=${tol} size=${Math.round(size / 1024)}KB`);
+      return working;
+    }
+  }
+  // Still too big after max simplify — return null so caller skips caching
+  // (render still works because render-time clip+simplify runs on raw fetch).
+  console.log(`[INFO] CACHE_SKIP still ${Math.round(size / 1024)}KB after max simplify`);
+  return null;
+}
+
 async function cacheSet(base44, jurisdiction, layer_type, geojson, data_source) {
   try {
+    const shrunk = shrinkForCache(geojson);
+    if (!shrunk) return; // too large to cache safely; skip without erroring
     const existing = await base44.asServiceRole.entities.SCIPLayerCache.filter({
       jurisdiction, layer_type,
     });
     const payload = {
-      jurisdiction, layer_type, geojson, data_source,
+      jurisdiction, layer_type, geojson: shrunk, data_source,
       fetched_at: new Date().toISOString(),
     };
     if (existing && existing.length) {
