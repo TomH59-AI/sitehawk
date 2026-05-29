@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { BarChart2, TrendingUp, Loader2, MapPin, AlertTriangle, CheckCircle } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { marketDemandAnalytics } from "@/functions/marketDemandAnalytics";
+import MarketEvidencePanel from "@/components/analytics/MarketEvidencePanel";
 
 const MARKET_TYPES = [
   { id: "urban", label: "🏙️ Urban Dense", desc: "Downtown, high-density metro" },
@@ -45,6 +46,7 @@ export default function MarketAnalytics() {
   const [marketType, setMarketType] = useState("suburban");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [evidence, setEvidence] = useState(null);
 
   const handleAnalyze = async () => {
     if (!lat || !lon) {
@@ -53,6 +55,7 @@ export default function MarketAnalytics() {
     }
     setLoading(true);
     setResult(null);
+    setEvidence(null);
     try {
       const res = await marketDemandAnalytics({
         lat: parseFloat(lat),
@@ -62,6 +65,7 @@ export default function MarketAnalytics() {
       });
       if (res.data?.error) throw new Error(res.data.error);
       setResult(res.data.analytics);
+      setEvidence(res.data.evidence || null);
     } catch (err) {
       toast({ title: "Analysis failed", description: err.message, variant: "destructive" });
     } finally {
@@ -159,6 +163,9 @@ export default function MarketAnalytics() {
       {/* Results */}
       {result && !loading && (
         <div className="space-y-5">
+          {/* Measured hard-data evidence feeding the forecast */}
+          <MarketEvidencePanel evidence={evidence} />
+
           {/* KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard
