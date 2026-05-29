@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
 import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
 import HawkParcelTargets from "../components/skywave/HawkParcelTargets";
+import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
 
 const STATUS = {
   draft: { label: "Draft", bg: SKYWAVE.muted },
@@ -135,6 +136,11 @@ export default function ScipDetail() {
         {/* Step 3 — interactive parcel targeting (not printed) */}
         <div className="mb-5">
           <HawkParcelTargets record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Step 4 — Existing Conditions for Target A (not printed) */}
+        <div className="mb-5">
+          <HawkExistingConditions record={record} onUpdate={setRecord} />
         </div>
 
         {/* The printable document (also the on-screen preview) */}

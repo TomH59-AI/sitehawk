@@ -130,6 +130,40 @@
       "default": 0,
       "description": "Which parcel_targets index the SCIP is currently focused on (0 = Target A). Advance when a target is turned down."
     },
+    "existing_conditions": {
+      "type": "object",
+      "description": "Existing Conditions worksheet for the active target (Target A). Generated from FEMA, USFWS NWI, OSM and web-grounded research.",
+      "properties": {
+        "flood_zone": {
+          "type": "string",
+          "description": "FEMA flood zone(s)"
+        },
+        "wetland_concerns": {
+          "type": "string",
+          "description": "Wetland concerns (USFWS NWI)"
+        },
+        "water_management_district": {
+          "type": "string",
+          "description": "Governing water management district / agency"
+        },
+        "hazardous_waste": {
+          "type": "string",
+          "description": "Known hazardous waste / brownfield / Superfund concerns"
+        },
+        "access_notes": {
+          "type": "string",
+          "description": "Access notes \u2014 ROW, driveway, easement, road frontage"
+        },
+        "local_police": {
+          "type": "string",
+          "description": "Local police municipality & phone"
+        },
+        "local_fire": {
+          "type": "string",
+          "description": "Local fire department municipality & phone"
+        }
+      }
+    },
     "status": {
       "type": "string",
       "enum": [
