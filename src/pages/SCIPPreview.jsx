@@ -13,6 +13,7 @@ import HawkParcelDetails from "../components/scip/HawkParcelDetails";
 import HawkAerialIntelligence from "../components/scip/HawkAerialIntelligence";
 import HawkUtilitiesIntelligence from "../components/scip/HawkUtilitiesIntelligence";
 import HawkElectricServiceMap from "../components/scip/HawkElectricServiceMap";
+import HawkAirportDistanceMap from "../components/scip/HawkAirportDistanceMap";
 import HawkCellAirportIntelligence from "../components/scip/HawkCellAirportIntelligence";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
@@ -161,6 +162,9 @@ export default function SCIPPreview() {
 
           {/* Electric Service Map — standalone Target A connection point + provider contact card */}
           <HawkElectricServiceMap targetA={targets3?.[0] || null} />
+
+          {/* Airport Distance Map — standalone nearest airport from Target A with plane icon + distance */}
+          <HawkAirportDistanceMap targetA={targets3?.[0] || null} />
 
           {/* Hawk Cell Tower + Airport Intelligence — nearest FCC tower and nearest airport from Target A, with crow-flies distance */}
           <HawkCellAirportIntelligence
