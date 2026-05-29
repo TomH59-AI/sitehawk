@@ -1,0 +1,58 @@
+{
+  "name": "ElectricProvider",
+  "type": "object",
+  "description": "Directory of US electric power providers (utilities, co-ops, municipals) with contact info and coordinates. Joined with PowerTransmissionLine to surface the provider name + phone for a search area.",
+  "properties": {
+    "NAME": {
+      "type": "string",
+      "description": "Provider / utility company name"
+    },
+    "TYPE": {
+      "type": "string",
+      "description": "Ownership type: Cooperative, Municipal, Investor Owned, etc."
+    },
+    "ADDRESS": {
+      "type": "string",
+      "description": "Street address"
+    },
+    "CITY": {
+      "type": "string",
+      "description": "City"
+    },
+    "STATE": {
+      "type": "string",
+      "description": "Two-letter state code"
+    },
+    "ZIP": {
+      "type": "string",
+      "description": "ZIP code"
+    },
+    "ZIP_COUNTY": {
+      "type": "string",
+      "description": "County associated with the ZIP"
+    },
+    "COUNTRY": {
+      "type": "string",
+      "description": "Country"
+    },
+    "LATITUDE": {
+      "type": "number",
+      "description": "Provider HQ latitude"
+    },
+    "LONGITUDE": {
+      "type": "number",
+      "description": "Provider HQ longitude"
+    },
+    "TELEPHONE": {
+      "type": "string",
+      "description": "Contact phone number"
+    },
+    "WEBSITE": {
+      "type": "string",
+      "description": "Provider website URL"
+    }
+  },
+  "required": [
+    "NAME"
+  ]
+}
