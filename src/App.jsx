@@ -34,6 +34,8 @@ import Infrastructure from './pages/Infrastructure';
 import CoverageAnalysis from './pages/CoverageAnalysis';
 import SiteEvaluate from './pages/SiteEvaluate';
 import SARFMap from './pages/SARFMap';
+import ScipNew from './pages/ScipNew';
+import ScipDetail from './pages/ScipDetail';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -99,6 +101,8 @@ const AuthenticatedApp = () => {
         <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
         <Route path="/dashboard/evaluate" element={<SiteEvaluate />} />
         <Route path="/sarf-map" element={<SARFMap />} />
+        <Route path="/scip/new" element={<ScipNew />} />
+        <Route path="/scip/:id" element={<ScipDetail />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

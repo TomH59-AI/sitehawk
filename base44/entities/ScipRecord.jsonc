@@ -1,0 +1,124 @@
+{
+  "name": "ScipRecord",
+  "type": "object",
+  "description": "SkyWave SCIP Step 1 \u2014 Site Acquisition & Search Ring record. Drives the printable 2-page SCIP document.",
+  "properties": {
+    "agent_name": {
+      "type": "string",
+      "description": "Agent full name (max 80 chars)"
+    },
+    "agent_phone": {
+      "type": "string",
+      "description": "Agent phone, formatted (XXX) XXX-XXXX"
+    },
+    "agent_email": {
+      "type": "string",
+      "description": "Agent email"
+    },
+    "submittal_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Submittal date"
+    },
+    "site_name": {
+      "type": "string",
+      "description": "Site candidate name, e.g. SW-TX-0142 (Karnes City)"
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Site latitude (-90 to 90)"
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Site longitude (-180 to 180)"
+    },
+    "search_radius": {
+      "type": "string",
+      "enum": [
+        "0.25",
+        "0.50",
+        "1.00"
+      ],
+      "default": "1.00",
+      "description": "Selected SARF search radius in miles"
+    },
+    "sarf_height": {
+      "type": "number",
+      "description": "SARF height in feet AGL (1-2000)"
+    },
+    "county": {
+      "type": "string",
+      "description": "County (optional)"
+    },
+    "state": {
+      "type": "string",
+      "description": "2-letter US state code, uppercase (optional)"
+    },
+    "map_image_url": {
+      "type": "string",
+      "description": "Generated Mapbox static SARF map PNG URL"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "map_generated",
+        "submitted"
+      ],
+      "default": "draft",
+      "description": "Record status"
+    }
+  },
+  "required": [
+    "agent_name",
+    "agent_phone",
+    "agent_email",
+    "submittal_date",
+    "site_name",
+    "latitude",
+    "longitude",
+    "search_radius",
+    "sarf_height"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
