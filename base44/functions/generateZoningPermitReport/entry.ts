@@ -4,10 +4,11 @@
  * Builds the full SiteHawk Zoning + Site Plan + Building Permit report.
  *
  * Sources (in priority order, ALL are used — not short-circuited):
- *   1. Municode Worker        → tower specs (height, setback, stealth, collocation, fall zone, LDC refs)
- *   2. Notion Master Zoning   → curated jurisdiction contacts, fees, timeframes, site plan + building permit process
- *   3. Oxylabs scrape         → live planning/building dept pages to fill gaps
- *   4. Realie parcel          → current land use, acreage (for "meets min lot requirements")
+ *   1. Zoneomics API          → PRIMARY zoning: property zoning district, zone name, land use
+ *   2. Notion Master Zoning   → BACKUP zoning + curated jurisdiction contacts, fees, timeframes, site plan + building permit process
+ *   3. Municode Worker        → tower specs (height, setback, stealth, collocation, fall zone, LDC refs)
+ *   4. Oxylabs scrape         → live planning/building dept pages to fill gaps
+ *   5. Realie parcel          → current land use, acreage (for "meets min lot requirements")
  *
  * Output: { zoning_overview, tower_specifics, site_plan, building_permit }
  *   Every row is { value, source, confidence } so the UI shows provenance.
@@ -68,6 +69,31 @@ function parseCityFromAddress(address, stateCode) {
   const stateIdx = parts.findIndex(p => p.toUpperCase().startsWith(stateCode));
   if (stateIdx > 0) return parts[stateIdx - 1].replace(/\d{5}.*/, '').trim();
   return parts.length >= 3 ? parts[parts.length - 2].replace(/\d{5}.*/, '').trim() : null;
+}
+
+// ─── Zoneomics (PRIMARY zoning source) ──────────────────────────────────────
+async function fetchZoneomics(lat, lon) {
+  const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
+  if (!apiKey) return null;
+  const url = new URL('https://api.zoneomics.com/v2/zoneDetail');
+  url.searchParams.set('api_key', apiKey);
+  url.searchParams.set('lat', String(lat));
+  url.searchParams.set('lng', String(lon));
+  url.searchParams.set('output_fields', 'zoning,plu,controls');
+  const res = await fetchJsonWithTimeout(url.toString(), { headers: { Accept: 'application/json' } }, 15000);
+  const d = res?.data?.data;
+  if (!res.ok || !res?.data?.success || !d || !d.zone_details) return null;
+  const zd = d.zone_details || {};
+  const asOfRight = d.permitted_land_uses?.as_of_right || [];
+  return {
+    city_name: d.meta?.city_name || null,
+    zone_code: clean(zd.zone_code),
+    zone_name: clean(zd.zone_name),
+    zone_type: clean(zd.zone_type),
+    zone_guide: clean(zd.zone_guide),
+    link: zd.link || null,
+    permitted_land_uses: Array.isArray(asOfRight) ? asOfRight.slice(0, 20) : [],
+  };
 }
 
 // ─── Municode ───────────────────────────────────────────────────────────────
@@ -316,18 +342,21 @@ CONTEXT:
 - Parcel zoning (from search): ${ctx.parcelZoning || 'unknown'}
 - Realie parcel facts: ${JSON.stringify(ctx.realie || {})}
 
-SOURCE 1 — Municode ordinance extract (PRIMARY for tower specs):
-${JSON.stringify(ctx.municode || { miss: true }).slice(0, 12000)}
+SOURCE 1 — Zoneomics API (PRIMARY for property zoning district, zone name, permitted land uses):
+${JSON.stringify(ctx.zoneomics || { miss: true }).slice(0, 8000)}
 
-SOURCE 2 — Notion Master Zoning DB, state folder "${ctx.notion?.folder_title || 'none'}":
+SOURCE 2 — Notion Master Zoning DB (BACKUP for zoning + curated contacts, fees, timeframes), state folder "${ctx.notion?.folder_title || 'none'}":
 ${(ctx.notion?.text || '(no Notion content found for this state)').slice(0, 35000)}
 
-SOURCE 3 — Live web scrape (Oxylabs) of planning/building dept pages:
+SOURCE 3 — Municode ordinance extract (PRIMARY for tower specs):
+${JSON.stringify(ctx.municode || { miss: true }).slice(0, 12000)}
+
+SOURCE 4 — Live web scrape (Oxylabs) of planning/building dept pages:
 ${(ctx.scrapes || []).map((s, i) => `--- SCRAPE ${i+1}: ${s.url} ---\n${s.text.slice(0, 8000)}`).join('\n\n').slice(0, 30000) || '(no scrapes returned)'}
 
-TASK: Fill out EVERY field in the report below using ALL three sources. Per field:
-- Pick the BEST source (Municode for tower specs; Notion for fees/contacts/process; Oxylabs/web for anything Notion missed).
-- Set "source" to one of: "Municode" | "Notion" | "Oxylabs" | "Realie" | "Web Research" | "none".
+TASK: Fill out EVERY field in the report below using ALL sources. Per field:
+- Pick the BEST source. For property zoning district / zone name / land use, ALWAYS prefer Zoneomics (SOURCE 1); if Zoneomics has no coverage, fall back to Notion. Use Municode for tower specs; Notion for fees/contacts/process; Oxylabs/web for anything else missing.
+- Set "source" to one of: "Zoneomics" | "Municode" | "Notion" | "Oxylabs" | "Realie" | "Web Research" | "none".
 - If you genuinely cannot find a value in ANY source, set value to "NEEDS RESEARCH" and source to "none".
 - DO NOT invent fees, phone numbers, addresses, or section numbers. Quote only what's in the sources.
 - For yes/no fields use "Yes" / "No" / "NEEDS RESEARCH".
@@ -437,9 +466,10 @@ Deno.serve(async (req) => {
     const city = parseCityFromAddress(address, geo.state_code);
     const jurisdictions = [city, geo.county_name].filter(Boolean);
 
-    // 2. Run all sources in parallel
+    // 2. Run all sources in parallel — Zoneomics is the PRIMARY zoning source.
     const notionToken = await getNotionAccessToken(base44);
-    const [municode, notion, realie] = await Promise.all([
+    const [zoneomics, municode, notion, realie] = await Promise.all([
+      fetchZoneomics(lat, lon).catch(() => null),
       fetchMunicode(jurisdictions, geo.state_code).catch(() => null),
       getNotionStateContext(geo.state_code, jurisdictions, notionToken).catch(() => ({ found: false, text: '' })),
       getRealieParcel(address).catch(() => null),
@@ -450,7 +480,7 @@ Deno.serve(async (req) => {
     const scrapeUrls = primaryJurisdiction ? await searchPlanningDeptUrls(primaryJurisdiction, geo.state_name || geo.state_code) : [];
     const scrapes = (await Promise.all(scrapeUrls.slice(0, 2).map(u => oxylabsScrape(u)))).filter(Boolean);
 
-    // 4. LLM structured extract from all 3 sources
+    // 4. LLM structured extract from all sources
     const llmReport = await llmExtractReport(base44, {
       lat, lon,
       state: geo.state_name || geo.state_code,
@@ -458,6 +488,7 @@ Deno.serve(async (req) => {
       city,
       address,
       parcelZoning,
+      zoneomics,
       municode,
       notion,
       scrapes,
@@ -467,13 +498,24 @@ Deno.serve(async (req) => {
     // 5. Deterministic Municode overrides for tower specs (higher trust than LLM)
     const report = applyMunicodeOverrides(llmReport, municode);
 
-    // 6. Realie current usage override
-    if (realie?.land_use && !report?.zoning_overview?.property_current_usage?.value?.length) {
-      report.zoning_overview = report.zoning_overview || {};
+    // 6. Deterministic Zoneomics overrides — PRIMARY for property zoning district/land use.
+    report.zoning_overview = report.zoning_overview || {};
+    if (zoneomics?.zone_code) {
+      const district = zoneomics.zone_name
+        ? `${zoneomics.zone_code} — ${zoneomics.zone_name}`
+        : zoneomics.zone_code;
+      report.zoning_overview.property_zoning_district = row(district, 'Zoneomics', 'high');
+    }
+    if (zoneomics?.permitted_land_uses?.length && !clean(report.zoning_overview?.property_future_land_use?.value).length) {
+      report.zoning_overview.property_future_land_use = row(zoneomics.zone_type || zoneomics.zone_name, 'Zoneomics', 'medium');
+    }
+
+    // 7. Realie current usage override (only if Zoneomics/LLM didn't supply it)
+    if (realie?.land_use && !clean(report?.zoning_overview?.property_current_usage?.value).length) {
       report.zoning_overview.property_current_usage = row(realie.land_use, 'Realie', 'high');
     }
 
-    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} municode=${!!municode} notion=${!!notion?.found} scrapes=${scrapes.length} realie=${!!realie}`);
+    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} zoneomics=${!!zoneomics} municode=${!!municode} notion=${!!notion?.found} scrapes=${scrapes.length} realie=${!!realie}`);
 
     return Response.json({
       status: 'ok',
@@ -482,6 +524,8 @@ Deno.serve(async (req) => {
       geo,
       report,
       sources_used: {
+        zoneomics: !!zoneomics,
+        zoneomics_zone: zoneomics?.zone_code || null,
         municode: !!municode,
         notion: !!notion?.found,
         notion_folder: notion?.folder_title || null,
