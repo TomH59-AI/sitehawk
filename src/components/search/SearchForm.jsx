@@ -12,6 +12,8 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
   const [towerHeight, setTowerHeight] = useState("199");
   const [radius, setRadius] = useState(0.5);
   const [compound, setCompound] = useState("100x100");
+  const [county, setCounty] = useState("");
+  const [stateCode, setStateCode] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -25,6 +27,8 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
       tower_height_ft: parseFloat(towerHeight) || 199,
       radius_miles: radius,
       compound_size: compound,
+      county: county.trim(),
+      state: stateCode.trim(),
     });
   };
 
@@ -120,6 +124,30 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               placeholder="e.g. 100x100 or 10,000 SF"
               value={compound}
               onChange={(e) => setCompound(e.target.value)}
+              className="bg-secondary border-border"
+            />
+          </div>
+        </div>
+
+        {/* County + State row (optional — helps narrow geocoding) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">County <span className="text-muted-foreground/60">(optional)</span></label>
+            <Input
+              type="text"
+              placeholder="e.g. Hillsborough"
+              value={county}
+              onChange={(e) => setCounty(e.target.value)}
+              className="bg-secondary border-border"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">State <span className="text-muted-foreground/60">(optional)</span></label>
+            <Input
+              type="text"
+              placeholder="e.g. FL"
+              value={stateCode}
+              onChange={(e) => setStateCode(e.target.value)}
               className="bg-secondary border-border"
             />
           </div>
