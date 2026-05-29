@@ -1,6 +1,7 @@
 import { MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
+import ScipParcelDataPage from "./ScipParcelDataPage";
 
 function fmtDate(d) {
   try { return format(new Date(d + "T00:00:00"), "MMM d, yyyy"); } catch { return d || ""; }
@@ -101,7 +102,7 @@ export default function ScipPrintDoc({ record }) {
           </div>
         </div>
 
-        <Footer page={1} right={`Page 1 of 2 · Site: ${r.site_name || ""}`} />
+        <Footer page={1} right={`Page 1 · Site: ${r.site_name || ""}`} />
       </div>
 
       {/* PAGE 2 */}

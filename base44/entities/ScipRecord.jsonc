@@ -1,7 +1,7 @@
 {
   "name": "ScipRecord",
   "type": "object",
-  "description": "SkyWave SCIP Step 1 \u2014 Site Acquisition & Search Ring record. Drives the printable 2-page SCIP document.",
+  "description": "SkyWave SCIP Step 1 \u2014 Site Acquisition & Search Ring record. Drives the printable SCIP document.",
   "properties": {
     "agent_name": {
       "type": "string",
@@ -57,6 +57,78 @@
     "map_image_url": {
       "type": "string",
       "description": "Generated Mapbox static SARF map PNG URL"
+    },
+    "zoning_jurisdiction": {
+      "type": "string",
+      "description": "Resolved local governing authority for zoning"
+    },
+    "zoning_report": {
+      "type": "object",
+      "description": "Filled-out Zoning & Permitting worksheet \u2014 each row is { value, source, confidence }"
+    },
+    "parcel_targets": {
+      "type": "array",
+      "description": "Top 3 candidate parcels (Target A/B/C) chosen from all parcels in the ring, scored against tower-siting criteria. Index 0 = Target A (the SCIP focus).",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Target A | Target B | Target C"
+          },
+          "owner_name": {
+            "type": "string"
+          },
+          "parcel_address": {
+            "type": "string"
+          },
+          "apn": {
+            "type": "string"
+          },
+          "acreage": {
+            "type": "number"
+          },
+          "boundaries": {
+            "type": "string",
+            "description": "Frontage x depth or legal boundary summary"
+          },
+          "zoning_classification": {
+            "type": "string"
+          },
+          "mailing_address": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "fema_risk_factor": {
+            "type": "string",
+            "description": "FEMA flood zone code + risk level"
+          },
+          "score": {
+            "type": "number",
+            "description": "0-100 siting suitability score"
+          },
+          "score_reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Why this parcel scored as it did"
+          },
+          "land_use": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "active_target_index": {
+      "type": "number",
+      "default": 0,
+      "description": "Which parcel_targets index the SCIP is currently focused on (0 = Target A). Advance when a target is turned down."
     },
     "status": {
       "type": "string",
