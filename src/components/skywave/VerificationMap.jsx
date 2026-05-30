@@ -3,12 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { verifyLayers } from '@/functions/verifyLayers';
+import { existingTowers } from '@/functions/existingTowers';
 
 // --- SkyWave brand -----------------------------------------------------------
 const BLUE = '#0066FF';
 const GOLD = '#FFB800';
 const POWER_RED = '#FF5A00';
 const XMSN_PURPLE = '#9b30ff';
+const TOWER_CYAN = '#00E5FF';   // existing cell sites (OpenCellID)
 
 // --- Mapbox frontend token (pk.* is frontend-safe) ---------------------------
 const MAPBOX_TOKEN = 'pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ';
@@ -105,6 +107,8 @@ export default function VerificationMap({ searchResult, onUpdated }) {
   const [error, setError] = useState('');
   const [basemap, setBasemap] = useState('satellite');
   const [imgOn, setImgOn]   = useState({ wetlands: true, hydrography: true });
+  const [towersOn, setTowersOn] = useState(false);   // existing cell sites (lazy)
+  const [towerData, setTowerData] = useState(null);  // { count, towers[], source }
   const [geoOn, setGeoOn]   = useState({ substations: true, transmission: true });
   const [cardOn, setCardOn] = useState({ elevation: true, wetlands: true, hydrography: true, watershed: true });
 
@@ -289,6 +293,66 @@ export default function VerificationMap({ searchResult, onUpdated }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasCoords, lat, lon, searchResult?.id, targetLabel]);
 
+  // ---- Existing cell sites (OpenCellID via existingTowers backend) ----------
+  const radiusMiles = searchResult?.radius_miles
+    || (searchResult?.search_radius ? parseFloat(searchResult.search_radius) : 0.5);
+
+  const plotTowers = useCallback((towers) => {
+    const map = mapRef.current; if (!map || !styleReady.current || !mbglRef.current) return;
+    const SRC = 'cell-towers', LYR = 'cell-towers-layer';
+    const fc = {
+      type: 'FeatureCollection',
+      features: (towers || []).map((t) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [t.lon, t.lat] },
+        properties: { carrier: t.carrier, radio: t.radio, range_m: t.range_m, distance_mi: t.distance_mi },
+      })),
+    };
+    if (!map.getSource(SRC)) {
+      map.addSource(SRC, { type: 'geojson', data: fc });
+      map.addLayer({
+        id: LYR, type: 'circle', source: SRC,
+        paint: { 'circle-radius': 7, 'circle-color': TOWER_CYAN, 'circle-stroke-width': 2, 'circle-stroke-color': '#003a40' },
+      });
+      map.on('click', LYR, (e) => {
+        const p = e.features?.[0]?.properties; if (!p) return;
+        const html = `<b>📡 ${p.carrier}</b><br/>${p.radio} · ~${p.distance_mi} mi from target` +
+                     `${p.range_m ? '<br/>est. range ' + p.range_m + ' m' : ''}`;
+        new mbglRef.current.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', LYR, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', LYR, () => { map.getCanvas().style.cursor = ''; });
+    } else {
+      map.getSource(SRC).setData(fc);
+    }
+  }, []);
+
+  const fetchTowers = useCallback(async () => {
+    if (!hasCoords) return;
+    try {
+      const res = await existingTowers({ lat, lon, radiusMiles });
+      const data = res?.data ?? res;
+      if (data?.error) throw new Error(data.error);
+      setTowerData(data);
+      plotTowers(data.towers);
+    } catch (e) {
+      setError('Existing-towers lookup: ' + String(e?.message ?? e));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasCoords, lat, lon, radiusMiles, plotTowers]);
+
+  useEffect(() => {
+    const map = mapRef.current; if (!map || !styleReady.current) return;
+    const LYR = 'cell-towers-layer';
+    if (towersOn) {
+      if (towerData) { plotTowers(towerData.towers); if (map.getLayer(LYR)) map.setLayoutProperty(LYR, 'visibility', 'visible'); }
+      else fetchTowers();   // lazy: only hit the API the first time it's switched on
+    } else if (map.getLayer(LYR)) {
+      map.setLayoutProperty(LYR, 'visibility', 'none');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [towersOn]);
+
   const exportSnapshot = useCallback(() => {
     const map = mapRef.current; if (!map) return;
     map.once('render', () => {
@@ -359,6 +423,10 @@ export default function VerificationMap({ searchResult, onUpdated }) {
                 <Checkbox checked={geoOn.transmission} onCheckedChange={(v) => setGeoOn(s => ({ ...s, transmission: !!v }))} />
                 ⚡ Transmission
               </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                <Checkbox checked={towersOn} onCheckedChange={(v) => setTowersOn(!!v)} />
+                📡 Existing Towers
+              </label>
             </div>
           </div>
         )}
@@ -373,6 +441,7 @@ export default function VerificationMap({ searchResult, onUpdated }) {
             {imgOn.hydrography && <Stamp>🌊 Hydrography — {IMG_OVERLAYS.hydrography.source}</Stamp>}
             {geoOn.substations && <Stamp>🔌 {GEO_LAYERS.substations.source} · nearest public asset, not transformer-level</Stamp>}
             {geoOn.transmission && <Stamp>⚡ {GEO_LAYERS.transmission.source}</Stamp>}
+            {towersOn && towerData && <Stamp>📡 {towerData.count} existing cell site(s) in ring — {towerData.source}</Stamp>}
           </div>
         )}
 
