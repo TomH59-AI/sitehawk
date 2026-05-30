@@ -154,17 +154,21 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
-    const { scipRecordId, lat, lon, targetLabel = 'Target A', force = false } = body ?? {};
+    const { recordId, recordType = 'SearchResult', scipRecordId, lat, lon, targetLabel = 'Target A', force = false } = body ?? {};
     if (lat === undefined || lon === undefined) {
       return Response.json({ error: 'lat and lon are required' }, { status: 400 });
     }
     const latN = parseFloat(lat);
     const lonN = parseFloat(lon);
 
+    // Generic record target — defaults to SearchResult, back-compat with scipRecordId.
+    const id = recordId || scipRecordId;
+    const entity = recordId ? recordType : (scipRecordId ? 'ScipRecord' : recordType);
+
     // ---- cache check ----
-    if (scipRecordId && !force) {
+    if (id && !force) {
       try {
-        const rec = await base44.entities.ScipRecord.get(scipRecordId);
+        const rec = await base44.asServiceRole.entities[entity].get(id);
         const vm = rec?.verification_map;
         if (vm && vm.target_label === targetLabel && vm.generated_at) {
           const age = Date.now() - new Date(vm.generated_at).getTime();
@@ -205,11 +209,11 @@ Deno.serve(async (req) => {
       served_from_cache: false,
     };
 
-    if (scipRecordId) {
+    if (id) {
       try {
-        await base44.entities.ScipRecord.update(scipRecordId, { verification_map });
-      } catch (_e) {
-        // persistence failed — still return the live result
+        await base44.asServiceRole.entities[entity].update(id, { verification_map });
+      } catch (e) {
+        console.error('verifyLayers persist failed:', e?.message ?? e);
       }
     }
 

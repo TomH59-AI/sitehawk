@@ -7,6 +7,8 @@ import { verifyLayers } from '@/functions/verifyLayers';
 // --- SkyWave brand -----------------------------------------------------------
 const BLUE = '#0066FF';
 const GOLD = '#FFB800';
+const POWER_RED = '#FF5A00';
+const XMSN_PURPLE = '#9b30ff';
 
 // --- Mapbox frontend token (pk.* is frontend-safe) ---------------------------
 const MAPBOX_TOKEN = 'pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ';
@@ -24,11 +26,10 @@ const BASEMAP_OPTIONS = [
   { key: 'shadedRelief', label: 'USGS Shaded Relief' },
 ];
 
-// --- FEDERAL OVERLAY tile templates (ArcGIS export w/ {bbox-epsg-3857}) ------
-const OVERLAYS = {
+// --- IMAGE OVERLAYS (transparent PNG via ArcGIS export, {bbox-epsg-3857}) ----
+const IMG_OVERLAYS = {
   wetlands: {
     id: 'ovl-wetlands',
-    label: '💧 USFWS Wetlands',
     source: 'USFWS National Wetlands Inventory',
     tiles: 'https://www.fws.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/export'
       + '?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512'
@@ -36,11 +37,40 @@ const OVERLAYS = {
   },
   hydrography: {
     id: 'ovl-hydro',
-    label: '🌊 USGS Hydrography',
     source: 'USGS National Hydrography Dataset',
     tiles: 'https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/export'
       + '?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512'
       + '&format=png32&transparent=true&dpi=96&f=image',
+  },
+};
+
+// --- NATIVE GEOJSON LAYERS (HIFLD FeatureServers, fetched on map move) -------
+// Honest labels: nearest PUBLIC assets, not transformer/splice precision.
+const GEO_LAYERS = {
+  substations: {
+    srcId: 'geo-subs', lyrId: 'geo-subs-layer', kind: 'point',
+    color: POWER_RED,
+    url: 'https://services6.arcgis.com/OO2s4OoyCZkYJ6oE/arcgis/rest/services/Substations/FeatureServer/0/query',
+    outFields: 'NAME,CITY,COUNTY,STATE,TYPE,STATUS',
+    source: 'HIFLD Electric Substations',
+    nameOf: (p) => {
+      const n = p?.NAME || '';
+      const looksJunk = /^(UNKNOWN|TAP)\d+$/i.test(n) || !n;
+      return looksJunk ? [p?.CITY, p?.COUNTY].filter(Boolean).join(' / ') || 'Substation' : n;
+    },
+    popup: (p, nameOf) =>
+      `<b>${nameOf(p)}</b><br/>Substation${p?.STATUS ? ' · ' + p.STATUS : ''}` +
+      `${p?.COUNTY ? '<br/>' + p.COUNTY + ' County, ' + (p.STATE || '') : ''}`,
+  },
+  transmission: {
+    srcId: 'geo-xmsn', lyrId: 'geo-xmsn-layer', kind: 'line',
+    color: XMSN_PURPLE,
+    url: 'https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Electric_Power_Transmission_Lines/FeatureServer/0/query',
+    outFields: 'OWNER,VOLTAGE,VOLT_CLASS,STATUS',
+    source: 'HIFLD Electric Power Transmission Lines',
+    popup: (p) =>
+      `<b>${p?.OWNER && p.OWNER !== 'NOT AVAILABLE' ? p.OWNER : 'Transmission line'}</b>` +
+      `<br/>${p?.VOLTAGE ? p.VOLTAGE + ' kV' : ''}${p?.VOLT_CLASS ? ' (' + p.VOLT_CLASS + ')' : ''}`,
   },
 };
 
@@ -64,50 +94,110 @@ function Stamp({ children }) {
   return <div style={{ fontSize: 10, color: '#8a8f98', marginTop: 2, letterSpacing: 0.2 }}>{children}</div>;
 }
 
-export default function VerificationMap({ scipRecord, onUpdated }) {
+export default function VerificationMap({ searchResult, onUpdated }) {
   const mapEl = useRef(null);
   const mapRef = useRef(null);
-  const markerRef = useRef(null);
   const styleReady = useRef(false);
+  const mbglRef = useRef(null);
 
-  const [vm, setVm] = useState(scipRecord?.verification_map || null);
+  const [vm, setVm] = useState(searchResult?.verification_map || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [basemap, setBasemap] = useState('satellite');
-  const [overlayOn, setOverlayOn] = useState({ wetlands: true, hydrography: true });
+  const [imgOn, setImgOn]   = useState({ wetlands: true, hydrography: true });
+  const [geoOn, setGeoOn]   = useState({ substations: true, transmission: true });
   const [cardOn, setCardOn] = useState({ elevation: true, wetlands: true, hydrography: true, watershed: true });
 
-  const idx = scipRecord?.active_target_index ?? 0;
-  const target = scipRecord?.parcel_targets?.[idx];
-  const lat = target?.latitude ?? scipRecord?.latitude;
-  const lon = target?.longitude ?? scipRecord?.longitude;
-  const targetLabel = target?.label || 'Target A';
+  // Coordinates come straight off the SearchResult candidate.
+  const lat = searchResult?.latitude;
+  const lon = searchResult?.longitude;
+  const targetLabel = searchResult?.site_name || 'Selected Target';
   const hasCoords = lat != null && lon != null;
 
-  const moveOverlaysToTop = useCallback(() => {
+  // ---- IMAGE overlay helpers ------------------------------------------------
+  const moveImgOverlaysToTop = useCallback(() => {
     const map = mapRef.current; if (!map) return;
-    Object.values(OVERLAYS).forEach(o => { if (map.getLayer(o.id)) map.moveLayer(o.id); });
+    Object.values(IMG_OVERLAYS).forEach(o => { if (map.getLayer(o.id)) map.moveLayer(o.id); });
+    // keep native geo layers above image overlays too
+    Object.values(GEO_LAYERS).forEach(g => { if (map.getLayer(g.lyrId)) map.moveLayer(g.lyrId); });
   }, []);
 
-  const ensureOverlay = useCallback((kind) => {
+  const ensureImgOverlay = useCallback((kind) => {
     const map = mapRef.current; if (!map || !styleReady.current) return;
-    const o = OVERLAYS[kind];
+    const o = IMG_OVERLAYS[kind];
     if (!map.getSource(o.id)) {
       map.addSource(o.id, { type: 'raster', tiles: [o.tiles], tileSize: 512 });
       map.addLayer({ id: o.id, type: 'raster', source: o.id, paint: { 'raster-opacity': 0.75 } });
     }
   }, []);
 
-  const setOverlayVisible = useCallback((kind, visible) => {
+  const setImgVisible = useCallback((kind, visible) => {
     const map = mapRef.current; if (!map || !styleReady.current) return;
-    const o = OVERLAYS[kind];
+    const o = IMG_OVERLAYS[kind];
     if (visible) {
-      ensureOverlay(kind);
+      ensureImgOverlay(kind);
       if (map.getLayer(o.id)) map.setLayoutProperty(o.id, 'visibility', 'visible');
     } else if (map.getLayer(o.id)) {
       map.setLayoutProperty(o.id, 'visibility', 'none');
     }
-  }, [ensureOverlay]);
+  }, [ensureImgOverlay]);
+
+  // ---- NATIVE GEOJSON layer helpers (fetch current view, draw, popups) ------
+  const fetchGeoData = useCallback(async (kind) => {
+    const map = mapRef.current; if (!map || !styleReady.current) return;
+    const g = GEO_LAYERS[kind];
+    const b = map.getBounds();
+    const env = `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+    const params = new URLSearchParams({
+      geometry: env, geometryType: 'esriGeometryEnvelope', inSR: '4326',
+      spatialRel: 'esriSpatialRelIntersects', outFields: g.outFields,
+      returnGeometry: 'true', outSR: '4326', resultRecordCount: '500', f: 'geojson',
+    });
+    try {
+      const res = await fetch(`${g.url}?${params.toString()}`);
+      const fc = await res.json();
+      const src = map.getSource(g.srcId);
+      if (src) src.setData(fc && fc.type ? fc : { type: 'FeatureCollection', features: [] });
+    } catch (_e) { /* leave existing data; federal hiccup shouldn't break the map */ }
+  }, []);
+
+  const ensureGeoLayer = useCallback((kind) => {
+    const map = mapRef.current; if (!map || !styleReady.current) return;
+    const g = GEO_LAYERS[kind];
+    if (!map.getSource(g.srcId)) {
+      map.addSource(g.srcId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      if (g.kind === 'point') {
+        map.addLayer({
+          id: g.lyrId, type: 'circle', source: g.srcId,
+          paint: { 'circle-radius': 6, 'circle-color': g.color, 'circle-stroke-width': 2, 'circle-stroke-color': '#fff' },
+        });
+      } else {
+        map.addLayer({
+          id: g.lyrId, type: 'line', source: g.srcId,
+          paint: { 'line-color': g.color, 'line-width': 3 },
+        });
+      }
+      map.on('click', g.lyrId, (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        const html = g.popup(f.properties, g.nameOf);
+        new mbglRef.current.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
+      });
+      map.on('mouseenter', g.lyrId, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', g.lyrId, () => { map.getCanvas().style.cursor = ''; });
+    }
+  }, []);
+
+  const setGeoVisible = useCallback((kind, visible) => {
+    const map = mapRef.current; if (!map || !styleReady.current) return;
+    const g = GEO_LAYERS[kind];
+    if (visible) {
+      ensureGeoLayer(kind);
+      if (map.getLayer(g.lyrId)) map.setLayoutProperty(g.lyrId, 'visibility', 'visible');
+      fetchGeoData(kind);
+    } else if (map.getLayer(g.lyrId)) {
+      map.setLayoutProperty(g.lyrId, 'visibility', 'none');
+    }
+  }, [ensureGeoLayer, fetchGeoData]);
 
   const applyBasemap = useCallback((key) => {
     const map = mapRef.current; if (!map || !styleReady.current) return;
@@ -117,9 +207,15 @@ export default function VerificationMap({ scipRecord, onUpdated }) {
     if (key !== 'satellite') {
       map.addSource(SRC, { type: 'raster', tiles: [USGS_BASEMAPS[key]], tileSize: 256 });
       map.addLayer({ id: LYR, type: 'raster', source: SRC });
-      moveOverlaysToTop();
+      moveImgOverlaysToTop();
     }
-  }, [moveOverlaysToTop]);
+  }, [moveImgOverlaysToTop]);
+
+  // refetch native layers when the user stops moving the map
+  const onMoveEnd = useCallback(() => {
+    if (geoOn.substations) fetchGeoData('substations');
+    if (geoOn.transmission) fetchGeoData('transmission');
+  }, [geoOn, fetchGeoData]);
 
   // ---- init map -------------------------------------------------------------
   useEffect(() => {
@@ -127,50 +223,60 @@ export default function VerificationMap({ scipRecord, onUpdated }) {
     if (!hasCoords) return;
     loadMapboxGL().then((mapboxgl) => {
       if (cancelled || mapRef.current || !mapEl.current) return;
+      mbglRef.current = mapboxgl;
       mapboxgl.accessToken = MAPBOX_TOKEN;
       const map = new mapboxgl.Map({
         container: mapEl.current,
         style: 'mapbox://styles/mapbox/satellite-streets-v12',
-        center: [lon, lat], zoom: 15,
+        center: [lon, lat], zoom: 14,
       });
       map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      markerRef.current = new mapboxgl.Marker({ color: GOLD }).setLngLat([lon, lat]).addTo(map);
+      new mapboxgl.Marker({ color: GOLD }).setLngLat([lon, lat]).addTo(map);
       map.on('style.load', () => {
         styleReady.current = true;
         applyBasemap(basemap);
-        setOverlayVisible('wetlands', overlayOn.wetlands);
-        setOverlayVisible('hydrography', overlayOn.hydrography);
-        moveOverlaysToTop();
+        setImgVisible('wetlands', imgOn.wetlands);
+        setImgVisible('hydrography', imgOn.hydrography);
+        setGeoVisible('substations', geoOn.substations);
+        setGeoVisible('transmission', geoOn.transmission);
+        moveImgOverlaysToTop();
       });
+      map.on('moveend', onMoveEnd);
       mapRef.current = map;
     }).catch(() => setError('Map failed to load.'));
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasCoords]);
 
-  // re-apply basemap when switched
   useEffect(() => {
     if (!styleReady.current) return;
     applyBasemap(basemap);
-    setOverlayVisible('wetlands', overlayOn.wetlands);
-    setOverlayVisible('hydrography', overlayOn.hydrography);
+    setImgVisible('wetlands', imgOn.wetlands);
+    setImgVisible('hydrography', imgOn.hydrography);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basemap]);
 
-  // re-apply overlay visibility when toggled
   useEffect(() => {
     if (!styleReady.current) return;
-    setOverlayVisible('wetlands', overlayOn.wetlands);
-    setOverlayVisible('hydrography', overlayOn.hydrography);
-    moveOverlaysToTop();
+    setImgVisible('wetlands', imgOn.wetlands);
+    setImgVisible('hydrography', imgOn.hydrography);
+    moveImgOverlaysToTop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [overlayOn]);
+  }, [imgOn]);
 
+  useEffect(() => {
+    if (!styleReady.current) return;
+    setGeoVisible('substations', geoOn.substations);
+    setGeoVisible('transmission', geoOn.transmission);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geoOn]);
+
+  // ---- Generate / Refresh (federal point queries -> cards) ------------------
   const generate = useCallback(async (force = false) => {
-    if (!hasCoords) { setError('No Target A coordinates available.'); return; }
+    if (!hasCoords) { setError('No coordinates available for this candidate.'); return; }
     setLoading(true); setError('');
     try {
-      const res = await verifyLayers({ scipRecordId: scipRecord?.id, lat, lon, targetLabel, force });
+      const res = await verifyLayers({ recordId: searchResult?.id, recordType: 'SearchResult', lat, lon, targetLabel, force });
       const data = res?.data ?? res;
       if (data?.error) throw new Error(data.error);
       setVm(data);
@@ -181,7 +287,7 @@ export default function VerificationMap({ scipRecord, onUpdated }) {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasCoords, lat, lon, scipRecord?.id, targetLabel]);
+  }, [hasCoords, lat, lon, searchResult?.id, targetLabel]);
 
   const exportSnapshot = useCallback(() => {
     const map = mapRef.current; if (!map) return;
@@ -189,12 +295,12 @@ export default function VerificationMap({ scipRecord, onUpdated }) {
       try {
         const a = document.createElement('a');
         a.href = map.getCanvas().toDataURL('image/png');
-        a.download = `${(scipRecord?.site_name || 'site')}_${targetLabel.replace(/\s+/g, '')}_verification.png`;
+        a.download = `${(searchResult?.site_name || 'site')}_verification.png`;
         a.click();
       } catch (_e) { setError('Snapshot export blocked by browser.'); }
     });
     map.triggerRepaint();
-  }, [scipRecord?.site_name, targetLabel]);
+  }, [searchResult?.site_name]);
 
   const badge = (s) => ({ ok: '#1b9e4b', hit: GOLD, miss: '#1b9e4b', none: '#8a8f98',
     cached: BLUE, error: '#d23b3b', nodata: '#8a8f98' }[s] || '#8a8f98');
@@ -220,7 +326,7 @@ export default function VerificationMap({ scipRecord, onUpdated }) {
           </div>
         </div>
 
-        {!hasCoords && <div style={{ marginTop: 14, color: '#d23b3b', fontSize: 13 }}>No Target A coordinates yet — run the pipeline through target selection first.</div>}
+        {!hasCoords && <div style={{ marginTop: 14, color: '#d23b3b', fontSize: 13 }}>No coordinates on this candidate yet.</div>}
         {error && <div style={{ marginTop: 14, color: '#d23b3b', fontSize: 13 }}>⚠️ {error}</div>}
 
         {hasCoords && (
@@ -238,12 +344,20 @@ export default function VerificationMap({ scipRecord, onUpdated }) {
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Overlays:</span>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                <Checkbox checked={overlayOn.wetlands} onCheckedChange={(v) => setOverlayOn(s => ({ ...s, wetlands: !!v }))} />
+                <Checkbox checked={imgOn.wetlands} onCheckedChange={(v) => setImgOn(s => ({ ...s, wetlands: !!v }))} />
                 💧 Wetlands
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                <Checkbox checked={overlayOn.hydrography} onCheckedChange={(v) => setOverlayOn(s => ({ ...s, hydrography: !!v }))} />
+                <Checkbox checked={imgOn.hydrography} onCheckedChange={(v) => setImgOn(s => ({ ...s, hydrography: !!v }))} />
                 🌊 Hydrography
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                <Checkbox checked={geoOn.substations} onCheckedChange={(v) => setGeoOn(s => ({ ...s, substations: !!v }))} />
+                🔌 Substations
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                <Checkbox checked={geoOn.transmission} onCheckedChange={(v) => setGeoOn(s => ({ ...s, transmission: !!v }))} />
+                ⚡ Transmission
               </label>
             </div>
           </div>
@@ -255,8 +369,10 @@ export default function VerificationMap({ scipRecord, onUpdated }) {
 
         {hasCoords && (
           <div style={{ marginTop: 8, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-            {overlayOn.wetlands && <Stamp>💧 Wetlands overlay — {OVERLAYS.wetlands.source}</Stamp>}
-            {overlayOn.hydrography && <Stamp>🌊 Hydrography overlay — {OVERLAYS.hydrography.source}</Stamp>}
+            {imgOn.wetlands && <Stamp>💧 Wetlands — {IMG_OVERLAYS.wetlands.source}</Stamp>}
+            {imgOn.hydrography && <Stamp>🌊 Hydrography — {IMG_OVERLAYS.hydrography.source}</Stamp>}
+            {geoOn.substations && <Stamp>🔌 {GEO_LAYERS.substations.source} · nearest public asset, not transformer-level</Stamp>}
+            {geoOn.transmission && <Stamp>⚡ {GEO_LAYERS.transmission.source}</Stamp>}
           </div>
         )}
 
