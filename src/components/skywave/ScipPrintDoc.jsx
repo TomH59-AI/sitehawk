@@ -1,6 +1,7 @@
 import { MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
+import ScipZoningPage from "./ScipZoningPage";
 import ScipParcelDataPage from "./ScipParcelDataPage";
 import ScipExistingConditionsPage from "./ScipExistingConditionsPage";
 import ScipViewshedPage from "./ScipViewshedPage";
@@ -145,7 +146,30 @@ export default function ScipPrintDoc({ record }) {
         <Footer page={2} right={`Page 2 · Generated ${fmtDate(r.submittal_date)}`} />
       </div>
 
-      {/* PAGE 3 — Hawk Parcel Data (only when targets have been generated) */}
+      {/* PAGE 3 — Hawk Zoning & Permitting (only when generated) */}
+      {r.zoning_report && Object.keys(r.zoning_report).length > 0 && (
+        <div className="page flex flex-col" style={{ width: "8.5in", minHeight: "11in", padding: "0.4in 0.5in", background: "#fff" }}>
+          <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: `3px solid ${SKYWAVE.blue}` }}>
+            <div className="text-[16pt] font-bold">
+              <span style={{ color: SKYWAVE.navy }}>ZONING</span>{" "}
+              <span style={{ color: SKYWAVE.yellow }}>&amp; PERMITTING</span>
+            </div>
+            <div className="text-[9pt] text-right" style={{ color: SKYWAVE.muted }}>
+              {r.zoning_jurisdiction || "Jurisdiction"}
+            </div>
+          </div>
+
+          <ScipZoningPage report={r.zoning_report} />
+
+          <div className="mt-4 text-[8.5pt]" style={{ color: SKYWAVE.muted }}>
+            Zoneomics-primary zoning district &amp; land use · Municode tower specs · curated jurisdiction contacts, fees &amp; timeframes. Source noted per row. Field verification recommended before submittal.
+          </div>
+
+          <Footer page={3} right={`Zoning & Permitting · Site: ${r.site_name || ""}`} />
+        </div>
+      )}
+
+      {/* PAGE 4 — Hawk Parcel Data (only when targets have been generated) */}
       {Array.isArray(r.parcel_targets) && r.parcel_targets.length > 0 && (
         <div className="page flex flex-col" style={{ width: "8.5in", minHeight: "11in", padding: "0.4in 0.5in", background: "#fff" }}>
           <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: `3px solid ${SKYWAVE.blue}` }}>

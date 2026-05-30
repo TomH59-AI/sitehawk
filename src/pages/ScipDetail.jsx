@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
 import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
+import HawkZoningPermitting from "../components/skywave/HawkZoningPermitting";
 import HawkParcelTargets from "../components/skywave/HawkParcelTargets";
 import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
 import HawkViewshed from "../components/skywave/HawkViewshed";
@@ -132,6 +133,11 @@ export default function ScipDetail() {
             <ToolbarBtn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />
             <ToolbarBtn icon={Copy} label="Duplicate" onClick={handleDuplicate} busy={busy} />
           </div>
+        </div>
+
+        {/* Step 2 — Hawk Zoning & Permitting (not printed) */}
+        <div className="mb-5">
+          <HawkZoningPermitting record={record} onUpdate={setRecord} />
         </div>
 
         {/* Step 3 — interactive parcel targeting (not printed) */}
