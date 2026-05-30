@@ -4,6 +4,7 @@ import { SKYWAVE } from "@/lib/skywave";
 import ScipZoningPage from "./ScipZoningPage";
 import ScipParcelDataPage from "./ScipParcelDataPage";
 import ScipHawkMapsPage from "./ScipHawkMapsPage";
+import ScipPowerAirportPage from "./ScipPowerAirportPage";
 import ScipExistingConditionsPage from "./ScipExistingConditionsPage";
 import ScipViewshedPage from "./ScipViewshedPage";
 
@@ -214,6 +215,29 @@ export default function ScipPrintDoc({ record }) {
           </div>
 
           <Footer page={4} right={`HAWK MAPS · Site: ${r.site_name || ""}`} />
+        </div>
+      )}
+
+      {/* POWER & AIRPORT — electric service + nearest airport (only when generated) */}
+      {r.power_airport_maps && (r.power_airport_maps.power || r.power_airport_maps.airport) && (
+        <div className="page flex flex-col" style={{ width: "8.5in", minHeight: "11in", padding: "0.4in 0.5in", background: "#fff" }}>
+          <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: `3px solid ${SKYWAVE.blue}` }}>
+            <div className="text-[16pt] font-bold">
+              <span style={{ color: SKYWAVE.navy }}>POWER</span>{" "}
+              <span style={{ color: SKYWAVE.yellow }}>&amp; AIRPORT</span>
+            </div>
+            <div className="text-[9pt] text-right" style={{ color: SKYWAVE.muted }}>
+              {(r.parcel_targets?.[r.active_target_index || 0]?.label) || "Target A"}
+            </div>
+          </div>
+
+          <ScipPowerAirportPage data={r.power_airport_maps} />
+
+          <div className="mt-4 text-[8.5pt]" style={{ color: SKYWAVE.muted }}>
+            Electric provider &amp; transmission-line context from the SiteHawk power dataset · airport from the US airport directory · basemap © Mapbox. Distances measured as the hawk flies. Field verification recommended.
+          </div>
+
+          <Footer page={4} right={`Power & Airport · Site: ${r.site_name || ""}`} />
         </div>
       )}
 

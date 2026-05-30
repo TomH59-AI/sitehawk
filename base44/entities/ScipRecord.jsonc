@@ -96,6 +96,20 @@
         }
       }
     },
+    "power_airport_maps": {
+      "type": "object",
+      "description": "Two Target A maps \u2014 nearest electric provider/transmission line (power) and nearest airport (crow-flies distance).",
+      "properties": {
+        "power": {
+          "type": "object",
+          "description": "Power map URL + provider company name, contact address, phone, website, distance, and transmission-line owner/voltage context."
+        },
+        "airport": {
+          "type": "object",
+          "description": "Airport map URL + nearest airport name/type and crow-flies distance (miles & feet)."
+        }
+      }
+    },
     "parcel_targets": {
       "type": "array",
       "description": "Top 3 candidate parcels (Target A/B/C) chosen from all parcels in the ring, scored against tower-siting criteria. Index 0 = Target A (the SCIP focus).",

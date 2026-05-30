@@ -10,6 +10,7 @@ import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
 import HawkZoningPermitting from "../components/skywave/HawkZoningPermitting";
 import HawkParcelTargets from "../components/skywave/HawkParcelTargets";
 import HawkMaps from "../components/skywave/HawkMaps";
+import HawkPowerAirport from "../components/skywave/HawkPowerAirport";
 import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
 import HawkViewshed from "../components/skywave/HawkViewshed";
 
@@ -149,6 +150,11 @@ export default function ScipDetail() {
         {/* Step 3.5 — HAWK MAPS for Target A (not printed) */}
         <div className="mb-5">
           <HawkMaps record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Step 3.6 — Power & Airport maps for Target A (not printed) */}
+        <div className="mb-5">
+          <HawkPowerAirport record={record} onUpdate={setRecord} />
         </div>
 
         {/* Step 4 — Existing Conditions for Target A (not printed) */}
