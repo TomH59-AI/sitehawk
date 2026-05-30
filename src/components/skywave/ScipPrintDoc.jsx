@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
 import ScipZoningPage from "./ScipZoningPage";
 import ScipParcelDataPage from "./ScipParcelDataPage";
+import ScipHawkMapsPage from "./ScipHawkMapsPage";
 import ScipExistingConditionsPage from "./ScipExistingConditionsPage";
 import ScipViewshedPage from "./ScipViewshedPage";
 
@@ -190,6 +191,29 @@ export default function ScipPrintDoc({ record }) {
           </div>
 
           <Footer page={3} right={`Hawk Parcel Data · Site: ${r.site_name || ""}`} />
+        </div>
+      )}
+
+      {/* HAWK MAPS — Aerial / Topography / Floodplain / Zoning (only when generated) */}
+      {r.hawk_maps && (r.hawk_maps.aerial_url || r.hawk_maps.floodplain_url || r.hawk_maps.zoning_url || r.hawk_maps.topography_url) && (
+        <div className="page flex flex-col" style={{ width: "8.5in", minHeight: "11in", padding: "0.4in 0.5in", background: "#fff" }}>
+          <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: `3px solid ${SKYWAVE.blue}` }}>
+            <div className="text-[16pt] font-bold">
+              <span style={{ color: SKYWAVE.navy }}>HAWK</span>{" "}
+              <span style={{ color: SKYWAVE.yellow }}>MAPS</span>
+            </div>
+            <div className="text-[9pt] text-right" style={{ color: SKYWAVE.muted }}>
+              {(r.parcel_targets?.[r.active_target_index || 0]?.label) || "Target A"}
+            </div>
+          </div>
+
+          <ScipHawkMapsPage hawkMaps={r.hawk_maps} />
+
+          <div className="mt-4 text-[8.5pt]" style={{ color: SKYWAVE.muted }}>
+            Aerial &amp; topography © Mapbox · Floodplain overlay © FEMA NFHL · Zoning overlay © Zoneomics. Context maps — field verification recommended before submittal.
+          </div>
+
+          <Footer page={4} right={`HAWK MAPS · Site: ${r.site_name || ""}`} />
         </div>
       )}
 
