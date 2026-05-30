@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { skipTrace } from "@/functions/skipTrace";
 import RFCoveragePanel from "./RFCoveragePanel";
+import OwnerMailerCard from "./OwnerMailerCard";
 
 const PAID_TIERS = ["hawk_site", "hawkeyes", "hawk_sight", "hawkeye_20", "hawkeye_apex"];
 
@@ -265,7 +266,12 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
       {/* ── Get Owner Contact ── */}
       <div style={{ marginTop: 10 }} onClick={e => e.stopPropagation()}>
         {cachedContact ? (
-          <ContactSection contact={cachedContact} />
+          <>
+            <ContactSection contact={cachedContact} />
+            {!(cachedContact.phone && cachedContact.phone.trim()) && (
+              <OwnerMailerCard result={result} />
+            )}
+          </>
         ) : !isPaid ? (
           <Link
             to="/pricing"
