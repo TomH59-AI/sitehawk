@@ -9,7 +9,7 @@
  * Zoning Overview blocks.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { LandPlot, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -85,7 +85,7 @@ function mapParcel(t) {
   };
 }
 
-export default function HawkParcelDetails({ lat, lon, radiusMiles = 1.0, onTargetsResolved }) {
+export default function HawkParcelDetails({ lat, lon, radiusMiles = 1.0, onTargetsResolved, autoRun = false, onComplete }) {
   const [values, setValues] = useState(emptyState);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -97,7 +97,7 @@ export default function HawkParcelDetails({ lat, lon, radiusMiles = 1.0, onTarge
     }));
   };
 
-  async function handleGenerate() {
+  const handleGenerate = useCallback(async () => {
     if (lat == null || lon == null) {
       toast.error("Coordinates required — run a scan first.");
       return;
@@ -158,8 +158,17 @@ export default function HawkParcelDetails({ lat, lon, radiusMiles = 1.0, onTarge
       toast.error(err?.message || "Hawk Parcel Intelligence lookup failed.");
     } finally {
       setLoading(false);
+      onComplete?.();
     }
-  }
+  }, [lat, lon, radiusMiles, onTargetsResolved, onComplete]);
+
+  // Auto-run once when the pipeline reaches this stage.
+  useEffect(() => {
+    if (autoRun && !generated && !loading && lat != null && lon != null) {
+      handleGenerate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun, lat, lon]);
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">

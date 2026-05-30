@@ -53,7 +53,7 @@ function offsetPoint(lat, lon, radiusMiles, bearingDeg = 0) {
   return [(lon2 * 180) / Math.PI, (lat2 * 180) / Math.PI];
 }
 
-export default function SARFMap({ lat, lon, label }) {
+export default function SARFMap({ lat, lon, label, onReady }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -190,6 +190,7 @@ export default function SARFMap({ lat, lon, label }) {
         );
 
         setReady(true);
+        onReady?.();
       });
 
       mapRef.current = map;

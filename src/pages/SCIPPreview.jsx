@@ -5,7 +5,6 @@ import { ArrowLeft } from "lucide-react";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
-import SiteParametersForm from "../components/scip/SiteParametersForm";
 import SARFMap from "../components/scip/SARFMap";
 import HawkZoningOverview from "../components/scip/HawkZoningOverview";
 import HawkParcelDetails from "../components/scip/HawkParcelDetails";
@@ -27,9 +26,10 @@ export default function SCIPPreview() {
   const [scipData, setScipData] = useState(null);
   const [candidate, setCandidate] = useState(null);
   const [agent, setAgent] = useState({ name: "", phone: "", email: "" });
-  const [siteParams, setSiteParams] = useState(null);
-  const [scanStarted, setScanStarted] = useState(false);
   const [targets3, setTargets3] = useState(null);
+  // Sequential pipeline stage machine — each stage completes before the next begins.
+  // sarf → zoning → targets → done
+  const [stage, setStage] = useState("sarf");
 
   useEffect(() => {
     async function init() {
@@ -89,13 +89,24 @@ export default function SCIPPreview() {
     );
   }
 
-  const lat = siteParams?.lat ?? candidate?.latitude ?? state?.searchCenter?.lat;
-  const lon = siteParams?.lon ?? candidate?.longitude ?? state?.searchCenter?.lon;
+  const lat = candidate?.latitude ?? state?.searchCenter?.lat;
+  const lon = candidate?.longitude ?? state?.searchCenter?.lon;
   const coordsReady = lat != null && lon != null;
+  const radiusMiles = state?.searchParams?.radius_miles ?? 1.0;
+
+  const order = ["sarf", "zoning", "targets", "done"];
+  const stageStatus = (key) => {
+    const cur = order.indexOf(stage);
+    const idx = order.indexOf(key);
+    if (idx < cur) return "done";
+    if (idx === cur) return "active";
+    return "pending";
+  };
 
   const stages = [
-    { key: "params", label: "Site Parameters", status: scanStarted ? "done" : "active" },
-    { key: "sarf",   label: "SARF Map",        status: scanStarted ? "done" : "pending" },
+    { key: "sarf",    label: "SARF Map",  status: stageStatus("sarf") },
+    { key: "zoning",  label: "Zoning",    status: stageStatus("zoning") },
+    { key: "targets", label: "Targets A·B·C", status: stage === "done" ? "done" : stageStatus("targets") },
   ];
 
   return (
@@ -105,28 +116,9 @@ export default function SCIPPreview() {
       {/* Hawk progress timeline */}
       <SCIPStageProgress stages={stages} />
 
-      {/* Site Parameters entry. User must click Scan before the SARF map renders. */}
-      <div data-coach="scip-params">
-      <SiteParametersForm
-        initial={{
-          lat: candidate?.latitude ?? state?.searchCenter?.lat,
-          lon: candidate?.longitude ?? state?.searchCenter?.lon,
-          tower_height_ft: state?.searchParams?.tower_height_ft ?? candidate?.tower_height_ft,
-          compound_width_ft: state?.searchParams?.compound_width_ft,
-          compound_depth_ft: state?.searchParams?.compound_depth_ft,
-          setback_ft: state?.searchParams?.setback_ft,
-          radius_miles: state?.searchParams?.radius_miles,
-        }}
-        scanning={false}
-        onScan={(params) => {
-          setSiteParams(params);
-          setScanStarted(true);
-        }}
-      />
-      </div>
-
-      {/* Single SARF map — search center waypoint + 0.5mi (yellow) & 1mi (red) rings */}
-      {scanStarted && coordsReady && (
+      {/* Sequential pipeline. No scanning happens here — coordinates arrive from /search.
+          SARF map renders first, then Zoning fetches, then Targets fetch, each in order. */}
+      {coordsReady && (
         <div className="space-y-2">
           <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500/15 via-transparent to-transparent border border-cyan-500/30">
             <div className="text-[10px] font-mono text-cyan-700 tracking-[0.3em] mb-0.5">SCIP · SARF</div>
@@ -134,21 +126,39 @@ export default function SCIPPreview() {
               Site Area of Responsibility — {Number(lat).toFixed(6)}, {Number(lon).toFixed(6)}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              Search center waypoint with 0.50-mile (yellow) and 1.00-mile (red) radius rings.
+              {stage === "sarf"
+                ? "Generating SARF map — placing waypoint and drawing the search-ring radius…"
+                : "SARF map ready · Search center waypoint with 0.50-mile (yellow) and 1.00-mile (red) radius rings."}
             </div>
           </div>
-          <SARFMap lat={Number(lat)} lon={Number(lon)} label={candidate?.site_name} />
-
-          {/* Hawk Zoning Overview — independent template, populated by its own button */}
-          <HawkZoningOverview lat={Number(lat)} lon={Number(lon)} />
-
-          {/* Hawk Parcel Details — side-by-side Targets 1/2/3 with its own button */}
-          <HawkParcelDetails
+          <SARFMap
             lat={Number(lat)}
             lon={Number(lon)}
-            radiusMiles={siteParams?.radius_miles}
-            onTargetsResolved={setTargets3}
+            label={candidate?.site_name}
+            onReady={() => setStage((s) => (s === "sarf" ? "zoning" : s))}
           />
+
+          {/* Stage 2 — Zoning fetch (auto-runs after SARF is ready) */}
+          {order.indexOf(stage) >= order.indexOf("zoning") && (
+            <HawkZoningOverview
+              lat={Number(lat)}
+              lon={Number(lon)}
+              autoRun
+              onComplete={() => setStage((s) => (s === "zoning" ? "targets" : s))}
+            />
+          )}
+
+          {/* Stage 3 — Targets fetch + select A·B·C (auto-runs after Zoning completes) */}
+          {order.indexOf(stage) >= order.indexOf("targets") && (
+            <HawkParcelDetails
+              lat={Number(lat)}
+              lon={Number(lon)}
+              radiusMiles={radiusMiles}
+              onTargetsResolved={setTargets3}
+              autoRun
+              onComplete={() => setStage("done")}
+            />
+          )}
 
           {/* Hawk Aerial Intelligence — Aerial / Topography / Wetlands (3 dedicated print pages) */}
           <HawkAerialIntelligence srcLat={Number(lat)} srcLon={Number(lon)} />

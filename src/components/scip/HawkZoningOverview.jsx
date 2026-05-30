@@ -5,7 +5,7 @@
  * generation.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ClipboardList, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -176,7 +176,7 @@ function emptyState() {
   return s;
 }
 
-export default function HawkZoningOverview({ lat, lon }) {
+export default function HawkZoningOverview({ lat, lon, autoRun = false, onComplete }) {
   const [values, setValues] = useState(emptyState);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
@@ -188,7 +188,7 @@ export default function HawkZoningOverview({ lat, lon }) {
     }));
   };
 
-  async function handleGenerate() {
+  const handleGenerate = useCallback(async () => {
     if (lat == null || lon == null) {
       toast.error("Coordinates required — run a scan first.");
       return;
@@ -214,8 +214,17 @@ export default function HawkZoningOverview({ lat, lon }) {
       toast.error(err?.message || "Hawk Intelligence lookup failed.");
     } finally {
       setLoading(false);
+      onComplete?.();
     }
-  }
+  }, [lat, lon, onComplete]);
+
+  // Auto-run once when the pipeline reaches this stage.
+  useEffect(() => {
+    if (autoRun && !generated && !loading && lat != null && lon != null) {
+      handleGenerate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun, lat, lon]);
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
