@@ -16,6 +16,7 @@ import HawkAmInterferenceMap from "../components/scip/HawkAmInterferenceMap";
 import HawkCellAirportIntelligence from "../components/scip/HawkCellAirportIntelligence";
 import HawkViewshedIntelligence from "../components/scip/HawkViewshedIntelligence";
 import HawkFloodplainIntelligence from "../components/scip/HawkFloodplainIntelligence";
+import HawkWindSpeedIntelligence from "../components/scip/HawkWindSpeedIntelligence";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -197,6 +198,9 @@ export default function SCIPPreview() {
 
           {/* Hawk Floodplain Intelligence — FEMA NFHL Flood Hazard Zones (layer 28) overlay + zone readout, centered on Target A */}
           <HawkFloodplainIntelligence targetA={targets3?.[0] || null} />
+
+          {/* Hawk Wind Speed Intelligence — dark-mode ASCE 7-22 wind velocity zones (neon contour rings) + glassmorphism readout, centered on Target A */}
+          <HawkWindSpeedIntelligence targetA={targets3?.[0] || null} />
         </div>
       )}
 
