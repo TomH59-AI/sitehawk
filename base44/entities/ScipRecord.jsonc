@@ -164,6 +164,82 @@
         }
       }
     },
+    "viewshed": {
+      "type": "object",
+      "description": "Viewshed Analysis for Target A. Mapbox aerial ring image plus N/S/E/W tree-line viewshed maps and USGS elevation profiles for RF line-of-sight obstruction assessment.",
+      "properties": {
+        "aerial_ring_url": {
+          "type": "string",
+          "description": "Mapbox aerial image centered on Target A with the colored radius ring and tower-location waypoint marker."
+        },
+        "tower_height_ft": {
+          "type": "number",
+          "description": "Tower height (ft AGL) used for the line-of-sight calculation."
+        },
+        "directions": {
+          "type": "array",
+          "description": "Four cardinal viewshed entries (N/S/E/W).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "North from Site | South from Site | East from Site | West from Site"
+              },
+              "short": {
+                "type": "string",
+                "description": "N | S | E | W"
+              },
+              "bearing": {
+                "type": "number",
+                "description": "Compass bearing in degrees (0/90/180/270)"
+              },
+              "color": {
+                "type": "string",
+                "description": "Hex color for this direction's cone/profile"
+              },
+              "map_url": {
+                "type": "string",
+                "description": "Mapbox pitched 2D viewshed map URL for this direction."
+              },
+              "profile": {
+                "type": "array",
+                "description": "USGS elevation profile samples along the bearing.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "dist_mi": {
+                      "type": "number",
+                      "description": "Distance from tower in miles."
+                    },
+                    "ground_ft": {
+                      "type": "number",
+                      "description": "Ground elevation AMSL in feet."
+                    },
+                    "los_ft": {
+                      "type": "number",
+                      "description": "RF line-of-sight elevation AMSL in feet at this distance."
+                    },
+                    "obstructed": {
+                      "type": "boolean",
+                      "description": "True if ground (plus assumed tree line) rises above the line-of-sight."
+                    }
+                  }
+                }
+              },
+              "first_obstruction_mi": {
+                "type": "number",
+                "description": "Distance to the first obstruction in miles (null if clear)."
+              },
+              "clear": {
+                "type": "boolean",
+                "description": "True if line-of-sight is clear for the full corridor."
+              }
+            }
+          }
+        }
+      }
+    },
     "status": {
       "type": "string",
       "enum": [

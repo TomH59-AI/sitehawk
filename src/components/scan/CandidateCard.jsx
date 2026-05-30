@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { skipTrace } from "@/functions/skipTrace";
-import ViewshedPanel from "./ViewshedPanel";
 import RFCoveragePanel from "./RFCoveragePanel";
 
 const PAID_TIERS = ["hawk_site", "hawkeyes", "hawk_sight", "hawkeye_20", "hawkeye_apex"];
@@ -85,7 +84,6 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
   const color = scoreColor(result.match_score);
   const [loading, setLoading] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const [showViewshed, setShowViewshed] = useState(false);
   const [showRFCoverage, setShowRFCoverage] = useState(false);
   const isPaid = PAID_TIERS.includes(userTier);
   const cachedContact = contactCache?.[result.id];
@@ -264,29 +262,6 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
       {/* SCIP is generated once per scan for the BEST candidate (see sidebar header).
           Per-card SCIP button removed to avoid generating 3 SCIPs. */}
 
-      {/* ── Viewshed Button ── */}
-      {result.latitude && result.longitude && (
-        <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => setShowViewshed(true)}
-            style={{
-              width: "100%", padding: "7px 10px", borderRadius: 7, cursor: "pointer",
-              background: "#0d1829",
-              border: "1px solid #00d4ff33",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
-              transition: "border-color 0.15s",
-            }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = "#00d4ff88"}
-            onMouseLeave={e => e.currentTarget.style.borderColor = "#00d4ff33"}
-          >
-            <span style={{ fontSize: 12 }}>🧭</span>
-            <span style={{ fontSize: 11, color: "#00d4ff", fontFamily: "'Space Mono', monospace" }}>
-              N · S · E · W Viewshed Maps
-            </span>
-          </button>
-        </div>
-      )}
-
       {/* ── Get Owner Contact ── */}
       <div style={{ marginTop: 10 }} onClick={e => e.stopPropagation()}>
         {cachedContact ? (
@@ -354,13 +329,6 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
         />
       )}
 
-      {/* Viewshed Modal */}
-      {showViewshed && (
-        <ViewshedPanel
-          candidate={result}
-          onClose={() => setShowViewshed(false)}
-        />
-      )}
     </div>
   );
 }

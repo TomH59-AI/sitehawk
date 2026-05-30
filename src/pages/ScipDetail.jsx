@@ -9,6 +9,7 @@ import { SKYWAVE } from "@/lib/skywave";
 import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
 import HawkParcelTargets from "../components/skywave/HawkParcelTargets";
 import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
+import HawkViewshed from "../components/skywave/HawkViewshed";
 
 const STATUS = {
   draft: { label: "Draft", bg: SKYWAVE.muted },
@@ -141,6 +142,11 @@ export default function ScipDetail() {
         {/* Step 4 — Existing Conditions for Target A (not printed) */}
         <div className="mb-5">
           <HawkExistingConditions record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Step 5 — Viewshed Analysis for Target A (not printed) */}
+        <div className="mb-5">
+          <HawkViewshed record={record} onUpdate={setRecord} />
         </div>
 
         {/* The printable document (also the on-screen preview) */}

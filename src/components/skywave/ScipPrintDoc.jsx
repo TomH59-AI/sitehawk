@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
 import ScipParcelDataPage from "./ScipParcelDataPage";
 import ScipExistingConditionsPage from "./ScipExistingConditionsPage";
+import ScipViewshedPage from "./ScipViewshedPage";
 
 function fmtDate(d) {
   try { return format(new Date(d + "T00:00:00"), "MMM d, yyyy"); } catch { return d || ""; }
@@ -188,6 +189,29 @@ export default function ScipPrintDoc({ record }) {
           </div>
 
           <Footer page={4} right={`Existing Conditions · Site: ${r.site_name || ""}`} />
+        </div>
+      )}
+
+      {/* PAGE 5 — Viewshed Analysis (only when generated) */}
+      {r.viewshed && Array.isArray(r.viewshed.directions) && r.viewshed.directions.length > 0 && (
+        <div className="page flex flex-col" style={{ width: "8.5in", minHeight: "11in", padding: "0.4in 0.5in", background: "#fff" }}>
+          <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: `3px solid ${SKYWAVE.blue}` }}>
+            <div className="text-[16pt] font-bold">
+              <span style={{ color: SKYWAVE.navy }}>VIEWSHED</span>{" "}
+              <span style={{ color: SKYWAVE.yellow }}>ANALYSIS</span>
+            </div>
+            <div className="text-[9pt] text-right" style={{ color: SKYWAVE.muted }}>
+              {(r.parcel_targets?.[r.active_target_index || 0]?.label) || "Target A"} · Tree-line RF line-of-sight
+            </div>
+          </div>
+
+          <ScipViewshedPage viewshed={r.viewshed} siteName={r.site_name} />
+
+          <div className="mt-4 text-[8.5pt]" style={{ color: SKYWAVE.muted }}>
+            Aerial ring centered on the Target A tower waypoint. Each cardinal viewshed pairs a pitched 2D map (transparent RF cone) with a USGS 3DEP elevation profile — solid line = terrain, dashed = RF line-of-sight from the {r.viewshed.tower_height_ft} ft antenna, red dots flag tree-line obstructions (≈{40} ft canopy assumed). Field verification recommended.
+          </div>
+
+          <Footer page={5} right={`Viewshed Analysis · Site: ${r.site_name || ""}`} />
         </div>
       )}
     </div>

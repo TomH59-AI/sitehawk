@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
-import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
@@ -176,9 +175,6 @@ export default function SCIPPreview() {
             srcLon={Number(lon)}
             targetA={targets3?.[0] || null}
           />
-
-          {/* Hawk N/S/E/W Viewsheds — Target A conical RF lobes */}
-          <SCIPViewshedSection candidate={candidate} />
         </div>
       )}
 
