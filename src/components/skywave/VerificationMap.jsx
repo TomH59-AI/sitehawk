@@ -10,7 +10,19 @@ const BLUE = '#0066FF';
 const GOLD = '#FFB800';
 const POWER_RED = '#FF5A00';
 const XMSN_PURPLE = '#9b30ff';
-const TOWER_CYAN = '#00E5FF';   // existing cell sites (OpenCellID)
+const TOWER_CYAN = '#00E5FF';   // existing cell sites — unknown carrier
+// Subtle, muted carrier colors for existing-tower pins (never guessed; unknown stays cyan).
+const CARRIER_COLORS = {
+  'AT&T': '#5b8def',       // muted blue
+  'Verizon': '#e06666',    // muted red
+  'T-Mobile': '#c97bd4',   // muted magenta
+};
+const CARRIER_LEGEND = [
+  { label: 'AT&T', color: CARRIER_COLORS['AT&T'] },
+  { label: 'Verizon', color: CARRIER_COLORS['Verizon'] },
+  { label: 'T-Mobile', color: CARRIER_COLORS['T-Mobile'] },
+  { label: 'Other', color: TOWER_CYAN },
+];
 
 // --- Mapbox frontend token (pk.* is frontend-safe) ---------------------------
 const MAPBOX_TOKEN = 'pk.eyJ1IjoidGhvZGdlcyIsImEiOiJjbWlxZzBmbmQwMTA4M2txNGY5OXhyOWppIn0.sjlKabo3VGDU-hKE2Br3bQ';
@@ -312,7 +324,17 @@ export default function VerificationMap({ searchResult, onUpdated }) {
       map.addSource(SRC, { type: 'geojson', data: fc });
       map.addLayer({
         id: LYR, type: 'circle', source: SRC,
-        paint: { 'circle-radius': 7, 'circle-color': TOWER_CYAN, 'circle-stroke-width': 2, 'circle-stroke-color': '#003a40' },
+        paint: {
+          'circle-radius': 7,
+          'circle-color': [
+            'match', ['get', 'carrier'],
+            'AT&T', CARRIER_COLORS['AT&T'],
+            'Verizon', CARRIER_COLORS['Verizon'],
+            'T-Mobile', CARRIER_COLORS['T-Mobile'],
+            TOWER_CYAN,
+          ],
+          'circle-stroke-width': 2, 'circle-stroke-color': '#003a40',
+        },
       });
       map.on('click', LYR, (e) => {
         const p = e.features?.[0]?.properties; if (!p) return;
@@ -442,6 +464,16 @@ export default function VerificationMap({ searchResult, onUpdated }) {
             {geoOn.substations && <Stamp>🔌 {GEO_LAYERS.substations.source} · nearest public asset, not transformer-level</Stamp>}
             {geoOn.transmission && <Stamp>⚡ {GEO_LAYERS.transmission.source}</Stamp>}
             {towersOn && towerData && <Stamp>📡 {towerData.count} existing cell site(s) in ring — {towerData.source}</Stamp>}
+            {towersOn && towerData && (
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 2 }}>
+                {CARRIER_LEGEND.map((c) => (
+                  <span key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#8a8f98' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: c.color, border: '1.5px solid #003a40', display: 'inline-block' }} />
+                    {c.label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
