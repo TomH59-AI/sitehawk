@@ -14,6 +14,7 @@ import HawkElectricServiceMap from "../components/scip/HawkElectricServiceMap";
 import HawkAirportDistanceMap from "../components/scip/HawkAirportDistanceMap";
 import HawkAmInterferenceMap from "../components/scip/HawkAmInterferenceMap";
 import HawkCellAirportIntelligence from "../components/scip/HawkCellAirportIntelligence";
+import HawkViewshedIntelligence from "../components/scip/HawkViewshedIntelligence";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -184,6 +185,13 @@ export default function SCIPPreview() {
             srcLat={Number(lat)}
             srcLon={Number(lon)}
             targetA={targets3?.[0] || null}
+          />
+
+          {/* Hawk Viewshed Intelligence — N·E·S·W directional tree-line viewshed maps (transparent colored cones), centered on Target A */}
+          <HawkViewshedIntelligence
+            targetA={targets3?.[0] || null}
+            towerHeightFt={199}
+            ringMiles={0.25}
           />
         </div>
       )}
