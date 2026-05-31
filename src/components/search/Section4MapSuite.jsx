@@ -104,7 +104,7 @@ export default function Section4MapSuite({
           lat: targetA.latitude, lon: targetA.longitude, radius_miles: 0.5,
         }).catch(() => null);
         const parcels = pres?.data?.parcels || [];
-        map = await renderParcel(refs.parcel.current, targetA, parcels, token);
+        map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey);
       }
 
       maps.current[step] = map;

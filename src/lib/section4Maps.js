@@ -217,10 +217,52 @@ export function renderWetlands(container, target, token) {
   });
 }
 
+// ── Parcel popup Zoneomics zoning lookup (session cache + 300ms debounce) ──
+// Keyed by parcel ID for the whole session so repeated hovers don't re-query.
+const parcelZoneCache = new Map();
+
+function parcelCentroid(geometry) {
+  // Average ring vertices — good enough for a zoneDetail point lookup.
+  let coords = [];
+  if (geometry?.type === "Polygon") coords = geometry.coordinates?.[0] || [];
+  else if (geometry?.type === "MultiPolygon") coords = geometry.coordinates?.[0]?.[0] || [];
+  if (!coords.length) return null;
+  let sx = 0, sy = 0;
+  for (const [x, y] of coords) { sx += x; sy += y; }
+  return { lon: sx / coords.length, lat: sy / coords.length };
+}
+
+async function lookupParcelZone(pid, lat, lon, zoneomicsKey) {
+  if (parcelZoneCache.has(pid)) return parcelZoneCache.get(pid);
+  if (!zoneomicsKey || lat == null || lon == null) {
+    parcelZoneCache.set(pid, null);
+    return null;
+  }
+  try {
+    const url = `https://api.zoneomics.com/v2/zoneDetail?api_key=${zoneomicsKey}&lat=${lat}&lng=${lon}&output_fields=zoning`;
+    const res = await fetch(url);
+    const json = res.ok ? await res.json() : null;
+    const zd = json?.data?.data?.zone_details || json?.data?.zone_details || null;
+    const zone = zd?.zone_code ? { zone_code: zd.zone_code, zone_name: zd.zone_name || "" } : null;
+    parcelZoneCache.set(pid, zone);
+    return zone;
+  } catch (_) {
+    parcelZoneCache.set(pid, null);
+    return null;
+  }
+}
+
+function zoneLine(zone) {
+  if (zone === undefined) return "Zoning: loading…";
+  if (!zone) return "Zoning: —";
+  return `Zoning: ${zone.zone_code}${zone.zone_name ? ` — ${zone.zone_name}` : ""}`;
+}
+
 // ────────────── 6. PARCEL (Realie) ──────────────
 // Draw Target A parcel boundary in brand green + adjacent parcels in light grey.
 // `parcels` = array of normalized Realie records (with parcel_geometry when present).
-export function renderParcel(container, target, parcels, token) {
+// Hover/click a parcel → popup with owner + parcel ID + Zoneomics zoning code.
+export function renderParcel(container, target, parcels, token, zoneomicsKey) {
   const { latitude: lat, longitude: lon, owner, apn } = target;
   const map = makeMap(container, SAT_STYLE, [lon, lat], token, 16);
   return new Promise((resolve) => {
@@ -230,20 +272,83 @@ export function renderParcel(container, target, parcels, token) {
         type: "FeatureCollection",
         features: (parcels || [])
           .filter((p) => p.parcel_geometry && p.apn !== apn)
-          .map((p) => ({ type: "Feature", geometry: p.parcel_geometry, properties: { apn: p.apn || "" } })),
+          .map((p) => ({
+            type: "Feature",
+            geometry: p.parcel_geometry,
+            properties: {
+              apn: p.apn || "",
+              owner: p.owner_name || p.owner || "",
+              clat: parcelCentroid(p.parcel_geometry)?.lat ?? null,
+              clon: parcelCentroid(p.parcel_geometry)?.lon ?? null,
+            },
+          })),
       };
       if (adj.features.length) {
         map.addSource("s4-adj", { type: "geojson", data: adj });
+        // Transparent fill so the whole parcel area is hover/click targetable.
+        map.addLayer({ id: "s4-adj-fill", type: "fill", source: "s4-adj", paint: { "fill-color": "#cbd5e1", "fill-opacity": 0.01 } });
         map.addLayer({ id: "s4-adj-line", type: "line", source: "s4-adj", paint: { "line-color": "#cbd5e1", "line-width": 1.5 } });
       }
 
       // Target A parcel — brand green highlight (if its geometry is available).
       const targetParcel = (parcels || []).find((p) => p.apn === apn && p.parcel_geometry);
       if (targetParcel) {
-        const fc = { type: "Feature", geometry: targetParcel.parcel_geometry, properties: {} };
+        const tc = parcelCentroid(targetParcel.parcel_geometry);
+        const fc = {
+          type: "Feature",
+          geometry: targetParcel.parcel_geometry,
+          properties: { apn: targetParcel.apn || apn || "", owner: owner || "", clat: tc?.lat ?? lat, clon: tc?.lon ?? lon },
+        };
         map.addSource("s4-target", { type: "geojson", data: fc });
         map.addLayer({ id: "s4-target-fill", type: "fill", source: "s4-target", paint: { "fill-color": BRAND_GREEN, "fill-opacity": 0.3 } });
         map.addLayer({ id: "s4-target-line", type: "line", source: "s4-target", paint: { "line-color": BRAND_GREEN, "line-width": 3 } });
+      }
+
+      // ── Interactive popup: owner + parcel ID + Zoneomics zoning (cached + debounced) ──
+      const popup = new window.mapboxgl.Popup({ closeButton: true, closeOnClick: false, offset: 8 });
+      let debounceTimer = null;
+
+      const popupHTML = (props, zone) => {
+        const pid = props.apn || "—";
+        return `<div style="font-family:monospace;font-size:11px;line-height:1.5;">
+          <strong>${props.owner || "Owner —"}</strong><br/>
+          Parcel ID: ${pid}<br/>
+          <span data-zone="${pid}">${zoneLine(zone)}</span>
+        </div>`;
+      };
+
+      const showPopup = (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        const props = f.properties || {};
+        const pid = props.apn || `${props.clon},${props.clat}`;
+        map.getCanvas().style.cursor = "pointer";
+
+        const cached = parcelZoneCache.has(pid) ? parcelZoneCache.get(pid) : undefined;
+        popup.setLngLat(e.lngLat).setHTML(popupHTML(props, cached)).addTo(map);
+
+        // Already resolved this parcel — no lookup needed.
+        if (cached !== undefined) return;
+
+        // Debounce the Zoneomics lookup by 300ms.
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+          const clat = props.clat != null ? Number(props.clat) : null;
+          const clon = props.clon != null ? Number(props.clon) : null;
+          const zone = await lookupParcelZone(pid, clat, clon, zoneomicsKey);
+          // Only patch if the popup is still showing this parcel.
+          const span = popup.isOpen() && popup.getElement()?.querySelector(`[data-zone="${props.apn || "—"}"]`);
+          if (span) span.textContent = zoneLine(zone);
+        }, 300);
+      };
+
+      const clearCursor = () => { map.getCanvas().style.cursor = ""; };
+
+      for (const layerId of ["s4-adj-fill", "s4-target-fill"]) {
+        if (!map.getLayer(layerId)) continue;
+        map.on("mousemove", layerId, showPopup);
+        map.on("click", layerId, showPopup);
+        map.on("mouseleave", layerId, clearCursor);
       }
 
       // Label + tower marker on Target A.
