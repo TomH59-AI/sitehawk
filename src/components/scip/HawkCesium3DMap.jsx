@@ -81,15 +81,20 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
     (async () => {
       try {
         const config = await loadPublicConfig();
+        if (cancelled) return;
         if (!config.cesiumIonToken) throw new Error("CESIUM_ION_API token not configured");
         const Cesium = await loadCesium();
         if (cancelled || !containerRef.current) return;
-        if (viewerRef.current) return; // re-check after awaits
 
         Cesium.Ion.defaultAccessToken = config.cesiumIonToken;
 
+        // createWorldTerrainAsync awaits — resolve it BEFORE constructing the
+        // viewer so we can re-check cancelled right after the heavy await.
+        const terrainProvider = await Cesium.createWorldTerrainAsync();
+        if (cancelled || !containerRef.current) return;
+
         const viewer = new Cesium.Viewer(containerRef.current, {
-          terrainProvider: await Cesium.createWorldTerrainAsync(),
+          terrainProvider,
           baseLayerPicker: false,
           geocoder: false,
           homeButton: false,
@@ -101,16 +106,20 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
           infoBox: false,
           selectionIndicator: false,
         });
+        // Teardown may have fired during construction — if so, destroy this
+        // orphan immediately and bail without ever assigning the ref.
+        if (cancelled) { viewer.destroy(); return; }
         viewer.scene.globe.depthTestAgainstTerrain = true;
 
         // Satellite imagery from Ion (Bing aerial).
         try {
           const imagery = await Cesium.IonImageryProvider.fromAssetId(2);
+          if (cancelled) { viewer.destroy(); return; }
           viewer.imageryLayers.addImageryProvider(imagery);
         } catch (_) { /* fall back to default imagery */ }
 
-        viewerRef.current = viewer;
         if (cancelled) { viewer.destroy(); return; }
+        viewerRef.current = viewer;
         setStatus("ready");
 
         // Gate placement / fly-to on first terrain tile load so directional
