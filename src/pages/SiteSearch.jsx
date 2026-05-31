@@ -6,6 +6,7 @@ import HawkIcon from "../components/HawkIcon";
 import DemoModeButton from "../components/search/DemoModeButton";
 import HawkFlightSpinner from "../components/search/HawkFlightSpinner";
 import Section1SarfMap from "../components/search/Section1SarfMap";
+import Section2Zoning from "../components/search/Section2Zoning";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 
@@ -21,10 +22,12 @@ export default function SiteSearch() {
   const [searchParams, setSearchParams] = useState({ radius_miles: 0.5, tower_height_ft: 199, agent_name: "", compound_size: "100x100" });
   const [searchesThisMonth, setSearchesThisMonth] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
-  // Pipeline state machine. Section One is the ONLY active step ("sarf").
-  // No downstream section may fetch or render until this advances on an
-  // explicit user "Run" click of the next step (wired in a later edit).
+  // Pipeline state machine. Steps: "sarf" → "zoning" → ... Each downstream
+  // section stays locked until the prior one completes AND the user clicks its
+  // "Run [Step]" button. No section auto-fetches or auto-advances.
   const [pipelineStep, setPipelineStep] = useState("sarf");
+  // True once the Section 1 SARF MapBox render is complete — unlocks Section 2.
+  const [sarfReady, setSarfReady] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -80,8 +83,10 @@ export default function SiteSearch() {
     }
 
     // Brief in-flight state so the hawk spinner shows while MapBox renders.
+    // New search → reset the whole pipeline back to Section 1.
     setScanError(null);
     setLoading(true);
+    setSarfReady(false);
     setSearchCenter({ lat: latitude, lon: longitude });
     setPipelineStep("sarf");
   };
@@ -172,13 +177,26 @@ export default function SiteSearch() {
             lon={Number(searchCenter.lon)}
             radiusMiles={searchParams.radius_miles}
             agentName={searchParams.agent_name}
-            onReady={() => setLoading(false)}
+            onReady={() => { setLoading(false); setSarfReady(true); }}
           />
         </div>
       )}
 
       {/* Loading — hawk flying in place while the MapBox SARF render is in flight */}
       {loading && <HawkFlightSpinner label="Generating SARF map…" />}
+
+      {/* SECTION 2 — ZONING. Locked until Section 1 SARF is ready; fires only
+          when the user clicks "Run Zoning" (advances pipelineStep → "zoning"). */}
+      {coordsReady && sarfReady && (
+        <Section2Zoning
+          unlocked={sarfReady}
+          active={pipelineStep === "zoning"}
+          lat={Number(searchCenter.lat)}
+          lon={Number(searchCenter.lon)}
+          candidate={{ latitude: Number(searchCenter.lat), longitude: Number(searchCenter.lon) }}
+          onRun={() => setPipelineStep("zoning")}
+        />
+      )}
     </div>
   );
 }
