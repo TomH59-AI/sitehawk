@@ -97,8 +97,9 @@ Deno.serve(async (req) => {
     if (!Array.isArray(targets) || !targets.length) {
       return Response.json({ error: 'targets array is required' }, { status: 400 });
     }
-    if (targets.length > 3) {
-      return Response.json({ error: 'You can mail at most 3 targets at a time.' }, { status: 400 });
+    // Up to 3 primary targets ($12 each) + up to 5 bonus targets ($1 flat add-on).
+    if (targets.length > 8) {
+      return Response.json({ error: 'You can mail at most 8 targets at a time (3 primary + 5 bonus).' }, { status: 400 });
     }
 
     // Validate addresses + build the charge preview.
@@ -130,6 +131,9 @@ Deno.serve(async (req) => {
       if (validCount === 0) {
         return Response.json({ error: 'No valid mailing addresses to send to.' }, { status: 400 });
       }
+      // Pricing: primary cards at $12 each; the bonus batch (last N targets) is a $1 flat add-on.
+      const bonusCount = Math.min(Math.max(parseInt(body.bonus_count, 10) || 0, 0), 5);
+      const primaryCount = Math.max(validCount - bonusCount, 0);
 
       const key = Deno.env.get('LOB_API_KEY_SECRET') || Deno.env.get('LOB_API_KEY');
       if (!key) return Response.json({ error: 'Server missing Lob API key.' }, { status: 500 });
@@ -186,12 +190,16 @@ Deno.serve(async (req) => {
       }
 
       const sent = results.filter((r) => r.status === 'sent').length;
-      console.log(`sendTargetPostcards: ${sent}/${validCount} sent (${mode}) by ${user.email}`);
+      // Charge: primary sent cards at $12 + a flat $1 if any bonus cards were sent.
+      const sentPrimary = Math.min(sent, primaryCount);
+      const sentBonus = Math.max(sent - sentPrimary, 0);
+      const charged = sentPrimary * PRICE_PER_CARD_USD + (sentBonus > 0 ? 1.0 : 0);
+      console.log(`sendTargetPostcards: ${sent}/${validCount} sent (${mode}, ${sentBonus} bonus) by ${user.email}`);
       return Response.json({
         sent,
         total: validCount,
         mode,
-        charged_usd: sent * PRICE_PER_CARD_USD,
+        charged_usd: charged,
         results,
       });
     }

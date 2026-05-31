@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { X, Send, Loader2, CheckCircle2, AlertTriangle, MapPin } from "lucide-react";
+import { X, Send, Loader2, CheckCircle2, AlertTriangle, MapPin, Sparkles, Plus } from "lucide-react";
 import { sendTargetPostcards } from "@/functions/sendTargetPostcards";
+import { findMoreTargets } from "@/functions/findMoreTargets";
 
 // Lets the user pick up to 3 target leads, enter their own contact info, review
 // the charge, and mail engaging cell-tower-lease postcards via Lob.
@@ -10,6 +11,11 @@ export default function TargetPostcardModal({ deals, onClose }) {
   const [phase, setPhase] = useState("setup"); // setup | sending | done | error
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  // $1 add-on: 5 extra tower-friendly targets discovered nearby via Realie.
+  const [bonusOn, setBonusOn] = useState(false);
+  const [bonusTargets, setBonusTargets] = useState([]);
+  const [bonusLoading, setBonusLoading] = useState(false);
+  const [bonusError, setBonusError] = useState(null);
 
   // Prefill sender from saved localStorage so they don't retype it.
   useEffect(() => {
@@ -21,7 +27,9 @@ export default function TargetPostcardModal({ deals, onClose }) {
 
   const selected = deals.filter((d) => selectedIds.includes(d.id));
   const PRICE = 12;
-  const total = selected.length * PRICE;
+  const BONUS_PRICE = 1;
+  const bonusCount = bonusOn ? bonusTargets.length : 0;
+  const total = selected.length * PRICE + (bonusOn && bonusTargets.length ? BONUS_PRICE : 0);
 
   const toggle = (id) => {
     setSelectedIds((prev) => {
@@ -31,18 +39,54 @@ export default function TargetPostcardModal({ deals, onClose }) {
     });
   };
 
-  const canSend = selected.length > 0 && (sender.name || sender.company) && phase === "setup";
+  // Find 5 more nearby tower-friendly targets via Realie, centered on a selected lead.
+  const handleFindMore = async () => {
+    setBonusError(null);
+    const center = selected.find((d) => d.latitude && d.longitude) || deals.find((d) => d.latitude && d.longitude);
+    if (!center) {
+      setBonusError("No mapped coordinates on your leads to search around.");
+      return;
+    }
+    setBonusLoading(true);
+    setBonusOn(true);
+    try {
+      const excludeOwners = [...selected, ...deals].map((d) => d.owner_name).filter(Boolean);
+      const res = await findMoreTargets({
+        lat: center.latitude, lon: center.longitude, exclude_owners: excludeOwners, limit: 5,
+      });
+      if (res.data?.error) {
+        setBonusError(res.data.error);
+        setBonusOn(false);
+      } else {
+        setBonusTargets(res.data.targets || []);
+        if (!res.data.targets?.length) setBonusError("No additional qualifying parcels found nearby.");
+      }
+    } catch (e) {
+      setBonusError(e.message);
+      setBonusOn(false);
+    } finally {
+      setBonusLoading(false);
+    }
+  };
+
+  const canSend = (selected.length > 0 || bonusCount > 0) && (sender.name || sender.company) && phase === "setup";
 
   const handleSend = async () => {
     setPhase("sending");
     try {
       localStorage.setItem("sitehawk_sender", JSON.stringify(sender));
-      const targets = selected.map((d) => ({
+      const baseTargets = selected.map((d) => ({
         owner_name: d.owner_name,
         parcel_address: d.parcel_address,
         mailing_address: d.owner_mailing_address || d.parcel_address,
       }));
-      const res = await sendTargetPostcards({ action: "send", targets, sender });
+      const extraTargets = (bonusOn ? bonusTargets : []).map((t) => ({
+        owner_name: t.owner_name,
+        parcel_address: t.parcel_address,
+        mailing_address: t.mailing_address || t.parcel_address,
+      }));
+      const targets = [...baseTargets, ...extraTargets];
+      const res = await sendTargetPostcards({ action: "send", targets, sender, bonus_count: extraTargets.length });
       if (res.data?.error) {
         setError(res.data.error);
         setPhase("error");
@@ -105,6 +149,56 @@ export default function TargetPostcardModal({ deals, onClose }) {
                 </div>
               </div>
 
+              {/* $1 bonus upsell — 5 more nearby tower-friendly targets */}
+              <div className="rounded-xl border-2 border-amber-400/50 bg-gradient-to-br from-amber-400/10 to-orange-500/5 p-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 font-heading font-bold text-sm text-amber-700 dark:text-amber-300">
+                      <Sparkles className="w-4 h-4" /> Add 5 more targets — just $1
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      We'll scan nearby parcels (Realie) for the most tower-friendly land — big, vacant/agricultural lots with mailable owners — and mail them too. Five extra shots on goal for a single dollar.
+                    </p>
+                  </div>
+                  {!bonusOn && (
+                    <button
+                      onClick={handleFindMore}
+                      disabled={bonusLoading}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all disabled:opacity-50"
+                    >
+                      {bonusLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      Find 5 More
+                    </button>
+                  )}
+                </div>
+
+                {bonusError && <p className="text-xs text-red-600 mt-2">{bonusError}</p>}
+
+                {bonusOn && bonusTargets.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-amber-700 dark:text-amber-300">
+                        {bonusTargets.length} bonus targets found (+$1)
+                      </span>
+                      <button onClick={() => { setBonusOn(false); setBonusTargets([]); }} className="text-[11px] text-muted-foreground hover:text-foreground underline">
+                        Remove
+                      </button>
+                    </div>
+                    {bonusTargets.map((t, i) => (
+                      <div key={i} className="rounded-lg border border-amber-400/30 bg-card/60 px-3 py-2 flex items-center gap-2">
+                        <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-foreground truncate">{t.owner_name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {t.acreage ? `${Number(t.acreage).toFixed(1)} ac · ` : ""}{t.land_use || ""} · {t.mailing_address || t.parcel_address}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Sender contact info */}
               <div>
                 <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
@@ -124,7 +218,10 @@ export default function TargetPostcardModal({ deals, onClose }) {
               {/* Charge summary */}
               <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground">{selected.length} postcard{selected.length !== 1 ? "s" : ""} × ${PRICE}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selected.length} postcard{selected.length !== 1 ? "s" : ""} × ${PRICE}
+                    {bonusCount > 0 ? ` + ${bonusCount} bonus × $1 flat` : ""}
+                  </p>
                   <p className="font-heading font-bold text-2xl text-emerald-600">${total.toFixed(2)}</p>
                 </div>
                 <button
