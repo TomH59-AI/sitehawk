@@ -97,6 +97,14 @@ function addTowerMarker(map, lat, lon, label) {
     box-shadow: 0 0 0 2px rgba(98,140,131,0.5), 0 0 12px rgba(98,140,131,0.8);
   `;
   el.innerHTML = TOWER_SVG;
+  // Fallback: if the SVG didn't paint, show a solid circle dot so something
+  // always marks Target A.
+  if (!el.querySelector("svg")) {
+    el.textContent = "";
+    const dot = document.createElement("div");
+    dot.style.cssText = "width:10px;height:10px;border-radius:50%;background:#fff;";
+    el.appendChild(dot);
+  }
   new window.mapboxgl.Marker({ element: el, anchor: "center" })
     .setLngLat([lon, lat])
     .setPopup(
@@ -118,6 +126,8 @@ function fitToRing(map, lat, lon, radiusMiles) {
 export function renderAerial(container, target, srcLat, srcLon, radiusMiles, token) {
   const { latitude: lat, longitude: lon, owner } = target;
   const map = makeMap(container, SAT_STYLE, [lon, lat], token, 14);
+  // Surface Mapbox internal errors (tile/auth failures) to the console.
+  map.on("error", (e) => console.error("[AERIAL DIAG] Mapbox error event:", e?.error || e));
   return new Promise((resolve) => {
     map.on("load", () => {
       const ring = buildCircle(srcLat, srcLon, radiusMiles);

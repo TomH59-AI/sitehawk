@@ -13,6 +13,34 @@
  * Reuses the SAME working API integrations the old auto-firing SCIP map
  * components used (Mapbox satellite, USGS contours, FEMA NFHL, Zoneomics,
  * USFWS NWI, Realie) — now rewired under gated buttons in lib/section4Maps.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * AERIAL MAP DIAGNOSTIC — 2026-05-31
+ * Reported: Aerial Map (SARF ring + Target A) never renders on Run click.
+ * Audit findings + patches (AERIAL sub-step ONLY — no other map/section touched):
+ *   1. SARF STATE PLUMBING — OK. srcLat/srcLon/radiusMiles + targetA flow
+ *      SiteSearch → Section4MapSuite → runStep correctly. Added [AERIAL DIAG]
+ *      logs at run entry printing SARF center, radius, Target A lat/lon + APN.
+ *   2. CLICK HANDLER — OK. beginAndRun("aerial") fires onRun + runStep. Added
+ *      [AERIAL DIAG] log at handler entry.
+ *   3. MAPBOX TOKEN — OK. loadPublicConfig().mapboxAccessToken resolves. Now
+ *      logs first 8 chars to confirm propagation.
+ *   4. CONTAINER HEIGHT — **ROOT CAUSE.** MapSubStep mounted the map <div>
+ *      inside display:none until `done`. Mapbox cannot measure a hidden/0×0
+ *      container → blank/never-rendered map. PATCHED in MapSubstep: canvas is
+ *      now visible & sized (minHeight 500px, width 100%) whenever loading||done.
+ *   5. MAP INIT — wrapped renderAerial in try/catch with [AERIAL DIAG] errors;
+ *      lib renderers attach the map 'error' event.
+ *   6. LOAD EVENT — OK. lib/section4Maps renderAerial already adds ring +
+ *      waypoint + tower icon inside map.on("load").
+ *   7. SARF RING — buildCircle(srcLat, srcLon, radiusMiles) uses Section 1
+ *      values; logged the resulting GeoJSON feature.
+ *   8. TARGET A TOWER ICON — small cell-tower SVG marker; falls back to a solid
+ *      circle if the SVG element fails (addTowerMarker in lib/section4Maps).
+ *   9. RENDER ORDER — satellite base → ring fill/line → center pin → tower icon.
+ *  10. ERROR SURFACE — aerial errors now surface inline in MapSubStep with a
+ *      Retry button (errors state below). No more silent spinner-forever.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -25,7 +53,7 @@ import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { zoneomicsTest } from "@/functions/zoneomicsTest";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoning, renderWetlands, renderParcel, BRAND_GREEN,
+  renderZoning, renderWetlands, renderParcel, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 
 const STEPS = ["aerial", "topo", "fema", "zoning", "wetlands", "parcel"];
@@ -38,6 +66,8 @@ export default function Section4MapSuite({
   const [loadingStep, setLoadingStep] = useState(null);
   const [floodZone, setFloodZone] = useState(null);
   const [zoneInfo, setZoneInfo] = useState(null);
+  // Per-step error message (currently surfaced for the aerial sub-step).
+  const [errors, setErrors] = useState({});
 
   // Fire onComplete once all six maps are done — unlocks Section 5.
   useEffect(() => {
@@ -59,15 +89,32 @@ export default function Section4MapSuite({
   }, []);
 
   const runStep = useCallback(async (step) => {
+    // ── [AERIAL DIAG] handler entry + SARF/Target A state at run time ──
+    if (step === "aerial") {
+      console.log("[AERIAL DIAG] Run handler fired for Aerial Map");
+      console.log("[AERIAL DIAG] SARF center lat/lon:", srcLat ?? null, srcLon ?? null);
+      console.log("[AERIAL DIAG] SARF radius:", radiusMiles ?? null);
+      console.log("[AERIAL DIAG] Target A lat/lon:", targetA?.latitude ?? null, targetA?.longitude ?? null);
+      console.log("[AERIAL DIAG] Target A parcel ID:", targetA?.apn ?? null);
+    }
     if (!targetA || !Number.isFinite(targetA.latitude) || !Number.isFinite(targetA.longitude)) {
+      if (step === "aerial") console.error("[AERIAL DIAG] Target A coordinates null/invalid — aborting.");
       toast.error("Target A coordinates not resolved — re-run Section 3.");
+      if (step === "aerial") setErrors((p) => ({ ...p, aerial: "Target A coordinates not resolved — re-run Section 3." }));
       return;
     }
+    setErrors((p) => ({ ...p, [step]: null }));
     setLoadingStep(step);
     try {
       const cfg = await loadPublicConfig();
       const token = cfg.mapboxAccessToken;
-      if (!token) { toast.error("Mapbox token unavailable."); setLoadingStep(null); return; }
+      if (step === "aerial") console.log("[AERIAL DIAG] Mapbox token (first 8):", token ? String(token).slice(0, 8) : "NULL");
+      if (!token) {
+        toast.error("Mapbox token unavailable.");
+        if (step === "aerial") setErrors((p) => ({ ...p, aerial: "Mapbox token unavailable." }));
+        setLoadingStep(null);
+        return;
+      }
       await ensureMapboxLoaded();
 
       // Dispose any prior instance for this step before re-rendering.
@@ -77,7 +124,11 @@ export default function Section4MapSuite({
 
       let map;
       if (step === "aerial") {
+        const ringFeature = buildCircle(srcLat, srcLon, radiusMiles);
+        console.log("[AERIAL DIAG] SARF ring GeoJSON feature:", ringFeature);
+        console.log("[AERIAL DIAG] Aerial container mounted:", !!refs.aerial.current);
         map = await renderAerial(refs.aerial.current, targetA, srcLat, srcLon, radiusMiles, token);
+        console.log("[AERIAL DIAG] renderAerial resolved — map instance:", !!map);
       } else if (step === "topo") {
         map = await renderTopo(refs.topo.current, targetA, token);
       } else if (step === "fema") {
@@ -111,8 +162,10 @@ export default function Section4MapSuite({
       setCompleted((prev) => ({ ...prev, [step]: true }));
       toast.success(`${step.charAt(0).toUpperCase() + step.slice(1)} map generated for Target A.`);
     } catch (err) {
-      console.error(err);
+      if (step === "aerial") console.error("[AERIAL DIAG] renderAerial threw:", err);
+      else console.error(err);
       toast.error(err?.message || `${step} map failed.`);
+      setErrors((p) => ({ ...p, [step]: err?.message || "Unknown error" }));
     } finally {
       setLoadingStep(null);
     }
@@ -202,6 +255,7 @@ export default function Section4MapSuite({
           unlocked={isUnlocked("aerial")}
           loading={loadingStep === "aerial"} done={!!completed.aerial}
           onRun={() => beginAndRun("aerial")} mapRef={refs.aerial} banner={banners.aerial}
+          error={errors.aerial}
         />
         <MapSubStep
           index={2} title="Topography Map" runLabel="Run Topography Map"

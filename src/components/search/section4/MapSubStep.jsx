@@ -10,7 +10,7 @@
  */
 
 import { useRef } from "react";
-import { Lock, Sparkles, RefreshCw } from "lucide-react";
+import { Lock, Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "../HawkFlightSpinner";
 
@@ -18,10 +18,14 @@ const BRAND_GREEN = "#628C83";
 
 export default function MapSubStep({
   index, title, runLabel, spinnerLabel, banner,
-  unlocked, loading, done, onRun, mapRef, children,
+  unlocked, loading, done, onRun, mapRef, children, error,
 }) {
   const localRef = useRef(null);
   const ref = mapRef || localRef;
+  // The map canvas must be VISIBLE & SIZED while it initializes — Mapbox cannot
+  // measure a display:none container (root cause of the blank/never-render bug).
+  // Show the canvas whenever the step is in flight OR done, hide only when idle.
+  const canvasVisible = loading || done;
 
   if (!unlocked) {
     return (
@@ -60,21 +64,37 @@ export default function MapSubStep({
         )}
       </div>
 
+      {/* Spinner overlays the map area while in flight (canvas stays mounted/sized below). */}
       {loading && <HawkFlightSpinner label={spinnerLabel} />}
 
-      {!loading && !done && (
+      {!loading && !done && !error && (
         <div className="px-4 py-5 text-sm text-muted-foreground">
           Click <span className="font-semibold text-foreground">{runLabel}</span> to generate this Target A map.
         </div>
       )}
 
-      {/* Map canvas + optional banner stay mounted once generated so the map persists. */}
-      <div style={{ display: done && !loading ? "block" : "none" }}>
-        {banner}
-        <div className="relative w-full bg-card" style={{ height: 560 }}>
-          <div ref={ref} className="absolute inset-0" />
+      {/* Error surface — no more silent spinner-forever. */}
+      {error && !loading && (
+        <div className="px-4 py-4 bg-destructive/5 border-y border-destructive/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-destructive">{title} failed: {error}</div>
+            <Button onClick={onRun} size="sm" variant="outline" className="mt-2 border-destructive/40 text-destructive hover:bg-destructive/10">
+              <RefreshCw className="w-4 h-4 mr-2" /> Retry
+            </Button>
+          </div>
         </div>
-        {children}
+      )}
+
+      {/* Map canvas stays mounted & SIZED whenever loading or done so Mapbox can
+          measure it. display:none during init = blank map, so we gate on
+          canvasVisible (loading || done), never on `done` alone. */}
+      <div style={{ display: canvasVisible ? "block" : "none" }}>
+        {done && !loading && banner}
+        <div className="relative w-full bg-card" style={{ minHeight: 500, height: 560, width: "100%" }}>
+          <div ref={ref} className="absolute inset-0" style={{ width: "100%", height: "100%" }} />
+        </div>
+        {done && !loading && children}
       </div>
     </div>
   );
