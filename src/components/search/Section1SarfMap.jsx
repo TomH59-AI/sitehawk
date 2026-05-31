@@ -9,8 +9,10 @@
  * INFINITE SPINNER with no error shown. Errors in draw() were also swallowed.
  *
  * ISSUES FOUND & FIXED (Section 1 ONLY — nothing else touched):
+ *   0. TOKEN ENV VAR — canonical secret is now MAPBOX_API_KEY (served to the
+ *      browser by getPublicConfig). All map sections read it via loadPublicConfig().
  *   1. TOKEN MISSING/EMPTY — was silently `return`ed (token falsy → bail, spinner
- *      stuck). NOW: shows "MapBox token missing — set MAPBOX_ACCESS_TOKEN in
+ *      stuck). NOW: shows "MapBox token missing — set MAPBOX_API_KEY in
  *      Base44 secrets." and clears the spinner.
  *   2. WRONG TOKEN TYPE — a secret "sk." token silently fails in-browser. NOW:
  *      validated; shows "Wrong token type — need a public pk. token…".
@@ -155,9 +157,9 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
       } catch (e) {
         return fail(`Could not load MapBox token — ${e?.message || "config request failed"}.`);
       }
-      console.log("[SARF DIAG] token loaded:", token ? `${String(token).slice(0, 6)}…` : "(empty)");
+      console.log("[SARF DIAG] token loaded:", token ? `${String(token).slice(0, 8)}…` : "(empty)");
       if (cancelled) return;
-      if (!token) return fail("MapBox token missing — set MAPBOX_ACCESS_TOKEN in Base44 secrets.");
+      if (!token) return fail("MapBox token missing — set MAPBOX_API_KEY in Base44 secrets.");
       if (String(token).startsWith("sk.")) return fail("Wrong token type — need a public pk. token, not a secret sk. token.");
 
       try {

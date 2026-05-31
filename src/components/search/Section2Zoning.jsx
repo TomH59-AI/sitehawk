@@ -6,23 +6,29 @@
  *  - Fires NOTHING until the user clicks "Run Zoning", which flips
  *    pipelineStep → "zoning" (via onRun). The lookup only runs when
  *    `active` (pipelineStep === "zoning") is true. No auto-trigger.
- *  - While in flight: ONLY the hawk flying-in-place spinner. No scan-board.
- *  - On success: render the four editable panels (Zoneomics → Notion → manual).
+ *  - While in flight: ONLY the hawk flying-in-place spinner.
  *  - On finish: STOP. Never auto-advances to the next section.
  *
- * Data source pipeline lives in generateZoningPermitReport:
- *   1. Zoneomics (ZONEOMICS_API_KEY) → 2. Notion Zoning Master → 3. manual entry.
+ * DATA SOURCE PIPELINE (generateZoningPermitReport, run serially on Run Zoning):
+ *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY) → state / county / city
+ *   STEP 2  Notion Ordinance Vacuum (PRIMARY for telecom tower-specific fields)
+ *   STEP 3  Zoneomics (SECONDARY — district basics only)
+ *   STEP 4  Local contact data from the matched Notion page (else Manual)
+ *   STEP 5  Render four panels with a per-field source badge.
+ *
+ * Each field is inline-editable; a manual edit overrides source data and the
+ * badge flips to [Manual edit]. "Re-query Sources" re-runs the lookup WITHOUT
+ * overwriting any field the user has manually edited.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Lock, ClipboardList, Sparkles } from "lucide-react";
+import { Lock, ClipboardList, Sparkles, RefreshCw, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
+import SourceBadge, { normalizeSource } from "./section2/SourceBadge";
 import { generateZoningPermitReport } from "@/functions/generateZoningPermitReport";
 
-// The four panels — labels match the user's BP template EXACTLY. Each row maps
-// to a key in the generateZoningPermitReport payload section.
 const PANELS = [
   {
     title: "ZONING OVERVIEW",
@@ -80,70 +86,88 @@ const PANELS = [
   },
 ];
 
-function emptyValues() {
+const EMPTY_SENTINELS = ["", "NEEDS RESEARCH", "NEEDS_HUMAN_REVIEW"];
+
+function emptyCells() {
   const v = {};
   for (const p of PANELS) {
     v[p.section] = {};
-    for (const [, key] of p.rows) v[p.section][key] = "";
+    for (const [, key] of p.rows) v[p.section][key] = { value: "", tag: "manual" };
   }
   return v;
 }
 
-// Flatten the report payload ({ value, source, confidence } per cell) into plain
-// editable strings. Empty/sentinel values become "" so the field reads as a gap.
-function reportToValues(report) {
-  const v = emptyValues();
-  if (!report) return v;
+// Flatten the report payload ({ value, source } per cell) into editable cells
+// carrying a normalized source tag. `prev` lets us PRESERVE manual edits on re-query.
+function reportToCells(report, prev) {
+  const v = emptyCells();
   for (const p of PANELS) {
     for (const [, key] of p.rows) {
-      const cell = report?.[p.section]?.[key]?.value;
-      v[p.section][key] =
-        cell == null || cell === "" || cell === "NEEDS RESEARCH" || cell === "NEEDS_HUMAN_REVIEW"
-          ? ""
-          : String(cell);
+      const prevCell = prev?.[p.section]?.[key];
+      // Preserve a field the user manually edited — never overwrite on re-query.
+      if (prevCell && prevCell.tag === "manual edit") {
+        v[p.section][key] = prevCell;
+        continue;
+      }
+      const raw = report?.[p.section]?.[key];
+      const rawVal = raw?.value;
+      const value = EMPTY_SENTINELS.includes(rawVal) || rawVal == null ? "" : String(rawVal);
+      v[p.section][key] = { value, tag: normalizeSource(raw?.source, !!value) };
     }
   }
   return v;
 }
 
+function countTags(cells) {
+  const c = { notion: 0, zoneomics: 0, ai: 0, manual: 0 };
+  for (const p of PANELS) {
+    for (const [, key] of p.rows) {
+      const tag = cells[p.section][key].tag;
+      if (tag === "notion") c.notion++;
+      else if (tag === "zoneomics") c.zoneomics++;
+      else if (tag === "ai") c.ai++;
+      else c.manual++; // manual + manual edit both count as user-supplied gaps
+    }
+  }
+  return c;
+}
+
 export default function Section2Zoning({ unlocked, active, lat, lon, candidate, onRun, onComplete }) {
-  const [values, setValues] = useState(emptyValues);
+  const [cells, setCells] = useState(emptyCells);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-  const [noData, setNoData] = useState(false);
+  const [jurisdiction, setJurisdiction] = useState(null);
+  const [notionMatched, setNotionMatched] = useState(true);
   const ranRef = useRef(false);
 
   const handleChange = (section, key, val) => {
-    setValues((prev) => ({ ...prev, [section]: { ...prev[section], [key]: val } }));
+    setCells((prev) => ({
+      ...prev,
+      [section]: { ...prev[section], [key]: { value: val, tag: "manual edit" } },
+    }));
   };
 
-  const runLookup = useCallback(async () => {
+  const runLookup = useCallback(async (preserveEdits = false) => {
     setLoading(true);
-    setNoData(false);
     try {
       const res = await generateZoningPermitReport({ lat, lon, candidate });
       const report = res.data?.report || null;
-      const sources = res.data?.sources_used || {};
-      const mapped = reportToValues(report);
-      setValues(mapped);
-
-      // "No data found" = neither Zoneomics nor Notion produced anything usable.
-      const anyValue = Object.values(mapped).some((sec) =>
-        Object.values(sec).some((v) => v && v.trim())
-      );
-      const anySource = sources.zoneomics || sources.notion;
-      if (!report || (!anyValue && !anySource)) {
-        setNoData(true);
-        toast.warning("No zoning data found — manual entry required.");
-      } else {
-        toast.success("Zoning ordinance provisions loaded.");
-      }
+      setJurisdiction(res.data?.jurisdiction || null);
+      setNotionMatched(res.data?.notion_matched !== false);
+      setCells((prev) => reportToCells(report, preserveEdits ? prev : null));
+      if (report) toast.success("Zoning ordinance provisions loaded.");
+      else toast.warning("No zoning data found — manual entry required.");
       setDone(true);
     } catch (err) {
       console.error(err);
-      setNoData(true);
+      const msg = err?.message || "";
+      if (/notion api key/i.test(msg)) {
+        toast.error("Notion API key missing — set NOTION_API_KEY in Base44 secrets.");
+      } else {
+        toast.error(msg || "Zoning lookup failed — manual entry required.");
+      }
+      setNotionMatched(false);
       setDone(true);
-      toast.error(err?.message || "Zoning lookup failed — manual entry required.");
     } finally {
       setLoading(false);
       onComplete?.();
@@ -151,11 +175,10 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   }, [lat, lon, candidate, onComplete]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "zoning").
-  // No auto-trigger before that — `active` only flips on the user's Run click.
   useEffect(() => {
     if (active && !ranRef.current && lat != null && lon != null) {
       ranRef.current = true;
-      runLookup();
+      runLookup(false);
     }
   }, [active, lat, lon, runLookup]);
 
@@ -177,6 +200,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
     );
   }
 
+  const counts = countTags(cells);
+
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Banner */}
@@ -188,44 +213,62 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
             <h2 className="font-heading font-bold text-lg leading-tight">Hawk Zoning and Permitting Vision</h2>
           </div>
         </div>
-        {!active ? (
-          <Button
-            onClick={onRun}
-            className="bg-white text-blue-700 hover:bg-blue-50 font-semibold shadow"
-          >
-            <Sparkles className="w-4 h-4 mr-2" /> Run Zoning
-          </Button>
-        ) : done ? (
-          <Button
-            onClick={runLookup}
-            disabled={loading}
-            variant="outline"
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-semibold"
-          >
-            <Sparkles className="w-4 h-4 mr-2" /> Re-run
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {!active ? (
+            <Button onClick={onRun} className="bg-white text-blue-700 hover:bg-blue-50 font-semibold shadow">
+              <Sparkles className="w-4 h-4 mr-2" /> Run Zoning
+            </Button>
+          ) : done ? (
+            <Button
+              onClick={() => runLookup(true)}
+              disabled={loading}
+              variant="outline"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-semibold"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" /> Re-query Sources
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {/* In-flight — hawk flying-in-place spinner ONLY */}
-      {loading && <HawkFlightSpinner label="Pulling local telecom zoning ordinance…" />}
+      {loading && <HawkFlightSpinner label="Pulling the Ordinance Vacuum (Notion) + Zoneomics…" />}
 
       {/* Idle — armed, waiting for the Run click */}
       {!loading && !done && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Pull the governing authority's telecommunications tower &amp; antenna ordinance for the SARF coordinates.
-          Click <span className="font-semibold text-foreground">Run Zoning</span> to begin.
+          Resolve the jurisdiction from the SARF coordinates, then pull telecom tower provisions from the Notion
+          Ordinance Vacuum (primary) and Zoneomics (district basics). Click{" "}
+          <span className="font-semibold text-foreground">Run Zoning</span> to begin.
         </div>
       )}
 
-      {/* Results — four editable panels */}
+      {/* Results */}
       {!loading && done && (
         <>
-          {noData && (
+          {/* Resolved jurisdiction + source summary */}
+          <div className="px-4 py-3 border-b border-border bg-muted/30 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+              <MapPin className="w-4 h-4 text-blue-600" />
+              Jurisdiction resolved:{" "}
+              <span className="font-mono">{jurisdiction?.label || "Unknown — confirm manually"}</span>
+            </div>
+            <div className="text-xs font-mono text-muted-foreground">
+              Notion: {notionMatched ? "✓ match" : "✗ no match"} / {counts.notion} fields populated
+              {" | "}Zoneomics: {counts.zoneomics ? "✓" : "—"} / {counts.zoneomics} fields
+              {" | "}AI: {counts.ai} fields
+              {" | "}Manual: {counts.manual} fields
+            </div>
+          </div>
+
+          {/* No Notion page banner */}
+          {!notionMatched && (
             <div className="px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-300/50 text-sm text-amber-800 dark:text-amber-200 font-medium">
-              No zoning data found — manual entry required. Fill in the fields below from the local ordinance.
+              No Notion page for {jurisdiction?.label || "this jurisdiction"} yet — run the Hacker Stackers skill in
+              Claude to add it to the Ordinance Vacuum, or fill the panels manually below.
             </div>
           )}
+
           <div className="divide-y divide-border">
             {PANELS.map((panel) => (
               <div key={panel.title}>
@@ -233,25 +276,31 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
                   {panel.title}
                 </div>
                 <div>
-                  {panel.rows.map(([label, key], idx) => (
-                    <div
-                      key={key}
-                      className={`grid grid-cols-1 md:grid-cols-[260px_1fr] border-b border-border last:border-b-0 ${
-                        idx % 2 === 0 ? "bg-background" : "bg-muted/40"
-                      }`}
-                    >
-                      <div className="px-4 py-2.5 text-sm font-medium text-foreground border-r border-border">
-                        {label}
+                  {panel.rows.map(([label, key], idx) => {
+                    const cell = cells[panel.section][key];
+                    return (
+                      <div
+                        key={key}
+                        className={`grid grid-cols-1 md:grid-cols-[260px_1fr] border-b border-border last:border-b-0 ${
+                          idx % 2 === 0 ? "bg-background" : "bg-muted/40"
+                        }`}
+                      >
+                        <div className="px-4 py-2.5 text-sm font-medium text-foreground border-r border-border">
+                          {label}
+                        </div>
+                        <div className="flex items-center px-4">
+                          <input
+                            type="text"
+                            value={cell.value}
+                            onChange={(e) => handleChange(panel.section, key, e.target.value)}
+                            placeholder="—"
+                            className="flex-1 py-2.5 text-sm bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-950/30"
+                          />
+                          <SourceBadge tag={cell.tag} />
+                        </div>
                       </div>
-                      <input
-                        type="text"
-                        value={values[panel.section][key]}
-                        onChange={(e) => handleChange(panel.section, key, e.target.value)}
-                        placeholder="—"
-                        className="px-4 py-2.5 text-sm bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-950/30"
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}

@@ -61,6 +61,30 @@ async function getGeoContext(lat, lon) {
   };
 }
 
+// ─── MapBox reverse-geocode (STEP 1 — jurisdiction identity) ────────────────
+// Resolves state code, county, and city (if inside city limits) from the SARF
+// lat/lon using the canonical MAPBOX_API_KEY secret.
+async function mapboxReverseGeocode(lat, lon) {
+  const key = Deno.env.get('MAPBOX_API_KEY');
+  if (!key) return null;
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?types=place,district,region&access_token=${encodeURIComponent(key)}`;
+  const res = await fetchJsonWithTimeout(url, { headers: { Accept: 'application/json' } }, 9000);
+  const feats = res?.data?.features || [];
+  if (!feats.length) return null;
+  const get = (t) => feats.find((f) => (f.place_type || []).includes(t));
+  const region = get('region');
+  const district = get('district'); // county in the US
+  const place = get('place');       // city/town
+  const stateCode = region?.properties?.short_code?.replace(/^US-/i, '')?.toUpperCase() || null;
+  const countyName = district ? clean(district.text).replace(/\s+County$/i, '') : null;
+  return {
+    state_code: stateCode,
+    state_name: region ? clean(region.text) : null,
+    county_name: countyName,
+    city_name: place ? clean(place.text) : null,
+  };
+}
+
 function parseCityFromAddress(address, stateCode) {
   const text = clean(address);
   if (!text || !stateCode) return null;
@@ -355,8 +379,10 @@ SOURCE 4 — Live web scrape (Oxylabs) of planning/building dept pages:
 ${(ctx.scrapes || []).map((s, i) => `--- SCRAPE ${i+1}: ${s.url} ---\n${s.text.slice(0, 8000)}`).join('\n\n').slice(0, 30000) || '(no scrapes returned)'}
 
 TASK: Fill out EVERY field in the report below using ALL sources. Per field:
-- Pick the BEST source. For property zoning district / zone name / land use, ALWAYS prefer Zoneomics (SOURCE 1); if Zoneomics has no coverage, fall back to Notion. Use Municode for tower specs; Notion for fees/contacts/process; Oxylabs/web for anything else missing.
-- Set "source" to one of: "Zoneomics" | "Municode" | "Notion" | "Oxylabs" | "Realie" | "Web Research" | "none".
+- SOURCE PRIORITY (telecom tower-specific fields = TOWER SPECIFICS panel: LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): ALWAYS prefer Notion (SOURCE 2 — the Ordinance Vacuum) FIRST, then Municode, then web. Zoneomics does NOT carry these — never use Zoneomics for tower-specific fields.
+- For property zoning DISTRICT / zone name / basic land use only, prefer Zoneomics (SOURCE 1) as a COMPLEMENT; cross-check the jurisdiction name against Notion.
+- For fees / contacts / process / timeframes, prefer Notion.
+- Set "source" to one of: "Notion" | "Zoneomics" | "Municode" | "Oxylabs" | "Realie" | "Web Research" | "none". When a value is AI-inferred from Notion ordinance PROSE (not a directly quoted structured value), set source to "AI".
 - If you genuinely cannot find a value in ANY source, set value to "NEEDS RESEARCH" and source to "none".
 - DO NOT invent fees, phone numbers, addresses, or section numbers. Quote only what's in the sources.
 - For yes/no fields use "Yes" / "No" / "NEEDS RESEARCH".
@@ -461,9 +487,18 @@ Deno.serve(async (req) => {
     const address = candidate?.parcel_address || candidate?.address || null;
     const parcelZoning = candidate?.zoning_classification || candidate?.zoning || null;
 
-    // 1. Geo context
-    const geo = await getGeoContext(lat, lon);
-    const city = parseCityFromAddress(address, geo.state_code);
+    // 1. Geo context — STEP 1: MapBox reverse-geocode is primary for the
+    //    jurisdiction identity (state/county/city); FCC fills any gaps.
+    const [mb, fcc] = await Promise.all([
+      mapboxReverseGeocode(lat, lon).catch(() => null),
+      getGeoContext(lat, lon).catch(() => ({})),
+    ]);
+    const geo = {
+      state_code: mb?.state_code || fcc?.state_code || null,
+      state_name: mb?.state_name || fcc?.state_name || null,
+      county_name: mb?.county_name || fcc?.county_name || null,
+    };
+    const city = mb?.city_name || parseCityFromAddress(address, geo.state_code);
     const jurisdictions = [city, geo.county_name].filter(Boolean);
 
     // 2. Run all sources in parallel — Zoneomics is the PRIMARY zoning source.
@@ -523,6 +558,14 @@ Deno.serve(async (req) => {
       coordinates: { lat, lon },
       geo,
       report,
+      jurisdiction: {
+        state_code: geo.state_code,
+        state_name: geo.state_name,
+        county_name: geo.county_name,
+        city_name: city || null,
+        label: [city, geo.county_name, geo.state_code].filter(Boolean).join(", "),
+      },
+      notion_matched: !!notion?.found,
       sources_used: {
         zoneomics: !!zoneomics,
         zoneomics_zone: zoneomics?.zone_code || null,
