@@ -1,4 +1,4 @@
-// ZONEOMICS REMOVED — replaced by Regrid + Realie + Notion stack.
+// REGRID REMOVED from Section 2 — using Realie + Notion stack.
 /**
  * Section2Zoning — SiteHawk pipeline step 2 ("HAWK ZONING AND PERMITTING VISION").
  *
@@ -11,12 +11,11 @@
  *  - On finish: STOP. Never auto-advances to the next section.
  *
  * DATA SOURCE PIPELINE (generateZoningPermitReport, run serially on Run Zoning):
- *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY)  → state / county / city
- *   STEP 2  Regrid point parcel (REGRID_API_TOKEN)   → PRIMARY zoning district
- *   STEP 3  Realie parcel cross-check (REALIE_API_KEY) → agreement / supplement
- *   STEP 4  Notion Ordinance Vacuum (NOTION)         → PRIMARY telecom tower rules
- *   STEP 5  LLM extraction fallback                  → fills gaps from ordinance prose
- *   STEP 6  Render four panels with a per-field source badge.
+ *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY)   → state / county / city
+ *   STEP 2  Realie parcel @ SARF center (REALIE_API_KEY) → PRIMARY zoning district + parcel
+ *   STEP 3  Notion Ordinance Vacuum (NOTION_API_KEY)  → PRIMARY telecom tower rules
+ *   STEP 4  LLM extraction fallback                   → fills gaps from ordinance prose
+ *   STEP 5  Render four panels with a per-field source badge.
  *
  * Each field is inline-editable; a manual edit overrides source data and the
  * badge flips to [Manual edit]. "Re-query Sources" re-runs the lookup WITHOUT
@@ -25,7 +24,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Lock, ClipboardList, Sparkles, RefreshCw, MapPin, Pencil, AlertTriangle } from "lucide-react";
+import { Lock, ClipboardList, Sparkles, RefreshCw, MapPin, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
@@ -122,12 +121,11 @@ function reportToCells(report, prev) {
 }
 
 function countTags(cells) {
-  const c = { regrid: 0, realie: 0, notion: 0, ai: 0, manual: 0 };
+  const c = { realie: 0, notion: 0, ai: 0, manual: 0 };
   for (const p of PANELS) {
     for (const [, key] of p.rows) {
       const tag = cells[p.section][key].tag;
-      if (tag === "regrid" || tag === "discrepancy") c.regrid++;
-      else if (tag === "realie") c.realie++;
+      if (tag === "realie") c.realie++;
       else if (tag === "notion") c.notion++;
       else if (tag === "ai") c.ai++;
       else c.manual++; // manual + manual edit both count as user-supplied gaps
@@ -142,7 +140,6 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   const [done, setDone] = useState(false);
   const [jurisdiction, setJurisdiction] = useState(null);
   const [notionMatched, setNotionMatched] = useState(true);
-  const [discrepancy, setDiscrepancy] = useState(null);
   const [editingJur, setEditingJur] = useState(false);
   const [jurLabel, setJurLabel] = useState("");
   const ranRef = useRef(false);
@@ -163,7 +160,6 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       setJurisdiction(jur);
       setJurLabel(jur?.label || "");
       setNotionMatched(res.data?.notion_matched !== false);
-      setDiscrepancy(res.data?.zoning_discrepancy || null);
       setCells((prev) => reportToCells(report, preserveEdits ? prev : null));
       if (report) toast.success("Zoning ordinance provisions loaded.");
       else toast.warning("No zoning data found — manual entry required.");
@@ -238,13 +234,13 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       </div>
 
       {/* In-flight — hawk flying-in-place spinner ONLY */}
-      {loading && <HawkFlightSpinner label="Regrid + Realie parcel · Notion Ordinance Vacuum…" />}
+      {loading && <HawkFlightSpinner label="Realie parcel · Notion Ordinance Vacuum…" />}
 
       {/* Idle — armed, waiting for the Run click */}
       {!loading && !done && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Resolve the jurisdiction from the SARF coordinates, pull the zoning district from Regrid (cross-checked
-          against Realie), then pull telecom tower provisions from the Notion Ordinance Vacuum. Click{" "}
+          Resolve the jurisdiction from the SARF coordinates, pull the zoning district from Realie, then pull telecom
+          tower provisions from the Notion Ordinance Vacuum (AI fills any gaps). Click{" "}
           <span className="font-semibold text-foreground">Run Zoning</span> to begin.
         </div>
       )}
@@ -280,24 +276,12 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
               )}
             </div>
             <div className="text-xs font-mono text-muted-foreground">
-              Regrid: {counts.regrid ? "✓" : "—"}
-              {" | "}Realie: {counts.realie ? "✓" : "—"}
+              Realie: {counts.realie ? "✓" : "—"}
               {" | "}Notion: {notionMatched ? `✓ ${counts.notion} fields` : "✗"}
               {" | "}AI: {counts.ai} fields
               {" | "}Manual: {counts.manual} fields
             </div>
           </div>
-
-          {/* Zoning discrepancy banner */}
-          {discrepancy && (
-            <div className="px-4 py-3 bg-red-50 dark:bg-red-950/20 border-b border-red-300/50 text-sm text-red-800 dark:text-red-200 font-medium flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>
-                Zoning code disagreement — <strong>Regrid: {discrepancy.regrid}</strong> vs{" "}
-                <strong>Realie: {discrepancy.realie}</strong>. Confirm the correct district in the field below.
-              </span>
-            </div>
-          )}
 
           {/* No Notion page banner */}
           {!notionMatched && (

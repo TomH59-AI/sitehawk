@@ -1,19 +1,16 @@
 /**
- * generateZoningPermitReport — ZONEOMICS REMOVED, replaced by Regrid + Realie + Notion stack.
+ * generateZoningPermitReport — REGRID REMOVED. Realie + Notion + AI stack.
  *
  * Builds the full SiteHawk Zoning + Site Plan + Building Permit report.
  *
  * SERIAL PIPELINE:
  *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY) → state / county / city
- *   STEP 2  Regrid point parcel (REGRID_API_TOKEN)  → PRIMARY parcel + zoning district
- *   STEP 3  Realie parcel cross-check (REALIE_API_KEY) → zoning agreement / supplement
- *   STEP 4  Notion Ordinance Vacuum                 → PRIMARY telecom tower rules
- *   STEP 5  LLM extraction fallback (gemini)        → fills gaps from ordinance prose
- *   STEP 6  Render four panels — each row { value, source, confidence }
+ *   STEP 2  Realie parcel @ SARF center (REALIE_API_KEY) → PRIMARY zoning district + parcel
+ *   STEP 3  Notion Ordinance Vacuum                 → PRIMARY telecom tower rules
+ *   STEP 4  LLM extraction fallback (gemini/openai) → fills gaps from ordinance prose
+ *   STEP 5  Render four panels — each row { value, source, confidence }
  *
- * Source tags surfaced to the UI: Regrid | Realie | Notion | AI | Manual.
- * Zoning-district disagreements between Regrid and Realie are flagged so the
- * user can pick.
+ * Source tags surfaced to the UI: Realie | Notion | AI | Manual.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
@@ -84,51 +81,54 @@ async function mapboxReverseGeocode(lat, lon) {
   };
 }
 
-// ─── STEP 2: Regrid point parcel (PRIMARY parcel + zoning district) ─────────
-async function fetchRegridParcel(lat, lon) {
-  const token = Deno.env.get('REGRID_API_TOKEN');
-  if (!token) return null;
-  const url = `https://app.regrid.com/api/v2/parcels/point?lat=${lat}&lon=${lon}&token=${token}`;
-  const res = await fetchJsonWithTimeout(url, { headers: { Accept: 'application/json' } }, 12000);
-  const feature = res?.data?.parcels?.features?.[0];
-  if (!feature) return null;
-  const f = feature.properties?.fields || {};
-  return {
-    parcel_id: clean(f.parcelnumb) || null,
-    owner_name: clean(f.owner) || null,
-    address: clean(f.address) || null,
-    city: clean(f.scity) || null,
-    county: clean(f.county) || null,
-    state: clean(f.state2) || null,
-    acreage: f.gisacre || f.ll_gisacre || null,
-    zoning: clean(f.zoning) || null,
-    zoning_description: clean(f.zoning_description) || null,
-    zoning_subtype: clean(f.zoning_subtype || f.zoning_type) || null,
-    jurisdiction: clean(f.county || f.scity) || null,
-    geometry: feature.geometry || null,
-  };
-}
-
-// ─── STEP 3: Realie parcel cross-check / supplement ─────────────────────────
-async function getRealieParcel(address) {
+// ─── STEP 2: Realie parcel @ SARF center (PRIMARY parcel + zoning district) ─
+// Query Realie by lat/lon point first; fall back to address if provided.
+async function getRealieParcel(lat, lon, address) {
   const key = Deno.env.get('REALIE_API_KEY');
-  if (!key || !address) return null;
-  try {
-    const r = await fetch(`https://app.realie.ai/api/public/property/search/?address=${encodeURIComponent(address)}`, {
-      headers: { Authorization: key, Accept: 'application/json' },
-    });
-    if (!r.ok) return null;
-    const d = await r.json();
-    const p = Array.isArray(d) ? d[0] : d?.results?.[0] || d;
+  if (!key) return null;
+
+  const headers = { Authorization: key, Accept: 'application/json' };
+  const parse = (d) => (Array.isArray(d) ? d[0] : d?.results?.[0] || d) || null;
+  const normalize = (p) => {
     if (!p) return null;
     return {
+      parcel_id: clean(p.parcel_id || p.apn || p.parcelnumb) || null,
+      owner_name: clean(p.owner_name || p.owner) || null,
+      address: clean(p.address || p.situs_address || p.property_address) || null,
+      city: clean(p.city || p.situs_city) || null,
+      county: clean(p.county) || null,
+      state: clean(p.state || p.state_code) || null,
       land_use: p.land_use || p.property_use || p.use_description || null,
       acreage: p.acreage || p.acres || p.lot_size_acres || null,
       zoning: p.zoning || p.zoning_code || null,
+      zoning_description: p.zoning_description || p.zoning_desc || null,
       zoning_overlay: p.zoning_overlay || p.overlay || null,
       special_district: p.special_district || null,
+      geometry: p.geometry || p.parcel_geometry || null,
     };
-  } catch (_) { return null; }
+  };
+
+  try {
+    const r = await fetch(
+      `https://app.realie.ai/api/public/property/search/?latitude=${lat}&longitude=${lon}`,
+      { headers }
+    );
+    if (r.ok) {
+      const got = normalize(parse(await r.json()));
+      if (got) return got;
+    }
+  } catch (_) { /* fall through to address */ }
+
+  if (address) {
+    try {
+      const r = await fetch(
+        `https://app.realie.ai/api/public/property/search/?address=${encodeURIComponent(address)}`,
+        { headers }
+      );
+      if (r.ok) return normalize(parse(await r.json()));
+    } catch (_) { return null; }
+  }
+  return null;
 }
 
 // ─── Notion ─────────────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ async function getNotionAccessToken(base44) {
   return envTok || null;
 }
 
-// ─── STEP 5: LLM structured extraction (gap-fill from Notion prose) ─────────
+// ─── STEP 4: LLM structured extraction (gap-fill from Notion prose) ─────────
 async function llmExtractReport(base44, ctx) {
   const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
     model: 'gemini_3_flash',
@@ -282,20 +282,17 @@ CONTEXT:
 - State: ${ctx.state}  | County: ${ctx.county}  | City: ${ctx.city || 'unknown'}
 - Parcel address: ${ctx.address}
 
-SOURCE A — Regrid parcel (PRIMARY for zoning district / parcel facts):
-${JSON.stringify(ctx.regrid || { miss: true }).slice(0, 4000)}
-
-SOURCE B — Realie parcel (cross-check / supplement):
+SOURCE A — Realie parcel (PRIMARY for zoning district / parcel facts):
 ${JSON.stringify(ctx.realie || { miss: true }).slice(0, 4000)}
 
-SOURCE C — Notion Ordinance Vacuum (PRIMARY for telecom tower rules, fees, contacts, process), state folder "${ctx.notion?.folder_title || 'none'}":
+SOURCE B — Notion Ordinance Vacuum (PRIMARY for telecom tower rules, fees, contacts, process), state folder "${ctx.notion?.folder_title || 'none'}":
 ${(ctx.notion?.text || '(no Notion content found for this state)').slice(0, 40000)}
 
 TASK: Fill out EVERY field in the report below using the sources. Per field:
-- TOWER SPECIFICS (LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): use Notion (SOURCE C) FIRST, then web. Set source to "Notion" if directly quoted from the Notion KEY PROVISIONS, or "AI" if inferred from Notion prose.
-- Property zoning DISTRICT / land use: prefer Regrid (SOURCE A), then Realie (SOURCE B). Set source to "Regrid" or "Realie".
+- TOWER SPECIFICS (LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): use Notion (SOURCE B) FIRST, then web. Set source to "Notion" if directly quoted from the Notion KEY PROVISIONS, or "AI" if inferred from Notion prose.
+- Property zoning DISTRICT / land use: prefer Realie (SOURCE A). Set source to "Realie".
 - Fees / contacts / process / timeframes (site plan + building permit panels): prefer Notion. Set source to "Notion" or "AI".
-- Set "source" to one of: "Regrid" | "Realie" | "Notion" | "AI" | "none".
+- Set "source" to one of: "Realie" | "Notion" | "AI" | "none".
 - If you cannot find a value in ANY source, set value to "NEEDS RESEARCH" and source to "none".
 - DO NOT invent fees, phone numbers, addresses, or section numbers. Quote only what's in the sources.
 - For yes/no fields use "Yes" / "No" / "NEEDS RESEARCH".
@@ -372,9 +369,12 @@ Deno.serve(async (req) => {
     }
 
     // STEP 1 — MapBox reverse-geocode (FCC fallback for any gaps).
-    const [mb, fcc] = await Promise.all([
+    const candidateAddress = candidate?.parcel_address || candidate?.address || null;
+    const [mb, fcc, realie] = await Promise.all([
       mapboxReverseGeocode(lat, lon).catch(() => null),
       getGeoContext(lat, lon).catch(() => ({})),
+      // STEP 2 — Realie parcel @ SARF center (PRIMARY zoning district).
+      getRealieParcel(lat, lon, candidateAddress).catch(() => null),
     ]);
     const geo = {
       state_code: mb?.state_code || fcc?.state_code || null,
@@ -382,30 +382,20 @@ Deno.serve(async (req) => {
       county_name: mb?.county_name || fcc?.county_name || null,
     };
 
-    // STEP 2 + 3 — Regrid (primary parcel/zoning) + Realie (cross-check), in parallel.
-    const candidateAddress = candidate?.parcel_address || candidate?.address || null;
-    const [regrid, realieByCandidate] = await Promise.all([
-      fetchRegridParcel(lat, lon).catch(() => null),
-      getRealieParcel(candidateAddress).catch(() => null),
-    ]);
-    // Prefer Regrid's resolved address for the Realie cross-check if we didn't have one.
-    const realie = realieByCandidate || (regrid?.address ? await getRealieParcel(regrid.address).catch(() => null) : null);
+    const city = mb?.city_name || realie?.city || null;
+    const jurisdictions = [city, geo.county_name, realie?.county].filter(Boolean);
 
-    const city = mb?.city_name || regrid?.city || null;
-    const jurisdictions = [city, geo.county_name, regrid?.jurisdiction].filter(Boolean);
-
-    // STEP 4 — Notion Ordinance Vacuum (telecom rules).
+    // STEP 3 — Notion Ordinance Vacuum (telecom rules).
     const notionToken = await getNotionAccessToken(base44);
     const notion = await getNotionStateContext(geo.state_code, jurisdictions, notionToken).catch(() => ({ found: false, text: '' }));
 
-    // STEP 5 — LLM gap-fill from Notion prose + parcel facts.
+    // STEP 4 — LLM gap-fill from Notion prose + Realie parcel facts.
     const llmReport = await llmExtractReport(base44, {
       lat, lon,
       state: geo.state_name || geo.state_code,
       county: geo.county_name,
       city,
-      address: candidateAddress || regrid?.address,
-      regrid,
+      address: candidateAddress || realie?.address,
       realie,
       notion,
     });
@@ -413,38 +403,23 @@ Deno.serve(async (req) => {
     const report = llmReport || {};
     report.zoning_overview = report.zoning_overview || {};
 
-    // STEP 6a — Deterministic Regrid override for the zoning district (PRIMARY).
-    let zoningDiscrepancy = null;
-    if (regrid?.zoning) {
-      const district = regrid.zoning_description
-        ? `${regrid.zoning} — ${regrid.zoning_description}`
-        : regrid.zoning;
-      report.zoning_overview.property_zoning_district = row(district, 'Regrid', 'high');
-
-      // Cross-check with Realie: flag a disagreement so the user can pick.
-      const rz = clean(realie?.zoning);
-      const gz = clean(regrid.zoning);
-      if (rz && gz && rz.toUpperCase() !== gz.toUpperCase() && !rz.toUpperCase().includes(gz.toUpperCase()) && !gz.toUpperCase().includes(rz.toUpperCase())) {
-        zoningDiscrepancy = { regrid: gz, realie: rz };
-        report.zoning_overview.property_zoning_district = {
-          value: `Discrepancy — Regrid: ${gz} | Realie: ${rz}`,
-          source: 'Regrid \u2260 Realie',
-          confidence: 'low',
-        };
-      }
-    } else if (realie?.zoning) {
-      report.zoning_overview.property_zoning_district = row(realie.zoning, 'Realie', 'medium');
+    // STEP 5a — Deterministic Realie override for the zoning district (PRIMARY).
+    if (realie?.zoning) {
+      const district = realie.zoning_description
+        ? `${realie.zoning} — ${realie.zoning_description}`
+        : realie.zoning;
+      report.zoning_overview.property_zoning_district = row(district, 'Realie', 'high');
     }
 
-    // STEP 6b — Regrid jurisdiction cross-check for zoning jurisdiction.
-    if (regrid?.jurisdiction && !clean(report.zoning_overview?.zoning_jurisdiction?.value)) {
+    // STEP 5b — Jurisdiction cross-check for zoning jurisdiction.
+    if (!clean(report.zoning_overview?.zoning_jurisdiction?.value)) {
       report.zoning_overview.zoning_jurisdiction = row(
         [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
-        'Regrid', 'medium'
+        'Realie', 'medium'
       );
     }
 
-    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} regrid=${!!regrid} realie=${!!realie} notion=${!!notion?.found} discrepancy=${!!zoningDiscrepancy}`);
+    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} realie=${!!realie} notion=${!!notion?.found}`);
 
     return Response.json({
       status: 'ok',
@@ -459,16 +434,13 @@ Deno.serve(async (req) => {
         label: [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
       },
       notion_matched: !!notion?.found,
-      zoning_discrepancy: zoningDiscrepancy,
-      parcel: regrid ? {
-        parcel_id: regrid.parcel_id,
-        owner_name: regrid.owner_name,
-        acreage: regrid.acreage,
-        geometry: regrid.geometry,
+      parcel: realie ? {
+        parcel_id: realie.parcel_id,
+        owner_name: realie.owner_name,
+        acreage: realie.acreage,
+        geometry: realie.geometry,
       } : null,
       sources_used: {
-        regrid: !!regrid,
-        regrid_zoning: regrid?.zoning || null,
         realie: !!realie,
         realie_zoning: realie?.zoning || null,
         notion: !!notion?.found,
