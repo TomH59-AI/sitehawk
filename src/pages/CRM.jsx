@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { Briefcase, Phone, Mail, Users, FileText, Send, Plus, Calendar, ChevronRight, Search, Filter } from "lucide-react";
+import { Briefcase, Phone, Mail, Users, FileText, Send, Plus, Calendar, ChevronRight, Search, Filter, MailPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import SyncToGoogleSheetButton from "@/components/crm/SyncToGoogleSheetButton";
+import CRMExportButton from "@/components/crm/CRMExportButton";
+import TargetPostcardModal from "@/components/crm/TargetPostcardModal";
 
 const STAGES = ["prospect", "contacted", "interested", "negotiating", "signed", "lost"];
 const STAGE_COLORS = {
@@ -25,6 +27,7 @@ export default function CRM() {
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [stageFilter, setStageFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showPostcards, setShowPostcards] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -81,7 +84,11 @@ export default function CRM() {
           </h1>
           <p className="text-muted-foreground text-sm mt-1">{deals.length} deals tracked · {activities.length} interactions logged</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button onClick={() => setShowPostcards(true)} disabled={deals.length === 0} className="gap-2 font-heading font-semibold bg-emerald-600 hover:bg-emerald-500 text-white">
+            <MailPlus className="w-4 h-4" /> Mail Target Postcards
+          </Button>
+          <CRMExportButton deals={deals} />
           <SyncToGoogleSheetButton />
           <Link to="/search">
             <Button className="gap-2 font-heading font-semibold" variant="outline">
@@ -90,6 +97,10 @@ export default function CRM() {
           </Link>
         </div>
       </div>
+
+      {showPostcards && (
+        <TargetPostcardModal deals={filteredDeals.length ? filteredDeals : deals} onClose={() => setShowPostcards(false)} />
+      )}
 
       {/* Pipeline summary bar */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
