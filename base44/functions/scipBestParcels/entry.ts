@@ -163,6 +163,9 @@ Deno.serve(async (req) => {
 
     const footprintFt = requiredFootprintFt({ tower_height_ft, compound_side_ft, setback_ft, fall_zone_ft, separation_ft });
     const needAcres = requiredAcres(footprintFt);
+    // Absolute minimum buildable lot: must at least fit the compound + a half fall zone.
+    // Anything smaller can never host the tower, so it is disqualified outright.
+    const minBuildableAcres = requiredAcres(compound_side_ft + (fall_zone_ft > 0 ? fall_zone_ft : tower_height_ft));
 
     const scored = [];
     for (const p of seen.values()) {
@@ -175,9 +178,20 @@ Deno.serve(async (req) => {
       const plat = Number(pick(p, "latitude", "lat") || 0);
       const plon = Number(pick(p, "longitude", "lon", "lng") || 0);
 
+      // RING GUARD — only keep parcels whose centroid actually falls inside the
+      // SARF ring. Realie's radius can return parcels just outside it; we never
+      // want a target outside the search area. Parcels with no coords are kept
+      // (Realie already constrained the query) but flagged for verification.
+      let distMi = null;
+      if (plat && plon) {
+        distMi = haversineMiles(lat, lon, plat, plon);
+        if (distMi > radius) continue; // hard-drop anything outside the ring
+      }
+
       const owner = pick(p, "ownerName", "owner_name", "owner");
       const reasons = [];
       let score = 50;
+      let disqualified = false; // residential or physically-too-small = cannot build
 
       // 0. Data completeness — a parcel we know nothing about can't be a confident pick.
       if (!owner && !acreage && !useCode) {
@@ -185,9 +199,10 @@ Deno.serve(async (req) => {
         reasons.push("Sparse parcel data — low confidence");
       }
 
-      // 1. No residential — hard disqualifier weight.
+      // 1. No residential — HARD disqualifier per client criteria.
       if (isResidential(useCode, zoning, landUse)) {
         score -= 45;
+        disqualified = true;
         reasons.push("Residential use — disqualified by client criteria");
       } else {
         score += 10;
@@ -203,13 +218,21 @@ Deno.serve(async (req) => {
       if (acreage > 0) {
         if (acreage >= needAcres * 2) { score += 25; reasons.push(`Large lot (${acreage.toFixed(2)} ac) — easily fits setbacks, fall zone & separation`); }
         else if (acreage >= needAcres) { score += 15; reasons.push(`Lot (${acreage.toFixed(2)} ac) meets required footprint (~${needAcres.toFixed(2)} ac)`); }
-        else { score -= 20; reasons.push(`Lot (${acreage.toFixed(2)} ac) may be too small for required ${needAcres.toFixed(2)} ac footprint`); }
+        else if (acreage >= minBuildableAcres) { score -= 20; reasons.push(`Lot (${acreage.toFixed(2)} ac) tight vs required ${needAcres.toFixed(2)} ac — verify setbacks/fall zone`); }
+        else {
+          // Too small to physically host the compound + fall zone — cannot build.
+          score -= 50;
+          disqualified = true;
+          reasons.push(`Lot (${acreage.toFixed(2)} ac) too small to build — needs ≥ ${minBuildableAcres.toFixed(2)} ac (target ${needAcres.toFixed(2)} ac)`);
+        }
       } else {
         reasons.push("Lot size unknown — verify it fits setbacks/fall zone");
       }
 
       scored.push({
         raw: p,
+        buildable: !disqualified,
+        dist_mi: distMi,
         score: Math.max(0, Math.min(100, Math.round(score))),
         score_reasons: reasons,
         owner_name: owner,
@@ -230,8 +253,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Best score first; break ties by distance to center (closer is better for the RF ring).
+    // Buildable parcels ALWAYS rank above disqualified ones (residential / too
+    // small); then prefer parcels with CONFIRMED adequate acreage over those with
+    // unknown size; then by score; then by distance to center (closer = better RF).
+    const confirmedFits = (s) => Number(s.acreage) >= needAcres ? 1 : 0;
     scored.sort((a, b) => {
+      if (a.buildable !== b.buildable) return a.buildable ? -1 : 1;
+      const ca = confirmedFits(a), cb = confirmedFits(b);
+      if (ca !== cb) return cb - ca;
       if (b.score !== a.score) return b.score - a.score;
       const da = a.latitude ? haversineMiles(lat, lon, a.latitude, a.longitude) : 99;
       const db = b.latitude ? haversineMiles(lat, lon, b.latitude, b.longitude) : 99;
@@ -250,20 +279,26 @@ Deno.serve(async (req) => {
 
     const targets = top.map((t, i) => {
       const fema = femaResults[i];
-      const { raw, ...clean } = t;
+      const { raw, dist_mi, ...clean } = t;
       const zone = clean.zoning_classification || zoneResults[i];
       return {
         label: labels[i],
         ...clean,
         zoning_classification: zone || null,
+        distance_from_center_mi: dist_mi != null ? Number(dist_mi.toFixed(3)) : null,
         fema_risk_factor: fema.code === "—" ? "—" : `${fema.code} (${fema.level})`,
       };
     });
 
+    const buildableCount = scored.filter((s) => s.buildable).length;
+
     return Response.json({
       count_scanned: seen.size,
+      count_in_ring: scored.length,
+      count_buildable: buildableCount,
       required_footprint_ft: footprintFt,
       required_acres: Number(needAcres.toFixed(3)),
+      min_buildable_acres: Number(minBuildableAcres.toFixed(3)),
       targets,
     });
   } catch (error) {
