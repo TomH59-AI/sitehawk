@@ -1,16 +1,18 @@
 /**
- * generateZoningPermitReport — REGRID REMOVED. Realie + Notion + AI stack.
+ * generateZoningPermitReport — ZONEOMICS PROMOTED TO PRIMARY (paid tier $189/mo)
+ * — cascade: Zoneomics → Realie → Notion → AI.
  *
  * Builds the full SiteHawk Zoning + Site Plan + Building Permit report.
  *
  * SERIAL PIPELINE:
  *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY) → state / county / city
- *   STEP 2  Realie parcel @ SARF center (REALIE_API_KEY) → PRIMARY zoning district + parcel
- *   STEP 3  Notion Ordinance Vacuum                 → PRIMARY telecom tower rules
- *   STEP 4  LLM extraction fallback (gemini/openai) → fills gaps from ordinance prose
- *   STEP 5  Render four panels — each row { value, source, confidence }
+ *   STEP 2  Zoneomics paid zoneDetail (ZONEOMICS_API_KEY) → PRIMARY zoning district + telecom controls
+ *   STEP 3  Realie parcel @ SARF center (REALIE_API_KEY)  → cross-check district + fill gaps
+ *   STEP 4  Notion Ordinance Vacuum                       → fills remaining gaps
+ *   STEP 5  LLM extraction fallback (gemini/openai)       → fills any field still empty
+ *   STEP 6  Render four panels — each row { value, source, confidence }
  *
- * Source tags surfaced to the UI: Realie | Notion | AI | Manual.
+ * Source tags surfaced to the UI: Zoneomics | Realie | Notion | AI | Manual.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
@@ -129,6 +131,93 @@ async function getRealieParcel(lat, lon, address) {
     } catch (_) { return null; }
   }
   return null;
+}
+
+// ─── STEP 2: Zoneomics paid zoneDetail (PRIMARY zoning + telecom controls) ──
+// Reuses the same flatten + name-match logic as the standalone
+// zoneomicsZoningReport function, inlined here (functions can't import locally).
+function zoCleanVal(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).replace(/\s+/g, ' ').trim();
+  if (!s || s.toUpperCase() === 'NA' || s.toUpperCase() === 'N/A') return '';
+  return s;
+}
+function zoFlatten(obj, out = {}) {
+  if (!obj || typeof obj !== 'object') return out;
+  for (const [k, v] of Object.entries(obj)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) zoFlatten(v, out);
+    else if (Array.isArray(v)) out[k.toLowerCase()] = v.map((x) => (typeof x === 'object' ? JSON.stringify(x) : String(x))).join(', ');
+    else out[k.toLowerCase()] = v;
+  }
+  return out;
+}
+function zoPick(flat, needles, valueRx = null) {
+  for (const [k, v] of Object.entries(flat)) {
+    for (const n of needles) {
+      if (k.includes(n)) {
+        const c = zoCleanVal(v);
+        if (c && (!valueRx || valueRx.test(c))) return c;
+      }
+    }
+  }
+  return '';
+}
+async function getZoneomics(lat, lon) {
+  const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
+  if (!apiKey) return { ok: false, http_status: 500, error: 'ZONEOMICS_API_KEY not set', fields: {} };
+
+  const url = new URL('https://api.zoneomics.com/v2/zoneDetail');
+  url.searchParams.set('api_key', apiKey);
+  url.searchParams.set('lat', String(lat));
+  url.searchParams.set('lng', String(lon));
+  url.searchParams.set('output_fields', 'zoning,controls,plu');
+  const redacted = url.toString().replace(apiKey, '***');
+
+  const res = await fetchJsonWithTimeout(url.toString(), {}, 12000);
+  if (!res.ok) {
+    console.log(`[ZONEOMICS DIAG] url=${redacted} status=${res.status} populated=0`);
+    return {
+      ok: false,
+      http_status: res.status,
+      error: res.status === 401 || res.status === 403
+        ? 'Zoneomics auth failed (401/403) — check ZONEOMICS_API_KEY / paid tier.'
+        : `Zoneomics HTTP ${res.status || 'network'}`,
+      fields: {},
+    };
+  }
+
+  const json = res.data || {};
+  const root = json?.data?.data || json?.data || json;
+  const zd = root?.zone_details || {};
+  const meta = root?.meta || {};
+  const flat = zoFlatten(root?.controls || {});
+  const MEASURE = /\d/;
+
+  const zoneCode = zoCleanVal(zd.zone_code);
+  const districtLabel = [zoneCode, zoCleanVal(zd.zone_name)].filter(Boolean).join(' — ');
+
+  const fields = {};
+  const put = (f, v) => { const c = zoCleanVal(v); if (c) fields[f] = c; };
+
+  put('property_zoning_district', districtLabel || zoneCode);
+  put('zoning_jurisdiction', zoCleanVal(meta.city_name));
+  put('zoning_process', zoPick(flat, ['special_use', 'conditional_use', 'approval_process']));
+  put('zoning_approval_timeframe', zoPick(flat, ['timeframe', 'approval_time']));
+  put('zoning_contact_information', zoPick(flat, ['contact', 'department']));
+  put('maximum_tower_height',
+    zoPick(flat, ['tower_height', 'antenna_height']) ||
+    zoPick(flat, ['max_height', 'building_height', 'height_ft'], MEASURE));
+  put('residential_separation',
+    zoPick(flat, ['residential_separation', 'separation_residential']) ||
+    zoPick(flat, ['antenna_setback', 'tower_setback']));
+  put('tower_separation', zoPick(flat, ['tower_separation', 'separation_tower', 'separation_between']));
+  put('fall_zone_requirements', zoPick(flat, ['fall_zone', 'fall-zone', 'fallzone']));
+  put('stealth_required', zoPick(flat, ['stealth', 'concealment', 'camouflage']));
+  put('required_collocations', zoPick(flat, ['collocation', 'co-location', 'colocation']));
+  put('ldc_section_references', zoPick(flat, ['ordinance_section', 'code_section', 'ldc_section']) || zoCleanVal(zd.link));
+
+  console.log(`[ZONEOMICS DIAG] url=${redacted} status=${res.status} zone=${zoneCode || '—'} city=${meta.city_name || '—'} populated=${Object.keys(fields).length}`);
+  return { ok: true, http_status: res.status, zone_code: zoneCode, city_name: zoCleanVal(meta.city_name) || null, fields };
 }
 
 // ─── Notion ─────────────────────────────────────────────────────────────────
@@ -369,11 +458,12 @@ Deno.serve(async (req) => {
     }
 
     // STEP 1 — MapBox reverse-geocode (FCC fallback for any gaps).
+    // STEP 2 — Zoneomics paid zoneDetail (PRIMARY). STEP 3 — Realie cross-check.
     const candidateAddress = candidate?.parcel_address || candidate?.address || null;
-    const [mb, fcc, realie] = await Promise.all([
+    const [mb, fcc, zoneomics, realie] = await Promise.all([
       mapboxReverseGeocode(lat, lon).catch(() => null),
       getGeoContext(lat, lon).catch(() => ({})),
-      // STEP 2 — Realie parcel @ SARF center (PRIMARY zoning district).
+      getZoneomics(lat, lon).catch((e) => ({ ok: false, http_status: 0, error: e?.message, fields: {} })),
       getRealieParcel(lat, lon, candidateAddress).catch(() => null),
     ]);
     const geo = {
@@ -382,7 +472,7 @@ Deno.serve(async (req) => {
       county_name: mb?.county_name || fcc?.county_name || null,
     };
 
-    const city = mb?.city_name || realie?.city || null;
+    const city = zoneomics?.city_name || mb?.city_name || realie?.city || null;
     const jurisdictions = [city, geo.county_name, realie?.county].filter(Boolean);
 
     // STEP 3 — Notion Ordinance Vacuum (telecom rules).
@@ -402,16 +492,58 @@ Deno.serve(async (req) => {
 
     const report = llmReport || {};
     report.zoning_overview = report.zoning_overview || {};
+    report.tower_specifics = report.tower_specifics || {};
 
-    // STEP 5a — Deterministic Realie override for the zoning district (PRIMARY).
-    if (realie?.zoning) {
-      const district = realie.zoning_description
-        ? `${realie.zoning} — ${realie.zoning_description}`
-        : realie.zoning;
-      report.zoning_overview.property_zoning_district = row(district, 'Realie', 'high');
+    // Which panel section each Zoneomics field lives in.
+    const FIELD_SECTION = {
+      property_zoning_district: 'zoning_overview',
+      zoning_jurisdiction: 'zoning_overview',
+      zoning_process: 'zoning_overview',
+      zoning_approval_timeframe: 'zoning_overview',
+      zoning_contact_information: 'zoning_overview',
+      maximum_tower_height: 'tower_specifics',
+      residential_separation: 'tower_specifics',
+      tower_separation: 'tower_specifics',
+      fall_zone_requirements: 'tower_specifics',
+      stealth_required: 'tower_specifics',
+      required_collocations: 'tower_specifics',
+      ldc_section_references: 'tower_specifics',
+    };
+
+    // STEP 2 (PRIMARY) — overlay Zoneomics paid-tier fields on top of the LLM
+    // report. Zoneomics WINS — its values overwrite whatever the LLM inferred.
+    const zoFields = zoneomics?.fields || {};
+    for (const [field, value] of Object.entries(zoFields)) {
+      const sec = FIELD_SECTION[field];
+      if (!sec) continue;
+      report[sec] = report[sec] || {};
+      report[sec][field] = row(value, 'Zoneomics', 'high');
     }
 
-    // STEP 5b — Jurisdiction cross-check for zoning jurisdiction.
+    // STEP 3 — Realie cross-check of the zoning district code. If Zoneomics and
+    // Realie disagree, surface BOTH inline + a flag the UI renders as a red badge.
+    let zoning_district_conflict = null;
+    if (realie?.zoning) {
+      const realieDistrict = realie.zoning_description
+        ? `${realie.zoning} — ${realie.zoning_description}`
+        : realie.zoning;
+      const zoCode = zoneomics?.zone_code || '';
+      const codesDiffer = zoCode && realie.zoning &&
+        zoCode.replace(/[^a-z0-9]/gi, '').toUpperCase() !== realie.zoning.replace(/[^a-z0-9]/gi, '').toUpperCase();
+      if (zoFields.property_zoning_district && codesDiffer) {
+        // Both present and different → show both + conflict flag.
+        report.zoning_overview.property_zoning_district = row(
+          `${zoFields.property_zoning_district}  ·  Realie: ${realieDistrict}`,
+          'Zoneomics', 'high'
+        );
+        zoning_district_conflict = { zoneomics: zoCode, realie: realie.zoning };
+      } else if (!zoFields.property_zoning_district) {
+        // Zoneomics left it blank → Realie fills it.
+        report.zoning_overview.property_zoning_district = row(realieDistrict, 'Realie', 'high');
+      }
+    }
+
+    // Jurisdiction cross-check — fill if still empty after Zoneomics + Realie.
     if (!clean(report.zoning_overview?.zoning_jurisdiction?.value)) {
       report.zoning_overview.zoning_jurisdiction = row(
         [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
@@ -419,7 +551,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} realie=${!!realie} notion=${!!notion?.found}`);
+    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} zoneomics=${zoneomics?.ok ? Object.keys(zoFields).length : 'fail'} realie=${!!realie} notion=${!!notion?.found}`);
 
     return Response.json({
       status: 'ok',
@@ -434,6 +566,14 @@ Deno.serve(async (req) => {
         label: [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
       },
       notion_matched: !!notion?.found,
+      zoneomics: {
+        ok: !!zoneomics?.ok,
+        http_status: zoneomics?.http_status ?? null,
+        error: zoneomics?.error || null,
+        populated_count: Object.keys(zoneomics?.fields || {}).length,
+        zone_code: zoneomics?.zone_code || null,
+      },
+      zoning_district_conflict,
       parcel: realie ? {
         parcel_id: realie.parcel_id,
         owner_name: realie.owner_name,
@@ -441,6 +581,8 @@ Deno.serve(async (req) => {
         geometry: realie.geometry,
       } : null,
       sources_used: {
+        zoneomics: !!zoneomics?.ok,
+        zoneomics_zone: zoneomics?.zone_code || null,
         realie: !!realie,
         realie_zoning: realie?.zoning || null,
         notion: !!notion?.found,

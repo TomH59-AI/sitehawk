@@ -1,4 +1,4 @@
-// REGRID REMOVED from Section 2 — using Realie + Notion stack.
+// ZONEOMICS PROMOTED TO PRIMARY (paid tier $189/mo) — cascade: Zoneomics → Realie → Notion → AI
 /**
  * Section2Zoning — SiteHawk pipeline step 2 ("HAWK ZONING AND PERMITTING VISION").
  *
@@ -11,11 +11,12 @@
  *  - On finish: STOP. Never auto-advances to the next section.
  *
  * DATA SOURCE PIPELINE (generateZoningPermitReport, run serially on Run Zoning):
- *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY)   → state / county / city
- *   STEP 2  Realie parcel @ SARF center (REALIE_API_KEY) → PRIMARY zoning district + parcel
- *   STEP 3  Notion Ordinance Vacuum (NOTION_API_KEY)  → PRIMARY telecom tower rules
- *   STEP 4  LLM extraction fallback                   → fills gaps from ordinance prose
- *   STEP 5  Render four panels with a per-field source badge.
+ *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY)      → state / county / city
+ *   STEP 2  Zoneomics paid zoneDetail (ZONEOMICS_API_KEY)→ PRIMARY district + telecom controls
+ *   STEP 3  Realie parcel @ SARF center (REALIE_API_KEY) → cross-check district + fill gaps
+ *   STEP 4  Notion Ordinance Vacuum (NOTION_API_KEY)     → fills remaining gaps
+ *   STEP 5  LLM extraction fallback                      → fills any field still empty
+ *   STEP 6  Render four panels with a per-field source badge.
  *
  * Each field is inline-editable; a manual edit overrides source data and the
  * badge flips to [Manual edit]. "Re-query Sources" re-runs the lookup WITHOUT
@@ -121,11 +122,12 @@ function reportToCells(report, prev) {
 }
 
 function countTags(cells) {
-  const c = { realie: 0, notion: 0, ai: 0, manual: 0 };
+  const c = { zoneomics: 0, realie: 0, notion: 0, ai: 0, manual: 0 };
   for (const p of PANELS) {
     for (const [, key] of p.rows) {
       const tag = cells[p.section][key].tag;
-      if (tag === "realie") c.realie++;
+      if (tag === "zoneomics") c.zoneomics++;
+      else if (tag === "realie") c.realie++;
       else if (tag === "notion") c.notion++;
       else if (tag === "ai") c.ai++;
       else c.manual++; // manual + manual edit both count as user-supplied gaps
@@ -140,6 +142,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   const [done, setDone] = useState(false);
   const [jurisdiction, setJurisdiction] = useState(null);
   const [notionMatched, setNotionMatched] = useState(true);
+  const [zoneomics, setZoneomics] = useState(null); // { ok, http_status, error, populated_count, zone_code }
+  const [districtConflict, setDistrictConflict] = useState(null); // { zoneomics, realie }
   const [editingJur, setEditingJur] = useState(false);
   const [jurLabel, setJurLabel] = useState("");
   const ranRef = useRef(false);
@@ -160,6 +164,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       setJurisdiction(jur);
       setJurLabel(jur?.label || "");
       setNotionMatched(res.data?.notion_matched !== false);
+      setZoneomics(res.data?.zoneomics || null);
+      setDistrictConflict(res.data?.zoning_district_conflict || null);
       setCells((prev) => reportToCells(report, preserveEdits ? prev : null));
       if (report) toast.success("Zoning ordinance provisions loaded.");
       else toast.warning("No zoning data found — manual entry required.");
@@ -239,8 +245,9 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       {/* Idle — armed, waiting for the Run click */}
       {!loading && !done && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Resolve the jurisdiction from the SARF coordinates, pull the zoning district from Realie, then pull telecom
-          tower provisions from the Notion Ordinance Vacuum (AI fills any gaps). Click{" "}
+          Resolve the jurisdiction from the SARF coordinates, then pull the zoning district + telecom tower controls
+          from <span className="font-semibold text-foreground">Zoneomics (paid tier)</span> as the primary source —
+          Realie cross-checks the district, Notion + AI fill any gaps. Click{" "}
           <span className="font-semibold text-foreground">Run Zoning</span> to begin.
         </div>
       )}
@@ -276,12 +283,31 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
               )}
             </div>
             <div className="text-xs font-mono text-muted-foreground">
-              Realie: {counts.realie ? "✓" : "—"}
+              Zoneomics: {zoneomics?.ok ? `✓ ${counts.zoneomics} fields` : "✗"}
+              {" | "}Realie: {counts.realie ? `✓ ${counts.realie}` : "—"}
               {" | "}Notion: {notionMatched ? `✓ ${counts.notion} fields` : "✗"}
               {" | "}AI: {counts.ai} fields
               {" | "}Manual: {counts.manual} fields
             </div>
           </div>
+
+          {/* Zoneomics error banner (PRIMARY source) — key/server issues + retry */}
+          {zoneomics && !zoneomics.ok && (
+            <div className="px-4 py-3 bg-red-50 dark:bg-red-950/20 border-b border-red-300/50 text-sm text-red-800 dark:text-red-200 font-medium flex items-center justify-between gap-3 flex-wrap">
+              <span>Zoneomics (primary) unavailable: {zoneomics.error || `HTTP ${zoneomics.http_status}`} — cascaded to Realie / Notion / AI.</span>
+              <Button onClick={() => runLookup(true)} disabled={loading} size="sm" variant="outline" className="border-red-400 text-red-700 hover:bg-red-100">
+                <RefreshCw className="w-4 h-4 mr-2" /> Retry Zoneomics
+              </Button>
+            </div>
+          )}
+
+          {/* Zoneomics ≠ Realie district conflict */}
+          {districtConflict && (
+            <div className="px-4 py-2 bg-rose-50 dark:bg-rose-950/20 border-b border-rose-300/50 text-sm text-rose-800 dark:text-rose-200 font-medium">
+              Zoning district conflict — Zoneomics: <span className="font-mono">{districtConflict.zoneomics}</span> ≠ Realie:{" "}
+              <span className="font-mono">{districtConflict.realie}</span>. Both shown in the district field; confirm manually.
+            </div>
+          )}
 
           {/* No Notion page banner */}
           {!notionMatched && (
