@@ -18,6 +18,7 @@ import HawkViewshedIntelligence from "../components/scip/HawkViewshedIntelligenc
 import HawkFloodplainIntelligence from "../components/scip/HawkFloodplainIntelligence";
 import HawkWindSpeedIntelligence from "../components/scip/HawkWindSpeedIntelligence";
 import HawkCesium3DMap from "../components/scip/HawkCesium3DMap";
+import HawkSectorCoverage from "../components/scip/HawkSectorCoverage";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -205,6 +206,9 @@ export default function SCIPPreview() {
 
           {/* Hawk 3D RF / Viewshed Map — interactive CesiumJS globe (world terrain + satellite), waypoint, 0.25/0.5/1-mi rings, zoom + N/S/E/W directional treeline views, centered on Target A */}
           <HawkCesium3DMap targetA={targets3?.[0] || null} siteName={candidate?.site_name} />
+
+          {/* Hawk RF Coverage — CloudRF omni /area coverage PNG draped on a Mapbox aerial of Target A + model-inputs exhibit table (print-ready SCIP deliverable) */}
+          <HawkSectorCoverage targetA={targets3?.[0] || null} siteName={candidate?.site_name} />
         </div>
       )}
 
