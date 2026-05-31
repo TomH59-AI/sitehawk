@@ -86,15 +86,17 @@ function makeMap(container, style, center, token, zoom = 14) {
   return map;
 }
 
-// Tower-icon marker on Target A.
+// Small cell-tower SVG icon marker on Target A.
+const TOWER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4 19 20"/><path d="M19 4 5 20"/><path d="M12 4v16"/><path d="M8.5 9h7"/><path d="M7 13h10"/></svg>`;
+
 function addTowerMarker(map, lat, lon, label) {
   const el = document.createElement("div");
   el.style.cssText = `
     width: 30px; height: 30px; display:flex; align-items:center; justify-content:center;
     background: rgba(15,23,42,0.92); border: 2px solid ${BRAND_GREEN}; border-radius: 50%;
-    box-shadow: 0 0 0 2px rgba(98,140,131,0.5), 0 0 12px rgba(98,140,131,0.8); font-size: 15px;
+    box-shadow: 0 0 0 2px rgba(98,140,131,0.5), 0 0 12px rgba(98,140,131,0.8);
   `;
-  el.textContent = "📡";
+  el.innerHTML = TOWER_SVG;
   new window.mapboxgl.Marker({ element: el, anchor: "center" })
     .setLngLat([lon, lat])
     .setPopup(
