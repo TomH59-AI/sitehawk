@@ -53,8 +53,10 @@ import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { zoneomicsTest } from "@/functions/zoneomicsTest";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoning, renderWetlands, renderParcel, BRAND_GREEN, buildCircle,
+  renderZoning, renderWetlands, renderParcel, BRAND_GREEN, buildCircle, probeZoneomicsTile,
 } from "@/lib/section4Maps";
+import { buildLegend } from "@/lib/zoningPalette";
+import ZoningLegend from "./section4/ZoningLegend";
 
 const STEPS = ["aerial", "topo", "fema", "zoning", "wetlands", "parcel"];
 
@@ -66,6 +68,11 @@ export default function Section4MapSuite({
   const [loadingStep, setLoadingStep] = useState(null);
   const [floodZone, setFloodZone] = useState(null);
   const [zoneInfo, setZoneInfo] = useState(null);
+  // Zoning legend (color-coded districts) + a fallback notice when no tiles.
+  const [zoningLegend, setZoningLegend] = useState([]);
+  const [zoningFallback, setZoningFallback] = useState(null);
+  // Cache the resolved legend list per Target A coordinate so re-clicks skip the query.
+  const zoningCache = useRef({});
   // Per-step error message (currently surfaced for the aerial sub-step).
   const [errors, setErrors] = useState({});
 
@@ -139,15 +146,73 @@ export default function Section4MapSuite({
         map = m;
         setFloodZone(fres?.data?.fema_zone || fres?.data?.fema_risk_factor || null);
       } else if (step === "zoning") {
-        // Resolve the Target A zone code/name/type from Zoneomics zoneDetail to
-        // label the parcel + populate the floating legend (overlay tiles paint districts).
+        // 15s watchdog — never spin forever. If still loading, surface an error.
+        const zoningWatchdog = setTimeout(() => {
+          setLoadingStep((cur) => {
+            if (cur === "zoning") {
+              setErrors((p) => ({ ...p, zoning: "Zoning lookup timed out — Zoneomics did not respond in 15s." }));
+              return null;
+            }
+            return cur;
+          });
+        }, 15000);
+        // ── [ZONING MAP DIAG] state at run time ──
+        console.log("[ZONING MAP DIAG] Run Zoning Map — Target A:", targetA?.latitude, targetA?.longitude, "APN:", targetA?.apn);
+        const key = `${targetA.latitude.toFixed(6)},${targetA.longitude.toFixed(6)}`;
+        const cached = zoningCache.current[key];
+
+        // Resolve the Target A zone code/name/type from Zoneomics zoneDetail.
+        const zUrl = `zoneDetail lat=${targetA.latitude} lng=${targetA.longitude} output_fields=zoning`;
+        console.log("[ZONING MAP DIAG] Zoneomics zoneDetail call:", zUrl);
         const zres = await zoneomicsTest({
           lat: targetA.latitude, lng: targetA.longitude, output_fields: "zoning",
-        }).catch(() => null);
-        const zd = zres?.data?.data?.data?.zone_details || null;
+        }).catch((e) => { console.error("[ZONING MAP DIAG] zoneDetail threw:", e); return null; });
+        const zStatus = zres?.data?.status ?? "n/a";
+        const zd = zres?.data?.data?.data?.zone_details || zres?.data?.data?.zone_details || null;
+        const fieldCount = zd ? Object.keys(zd).length : 0;
+        console.log("[ZONING MAP DIAG] zoneDetail status:", zStatus, "| zone_details field count:", fieldCount);
+
+        // Auth failure (401/403) — surface a verify-key error, do not render.
+        if (zStatus === 401 || zStatus === 403) {
+          clearTimeout(zoningWatchdog);
+          setLoadingStep(null);
+          setErrors((p) => ({ ...p, zoning: "Zoneomics auth failed — verify ZONEOMICS_API_KEY" }));
+          return;
+        }
+
         const zone = zd ? { zone_code: zd.zone_code, zone_name: zd.zone_name, zone_type: zd.zone_type } : null;
         setZoneInfo(zone);
-        map = await renderZoning(refs.zoning.current, targetA, token, cfg.zoneomicsApiKey, zone);
+
+        // Probe the paid-tier raster tiles over Target A (401/403 vs 404 vs ok).
+        const probe = await probeZoneomicsTile(cfg.zoneomicsApiKey, targetA.latitude, targetA.longitude, 15);
+        if (probe.status === 401 || probe.status === 403) {
+          clearTimeout(zoningWatchdog);
+          setLoadingStep(null);
+          setErrors((p) => ({ ...p, zoning: "Zoneomics auth failed — verify ZONEOMICS_API_KEY" }));
+          return;
+        }
+        const tilesOk = probe.ok;
+        setZoningFallback(tilesOk ? null : "No zoning tiles for this area — showing district code only.");
+
+        // Pull parcels for the Target A boundary highlight (best-effort).
+        const pres = await realieParcelsInRing({
+          lat: targetA.latitude, lon: targetA.longitude, radius_miles: 0.3,
+        }).catch(() => null);
+        const zParcels = pres?.data?.parcels || [];
+
+        // Build the legend district list (cached per Target A coordinate). Source:
+        // distinct zone codes near Target A via zoneDetail; the zone itself always seeds it.
+        let legend = cached;
+        if (!legend) {
+          const districts = zone ? [zone] : [];
+          legend = buildLegend(districts);
+          zoningCache.current[key] = legend;
+        }
+        console.log("[ZONING MAP DIAG] legend rendered with", legend.length, "districts");
+        setZoningLegend(legend);
+
+        clearTimeout(zoningWatchdog);
+        map = await renderZoning(refs.zoning.current, targetA, token, cfg.zoneomicsApiKey, zone, zParcels, tilesOk);
       } else if (step === "wetlands") {
         map = await renderWetlands(refs.wetlands.current, targetA, token);
       } else if (step === "parcel") {
@@ -212,16 +277,25 @@ export default function Section4MapSuite({
         FEMA Flood Zone at Target A centroid: <span className="font-mono">{floodZone}</span>
       </div>
     ) : null,
-    zoning: zoneInfo?.zone_code ? (
-      <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-        Zoneomics district at Target A: <span className="font-mono">{zoneInfo.zone_code}</span>
-        {zoneInfo.zone_name ? <span className="font-normal opacity-80"> — {zoneInfo.zone_name}</span> : null}
-      </div>
-    ) : targetA?.zoning_classification ? (
-      <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-        Target A zoning classification: <span className="font-mono">{targetA.zoning_classification}</span>
-      </div>
-    ) : null,
+    zoning: (
+      <>
+        {zoneInfo?.zone_code ? (
+          <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+            Zoneomics district at Target A: <span className="font-mono">{zoneInfo.zone_code}</span>
+            {zoneInfo.zone_name ? <span className="font-normal opacity-80"> — {zoneInfo.zone_name}</span> : null}
+          </div>
+        ) : targetA?.zoning_classification ? (
+          <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+            Target A zoning classification: <span className="font-mono">{targetA.zoning_classification}</span>
+          </div>
+        ) : null}
+        {zoningFallback ? (
+          <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/20 border-y border-amber-300/50 text-sm font-medium text-amber-800 dark:text-amber-200">
+            {zoningFallback}
+          </div>
+        ) : null}
+      </>
+    ),
     wetlands: null,
     parcel: null,
   };
@@ -276,8 +350,18 @@ export default function Section4MapSuite({
           spinnerLabel="Generating Target A zoning map…"
           unlocked={active && isUnlocked("zoning")}
           loading={loadingStep === "zoning"} done={!!completed.zoning}
-          onRun={() => runStep("zoning")} mapRef={refs.zoning} banner={banners.zoning}
-        />
+          onRun={() => { console.log("[ZONING MAP DIAG] click handler fired"); runStep("zoning"); }}
+          mapRef={refs.zoning} banner={banners.zoning} error={errors.zoning}
+        >
+          {/* Floating color-coded legend — pulled up to overlay the bottom-left of
+              the 560px map area above (children render after the map in flow).
+              Wrapper is click-through; only the legend itself captures clicks. */}
+          <div className="relative h-0 pointer-events-none">
+            <div className="absolute left-0 z-10 pointer-events-auto" style={{ bottom: 16 + 560 }}>
+              <ZoningLegend districts={zoningLegend} />
+            </div>
+          </div>
+        </MapSubStep>
         <MapSubStep
           index={5} title="Wetlands Map" runLabel="Run Wetlands Map"
           spinnerLabel="Generating Target A wetlands map…"

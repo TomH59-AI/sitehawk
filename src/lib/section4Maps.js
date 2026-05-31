@@ -190,19 +190,89 @@ export function renderFema(container, target, token) {
 }
 
 // ────────────── 4. ZONING ──────────────
-// Zoneomics zoning overlay on a light basemap centered on Target A. Zoneomics
-// publishes its zoning tile service at the standard /zoneTiles endpoint.
-export function renderZoning(container, target, token, zoneomicsKey) {
-  const { latitude: lat, longitude: lon, owner } = target;
-  const map = makeMap(container, LIGHT_STYLE, [lon, lat], token, 15);
+// lon/lat → XYZ tile coords (for probing a single Zoneomics raster tile).
+function lonLatToTile(lon, lat, z) {
+  const n = 2 ** z;
+  const x = Math.floor(((lon + 180) / 360) * n);
+  const latRad = (lat * Math.PI) / 180;
+  const y = Math.floor(
+    ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n
+  );
+  return { x, y, z };
+}
+
+// Zoneomics paid-tier raster tile endpoint. Adjust here if the docs change.
+export function zoneomicsTileTemplate(key) {
+  return `https://api.zoneomics.com/v2/zoneomics_tiles/{z}/{x}/{y}.png?api_key=${key}`;
+}
+
+// Probe ONE Zoneomics raster tile over the Target A area to detect auth (401/403)
+// vs. no-coverage (404) before we add the layer. Returns { ok, status }.
+export async function probeZoneomicsTile(zoneomicsKey, lat, lon, z = 15) {
+  if (!zoneomicsKey) return { ok: false, status: 0 };
+  const { x, y } = lonLatToTile(lon, lat, z);
+  const url = zoneomicsTileTemplate(zoneomicsKey)
+    .replace("{z}", z).replace("{x}", x).replace("{y}", y);
+  console.log("[ZONING MAP DIAG] Zoneomics raster tile probe URL:", url);
+  try {
+    const res = await fetch(url, { method: "GET" });
+    console.log("[ZONING MAP DIAG] Zoneomics raster tile probe status:", res.status);
+    return { ok: res.ok, status: res.status };
+  } catch (e) {
+    console.error("[ZONING MAP DIAG] Zoneomics raster tile probe threw:", e);
+    return { ok: false, status: 0 };
+  }
+}
+
+// ────────────── 4. ZONING ──────────────
+// Color-coded Zoneomics raster zoning overlay on the SATELLITE base, centered on
+// Target A. Layer order: satellite base → zoning raster (0.55) → Target A parcel
+// boundary highlight → Target A pill label. Falls back to a label-only render
+// when the raster tiles are unavailable (`tilesOk` false). The legend itself is
+// a separate floating React panel (ZoningLegend) rendered by the sub-step.
+//   target: { latitude, longitude, owner, apn }
+//   zone:   { zone_code, zone_name, zone_type } resolved from zoneDetail (label)
+//   parcels: optional Realie records (for the Target A boundary highlight)
+//   tilesOk: whether the raster probe succeeded (caller probes first)
+export function renderZoning(container, target, token, zoneomicsKey, zone, parcels = [], tilesOk = true) {
+  const { latitude: lat, longitude: lon, owner, apn } = target;
+  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 15);
+  map.on("error", (e) => console.error("[ZONING MAP DIAG] Mapbox error event:", e?.error || e));
   return new Promise((resolve) => {
     map.on("load", () => {
-      if (zoneomicsKey) {
-        const tileUrl =
-          `https://tiles.zoneomics.com/tiles/zone/{z}/{x}/{y}.png?api_key=${zoneomicsKey}`;
+      // 1) Zoning raster over the satellite base (only if the probe passed).
+      if (zoneomicsKey && tilesOk) {
+        const tileUrl = zoneomicsTileTemplate(zoneomicsKey);
+        console.log("[ZONING MAP DIAG] Adding Zoneomics raster tiles:", tileUrl);
         map.addSource("s4-zoning", { type: "raster", tiles: [tileUrl], tileSize: 256 });
         map.addLayer({ id: "s4-zoning-layer", type: "raster", source: "s4-zoning", paint: { "raster-opacity": 0.55 } });
+        console.log("[ZONING MAP DIAG] raster layer added: zoneomics-zoning");
+      } else {
+        console.warn("[ZONING MAP DIAG] Zoning raster NOT added (tilesOk:", tilesOk, ", key:", !!zoneomicsKey, ") — label-only fallback");
       }
+
+      // 2) Target A parcel boundary highlight (brand green) when geometry exists.
+      const tp = (parcels || []).find((p) => p.apn === apn && p.parcel_geometry) ||
+                 (parcels || []).find((p) => p.parcel_geometry);
+      if (tp) {
+        map.addSource("s4-zoning-target", { type: "geojson", data: { type: "Feature", geometry: tp.parcel_geometry, properties: {} } });
+        map.addLayer({ id: "s4-zoning-target-fill", type: "fill", source: "s4-zoning-target", paint: { "fill-color": BRAND_GREEN, "fill-opacity": 0.15 } });
+        map.addLayer({ id: "s4-zoning-target-line", type: "line", source: "s4-zoning-target", paint: { "line-color": BRAND_GREEN, "line-width": 3 } });
+      }
+
+      // 3) Target A pill label: "Target A: <Zone Code>" — brand green, white text.
+      const zoneCode = zone?.zone_code || "—";
+      const el = document.createElement("div");
+      el.textContent = `Target A: ${zoneCode}`;
+      el.style.cssText = `
+        font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; color:#fff;
+        background:${BRAND_GREEN}; padding:6px 12px; border-radius:9999px;
+        white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.3);
+      `;
+      new window.mapboxgl.Marker({ element: el, anchor: "bottom" })
+        .setLngLat([lon, lat])
+        .addTo(map);
+
       addTowerMarker(map, lat, lon, owner);
       fitToRing(map, lat, lon, 0.4);
       resolve(map);
