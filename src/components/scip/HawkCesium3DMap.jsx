@@ -77,6 +77,10 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
     if (!hasTarget) return;
     if (viewerRef.current) return; // guard React 18 StrictMode double-mount
     let cancelled = false;
+    let terrainTimer = null;
+    // Captured so cleanup can explicitly detach the tile listener — viewer.destroy()
+    // won't remove a listener that closes over our React setter.
+    let detachTiles = null;
     setStatus("loading");
     (async () => {
       try {
@@ -126,14 +130,19 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
         // pitched views have real elevation under them (avoids the height race).
         const globe = viewer.scene.globe;
         const onTiles = () => {
+          if (cancelled) return;
           if (globe.tilesLoaded) {
             setTerrainReady(true);
-            globe.tileLoadProgressEvent.removeEventListener(onTiles);
+            detachTiles?.();
           }
+        };
+        detachTiles = () => {
+          try { globe.tileLoadProgressEvent.removeEventListener(onTiles); } catch (_) { /* ignore */ }
+          detachTiles = null;
         };
         globe.tileLoadProgressEvent.addEventListener(onTiles);
         // Fallback: if the event never settles, release after 4s.
-        setTimeout(() => { if (!cancelled) setTerrainReady(true); }, 4000);
+        terrainTimer = setTimeout(() => { if (!cancelled) setTerrainReady(true); }, 4000);
       } catch (e) {
         console.error("Cesium 3D init failed:", e);
         if (!cancelled) {
@@ -145,6 +154,8 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
 
     return () => {
       cancelled = true;
+      if (terrainTimer) clearTimeout(terrainTimer);
+      detachTiles?.(); // remove our React-setter listener before destroying the viewer
       if (viewerRef.current) {
         try { viewerRef.current.destroy(); } catch (_) { /* ignore */ }
         viewerRef.current = null;
