@@ -261,6 +261,15 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
 
               {/* Tweak controls (bottom-right) */}
               <div className="absolute bottom-3 right-3 z-10 rounded-lg bg-[#0C1B2E]/90 backdrop-blur border border-[#628C83]/40 p-2.5 text-white space-y-2 w-44">
+                <div className="text-[10px] font-mono tracking-[0.2em] text-[#628C83] mb-0.5">RF COCKPIT</div>
+                {activeCoverage && (
+                  <div className="rounded bg-[#0a1422] border border-[#334155] px-2 py-1.5 space-y-0.5 text-[10px] font-mono">
+                    <div className="flex justify-between"><span className="text-white/50">FREQ</span><span>{activeCoverage.frequency_mhz} MHz</span></div>
+                    <div className="flex justify-between"><span className="text-white/50">BAND</span><span>{activeCoverage.band}</span></div>
+                    <div className="flex justify-between"><span className="text-white/50">AGL</span><span>{heightFt} ft</span></div>
+                    <div className="flex justify-between"><span className="text-white/50">EIRP</span><span>{txPower} dBm</span></div>
+                  </div>
+                )}
                 <label className="block text-[10px] font-mono tracking-wider text-[#628C83]">TX POWER (dBm)</label>
                 <input type="number" value={txPower} onChange={(e) => setTxPower(Number(e.target.value))}
                   className="w-full bg-[#0a1422] border border-[#334155] rounded px-2 py-1 text-xs" />
