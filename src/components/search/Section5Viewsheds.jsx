@@ -1,16 +1,42 @@
 /**
- * Section5Viewsheds — SiteHawk pipeline step 5 ("HAWK RF VIEWSHED VISION").
+ * VIEWSHED POLISH + DIAGNOSTIC — 2026-05-31
+ * -----------------------------------------
+ * Scope: ONLY Section 5 (the four N/S/E/W tree-line viewsheds). Sections
+ * 1–4 and 6–9, pipelineStep, and the hawk spinner were NOT touched.
  *
- * Four 2D tree-line viewshed maps, generated ONE AT A TIME, each by its own
- * button: N → S → E → W. EVERY map renders for TARGET A ONLY. Strict gating:
- *  - LOCKED until Section 4 (all six maps) is complete AND Target A is resolved.
- *  - pipelineStep enters "viewsheds"; sub-steps fire in sequence, each ONLY on
- *    its own button click. Each sub-step is locked until the prior one completes.
- *  - While in flight: hawk flying-in-place spinner only. No auto-advance.
- *  - Each panel has its own Regenerate button + beam-angle override.
+ * WHAT WAS FOUND (the silent failure):
+ *  - The old renderer spun up a FULL Cesium Viewer in SCENE2D for the plan-view.
+ *    When Cesium init/terrain failed for the AOI it threw, the catch logged a
+ *    plain console.warn, and the Mapbox fallback was attempted — but there was
+ *    NO per-direction diagnostics, NO 401/403 handling, NO 15s timeout, and NO
+ *    error surface, so a stuck Cesium load = silent forever-spinner.
+ *  - The cone was a flat 35% pie slice. No gradient, no stroke polish, no hatch,
+ *    no range rings, no compass rose, no elevation strip, no real stats, no
+ *    combined inset.
  *
- * Engine: Cesium Ion (primary) with Mapbox terrain fallback (lib/section5Viewsheds).
- * Obstruction stats reuse the existing scipViewshed backend function.
+ * WHAT WAS UPGRADED:
+ *  1. [VIEWSHED DIAG <dir>] logs at: button click, Cesium Ion probe (token +
+ *     endpoint + status + response size), MapBox fallback trigger, viewshed
+ *     compute (visible vs occluded sample count), cone GeoJSON build (bearing/
+ *     width/range), layer add, and stats render.
+ *  2. Cesium Ion is now PROBED for terrain coverage (api.cesium.com asset 1
+ *     endpoint); the map itself always renders on Mapbox GL — the prior crash
+ *     point is gone. 401/403 → hard "verify CESIUM_ION_TOKEN" error + Retry.
+ *     No coverage → auto MapBox terrain-rgb fallback with a DIAG log.
+ *  3. Cone = radial-gradient canvas (50%→15% vertex→arc), crisp 2px 80%-opacity
+ *     stroke, 45° dotted-grey tree-canopy hatch over obstructed wedges with a
+ *     ⚠ + max obstruction ft AMSL in the stats panel.
+ *  4. Compass rose (40px, active arrow glows the cone color), hawk-on-tower
+ *     vertex icon, dashed white 0.25/0.5/1 mi range rings.
+ *  5. 120px elevation profile strip (tan terrain, brown fill, green canopy band,
+ *     dashed-red antenna height) with a show/hide toggle.
+ *  6. Glass-card stats panel: direction, bearing range, beam width, range, tower
+ *     height, % clear / % blocked, max obstruction ht+dist, best/worst path loss,
+ *     run timestamp.
+ *  7. Combined-view inset (120px, all generated cones) bottom-left of each map.
+ *  8. Reliability: 15s per-direction timeout + Retry, viewshed compute cached
+ *     per (Target A coord, direction, tower height) for instant re-clicks, and a
+ *     Recompute button. Gating N→S→E→W and the hawk spinner are unchanged.
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -18,7 +44,9 @@ import { Lock, Eye } from "lucide-react";
 import { toast } from "sonner";
 import ViewshedSubStep from "./section5/ViewshedSubStep";
 import { scipViewshed } from "@/functions/scipViewshed";
-import { renderViewshed, obstructionStats, DIRECTIONS, BRAND_GREEN } from "@/lib/section5Viewsheds";
+import {
+  renderViewshed, obstructionStats, buildCombinedInset, DIRECTIONS, BRAND_GREEN,
+} from "@/lib/section5Viewsheds";
 
 const ORDER = ["N", "S", "E", "W"];
 const RUN_LABEL = { N: "Run North Viewshed", S: "Run South Viewshed", E: "Run East Viewshed", W: "Run West Viewshed" };
@@ -29,12 +57,17 @@ export default function Section5Viewsheds({
   const [completed, setCompleted] = useState({});
   const [loadingDir, setLoadingDir] = useState(null);
   const [engines, setEngines] = useState({});
+  const [errors, setErrors] = useState({});
   const [beamAngles, setBeamAngles] = useState({ N: 90, S: 90, E: 90, W: 90 });
   const [statsByDir, setStatsByDir] = useState({});
+  const [profileByDir, setProfileByDir] = useState({});
+  const [timestamps, setTimestamps] = useState({});
+  const [combinedInset, setCombinedInset] = useState(null);
 
   const refs = { N: useRef(null), S: useRef(null), E: useRef(null), W: useRef(null) };
   const maps = useRef({});
-  const profileCache = useRef(null); // scipViewshed response cached after first call
+  // Viewshed compute cache keyed by `${lat},${lon}|${dir}|${towerFt}`.
+  const computeCache = useRef({});
 
   useEffect(() => {
     return () => {
@@ -49,24 +82,62 @@ export default function Section5Viewsheds({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed]);
 
+  // Refresh the combined-view inset whenever the set of done directions changes.
+  useEffect(() => {
+    const anyDone = ORDER.some((d) => completed[d]);
+    setCombinedInset(anyDone ? buildCombinedInset(completed) : null);
+  }, [completed]);
+
   const runDir = useCallback(async (dirKey) => {
+    const tag = `[VIEWSHED DIAG ${dirKey}]`;
+    // 1 — Run button click handler entry.
+    console.log(`${tag} Run handler fired — Target A:`, targetA?.latitude ?? null, targetA?.longitude ?? null, "tower:", towerHeightFt, "ft");
     if (!targetA || !Number.isFinite(Number(targetA.latitude)) || !Number.isFinite(Number(targetA.longitude))) {
+      console.error(`${tag} Target A coordinates null/invalid — aborting.`);
       toast.error("Target A coordinates not resolved — re-run Section 3.");
+      setErrors((p) => ({ ...p, [dirKey]: "Target A coordinates not resolved — re-run Section 3." }));
       return;
     }
     const lat = Number(targetA.latitude);
     const lon = Number(targetA.longitude);
+    setErrors((p) => ({ ...p, [dirKey]: null }));
     setLoadingDir(dirKey);
+
+    // 15s per-direction timeout → actionable error + Retry.
+    const watchdog = setTimeout(() => {
+      setLoadingDir((cur) => {
+        if (cur === dirKey) {
+          console.error(`${tag} Timed out after 15s.`);
+          setErrors((p) => ({ ...p, [dirKey]: "Viewshed timed out after 15s — terrain source did not respond." }));
+          return null;
+        }
+        return cur;
+      });
+    }, 15000);
+
     try {
-      // Obstruction profile — fetched once, cached, reused for all four.
-      if (!profileCache.current) {
-        const res = await scipViewshed({
-          lat, lon, ring_miles: radiusMiles, tower_height_ft: towerHeightFt,
-        }).catch(() => null);
-        profileCache.current = res?.data?.viewshed?.directions || [];
+      // Viewshed compute (scipViewshed profile) — cached per (coord, dir, tower).
+      const cacheKey = `${lat.toFixed(6)},${lon.toFixed(6)}|${dirKey}|${towerHeightFt}`;
+      let profileDir = computeCache.current[cacheKey];
+      if (profileDir === undefined) {
+        const res = await scipViewshed({ lat, lon, ring_miles: radiusMiles, tower_height_ft: towerHeightFt }).catch((e) => {
+          console.error(`${tag} scipViewshed threw:`, e?.message); return null;
+        });
+        const dirs = res?.data?.viewshed?.directions || [];
+        profileDir = dirs.find((d) => d.short === dirKey) || null;
+        computeCache.current[cacheKey] = profileDir;
+      } else {
+        console.log(`${tag} compute cache hit`);
       }
-      const profileDir = profileCache.current.find((d) => d.short === dirKey) || null;
-      setStatsByDir((prev) => ({ ...prev, [dirKey]: obstructionStats(profileDir) }));
+
+      // 4 — compute result: visible vs occluded sample count.
+      const prof = profileDir?.profile || [];
+      const occ = prof.filter((p) => p.obstructed).length;
+      console.log(`${tag} Compute result: ${prof.length - occ} visible / ${occ} occluded of ${prof.length} samples`);
+
+      const stats = obstructionStats(profileDir, radiusMiles, towerHeightFt);
+      setStatsByDir((prev) => ({ ...prev, [dirKey]: stats }));
+      setProfileByDir((prev) => ({ ...prev, [dirKey]: prof }));
 
       // Dispose any prior instance for this direction before re-rendering.
       maps.current[dirKey]?.destroy?.();
@@ -75,18 +146,35 @@ export default function Section5Viewsheds({
 
       // Render with the per-direction beam angle (override of default 90°).
       const dirCfg = { ...DIRECTIONS[dirKey], spread: (beamAngles[dirKey] || 90) / 2 };
-      const result = await renderViewshed(refs[dirKey].current, lat, lon, dirKey, radiusMiles, dirCfg);
+      const result = await renderViewshed(refs[dirKey].current, lat, lon, dirKey, radiusMiles, dirCfg, profileDir);
       maps.current[dirKey] = result;
       setEngines((prev) => ({ ...prev, [dirKey]: result.engine }));
+      // 7 — stats render.
+      console.log(`${tag} Stats panel render: clear=${stats.pctClear}% blocked=${stats.pctObstructed}%`);
+      setTimestamps((prev) => ({ ...prev, [dirKey]: new Date().toLocaleTimeString() }));
       setCompleted((prev) => ({ ...prev, [dirKey]: true }));
       toast.success(`${DIRECTIONS[dirKey].label} generated for Target A.`);
     } catch (err) {
-      console.error(err);
-      toast.error(err?.message || `${dirKey} viewshed failed.`);
+      console.error(`${tag} render threw:`, err);
+      const msg = (err?.code === 401 || err?.code === 403)
+        ? "Cesium auth failed — verify CESIUM_ION_TOKEN"
+        : (err?.message || `${dirKey} viewshed failed.`);
+      toast.error(msg);
+      setErrors((p) => ({ ...p, [dirKey]: msg }));
     } finally {
+      clearTimeout(watchdog);
       setLoadingDir(null);
     }
   }, [targetA, radiusMiles, towerHeightFt, beamAngles, refs]);
+
+  // Recompute = drop the cache for this direction, then re-run (beam/tower tweaks).
+  const recomputeDir = useCallback((dirKey) => {
+    const lat = Number(targetA?.latitude), lon = Number(targetA?.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      delete computeCache.current[`${lat.toFixed(6)},${lon.toFixed(6)}|${dirKey}|${towerHeightFt}`];
+    }
+    runDir(dirKey);
+  }, [targetA, towerHeightFt, runDir]);
 
   // The North button also arms the section (pipelineStep → "viewsheds").
   const beginAndRun = (dirKey) => {
@@ -151,13 +239,18 @@ export default function Section5Viewsheds({
             unlocked={dirKey === "N" ? isUnlocked("N") : active && isUnlocked(dirKey)}
             loading={loadingDir === dirKey}
             done={!!completed[dirKey]}
+            error={errors[dirKey]}
             engine={engines[dirKey]}
             stats={statsByDir[dirKey]}
+            profile={profileByDir[dirKey]}
+            timestamp={timestamps[dirKey]}
+            combinedInset={combinedInset}
             rangeMiles={radiusMiles}
             towerHeightFt={towerHeightFt}
             beamAngle={beamAngles[dirKey]}
             onBeamAngleChange={(a) => setBeamAngles((prev) => ({ ...prev, [dirKey]: a }))}
             onRun={() => beginAndRun(dirKey)}
+            onRecompute={() => recomputeDir(dirKey)}
             mapRef={refs[dirKey]}
           />
         ))}
