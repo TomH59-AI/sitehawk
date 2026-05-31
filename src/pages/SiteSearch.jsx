@@ -7,6 +7,7 @@ import DemoModeButton from "../components/search/DemoModeButton";
 import HawkFlightSpinner from "../components/search/HawkFlightSpinner";
 import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
+import Section3Targets from "../components/search/Section3Targets";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 
@@ -28,6 +29,8 @@ export default function SiteSearch() {
   const [pipelineStep, setPipelineStep] = useState("sarf");
   // True once the Section 1 SARF MapBox render is complete — unlocks Section 2.
   const [sarfReady, setSarfReady] = useState(false);
+  // True once the Section 2 Zoning lookup is complete — unlocks Section 3.
+  const [zoningReady, setZoningReady] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -87,6 +90,7 @@ export default function SiteSearch() {
     setScanError(null);
     setLoading(true);
     setSarfReady(false);
+    setZoningReady(false);
     setSearchCenter({ lat: latitude, lon: longitude });
     setPipelineStep("sarf");
   };
@@ -195,6 +199,22 @@ export default function SiteSearch() {
           lon={Number(searchCenter.lon)}
           candidate={{ latitude: Number(searchCenter.lat), longitude: Number(searchCenter.lon) }}
           onRun={() => setPipelineStep("zoning")}
+          onComplete={() => setZoningReady(true)}
+        />
+      )}
+
+      {/* SECTION 3 — TARGET PARCELS. Locked until Section 2 zoning is complete;
+          fires only when the user clicks "Run Targets" (pipelineStep → "targets"). */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section3Targets
+          unlocked={zoningReady}
+          active={pipelineStep === "targets"}
+          lat={Number(searchCenter.lat)}
+          lon={Number(searchCenter.lon)}
+          radiusMiles={searchParams.radius_miles}
+          towerHeightFt={searchParams.tower_height_ft || 199}
+          compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
+          onRun={() => setPipelineStep("targets")}
         />
       )}
     </div>

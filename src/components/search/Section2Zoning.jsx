@@ -106,7 +106,7 @@ function reportToValues(report) {
   return v;
 }
 
-export default function Section2Zoning({ unlocked, active, lat, lon, candidate, onRun }) {
+export default function Section2Zoning({ unlocked, active, lat, lon, candidate, onRun, onComplete }) {
   const [values, setValues] = useState(emptyValues);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -146,8 +146,9 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       toast.error(err?.message || "Zoning lookup failed — manual entry required.");
     } finally {
       setLoading(false);
+      onComplete?.();
     }
-  }, [lat, lon, candidate]);
+  }, [lat, lon, candidate, onComplete]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "zoning").
   // No auto-trigger before that — `active` only flips on the user's Run click.
