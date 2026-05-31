@@ -8,12 +8,7 @@ import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import SARFMap from "../components/scip/SARFMap";
 import HawkZoningOverview from "../components/scip/HawkZoningOverview";
 import HawkParcelDetails from "../components/scip/HawkParcelDetails";
-import HawkUtilitiesIntelligence from "../components/scip/HawkUtilitiesIntelligence";
 import HawkElectricServiceMap from "../components/scip/HawkElectricServiceMap";
-import HawkAirportDistanceMap from "../components/scip/HawkAirportDistanceMap";
-import HawkAmInterferenceMap from "../components/scip/HawkAmInterferenceMap";
-import HawkCellAirportIntelligence from "../components/scip/HawkCellAirportIntelligence";
-import HawkWindSpeedIntelligence from "../components/scip/HawkWindSpeedIntelligence";
 import HawkSectorCoverage from "../components/scip/HawkSectorCoverage";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
@@ -161,31 +156,14 @@ export default function SCIPPreview() {
             />
           )}
 
-          {/* Hawk Utilities Intelligence — Power + Fiber overlays, centered on Target A */}
-          <HawkUtilitiesIntelligence
-            srcLat={Number(lat)}
-            srcLon={Number(lon)}
-            targetA={targets3?.[0] || null}
-          />
+          {/* Power + fiber infrastructure now lives in the gated Section 7 pipeline
+              on /search — removed from the SCIP auto-flow. */}
 
           {/* Electric Service Map — standalone Target A connection point + provider contact card */}
           <HawkElectricServiceMap targetA={targets3?.[0] || null} />
 
-          {/* Airport Distance Map — standalone nearest airport from Target A with plane icon + distance */}
-          <HawkAirportDistanceMap targetA={targets3?.[0] || null} />
-
-          {/* AM Tower Interference Map — standalone FCC AM broadcast query + interference warning */}
-          <HawkAmInterferenceMap targetA={targets3?.[0] || null} />
-
-          {/* Hawk Cell Tower + Airport Intelligence — nearest FCC tower and nearest airport from Target A, with crow-flies distance */}
-          <HawkCellAirportIntelligence
-            srcLat={Number(lat)}
-            srcLon={Number(lon)}
-            targetA={targets3?.[0] || null}
-          />
-
-          {/* Hawk Wind Speed Intelligence — dark-mode ASCE 7-22 wind velocity zones (neon contour rings) + glassmorphism readout, centered on Target A */}
-          <HawkWindSpeedIntelligence targetA={targets3?.[0] || null} />
+          {/* Proximity & environment maps (nearest airport, nearest cell tower, ASCE 7-22 wind)
+              now live in the gated Section 6 pipeline on /search — removed from the SCIP auto-flow. */}
 
           {/* Hawk RF Coverage — CloudRF omni /area coverage PNG draped on a Mapbox aerial of Target A + model-inputs exhibit table (print-ready SCIP deliverable) */}
           <HawkSectorCoverage targetA={targets3?.[0] || null} siteName={candidate?.site_name} />

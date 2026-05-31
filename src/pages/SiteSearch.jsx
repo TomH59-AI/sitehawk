@@ -10,6 +10,8 @@ import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section5Viewsheds from "../components/search/Section5Viewsheds";
+import Section6Proximity from "../components/search/Section6Proximity";
+import Section7Infrastructure from "../components/search/Section7Infrastructure";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 
@@ -37,6 +39,10 @@ export default function SiteSearch() {
   const [targetA, setTargetA] = useState(null);
   // True once all six Section 4 maps are complete — unlocks Section 5.
   const [mapsComplete, setMapsComplete] = useState(false);
+  // True once all four Section 5 viewsheds are complete — unlocks Section 6.
+  const [viewshedsComplete, setViewshedsComplete] = useState(false);
+  // True once all three Section 6 proximity maps are complete — unlocks Section 7.
+  const [proximityComplete, setProximityComplete] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -99,6 +105,8 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setMapsComplete(false);
+    setViewshedsComplete(false);
+    setProximityComplete(false);
     setSearchCenter({ lat: latitude, lon: longitude });
     setPipelineStep("sarf");
   };
@@ -254,6 +262,33 @@ export default function SiteSearch() {
           radiusMiles={searchParams.radius_miles}
           towerHeightFt={searchParams.tower_height_ft || 199}
           onRun={() => setPipelineStep("viewsheds")}
+          onComplete={() => setViewshedsComplete(true)}
+        />
+      )}
+
+      {/* SECTION 6 — HAWK PROXIMITY & ENVIRONMENT VISION. Locked until all four
+          Section 5 viewsheds are complete. Three maps (airport → cell tower →
+          wind), each fired one-at-a-time by its own button. Target A ONLY. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section6Proximity
+          unlocked={viewshedsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          active={pipelineStep === "proximity"}
+          targetA={targetA}
+          onRun={() => setPipelineStep("proximity")}
+          onComplete={() => setProximityComplete(true)}
+        />
+      )}
+
+      {/* SECTION 7 — HAWK INFRASTRUCTURE VISION. Locked until all three Section 6
+          maps are complete. ONE interactive power + fiber map the user drives
+          with toggles. Single Run button. Target A ONLY. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section7Infrastructure
+          unlocked={proximityComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          active={pipelineStep === "infrastructure"}
+          targetA={targetA}
+          radiusMiles={searchParams.radius_miles}
+          onRun={() => setPipelineStep("infrastructure")}
         />
       )}
     </div>
