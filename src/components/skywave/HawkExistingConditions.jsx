@@ -11,6 +11,7 @@ const ROWS = [
   ["water_management_district", "Water Management District"],
   ["hazardous_waste", "Hazardous Waste Concerns?"],
   ["access_notes", "Access Notes (ROW, driveway, code)"],
+  ["contact_911", "911 Contact Information (non-emergency address & phone)"],
   ["local_police", "Local Police (municipality & phone)"],
   ["local_fire", "Local Fire Dept (municipality & phone)"],
 ];

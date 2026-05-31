@@ -126,6 +126,7 @@ Deno.serve(async (req) => {
 1. Water Management District: the regulatory water management district / agency with jurisdiction over stormwater & water resources at this location (e.g. in FL: SWFWMD, SJRWMD, SFWMD; elsewhere the state/regional equivalent). Give the district name.
 2. Hazardous Waste Concerns: whether there are known EPA/state hazardous-waste, Superfund (CERCLIS/NPL), brownfield, or contamination sites on or immediately near this parcel. Answer "None identified" or describe the concern briefly with the site name.
 3. Access Notes: how the parcel is accessed — nearest public road / right-of-way, whether access appears to be a public road frontage, an easement, or a private driveway. Keep it to one short sentence.
+4. 911 Contact Information: the local 911 / Public Safety Answering Point (PSAP) or county emergency communications center serving this location. Give its name, mailing/street address, and NON-EMERGENCY phone number (never 911). Format as "Name, Address — (xxx) xxx-xxxx". If unknown, say "Requires field verification".
 Be concise and factual. If unknown, say "Requires field verification".`,
         response_json_schema: {
           type: "object",
@@ -133,6 +134,7 @@ Be concise and factual. If unknown, say "Requires field verification".`,
             water_management_district: { type: "string" },
             hazardous_waste: { type: "string" },
             access_notes: { type: "string" },
+            contact_911: { type: "string" },
           },
         },
       }),
@@ -149,6 +151,7 @@ Be concise and factual. If unknown, say "Requires field verification".`,
       water_management_district: llm.water_management_district || "Requires field verification",
       hazardous_waste: llm.hazardous_waste || "Requires field verification",
       access_notes: llm.access_notes || "Requires field verification",
+      contact_911: llm.contact_911 || "Requires field verification",
       local_police: sf.police || "Requires field verification",
       local_fire: sf.fire || "Requires field verification",
     };
