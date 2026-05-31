@@ -1,0 +1,42 @@
+{
+  "name": "PSAP",
+  "type": "object",
+  "description": "911 Master PSAP (Public Safety Answering Point) Registry. Source: 911_Master_PSAP_Registry.csv. Used to identify the nearest 911 dispatch / public-safety answering point for a site.",
+  "properties": {
+    "psap_id": {
+      "type": "string",
+      "description": "PSAP ID from the FCC registry."
+    },
+    "psap_name": {
+      "type": "string",
+      "description": "PSAP name."
+    },
+    "county": {
+      "type": "string",
+      "description": "County."
+    },
+    "city": {
+      "type": "string",
+      "description": "City."
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter state code."
+    },
+    "type_of_change": {
+      "type": "string",
+      "description": "Type of Change (full text) from the registry."
+    },
+    "date_last_modified": {
+      "type": "string",
+      "description": "Date last modified (may be blank)."
+    },
+    "geocode_city_level": {
+      "type": "string",
+      "description": "Raw 'Geocode City Level' value as provided (may contain embedded coordinates)."
+    }
+  },
+  "required": [
+    "psap_id"
+  ]
+}
