@@ -22,6 +22,7 @@ import MapSubStep from "./section4/MapSubStep";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
+import { zoneomicsTest } from "@/functions/zoneomicsTest";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoning, renderWetlands, renderParcel, BRAND_GREEN,
@@ -36,6 +37,7 @@ export default function Section4MapSuite({
   const [completed, setCompleted] = useState({});
   const [loadingStep, setLoadingStep] = useState(null);
   const [floodZone, setFloodZone] = useState(null);
+  const [zoneInfo, setZoneInfo] = useState(null);
 
   // Fire onComplete once all six maps are done — unlocks Section 5.
   useEffect(() => {
@@ -86,7 +88,15 @@ export default function Section4MapSuite({
         map = m;
         setFloodZone(fres?.data?.fema_zone || fres?.data?.fema_risk_factor || null);
       } else if (step === "zoning") {
-        map = await renderZoning(refs.zoning.current, targetA, token, cfg.zoneomicsApiKey);
+        // Resolve the Target A zone code/name/type from Zoneomics zoneDetail to
+        // label the parcel + populate the floating legend (overlay tiles paint districts).
+        const zres = await zoneomicsTest({
+          lat: targetA.latitude, lng: targetA.longitude, output_fields: "zoning",
+        }).catch(() => null);
+        const zd = zres?.data?.data?.data?.zone_details || null;
+        const zone = zd ? { zone_code: zd.zone_code, zone_name: zd.zone_name, zone_type: zd.zone_type } : null;
+        setZoneInfo(zone);
+        map = await renderZoning(refs.zoning.current, targetA, token, cfg.zoneomicsApiKey, zone);
       } else if (step === "wetlands") {
         map = await renderWetlands(refs.wetlands.current, targetA, token);
       } else if (step === "parcel") {
@@ -149,7 +159,12 @@ export default function Section4MapSuite({
         FEMA Flood Zone at Target A centroid: <span className="font-mono">{floodZone}</span>
       </div>
     ) : null,
-    zoning: targetA?.zoning_classification ? (
+    zoning: zoneInfo?.zone_code ? (
+      <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+        Zoneomics district at Target A: <span className="font-mono">{zoneInfo.zone_code}</span>
+        {zoneInfo.zone_name ? <span className="font-normal opacity-80"> — {zoneInfo.zone_name}</span> : null}
+      </div>
+    ) : targetA?.zoning_classification ? (
       <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
         Target A zoning classification: <span className="font-mono">{targetA.zoning_classification}</span>
       </div>
