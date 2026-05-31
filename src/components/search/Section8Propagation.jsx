@@ -26,7 +26,9 @@ async function ensureMapboxLoaded() {
       css.rel = "stylesheet"; css.href = MAPBOX_CSS;
       document.head.appendChild(css);
       const s = document.createElement("script");
-      s.src = MAPBOX_JS; s.onload = resolve; s.onerror = reject;
+      s.src = MAPBOX_JS;
+      s.onload = () => resolve();
+      s.onerror = () => { mapboxLoadingPromise = null; reject(new Error("Failed to load Mapbox GL")); };
       document.head.appendChild(s);
     });
   }
@@ -128,10 +130,10 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
     async function draw() {
       if (status !== "done" || !activeCoverage?.png_url || !coordsOk) return;
       const cfg = await loadPublicConfig();
-      const token = cfg.mapboxAccessToken;
+      const token = cfg?.mapboxAccessToken;
       if (!token || cancelled) return;
       await ensureMapboxLoaded();
-      if (cancelled || !containerRef.current) return;
+      if (cancelled || !containerRef.current || !window.mapboxgl) return;
 
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
       window.mapboxgl.accessToken = token;
@@ -144,6 +146,7 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
       map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
 
       map.on("load", () => {
+        if (cancelled) return;
         const b = activeCoverage.bounds;
         // CloudRF bounds: [north, east, south, west] or {north,...}. Normalize.
         let north, south, east, west;
@@ -167,7 +170,7 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
 
       mapRef.current = map;
     }
-    draw();
+    draw().catch((e) => console.warn("Section8 map draw failed:", e?.message || e));
     return () => { cancelled = true; mapRef.current?.remove?.(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, activeCarrier, base, activeCoverage?.png_url]);
