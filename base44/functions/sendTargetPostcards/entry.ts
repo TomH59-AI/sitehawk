@@ -10,10 +10,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 //   action="send"   → charges the user, then creates the Lob postcards
 //
 // Pricing (what the app charges the user):
-//   $12.00 per postcard (covers Lob 6x9 first-class + margin).
+//   $12.00 flat for the primary batch (up to 3 postcards).
+//   $1.00 flat add-on for a bonus batch (up to 3 more postcards).
 
 const LOB_POSTCARDS_URL = 'https://api.lob.com/v1/postcards';
-const PRICE_PER_CARD_USD = 12.0;
+const PRIMARY_BATCH_USD = 12.0; // flat — up to 3 cards
+const BONUS_BATCH_USD = 1.0;    // flat — up to 3 bonus cards
 
 function parseMailingAddress(str) {
   if (!str) return null;
@@ -50,13 +52,21 @@ function postcardFront(target) {
 }
 
 // Back — personalized pitch + the user's contact info so owners can respond.
-function postcardBack(target, sender) {
+// `message` (optional) is a custom/HawkBot-drafted body that replaces the
+// default 3-paragraph pitch. It's plain text; newlines become paragraphs.
+function postcardBack(target, sender, message) {
   const owner = esc(target.owner_name || 'Property Owner');
   const company = esc(sender.company || sender.name || 'SiteHawk Land Acquisition');
   const name = esc(sender.name || '');
   const phone = esc(sender.phone || '');
   const email = esc(sender.email || '');
   const addr = esc(sender.address || '');
+  const customBody = String(message || '').trim();
+  const bodyHtml = customBody
+    ? customBody.split(/\n{1,}/).map((p) => `<p>${esc(p.trim())}</p>`).join('')
+    : `<p>Wireless carriers are expanding coverage in your area, and your property's location makes it a real candidate for a ground lease. These leases are designed to be <strong>low-impact</strong> and provide <strong>steady monthly income</strong> over a long term.</p>
+      <p>There is <strong>no cost and no obligation</strong> to learn more. I'd be glad to walk you through what a lease could look like for your specific parcel.</p>
+      <p>Please reach out anytime — I'd love to talk.</p>`;
   return `<html><head><style>
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Helvetica Neue',Arial,sans-serif;color:#13233f;}
@@ -70,9 +80,7 @@ function postcardBack(target, sender) {
   </style></head><body><div class="wrap">
     <div class="msg">
       <h2>Dear ${owner},</h2>
-      <p>Wireless carriers are expanding coverage in your area, and your property's location makes it a real candidate for a ground lease. These leases are designed to be <strong>low-impact</strong> and provide <strong>steady monthly income</strong> over a long term.</p>
-      <p>There is <strong>no cost and no obligation</strong> to learn more. I'd be glad to walk you through what a lease could look like for your specific parcel.</p>
-      <p>Please reach out anytime — I'd love to talk.</p>
+      ${bodyHtml}
     </div>
     <div class="cta">
       <div class="lbl">Contact Me Directly</div>
@@ -92,14 +100,14 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = (await req.json()) ?? {};
-    const { action, targets, sender } = body;
+    const { action, targets, sender, message } = body;
 
     if (!Array.isArray(targets) || !targets.length) {
       return Response.json({ error: 'targets array is required' }, { status: 400 });
     }
-    // Up to 3 primary targets ($12 each) + up to 5 bonus targets ($1 flat add-on).
-    if (targets.length > 8) {
-      return Response.json({ error: 'You can mail at most 8 targets at a time (3 primary + 5 bonus).' }, { status: 400 });
+    // Up to 3 primary targets ($12 flat) + up to 3 bonus targets ($1 flat add-on).
+    if (targets.length > 6) {
+      return Response.json({ error: 'You can mail at most 6 targets at a time (3 primary + 3 bonus).' }, { status: 400 });
     }
 
     // Validate addresses + build the charge preview.
@@ -116,11 +124,15 @@ Deno.serve(async (req) => {
     const validCount = validated.filter((v) => v.valid).length;
 
     if (action === 'quote') {
+      const bonusCount = Math.min(Math.max(parseInt(body.bonus_count, 10) || 0, 0), 3);
+      const hasPrimary = validCount - bonusCount > 0;
+      const total = (hasPrimary ? PRIMARY_BATCH_USD : 0) + (bonusCount > 0 ? BONUS_BATCH_USD : 0);
       return Response.json({
         recipients: validated,
         valid_count: validCount,
-        unit_cost_usd: PRICE_PER_CARD_USD,
-        total_cost_usd: validCount * PRICE_PER_CARD_USD,
+        primary_batch_usd: PRIMARY_BATCH_USD,
+        bonus_batch_usd: BONUS_BATCH_USD,
+        total_cost_usd: total,
       });
     }
 
@@ -131,8 +143,8 @@ Deno.serve(async (req) => {
       if (validCount === 0) {
         return Response.json({ error: 'No valid mailing addresses to send to.' }, { status: 400 });
       }
-      // Pricing: primary cards at $12 each; the bonus batch (last N targets) is a $1 flat add-on.
-      const bonusCount = Math.min(Math.max(parseInt(body.bonus_count, 10) || 0, 0), 5);
+      // Pricing: $12 flat for the primary batch (up to 3); $1 flat for the bonus batch (up to 3).
+      const bonusCount = Math.min(Math.max(parseInt(body.bonus_count, 10) || 0, 0), 3);
       const primaryCount = Math.max(validCount - bonusCount, 0);
 
       const key = Deno.env.get('LOB_API_KEY_SECRET') || Deno.env.get('LOB_API_KEY');
@@ -164,7 +176,7 @@ Deno.serve(async (req) => {
             form.set('from[address_zip]', sParsed.zip || '');
           }
           form.set('front', postcardFront(r));
-          form.set('back', postcardBack(r, sender));
+          form.set('back', postcardBack(r, sender, message));
           form.set('size', '6x9');
 
           const resp = await fetch(LOB_POSTCARDS_URL, {
@@ -190,10 +202,10 @@ Deno.serve(async (req) => {
       }
 
       const sent = results.filter((r) => r.status === 'sent').length;
-      // Charge: primary sent cards at $12 + a flat $1 if any bonus cards were sent.
+      // Charge: flat $12 if any primary card sent + flat $1 if any bonus card sent.
       const sentPrimary = Math.min(sent, primaryCount);
       const sentBonus = Math.max(sent - sentPrimary, 0);
-      const charged = sentPrimary * PRICE_PER_CARD_USD + (sentBonus > 0 ? 1.0 : 0);
+      const charged = (sentPrimary > 0 ? PRIMARY_BATCH_USD : 0) + (sentBonus > 0 ? BONUS_BATCH_USD : 0);
       console.log(`sendTargetPostcards: ${sent}/${validCount} sent (${mode}, ${sentBonus} bonus) by ${user.email}`);
       return Response.json({
         sent,

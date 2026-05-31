@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, Send, Loader2, CheckCircle2, AlertTriangle, MapPin, Sparkles, Plus } from "lucide-react";
+import { X, Send, Loader2, CheckCircle2, AlertTriangle, MapPin, Sparkles, Plus, Wand2, PenLine } from "lucide-react";
 import { sendTargetPostcards } from "@/functions/sendTargetPostcards";
 import { findMoreTargets } from "@/functions/findMoreTargets";
+import { draftHawkBotLetter } from "@/functions/draftHawkBotLetter";
+
+const TONES = ["professional", "friendly", "warm", "direct", "urgent"];
 
 // Lets the user pick up to 3 target leads, enter their own contact info, review
 // the charge, and mail engaging cell-tower-lease postcards via Lob.
@@ -16,6 +19,11 @@ export default function TargetPostcardModal({ deals, onClose }) {
   const [bonusTargets, setBonusTargets] = useState([]);
   const [bonusLoading, setBonusLoading] = useState(false);
   const [bonusError, setBonusError] = useState(null);
+  // Optional custom letter body printed on the postcard back (HawkBot or typed).
+  const [message, setMessage] = useState("");
+  const [tone, setTone] = useState("professional");
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState(null);
 
   // Prefill sender from saved localStorage so they don't retype it.
   useEffect(() => {
@@ -26,10 +34,10 @@ export default function TargetPostcardModal({ deals, onClose }) {
   }, []);
 
   const selected = deals.filter((d) => selectedIds.includes(d.id));
-  const PRICE = 12;
-  const BONUS_PRICE = 1;
+  const PRIMARY_BATCH = 12; // flat — up to 3 cards
+  const BONUS_BATCH = 1;    // flat — up to 3 bonus cards
   const bonusCount = bonusOn ? bonusTargets.length : 0;
-  const total = selected.length * PRICE + (bonusOn && bonusTargets.length ? BONUS_PRICE : 0);
+  const total = (selected.length ? PRIMARY_BATCH : 0) + (bonusOn && bonusTargets.length ? BONUS_BATCH : 0);
 
   const toggle = (id) => {
     setSelectedIds((prev) => {
@@ -52,7 +60,7 @@ export default function TargetPostcardModal({ deals, onClose }) {
     try {
       const excludeOwners = [...selected, ...deals].map((d) => d.owner_name).filter(Boolean);
       const res = await findMoreTargets({
-        lat: center.latitude, lon: center.longitude, exclude_owners: excludeOwners, limit: 5,
+        lat: center.latitude, lon: center.longitude, exclude_owners: excludeOwners, limit: 3,
       });
       if (res.data?.error) {
         setBonusError(res.data.error);
@@ -66,6 +74,29 @@ export default function TargetPostcardModal({ deals, onClose }) {
       setBonusOn(false);
     } finally {
       setBonusLoading(false);
+    }
+  };
+
+  // Ask HawkBot to draft an engaging letter body for the first selected owner.
+  const handleDraft = async () => {
+    setDraftError(null);
+    setDrafting(true);
+    try {
+      const lead = selected[0] || deals[0] || {};
+      const res = await draftHawkBotLetter({
+        owner_name: lead.owner_name,
+        parcel_address: lead.parcel_address,
+        sender_company: sender.company,
+        sender_phone: sender.phone,
+        sender_email: sender.email,
+        tonality: tone,
+      });
+      if (res.data?.error) setDraftError(res.data.error);
+      else setMessage(res.data.body || "");
+    } catch (e) {
+      setDraftError(e.message);
+    } finally {
+      setDrafting(false);
     }
   };
 
@@ -86,7 +117,7 @@ export default function TargetPostcardModal({ deals, onClose }) {
         mailing_address: t.mailing_address || t.parcel_address,
       }));
       const targets = [...baseTargets, ...extraTargets];
-      const res = await sendTargetPostcards({ action: "send", targets, sender, bonus_count: extraTargets.length });
+      const res = await sendTargetPostcards({ action: "send", targets, sender, message, bonus_count: extraTargets.length });
       if (res.data?.error) {
         setError(res.data.error);
         setPhase("error");
@@ -106,7 +137,7 @@ export default function TargetPostcardModal({ deals, onClose }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
             <h3 className="font-heading font-bold text-foreground">Mail Target Postcards</h3>
-            <p className="text-xs text-muted-foreground">Pitch up to 3 owners a cell-tower lease · ${PRICE}/postcard</p>
+            <p className="text-xs text-muted-foreground">3 postcards for ${PRIMARY_BATCH} · add 3 more for ${BONUS_BATCH}</p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-5 h-5" />
@@ -154,10 +185,10 @@ export default function TargetPostcardModal({ deals, onClose }) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-1.5 font-heading font-bold text-sm text-amber-700 dark:text-amber-300">
-                      <Sparkles className="w-4 h-4" /> Add 5 more targets — just $1
+                      <Sparkles className="w-4 h-4" /> Add 3 more targets — just $1
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      We'll scan nearby parcels (Realie) for the most tower-friendly land — big, vacant/agricultural lots with mailable owners — and mail them too. Five extra shots on goal for a single dollar.
+                      We'll scan nearby parcels (Realie) for the most tower-friendly land — big, vacant/agricultural lots with mailable owners — and mail them too. Three extra shots on goal for a single dollar.
                     </p>
                   </div>
                   {!bonusOn && (
@@ -167,7 +198,7 @@ export default function TargetPostcardModal({ deals, onClose }) {
                       className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all disabled:opacity-50"
                     >
                       {bonusLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                      Find 5 More
+                      Find 3 More
                     </button>
                   )}
                 </div>
@@ -215,12 +246,49 @@ export default function TargetPostcardModal({ deals, onClose }) {
                 </div>
               </div>
 
+              {/* Postcard message — HawkBot draft or type your own */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                    Postcard Message <span className="normal-case font-normal">(optional — defaults to our pitch)</span>
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={tone}
+                      onChange={(e) => setTone(e.target.value)}
+                      className="rounded-md border border-border bg-secondary text-[11px] capitalize px-2 py-1 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      {TONES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <button
+                      onClick={handleDraft}
+                      disabled={drafting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0C1B2E] hover:bg-[#15263f] text-white text-[11px] font-bold transition-all disabled:opacity-50"
+                    >
+                      {drafting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                      Draft with HawkBot
+                    </button>
+                  </div>
+                </div>
+                {draftError && <p className="text-xs text-red-600 mb-1.5">{draftError}</p>}
+                <div className="relative">
+                  <PenLine className="absolute top-2.5 left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={5}
+                    placeholder="Type your own engaging letter here, or click Draft with HawkBot. Leave blank to use our default tower-lease pitch."
+                    className="w-full pl-8 pr-3 py-2 rounded-lg border border-border bg-secondary text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none leading-relaxed"
+                  />
+                </div>
+              </div>
+
               {/* Charge summary */}
               <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">
-                    {selected.length} postcard{selected.length !== 1 ? "s" : ""} × ${PRICE}
-                    {bonusCount > 0 ? ` + ${bonusCount} bonus × $1 flat` : ""}
+                    {selected.length ? `${selected.length} postcard${selected.length !== 1 ? "s" : ""} — $${PRIMARY_BATCH} flat` : "No primary targets"}
+                    {bonusCount > 0 ? ` + ${bonusCount} bonus — $${BONUS_BATCH} flat` : ""}
                   </p>
                   <p className="font-heading font-bold text-2xl text-emerald-600">${total.toFixed(2)}</p>
                 </div>
