@@ -1,3 +1,34 @@
+/*
+ * DEAD CODE PURGE — 2026-05-31
+ * ----------------------------
+ * Conservative orphan-cleanup pass. Per the safety rules, NOTHING was deleted
+ * this pass — the audit found no provably-unreachable code that could be removed
+ * without risk to Sections 1–8 or to not-yet-built Sections 9+ (rule F).
+ *
+ * AUDIT RESULTS (the headline concern — background scans on cold load):
+ *   - App.jsx — only warms loadPublicConfig() (Mapbox token). No FEMA/NWI/EPA/
+ *     parcel/zoning/utility/propagation/Cesium/OpenCellID/FCC/CloudRF/Realie/
+ *     Enformion/Notion/airport/cell-tower/wind/infrastructure/viewshed calls on
+ *     mount. CLEAN.
+ *   - lib/AuthContext.jsx — auth.me() + referral register only. CLEAN (rule E).
+ *   - lib/PipelineContext.jsx — pure useState store, no network. CLEAN.
+ *   - components/Layout.jsx — auth.me() admin check only. CLEAN.
+ *   Conclusion: no stale shared hook fires a section scan outside its gated
+ *   pipelineStep. Nothing to remove or re-gate.
+ *
+ * FLAGGED — NEEDS HUMAN REVIEW (NOT deleted — could not be proven 100% orphan,
+ * and/or fall under the Section 9+ "results / scoring / deliverable" carve-out):
+ *   - components/SiteSearchResults.jsx — exported, not a route, references a
+ *     scan-results/scoring/buildability shape + an inline CandidateCard. Could be
+ *     legacy from the pre-refactor results view OR intended for a Section 9+
+ *     results panel. LEFT ALONE (rule B + rule F). Tom: confirm before removing.
+ *   - components/scan/* (CandidateCard, ScanResultsSidebar, RFCoveragePanel,
+ *     OwnerMailerCard, ResultsFilterSort, etc.) — results/scoring flavored,
+ *     reachable via /results. LEFT ALONE (rule F).
+ *
+ * No env vars, secrets, shared utilities, design tokens, the hawk icon, the
+ * loader, routes, or pipeline logic were touched.
+ */
 import { useState, useEffect } from 'react';
 import { loadPublicConfig } from '@/lib/publicConfig';
 import { Toaster } from "@/components/ui/toaster"
