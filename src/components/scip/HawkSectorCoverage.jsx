@@ -191,7 +191,10 @@ export default function HawkSectorCoverage({ targetA, siteName }) {
           id: "hsc-coverage-layer",
           type: "raster",
           source: "hsc-coverage",
-          paint: { "raster-opacity": 0.6 },
+          // Full opacity — let CloudRF's own PNG transparency carry the no-signal
+          // areas so the aerial shows through weak zones (no muddy uniform fade).
+          // 'nearest' keeps the heat bins crisp instead of blending.
+          paint: { "raster-opacity": 1, "raster-resampling": "nearest" },
         });
         const lons = coords.map((c) => c[0]);
         const lats = coords.map((c) => c[1]);
