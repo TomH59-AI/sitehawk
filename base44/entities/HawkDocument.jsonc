@@ -1,0 +1,142 @@
+{
+  "name": "HawkDocument",
+  "type": "object",
+  "description": "Hawk Document Intelligence \u2014 an uploaded zoning or building-permit application that SiteHawk reads, explains, and fills. AI extracts every form field, explains what it asks for, pre-fills from a chosen SCIP record, and the user completes the rest via Q&A.",
+  "properties": {
+    "doc_name": {
+      "type": "string",
+      "description": "User label for the document (e.g. 'Hillsborough County Tower CUP Application')."
+    },
+    "source_file_url": {
+      "type": "string",
+      "description": "URL of the uploaded application file (PDF or DOCX)."
+    },
+    "source_file_name": {
+      "type": "string",
+      "description": "Original filename."
+    },
+    "source_file_type": {
+      "type": "string",
+      "enum": [
+        "pdf",
+        "docx"
+      ],
+      "description": "Uploaded file type."
+    },
+    "linked_scip_id": {
+      "type": "string",
+      "description": "ScipRecord id the user picked to pre-fill answers from (optional)."
+    },
+    "linked_target_index": {
+      "type": "number",
+      "default": 0,
+      "description": "Which parcel_targets index of the linked SCIP was used to pre-fill (0 = Target A)."
+    },
+    "doc_type": {
+      "type": "string",
+      "description": "AI-detected document type (e.g. 'Conditional Use Permit Application', 'Building Permit Application')."
+    },
+    "doc_summary": {
+      "type": "string",
+      "description": "Short plain-English summary of what this application is and what it's for."
+    },
+    "fields": {
+      "type": "array",
+      "description": "Extracted form fields. Each: { key, label, explanation, value, source('scip'|'user'|'empty'), required(bool), section, field_type }.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "scip",
+              "user",
+              "empty"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "section": {
+            "type": "string"
+          },
+          "field_type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "uploaded",
+        "analyzing",
+        "ready",
+        "failed"
+      ],
+      "default": "uploaded",
+      "description": "uploaded=file in; analyzing=AI reading; ready=fields extracted; failed=error."
+    },
+    "analyzed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when analysis completed."
+    }
+  },
+  "required": [
+    "doc_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

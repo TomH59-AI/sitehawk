@@ -68,6 +68,7 @@ import SARFMap from './pages/SARFMap';
 import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
 import HawkLaw from './pages/HawkLaw';
+import HawkDocs from './pages/HawkDocs';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -137,6 +138,7 @@ const AuthenticatedApp = () => {
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         <Route path="/hawklaw" element={<HawkLaw />} />
+        <Route path="/hawk-docs" element={<HawkDocs />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
