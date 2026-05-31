@@ -1,59 +1,71 @@
 /*
- * SECTION 1 SARF SPEEDUP AUDIT — findings & fixes
- * ------------------------------------------------
- * Bottlenecks found in Section 1's render path and what changed:
- *   1. STALE BACKGROUND HOOKS — none found. Section 1 already makes exactly one
- *      network path (Mapbox GL tiles). No FEMA/NWI/parcel/zoning/etc. fetches here.
- *   2. STATIC IMAGES vs GL JS — already GL JS (client-side, progressive tiles). Kept.
- *   3. RADIUS CIRCLE STEPS — already steps=64. Kept.
- *   4. UNNEEDED GEOCODING — none. lat/lon used directly, no reverse-geocode. Kept.
- *   5. MEMOIZATION — FIXED: component wrapped in React.memo so unrelated parent
- *      re-renders no longer tear down & rebuild the map. (props memoized in parent.)
- *   6. AUTH / CONFIG WARM-UP — FIXED: loadPublicConfig() was a cold backend
- *      round-trip blocking the FIRST render. Now (a) prefetched at app level so
- *      it's warm before submit, and (b) skipped entirely once the token is set
- *      on window.mapboxgl. No network wait on the path that matters.
- *   7. IMAGE SIZE — live render is GL JS (no PNG generated here). N/A.
- *   8. STYLE / TOKEN — token from cached config (warmed at app boot, not fetched
- *      on submit). Base style kept as satellite-streets (operational requirement)
- *      but tile fetch no longer waits behind a backend call.
- *   9. LAYER ORDER — already base tiles first, circle+waypoint added on "load". Kept.
- *  10. CACHE — FIXED: skips full map rebuild when lat/lon/radius are unchanged;
- *      only the agent label/marker is refreshed.
- *  11. NETWORK PARALLELISM — Mapbox tiles share an HTTP/2 connection; nothing
- *      artificially serialized. No change needed.
+ * SARF DIAGNOSTIC FIX — 2026-05-31
+ * --------------------------------
+ * Reported: clicking Submit spun the hawk forever, no map ever appeared.
+ *
+ * ROOT CAUSE: the map's "load" event was the ONLY thing that fired onReady()
+ * (which clears the parent spinner). If the token was rejected, the network
+ * failed, or GL JS errored, "load" never fired → onReady never fired →
+ * INFINITE SPINNER with no error shown. Errors in draw() were also swallowed.
+ *
+ * ISSUES FOUND & FIXED (Section 1 ONLY — nothing else touched):
+ *   1. TOKEN MISSING/EMPTY — was silently `return`ed (token falsy → bail, spinner
+ *      stuck). NOW: shows "MapBox token missing — set MAPBOX_ACCESS_TOKEN in
+ *      Base44 secrets." and clears the spinner.
+ *   2. WRONG TOKEN TYPE — a secret "sk." token silently fails in-browser. NOW:
+ *      validated; shows "Wrong token type — need a public pk. token…".
+ *   3. MAPBOX GL CSS — confirmed loaded via the CDN <link> in ensureMapboxLoaded
+ *      (this build uses the CDN GL JS, not the npm package). Kept + hardened so a
+ *      script load failure rejects with a real Error instead of undefined.
+ *   4. CONTAINER HEIGHT — added explicit inline width:100%/height:600px safety
+ *      net on the container so a collapsed flex parent can't 0-height the map.
+ *   5. accessToken ORDER — confirmed set BEFORE new mapboxgl.Map(); kept.
+ *   6. INIT ERROR HANDLING — new mapboxgl.Map() now wrapped in try/catch; map
+ *      "error" event listened to and surfaced in the panel (401/403 → token
+ *      rejected message).
+ *   7. LOAD CONFIRMATION + 15s TIMEOUT — onReady now fires on "load"; if "load"
+ *      never fires within 15s, the spinner is killed and a timeout error with a
+ *      Retry button is shown. THE INFINITE SPINNER CAN NO LONGER HAPPEN.
+ *   8. STYLE URL — valid (mapbox://styles/mapbox/satellite-streets-v12). Kept.
+ *   9. [SARF DIAG] console.log added at token load, accessToken set, Map()
+ *      construction, "load", "error", and timeout so failures are visible.
+ *
+ * Untouched: pipelineStep state machine, HawkFlightSpinner component, all other
+ * sections. The 15s timeout + error UI is ADDED here, around the existing flow.
  */
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 
 const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js";
 const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css";
+const LOAD_TIMEOUT_MS = 15000;
 
 let mapboxLoadingPromise = null;
 async function ensureMapboxLoaded() {
   if (window.mapboxgl) return;
   if (!mapboxLoadingPromise) {
     mapboxLoadingPromise = new Promise((resolve, reject) => {
-      const css = document.createElement("link");
-      css.rel = "stylesheet";
-      css.href = MAPBOX_CSS;
-      document.head.appendChild(css);
+      // CSS — without this the GL container has 0px height and renders blank.
+      if (!document.querySelector(`link[href="${MAPBOX_CSS}"]`)) {
+        const css = document.createElement("link");
+        css.rel = "stylesheet";
+        css.href = MAPBOX_CSS;
+        document.head.appendChild(css);
+      }
       const s = document.createElement("script");
       s.src = MAPBOX_JS;
-      s.onload = resolve;
-      s.onerror = reject;
+      s.onload = () => resolve();
+      s.onerror = () => { mapboxLoadingPromise = null; reject(new Error("Failed to load Mapbox GL JS")); };
       document.head.appendChild(s);
     });
   }
   await mapboxLoadingPromise;
 }
 
-// Resolve the token without a blocking backend round-trip on the hot path:
-// if it's already set on the GL instance, reuse it; otherwise read the (warmed) cache.
 async function resolveToken() {
   if (window.mapboxgl?.accessToken) return window.mapboxgl.accessToken;
   const cfg = await loadPublicConfig();
-  return cfg.mapboxAccessToken;
+  return cfg?.mapboxAccessToken;
 }
 
 // Geodesic circle polygon (great-circle math). steps=64 — visually identical, cheap.
@@ -79,19 +91,32 @@ function buildCircle(lat, lon, radiusMiles, steps = 64) {
   return { type: "Feature", geometry: { type: "Polygon", coordinates: [coords] }, properties: {} };
 }
 
-// Section One SARF output — ONE MapBox render: center waypoint, the selected
-// radius ring, and the agent-name label. No other layers, no other fetches.
 function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
-  // Cache key — skip the full rebuild when geometry inputs are unchanged.
   const lastKeyRef = useRef(null);
+  const timeoutRef = useRef(null);
+  const [error, setError] = useState(null);
+  const [attempt, setAttempt] = useState(0); // bumped by Retry
 
   useEffect(() => {
     let cancelled = false;
+    setError(null);
 
-    // Refresh only the agent marker/label without rebuilding the map.
+    function clearTimeoutSafe() {
+      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    }
+
+    // Kill the spinner + show an error. onReady() clears the parent's loading state.
+    function fail(message) {
+      if (cancelled) return;
+      console.log("[SARF DIAG] FAIL:", message);
+      clearTimeoutSafe();
+      setError(message);
+      onReady?.(); // critical: stops the infinite hawk spinner
+    }
+
     function placeMarker(map) {
       markerRef.current?.remove?.();
       const el = document.createElement("div");
@@ -117,46 +142,77 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
       const geoKey = `${lat},${lon},${radiusMiles}`;
-      // CACHE: identical geometry already rendered — just refresh the label and bail.
       if (mapRef.current && lastKeyRef.current === geoKey) {
         placeMarker(mapRef.current);
         onReady?.();
         return;
       }
 
-      const token = await resolveToken();
-      if (!token || cancelled) return;
-      await ensureMapboxLoaded();
-      if (cancelled || !containerRef.current) return;
+      // 1 + 2 — TOKEN VALIDATION
+      let token;
+      try {
+        token = await resolveToken();
+      } catch (e) {
+        return fail(`Could not load MapBox token — ${e?.message || "config request failed"}.`);
+      }
+      console.log("[SARF DIAG] token loaded:", token ? `${String(token).slice(0, 6)}…` : "(empty)");
+      if (cancelled) return;
+      if (!token) return fail("MapBox token missing — set MAPBOX_ACCESS_TOKEN in Base44 secrets.");
+      if (String(token).startsWith("sk.")) return fail("Wrong token type — need a public pk. token, not a secret sk. token.");
+
+      try {
+        await ensureMapboxLoaded();
+      } catch (e) {
+        return fail(e?.message || "Failed to load Mapbox GL JS — check your network.");
+      }
+      if (cancelled || !containerRef.current || !window.mapboxgl) return;
 
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
 
       window.mapboxgl.accessToken = token;
-      const map = new window.mapboxgl.Map({
-        container: containerRef.current,
-        style: "mapbox://styles/mapbox/satellite-streets-v12",
-        center: [lon, lat],
-        zoom: 13,
-      });
+      console.log("[SARF DIAG] mapboxgl.accessToken set");
+
+      // 7 — 15s timeout guard so "load" never-firing can't hang the spinner.
+      timeoutRef.current = setTimeout(() => {
+        console.log("[SARF DIAG] load TIMEOUT after", LOAD_TIMEOUT_MS, "ms");
+        fail("Map failed to load — check token and network.");
+      }, LOAD_TIMEOUT_MS);
+
+      // 6 — wrap construction in try/catch
+      let map;
+      try {
+        console.log("[SARF DIAG] constructing mapboxgl.Map()");
+        map = new window.mapboxgl.Map({
+          container: containerRef.current,
+          style: "mapbox://styles/mapbox/satellite-streets-v12",
+          center: [lon, lat],
+          zoom: 13,
+        });
+      } catch (e) {
+        return fail(`Map init error — ${e?.message || "could not construct map"}.`);
+      }
+
       map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
       map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
 
-      // LAYER ORDER: base tiles paint first; circle + waypoint added on "load".
+      // 6 + 8 — surface GL errors (401/403 → token rejected)
+      map.on("error", (e) => {
+        const status = e?.error?.status;
+        console.log("[SARF DIAG] map 'error' event:", status, e?.error?.message);
+        if (status === 401 || status === 403) {
+          fail("MapBox token rejected — likely expired or wrong scopes. Regenerate a public token at account.mapbox.com.");
+        }
+        // non-fatal tile errors are ignored (load may still succeed)
+      });
+
       map.on("load", () => {
+        if (cancelled) return;
+        console.log("[SARF DIAG] map 'load' event — render OK");
+        clearTimeoutSafe();
         const ring = buildCircle(lat, lon, radiusMiles);
         map.addSource("sarf-ring", { type: "geojson", data: ring });
-        map.addLayer({
-          id: "sarf-ring-fill",
-          type: "fill",
-          source: "sarf-ring",
-          paint: { "fill-color": "#ef4444", "fill-opacity": 0.06 },
-        });
-        map.addLayer({
-          id: "sarf-ring-line",
-          type: "line",
-          source: "sarf-ring",
-          paint: { "line-color": "#ef4444", "line-width": 3 },
-        });
+        map.addLayer({ id: "sarf-ring-fill", type: "fill", source: "sarf-ring", paint: { "fill-color": "#ef4444", "fill-opacity": 0.06 } });
+        map.addLayer({ id: "sarf-ring-line", type: "line", source: "sarf-ring", paint: { "line-color": "#ef4444", "line-width": 3 } });
 
         placeMarker(map);
 
@@ -173,9 +229,12 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
 
       mapRef.current = map;
     }
-    draw();
+
+    draw().catch((e) => fail(e?.message || "Unexpected SARF render error."));
+
     return () => {
       cancelled = true;
+      clearTimeoutSafe();
       markerRef.current?.remove?.();
       markerRef.current = null;
       mapRef.current?.remove?.();
@@ -183,14 +242,28 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
       lastKeyRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lat, lon, radiusMiles, agentName]);
+  }, [lat, lon, radiusMiles, agentName, attempt]);
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center" style={{ minHeight: "200px" }}>
+        <div className="font-heading font-semibold text-destructive">SARF map failed to render</div>
+        <p className="text-sm text-destructive/90 mt-1 max-w-md mx-auto">{error}</p>
+        <button
+          onClick={() => { setError(null); setAttempt((a) => a + 1); }}
+          className="mt-4 px-4 py-2 rounded-lg text-sm font-semibold bg-destructive text-destructive-foreground"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="rounded-xl overflow-hidden border border-border" style={{ minHeight: "500px" }}>
-      <div ref={containerRef} className="w-full h-full" style={{ minHeight: "500px" }} />
+    <div className="rounded-xl overflow-hidden border border-border" style={{ minHeight: "600px" }}>
+      <div ref={containerRef} className="w-full" style={{ width: "100%", height: "600px" }} />
     </div>
   );
 }
 
-// MEMOIZATION: don't tear down/rebuild the map on unrelated parent re-renders.
 export default memo(Section1SarfMap);
