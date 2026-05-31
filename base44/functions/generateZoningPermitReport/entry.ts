@@ -1,25 +1,21 @@
 /**
- * generateZoningPermitReport — ZONEOMICS PROMOTED TO PRIMARY (paid tier $189/mo)
- * — cascade: Zoneomics → Realie → Notion → AI.
+ * generateZoningPermitReport — ZONEOMICS (paid tier) PRIMARY + REALIE.
  *
- * Builds the full SiteHawk Zoning + Site Plan + Building Permit report.
+ * Notion Ordinance Vacuum REMOVED entirely. Cascade is now:
+ *   Zoneomics → Realie → AI (web-grounded gap-fill).
  *
- * SERIAL PIPELINE:
+ * SERIAL PIPELINE (all keyed off the SARF coordinates lat/lon):
  *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY) → state / county / city
  *   STEP 2  Zoneomics paid zoneDetail (ZONEOMICS_API_KEY) → PRIMARY zoning district + telecom controls
- *   STEP 3  Realie parcel @ SARF center (REALIE_API_KEY)  → cross-check district + fill gaps
- *   STEP 4  Notion Ordinance Vacuum                       → fills remaining gaps
- *   STEP 5  LLM extraction fallback (gemini/openai)       → fills any field still empty
+ *   STEP 3  Realie parcel @ SARF center (REALIE_API_KEY)  → cross-check district + parcel facts + gaps
+ *   STEP 4  LLM extraction (gemini, web-grounded)         → fills any field still empty
+ *   STEP 5  Zoneomics overlay WINS                        → its values overwrite the LLM inferences
  *   STEP 6  Render four panels — each row { value, source, confidence }
  *
- * Source tags surfaced to the UI: Zoneomics | Realie | Notion | AI | Manual.
+ * Source tags surfaced to the UI: Zoneomics | Realie | AI | Manual.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
-
-const NOTION_API = 'https://api.notion.com/v1';
-const NOTION_VERSION = '2022-06-28';
-const MAX_NOTION_CHARS = 60000;
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 15000) {
@@ -83,7 +79,7 @@ async function mapboxReverseGeocode(lat, lon) {
   };
 }
 
-// ─── STEP 2: Realie parcel @ SARF center (PRIMARY parcel + zoning district) ─
+// ─── STEP 3: Realie parcel @ SARF center (cross-check district + parcel facts) ─
 // Query Realie by lat/lon point first; fall back to address if provided.
 async function getRealieParcel(lat, lon, address) {
   const key = Deno.env.get('REALIE_API_KEY');
@@ -134,8 +130,6 @@ async function getRealieParcel(lat, lon, address) {
 }
 
 // ─── STEP 2: Zoneomics paid zoneDetail (PRIMARY zoning + telecom controls) ──
-// Reuses the same flatten + name-match logic as the standalone
-// zoneomicsZoningReport function, inlined here (functions can't import locally).
 function zoCleanVal(v) {
   if (v === null || v === undefined) return '';
   const s = String(v).replace(/\s+/g, ' ').trim();
@@ -220,172 +214,33 @@ async function getZoneomics(lat, lon) {
   return { ok: true, http_status: res.status, zone_code: zoneCode, city_name: zoCleanVal(meta.city_name) || null, fields };
 }
 
-// ─── Notion ─────────────────────────────────────────────────────────────────
-async function notionReq(path, token, init = {}) {
-  const t = token || Deno.env.get('NOTION_API_TOKEN');
-  if (!t) return null;
-  const res = await fetch(`${NOTION_API}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${t}`,
-      'Notion-Version': NOTION_VERSION,
-      'Content-Type': 'application/json',
-      ...(init.headers || {}),
-    },
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => '');
-    console.warn(`Notion ${path} → ${res.status} ${txt.slice(0, 200)}`);
-    return null;
-  }
-  return res.json();
-}
-
-// Workspace-wide search for a page titled like "{ST}-Zoning" / "{ST} Zoning".
-async function notionSearchStateFolder(stateCode, token) {
-  const norm = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const target = norm(stateCode);
-  const queries = [`${stateCode}-Zoning`, `${stateCode} Zoning`, `${stateCode}-zoning`];
-  for (const q of queries) {
-    const d = await notionReq('/search', token, {
-      method: 'POST',
-      body: JSON.stringify({
-        query: q,
-        filter: { property: 'object', value: 'page' },
-        page_size: 25,
-      }),
-    });
-    const results = d?.results || [];
-    for (const r of results) {
-      if (r.object !== 'page') continue;
-      const titleProp = r.properties && Object.values(r.properties).find(p => p.type === 'title');
-      const title = titleProp?.title?.map(t => t.plain_text).join('') || '';
-      const n = norm(title);
-      if (n === `${target}ZONING` || n.startsWith(`${target}ZONING`) || n === target) {
-        return { id: r.id, title };
-      }
-    }
-  }
-  return null;
-}
-
-async function getAllChildren(blockId, token) {
-  const blocks = [];
-  let cursor = null;
-  do {
-    const params = new URLSearchParams({ page_size: '100' });
-    if (cursor) params.set('start_cursor', cursor);
-    const d = await notionReq(`/blocks/${blockId}/children?${params}`, token);
-    if (!d?.results) break;
-    blocks.push(...d.results);
-    cursor = d.has_more ? d.next_cursor : null;
-  } while (cursor && blocks.length < 800);
-  return blocks;
-}
-
-function blockToText(block) {
-  const type = block.type;
-  const v = block[type];
-  if (!v) return '';
-  if (type === 'child_page') return `\n## ${v.title}\n`;
-  const text = (v.rich_text || []).map(t => t?.plain_text || '').join('').trim();
-  if (!text) return '';
-  if (type.startsWith('heading_')) return `\n### ${text}`;
-  return text;
-}
-
-async function collectNotionText(blockId, depth, token, lines = []) {
-  if (depth > 3) return lines;
-  const blocks = await getAllChildren(blockId, token);
-  for (const b of blocks) {
-    const line = blockToText(b);
-    if (line) lines.push(line);
-    if ((b.has_children || b.type === 'child_page') && lines.join('\n').length < MAX_NOTION_CHARS) {
-      await collectNotionText(b.id, depth + 1, token, lines);
-    }
-    if (lines.join('\n').length >= MAX_NOTION_CHARS) break;
-  }
-  return lines;
-}
-
-async function getNotionStateContext(stateCode, jurisdictionHints, token) {
-  if (!stateCode) return { found: false, text: '', folder_title: null };
-
-  let folder = await notionSearchStateFolder(stateCode, token);
-
-  if (!folder) {
-    const masterId = Deno.env.get('NOTION_MASTER_ZONING_PAGE_ID');
-    if (masterId) {
-      const children = await getAllChildren(masterId, token);
-      const norm = (s) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-      const target = norm(stateCode);
-      const hit = children.find(b => {
-        if (b.type !== 'child_page') return false;
-        const n = norm(b.child_page?.title || '');
-        return n === `${target}ZONING` || n.startsWith(`${target}ZONING`) || n === target;
-      });
-      if (hit) folder = { id: hit.id, title: hit.child_page?.title || '' };
-    }
-  }
-
-  if (!folder) {
-    console.warn(`Notion: no "${stateCode}-Zoning" page found. Connect the Notion integration to the Team Space holding your zoning folders.`);
-    return { found: false, text: '', folder_title: null };
-  }
-
-  const lines = await collectNotionText(folder.id, 0, token);
-  console.log(`Notion: matched "${folder.title}" (${folder.id}) → ${lines.join('\n').length} chars`);
-  return {
-    found: lines.length > 0,
-    text: lines.join('\n').slice(0, MAX_NOTION_CHARS),
-    folder_title: folder.title,
-    jurisdiction_hints: jurisdictionHints,
-  };
-}
-
-async function getNotionAccessToken(base44) {
-  try {
-    const c = await base44.asServiceRole.connectors.getConnection('notion');
-    if (c?.accessToken) {
-      console.log('Notion: using OAuth connector token');
-      return c.accessToken;
-    }
-    console.warn('Notion: connector returned no accessToken');
-  } catch (e) {
-    console.warn('Notion: connector lookup failed:', e?.message);
-  }
-  const envTok = Deno.env.get('NOTION_API_TOKEN');
-  if (envTok) console.log('Notion: falling back to NOTION_API_TOKEN secret');
-  return envTok || null;
-}
-
-// ─── STEP 4: LLM structured extraction (gap-fill from Notion prose) ─────────
+// ─── STEP 4: LLM structured extraction (web-grounded gap-fill) ──────────────
 async function llmExtractReport(base44, ctx) {
   const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
     model: 'gemini_3_flash',
     add_context_from_internet: true,
     prompt: `You are extracting a SiteHawk Zoning + Permit Report for a telecom tower site.
 
-CONTEXT:
+CONTEXT (all based on the SARF search coordinates):
 - Coordinates: ${ctx.lat}, ${ctx.lon}
 - State: ${ctx.state}  | County: ${ctx.county}  | City: ${ctx.city || 'unknown'}
 - Parcel address: ${ctx.address}
 
-SOURCE A — Realie parcel (PRIMARY for zoning district / parcel facts):
+SOURCE A — Realie parcel (authoritative for zoning district / parcel facts at the SARF point):
 ${JSON.stringify(ctx.realie || { miss: true }).slice(0, 4000)}
 
-SOURCE B — Notion Ordinance Vacuum (PRIMARY for telecom tower rules, fees, contacts, process), state folder "${ctx.notion?.folder_title || 'none'}":
-${(ctx.notion?.text || '(no Notion content found for this state)').slice(0, 40000)}
+SOURCE B — Zoneomics paid-tier zoning district + telecom controls already resolved for this point:
+${JSON.stringify(ctx.zoneomics || { miss: true }).slice(0, 4000)}
 
-TASK: Fill out EVERY field in the report below using the sources. Per field:
-- TOWER SPECIFICS (LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): use Notion (SOURCE B) FIRST, then web. Set source to "Notion" if directly quoted from the Notion KEY PROVISIONS, or "AI" if inferred from Notion prose.
-- Property zoning DISTRICT / land use: prefer Realie (SOURCE A). Set source to "Realie".
-- Fees / contacts / process / timeframes (site plan + building permit panels): prefer Notion. Set source to "Notion" or "AI".
-- Set "source" to one of: "Realie" | "Notion" | "AI" | "none".
+TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
+- TOWER SPECIFICS (LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): use the jurisdiction's Land Development Code / zoning ordinance found via web search. Set source to "AI".
+- Property zoning DISTRICT / land use: prefer Realie (SOURCE A) then Zoneomics (SOURCE B). Set source to "Realie".
+- Fees / contacts / process / timeframes (site plan + building permit panels): research the actual jurisdiction's building & planning department online. Set source to "AI".
+- Set "source" to one of: "Realie" | "AI" | "none".
 - If you cannot find a value in ANY source, set value to "NEEDS RESEARCH" and source to "none".
-- DO NOT invent fees, phone numbers, addresses, or section numbers. Quote only what's in the sources.
+- DO NOT invent fees, phone numbers, addresses, or section numbers. Quote only what you can verify online or from the sources.
 - For yes/no fields use "Yes" / "No" / "NEEDS RESEARCH".
-- Set confidence: "high" if directly quoted; "medium" if inferred; "low" if best guess.`,
+- Set confidence: "high" if directly quoted from an authoritative source; "medium" if inferred; "low" if best guess.`,
     response_json_schema: {
       type: 'object',
       properties: {
@@ -473,13 +328,8 @@ Deno.serve(async (req) => {
     };
 
     const city = zoneomics?.city_name || mb?.city_name || realie?.city || null;
-    const jurisdictions = [city, geo.county_name, realie?.county].filter(Boolean);
 
-    // STEP 3 — Notion Ordinance Vacuum (telecom rules).
-    const notionToken = await getNotionAccessToken(base44);
-    const notion = await getNotionStateContext(geo.state_code, jurisdictions, notionToken).catch(() => ({ found: false, text: '' }));
-
-    // STEP 4 — LLM gap-fill from Notion prose + Realie parcel facts.
+    // STEP 4 — LLM web-grounded gap-fill, seeded with Zoneomics + Realie facts.
     const llmReport = await llmExtractReport(base44, {
       lat, lon,
       state: geo.state_name || geo.state_code,
@@ -487,7 +337,7 @@ Deno.serve(async (req) => {
       city,
       address: candidateAddress || realie?.address,
       realie,
-      notion,
+      zoneomics,
     });
 
     const report = llmReport || {};
@@ -510,7 +360,7 @@ Deno.serve(async (req) => {
       ldc_section_references: 'tower_specifics',
     };
 
-    // STEP 2 (PRIMARY) — overlay Zoneomics paid-tier fields on top of the LLM
+    // STEP 5 (PRIMARY) — overlay Zoneomics paid-tier fields on top of the LLM
     // report. Zoneomics WINS — its values overwrite whatever the LLM inferred.
     const zoFields = zoneomics?.fields || {};
     for (const [field, value] of Object.entries(zoFields)) {
@@ -551,7 +401,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} zoneomics=${zoneomics?.ok ? Object.keys(zoFields).length : 'fail'} realie=${!!realie} notion=${!!notion?.found}`);
+    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} zoneomics=${zoneomics?.ok ? Object.keys(zoFields).length : 'fail'} realie=${!!realie}`);
 
     return Response.json({
       status: 'ok',
@@ -565,7 +415,6 @@ Deno.serve(async (req) => {
         city_name: city || null,
         label: [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
       },
-      notion_matched: !!notion?.found,
       zoneomics: {
         ok: !!zoneomics?.ok,
         http_status: zoneomics?.http_status ?? null,
@@ -585,8 +434,6 @@ Deno.serve(async (req) => {
         zoneomics_zone: zoneomics?.zone_code || null,
         realie: !!realie,
         realie_zoning: realie?.zoning || null,
-        notion: !!notion?.found,
-        notion_folder: notion?.folder_title || null,
       },
     });
   } catch (error) {
