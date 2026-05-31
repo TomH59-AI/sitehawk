@@ -30,12 +30,18 @@ import {
 const STEPS = ["aerial", "topo", "fema", "zoning", "wetlands", "parcel"];
 
 export default function Section4MapSuite({
-  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, onRun,
+  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, onRun, onComplete,
 }) {
   // Which sub-steps have completed. Aerial is the only one initially unlocked.
   const [completed, setCompleted] = useState({});
   const [loadingStep, setLoadingStep] = useState(null);
   const [floodZone, setFloodZone] = useState(null);
+
+  // Fire onComplete once all six maps are done — unlocks Section 5.
+  useEffect(() => {
+    if (STEPS.every((s) => completed[s])) onComplete?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completed]);
 
   const refs = {
     aerial: useRef(null), topo: useRef(null), fema: useRef(null),

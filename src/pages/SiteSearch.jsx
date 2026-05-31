@@ -9,6 +9,7 @@ import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
+import Section5Viewsheds from "../components/search/Section5Viewsheds";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 
@@ -34,6 +35,8 @@ export default function SiteSearch() {
   const [zoningReady, setZoningReady] = useState(false);
   // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
   const [targetA, setTargetA] = useState(null);
+  // True once all six Section 4 maps are complete — unlocks Section 5.
+  const [mapsComplete, setMapsComplete] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -95,6 +98,7 @@ export default function SiteSearch() {
     setSarfReady(false);
     setZoningReady(false);
     setTargetA(null);
+    setMapsComplete(false);
     setSearchCenter({ lat: latitude, lon: longitude });
     setPipelineStep("sarf");
   };
@@ -235,6 +239,21 @@ export default function SiteSearch() {
           srcLon={Number(searchCenter.lon)}
           radiusMiles={searchParams.radius_miles}
           onRun={() => setPipelineStep("maps")}
+          onComplete={() => setMapsComplete(true)}
+        />
+      )}
+
+      {/* SECTION 5 — HAWK RF VIEWSHED VISION. Locked until all six Section 4
+          maps are complete. Four 2D tree-line viewsheds (N→S→E→W), each fired
+          one-at-a-time by its own button. Target A ONLY. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section5Viewsheds
+          unlocked={mapsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          active={pipelineStep === "viewsheds"}
+          targetA={targetA}
+          radiusMiles={searchParams.radius_miles}
+          towerHeightFt={searchParams.tower_height_ft || 199}
+          onRun={() => setPipelineStep("viewsheds")}
         />
       )}
     </div>
