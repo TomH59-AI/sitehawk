@@ -12,6 +12,7 @@ import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section5Viewsheds from "../components/search/Section5Viewsheds";
 import Section6Proximity from "../components/search/Section6Proximity";
 import Section7Infrastructure from "../components/search/Section7Infrastructure";
+import Section8Propagation from "../components/search/Section8Propagation";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 import { usePipeline } from "@/lib/PipelineContext";
@@ -319,6 +320,17 @@ export default function SiteSearch() {
           targetA={targetA}
           radiusMiles={searchParams.radius_miles}
           onRun={() => setPipelineStep("infrastructure")}
+        />
+      )}
+
+      {/* SECTION 8 — HAWK RF PROPAGATION VISION. STANDALONE — unlocked as soon as
+          Target A exists; does NOT gate or block any other section. One Generate
+          button → UnwiredLabs carrier scan + per-carrier CloudRF → map. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section8Propagation
+          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          targetA={targetA}
+          towerHeightFt={searchParams.tower_height_ft || 150}
         />
       )}
     </div>
