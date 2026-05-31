@@ -20,9 +20,16 @@ import { loadPublicConfig } from "@/lib/publicConfig";
 const CESIUM_VERSION = "1.116";
 const MILE_M = 1609.344;
 
+// Module-level memoized promise — shared across BOTH Cesium viewers so fast
+// nav (search → SCIP) can never inject two <script> tags or hit the in-flight
+// window where the tag exists but window.Cesium isn't set yet.
+let cesiumPromise = null;
+
 function loadCesium() {
   if (window.Cesium) return Promise.resolve(window.Cesium);
-  return new Promise((resolve, reject) => {
+  if (cesiumPromise) return cesiumPromise; // reuse the in-flight load
+
+  cesiumPromise = new Promise((resolve, reject) => {
     const cssId = "cesium-css";
     if (!document.getElementById(cssId)) {
       const link = document.createElement("link");
@@ -31,23 +38,20 @@ function loadCesium() {
       link.href = `https://cdn.jsdelivr.net/npm/cesium@${CESIUM_VERSION}/Build/Cesium/Widgets/widgets.css`;
       document.head.appendChild(link);
     }
-    const scriptId = "cesium-js";
-    if (document.getElementById(scriptId)) {
-      const wait = setInterval(() => {
-        if (window.Cesium) { clearInterval(wait); resolve(window.Cesium); }
-      }, 100);
-      return;
-    }
     const script = document.createElement("script");
-    script.id = scriptId;
+    script.id = "cesium-js";
     script.src = `https://cdn.jsdelivr.net/npm/cesium@${CESIUM_VERSION}/Build/Cesium/Cesium.js`;
     script.onload = () => {
       window.CESIUM_BASE_URL = `https://cdn.jsdelivr.net/npm/cesium@${CESIUM_VERSION}/Build/Cesium/`;
       resolve(window.Cesium);
     };
-    script.onerror = reject;
+    script.onerror = () => {
+      cesiumPromise = null; // allow a retry on next mount
+      reject(new Error("3D map unavailable — could not load the terrain engine (check connection)."));
+    };
     document.head.appendChild(script);
   });
+  return cesiumPromise;
 }
 
 const DIRECTIONS = [
