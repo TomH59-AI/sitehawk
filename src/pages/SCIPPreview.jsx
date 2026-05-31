@@ -8,14 +8,12 @@ import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import SARFMap from "../components/scip/SARFMap";
 import HawkZoningOverview from "../components/scip/HawkZoningOverview";
 import HawkParcelDetails from "../components/scip/HawkParcelDetails";
-import HawkAerialIntelligence from "../components/scip/HawkAerialIntelligence";
 import HawkUtilitiesIntelligence from "../components/scip/HawkUtilitiesIntelligence";
 import HawkElectricServiceMap from "../components/scip/HawkElectricServiceMap";
 import HawkAirportDistanceMap from "../components/scip/HawkAirportDistanceMap";
 import HawkAmInterferenceMap from "../components/scip/HawkAmInterferenceMap";
 import HawkCellAirportIntelligence from "../components/scip/HawkCellAirportIntelligence";
 import HawkViewshedIntelligence from "../components/scip/HawkViewshedIntelligence";
-import HawkFloodplainIntelligence from "../components/scip/HawkFloodplainIntelligence";
 import HawkWindSpeedIntelligence from "../components/scip/HawkWindSpeedIntelligence";
 import HawkCesium3DMap from "../components/scip/HawkCesium3DMap";
 import HawkSectorCoverage from "../components/scip/HawkSectorCoverage";
@@ -165,9 +163,6 @@ export default function SCIPPreview() {
             />
           )}
 
-          {/* Hawk Aerial Intelligence — Aerial / Topography / Wetlands (3 dedicated print pages) */}
-          <HawkAerialIntelligence srcLat={Number(lat)} srcLon={Number(lon)} />
-
           {/* Hawk Utilities Intelligence — Power + Fiber overlays, centered on Target A */}
           <HawkUtilitiesIntelligence
             srcLat={Number(lat)}
@@ -197,9 +192,6 @@ export default function SCIPPreview() {
             towerHeightFt={199}
             ringMiles={0.25}
           />
-
-          {/* Hawk Floodplain Intelligence — FEMA NFHL Flood Hazard Zones (layer 28) overlay + zone readout, centered on Target A */}
-          <HawkFloodplainIntelligence targetA={targets3?.[0] || null} />
 
           {/* Hawk Wind Speed Intelligence — dark-mode ASCE 7-22 wind velocity zones (neon contour rings) + glassmorphism readout, centered on Target A */}
           <HawkWindSpeedIntelligence targetA={targets3?.[0] || null} />

@@ -8,6 +8,7 @@ import HawkFlightSpinner from "../components/search/HawkFlightSpinner";
 import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
+import Section4MapSuite from "../components/search/Section4MapSuite";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 
@@ -31,6 +32,8 @@ export default function SiteSearch() {
   const [sarfReady, setSarfReady] = useState(false);
   // True once the Section 2 Zoning lookup is complete — unlocks Section 3.
   const [zoningReady, setZoningReady] = useState(false);
+  // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
+  const [targetA, setTargetA] = useState(null);
 
   useEffect(() => {
     async function init() {
@@ -91,6 +94,7 @@ export default function SiteSearch() {
     setLoading(true);
     setSarfReady(false);
     setZoningReady(false);
+    setTargetA(null);
     setSearchCenter({ lat: latitude, lon: longitude });
     setPipelineStep("sarf");
   };
@@ -215,6 +219,22 @@ export default function SiteSearch() {
           towerHeightFt={searchParams.tower_height_ft || 199}
           compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
           onRun={() => setPipelineStep("targets")}
+          onTargetAReady={setTargetA}
+        />
+      )}
+
+      {/* SECTION 4 — HAWK TARGET A MAP SUITE. Locked until Section 3 completes and
+          Target A is resolved. Six maps, each fired one-at-a-time by its own
+          button. Maps render for Target A ONLY. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section4MapSuite
+          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          active={pipelineStep === "maps"}
+          targetA={targetA}
+          srcLat={Number(searchCenter.lat)}
+          srcLon={Number(searchCenter.lon)}
+          radiusMiles={searchParams.radius_miles}
+          onRun={() => setPipelineStep("maps")}
         />
       )}
     </div>

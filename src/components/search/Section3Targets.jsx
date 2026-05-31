@@ -74,7 +74,7 @@ function targetToColumn(t) {
 
 export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
-  towerHeightFt = 199, compoundSideFt = 100, onRun,
+  towerHeightFt = 199, compoundSideFt = 100, onRun, onTargetAReady,
 }) {
   const [grid, setGrid] = useState(emptyGrid);
   const [loading, setLoading] = useState(false);
@@ -132,6 +132,18 @@ export default function Section3Targets({
         toast.warning("No buildable target parcels found in the ring.");
       } else {
         toast.success(`Selected ${Math.min(targets.length, 3)} best target${targets.length > 1 ? "s" : ""}.`);
+        // Emit Target A (column 0) up to the pipeline — unlocks Section 4 (Map Suite).
+        const a = targets[0];
+        if (a && onTargetAReady) {
+          onTargetAReady({
+            latitude: a.latitude != null ? Number(a.latitude) : null,
+            longitude: a.longitude != null ? Number(a.longitude) : null,
+            owner: a.owner_name || "",
+            parcel_address: a.parcel_address || "",
+            apn: a.apn || "",
+            zoning_classification: a.zoning_classification || "",
+          });
+        }
       }
       setDone(true);
     } catch (err) {
@@ -142,7 +154,7 @@ export default function Section3Targets({
     } finally {
       setLoading(false);
     }
-  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt]);
+  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, onTargetAReady]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "targets").
   useEffect(() => {
