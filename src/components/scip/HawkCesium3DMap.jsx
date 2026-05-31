@@ -61,6 +61,7 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const [status, setStatus] = useState("idle"); // idle | loading | ready | error
+  const [terrainReady, setTerrainReady] = useState(false);
   const [error, setError] = useState(null);
 
   const hasTarget =
@@ -74,6 +75,7 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
   // Init viewer once.
   useEffect(() => {
     if (!hasTarget) return;
+    if (viewerRef.current) return; // guard React 18 StrictMode double-mount
     let cancelled = false;
     setStatus("loading");
     (async () => {
@@ -82,6 +84,7 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
         if (!config.cesiumIonToken) throw new Error("CESIUM_ION_API token not configured");
         const Cesium = await loadCesium();
         if (cancelled || !containerRef.current) return;
+        if (viewerRef.current) return; // re-check after awaits
 
         Cesium.Ion.defaultAccessToken = config.cesiumIonToken;
 
@@ -109,6 +112,19 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
         viewerRef.current = viewer;
         if (cancelled) { viewer.destroy(); return; }
         setStatus("ready");
+
+        // Gate placement / fly-to on first terrain tile load so directional
+        // pitched views have real elevation under them (avoids the height race).
+        const globe = viewer.scene.globe;
+        const onTiles = () => {
+          if (globe.tilesLoaded) {
+            setTerrainReady(true);
+            globe.tileLoadProgressEvent.removeEventListener(onTiles);
+          }
+        };
+        globe.tileLoadProgressEvent.addEventListener(onTiles);
+        // Fallback: if the event never settles, release after 4s.
+        setTimeout(() => { if (!cancelled) setTerrainReady(true); }, 4000);
       } catch (e) {
         console.error("Cesium 3D init failed:", e);
         if (!cancelled) {
@@ -128,10 +144,10 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasTarget]);
 
-  // Draw waypoint + rings + initial fly-to when ready / center changes.
+  // Draw waypoint + rings + initial fly-to once terrain has loaded.
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (status !== "ready" || !viewer || lat == null || lon == null) return;
+    if (status !== "ready" || !terrainReady || !viewer || lat == null || lon == null) return;
     const Cesium = window.Cesium;
 
     viewer.entities.removeAll();
@@ -191,7 +207,7 @@ export default function HawkCesium3DMap({ targetA, siteName }) {
       },
       duration: 1.2,
     });
-  }, [status, lat, lon, label]);
+  }, [status, terrainReady, lat, lon, label]);
 
   const zoom = (factor) => {
     const viewer = viewerRef.current;
