@@ -10,14 +10,15 @@
  *  - Never auto-advances — the parent unlocks the next sub-step on complete.
  */
 
-import { Lock, Sparkles, RefreshCw } from "lucide-react";
+import { Lock, Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "../HawkFlightSpinner";
+import ProximityInfoPanel from "./ProximityInfoPanel";
 import { BRAND_GREEN } from "@/lib/section6Proximity";
 
 export default function ProximitySubStep({
   index, title, runLabel, spinnerLabel, legend,
-  unlocked, loading, done, onRun, mapRef, banner,
+  unlocked, loading, done, error, info, onRun, mapRef, banner,
 }) {
   if (!unlocked) {
     return (
@@ -61,9 +62,22 @@ export default function ProximitySubStep({
 
       {loading && <HawkFlightSpinner label={spinnerLabel} />}
 
-      {!loading && !done && (
+      {!loading && !done && !error && (
         <div className="px-4 py-5 text-sm text-muted-foreground">
           Click <span className="font-semibold text-foreground">{runLabel}</span> to render {title} for Target A.
+        </div>
+      )}
+
+      {/* Error surface — no silent forever-spinner. */}
+      {error && !loading && (
+        <div className="px-4 py-4 bg-destructive/5 border-y border-destructive/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-destructive">{title} failed: {error}</div>
+            <Button onClick={onRun} size="sm" variant="outline" className="mt-2 border-destructive/40 text-destructive hover:bg-destructive/10">
+              <RefreshCw className="w-4 h-4 mr-2" /> Retry
+            </Button>
+          </div>
         </div>
       )}
 
@@ -72,6 +86,11 @@ export default function ProximitySubStep({
         {banner}
         <div className="relative w-full bg-[#0C1B2E]" style={{ height: 540 }}>
           <div ref={mapRef} className="absolute inset-0" />
+          {info && (
+            <div className="absolute top-3 left-3 z-10">
+              <ProximityInfoPanel kicker={info.kicker} title={info.title} distMi={info.distMi} rows={info.rows} />
+            </div>
+          )}
           {legend && (
             <div className="absolute bottom-3 left-3 z-10 px-2.5 py-1.5 rounded-lg bg-black/55 backdrop-blur text-white text-[11px] font-mono leading-tight flex items-center gap-1.5">
               <span className="inline-block w-4 h-0.5" style={{ background: BRAND_GREEN }} />

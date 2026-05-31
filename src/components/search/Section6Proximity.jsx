@@ -36,6 +36,9 @@ export default function Section6Proximity({
   const [completed, setCompleted] = useState({});
   const [loadingStep, setLoadingStep] = useState(null);
   const [windInfo, setWindInfo] = useState(null);
+  const [errors, setErrors] = useState({});
+  // Per-step destination metadata for the glass info panel (airport / celltower).
+  const [infoByStep, setInfoByStep] = useState({});
 
   // Fire onComplete once all three maps are done — unlocks Section 7.
   useEffect(() => {
@@ -56,17 +59,40 @@ export default function Section6Proximity({
   }, []);
 
   const runStep = useCallback(async (step) => {
+    const tag = `[PROXIMITY DIAG ${step}]`;
+    console.log(`${tag} Run handler fired — Target A:`, targetA?.latitude ?? null, targetA?.longitude ?? null, "APN:", targetA?.apn ?? null);
     if (!targetA || !Number.isFinite(Number(targetA.latitude)) || !Number.isFinite(Number(targetA.longitude))) {
+      console.error(`${tag} Target A coordinates null/invalid — aborting.`);
       toast.error("Target A coordinates not resolved — re-run Section 3.");
+      setErrors((p) => ({ ...p, [step]: "Target A coordinates not resolved — re-run Section 3." }));
       return;
     }
     const lat = Number(targetA.latitude);
     const lon = Number(targetA.longitude);
+    setErrors((p) => ({ ...p, [step]: null }));
     setLoadingStep(step);
+
+    // 15s per-step watchdog — never spin forever.
+    const watchdog = setTimeout(() => {
+      setLoadingStep((cur) => {
+        if (cur === step) {
+          console.error(`${tag} Timed out after 15s.`);
+          setErrors((p) => ({ ...p, [step]: "Timed out after 15s — data source did not respond." }));
+          return null;
+        }
+        return cur;
+      });
+    }, 15000);
+
     try {
       const cfg = await loadPublicConfig();
       const token = cfg.mapboxAccessToken;
-      if (!token) { toast.error("Mapbox token unavailable."); setLoadingStep(null); return; }
+      console.log(`${tag} Mapbox token (first 8):`, token ? String(token).slice(0, 8) : "NULL");
+      if (!token) {
+        toast.error("Mapbox token unavailable.");
+        setErrors((p) => ({ ...p, [step]: "Mapbox token unavailable." }));
+        clearTimeout(watchdog); setLoadingStep(null); return;
+      }
       await ensureMapboxLoaded();
 
       // Dispose any prior instance for this step before re-rendering.
@@ -78,29 +104,63 @@ export default function Section6Proximity({
       if (step === "airport") {
         const res = await nearestAirportFromDirectory({ lat, lon });
         const airport = res.data?.match;
+        console.log(`${tag} nearestAirportFromDirectory →`, airport ? `${airport.callnumber} ${airport.distance_miles}mi (${res.data?.candidates_scanned} scanned)` : "no match");
         if (!airport) throw new Error("No airport found near Target A.");
         map = await renderAirport(refs.airport.current, targetA, airport, token);
+        setInfoByStep((p) => ({
+          ...p,
+          airport: {
+            kicker: "NEAREST AIRPORT",
+            title: airport.callnumber || airport.name || "Airport",
+            distMi: Number(airport.distance_miles),
+            rows: [
+              { label: "Name", value: airport.name },
+              { label: "Type", value: airport.type ? String(airport.type).replace(/_/g, " ") : null },
+              { label: "Coords", value: `${Number(airport.latitude).toFixed(5)}, ${Number(airport.longitude).toFixed(5)}` },
+            ],
+          },
+        }));
       } else if (step === "celltower") {
         const res = await cellTowerLookup({ lat, lon, radius_miles: 10 });
         const tower = res.data?.nearest_tower;
+        console.log(`${tag} cellTowerLookup →`, tower ? `${tower.licensee || "?"} ASR#${tower.tower_registration_number || "—"} ${tower.distance_miles}mi src=${tower.source || "FCC"}` : "no tower");
         if (!tower || tower.latitude_deg == null) throw new Error("No cell tower found near Target A.");
         map = await renderCellTower(refs.celltower.current, targetA, tower, token);
+        const asrn = tower.tower_registration_number ? `ASR #${tower.tower_registration_number}` : (tower.source || "OpenCellID");
+        setInfoByStep((p) => ({
+          ...p,
+          celltower: {
+            kicker: "NEAREST CELL TOWER",
+            title: tower.licensee || "Operator —",
+            distMi: Number(tower.distance_miles),
+            rows: [
+              { label: "Registration", value: asrn },
+              { label: "Structure", value: tower.structure_type },
+              { label: "Height", value: tower.overall_height_ft != null ? `${tower.overall_height_ft} ft` : null },
+              { label: "Coords", value: `${Number(tower.latitude_deg).toFixed(5)}, ${Number(tower.longitude_deg).toFixed(5)}` },
+            ],
+          },
+        }));
       } else if (step === "wind") {
         const [windRes, m] = await Promise.all([
           windSpeedLookup({ lat, lon }).catch(() => null),
           renderWind(refs.wind.current, targetA, token),
         ]);
+        console.log(`${tag} windSpeedLookup →`, windRes?.data?.wind_speed_mph ?? "no value", "mph");
         setWindInfo(windRes?.data || null);
         map = m;
       }
 
       maps.current[step] = map;
       setCompleted((prev) => ({ ...prev, [step]: true }));
+      console.log(`${tag} Map generated OK.`);
       toast.success(`${step === "celltower" ? "Cell tower" : step.charAt(0).toUpperCase() + step.slice(1)} map generated for Target A.`);
     } catch (err) {
-      console.error(err);
+      console.error(`${tag} threw:`, err?.message);
       toast.error(err?.message || `${step} map failed.`);
+      setErrors((p) => ({ ...p, [step]: err?.message || "Unknown error" }));
     } finally {
+      clearTimeout(watchdog);
       setLoadingStep(null);
     }
   }, [targetA, refs]);
@@ -175,6 +235,7 @@ export default function Section6Proximity({
           legend="Target A → Nearest Airport"
           unlocked={isUnlocked("airport")}
           loading={loadingStep === "airport"} done={!!completed.airport}
+          error={errors.airport} info={infoByStep.airport}
           onRun={() => beginAndRun("airport")} mapRef={refs.airport}
         />
         <ProximitySubStep
@@ -183,6 +244,7 @@ export default function Section6Proximity({
           legend="Target A → Nearest Existing Tower"
           unlocked={active && isUnlocked("celltower")}
           loading={loadingStep === "celltower"} done={!!completed.celltower}
+          error={errors.celltower} info={infoByStep.celltower}
           onRun={() => runStep("celltower")} mapRef={refs.celltower}
         />
         <ProximitySubStep
@@ -191,6 +253,7 @@ export default function Section6Proximity({
           legend="ASCE 7-22 Wind Speed Zones"
           unlocked={active && isUnlocked("wind")}
           loading={loadingStep === "wind"} done={!!completed.wind}
+          error={errors.wind}
           onRun={() => runStep("wind")} mapRef={refs.wind} banner={windBanner}
         />
       </div>

@@ -22,6 +22,30 @@ function midpoint(a, b) {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 }
 
+// Build a GeoJSON circle (range ring) of `radiusMi` around [lon,lat].
+function ringFeature(lat, lon, radiusMi, steps = 96) {
+  const coords = [];
+  const latR = radiusMi / 69.0;
+  const lonR = radiusMi / (69.0 * Math.cos((lat * Math.PI) / 180));
+  for (let i = 0; i <= steps; i++) {
+    const t = (i / steps) * 2 * Math.PI;
+    coords.push([lon + lonR * Math.cos(t), lat + latR * Math.sin(t)]);
+  }
+  return { type: "Feature", geometry: { type: "Polygon", coordinates: [coords] }, properties: {} };
+}
+
+// Dashed-white range rings around Target A (0.25 / 0.5 / 1 mi by default).
+function addRangeRings(map, lat, lon, rings = [0.25, 0.5, 1]) {
+  map.addSource("s6-rings", {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: rings.map((r) => ringFeature(lat, lon, r)) },
+  });
+  map.addLayer({
+    id: "s6-rings-layer", type: "line", source: "s6-rings",
+    paint: { "line-color": "#ffffff", "line-width": 1, "line-opacity": 0.5, "line-dasharray": [3, 3] },
+  });
+}
+
 // ────────────── Mapbox GL JS loader (idempotent, shared) ──────────────
 let mapboxLoadingPromise = null;
 export async function ensureMapboxLoaded() {
@@ -76,10 +100,16 @@ function addCrowLine(map, srcLat, srcLon, dstLat, dstLon, distLabel) {
     properties: {},
   };
   map.addSource("s6-line", { type: "geojson", data: line });
+  // White casing/glow under the brand-green crow-flies line for crisp contrast.
+  map.addLayer({
+    id: "s6-line-casing", type: "line", source: "s6-line",
+    layout: { "line-cap": "round" },
+    paint: { "line-color": "#ffffff", "line-width": 5, "line-opacity": 0.85 },
+  });
   map.addLayer({
     id: "s6-line-layer", type: "line", source: "s6-line",
     layout: { "line-cap": "round" },
-    paint: { "line-color": BRAND_GREEN, "line-width": 3, "line-dasharray": [2, 1] },
+    paint: { "line-color": BRAND_GREEN, "line-width": 2.5 },
   });
 
   const mid = midpoint([srcLon, srcLat], [dstLon, dstLat]);
@@ -134,6 +164,7 @@ export function renderAirport(container, target, airport, token) {
   const map = makeMap(container, [lon, lat], token, 11);
   return new Promise((resolve) => {
     map.on("load", () => {
+      addRangeRings(map, lat, lon);
       addCrowLine(map, lat, lon, aLat, aLon, milesFeetLabel(distMi));
       const callLetters = airport.callnumber || "—";
       const html =
@@ -160,6 +191,7 @@ export function renderCellTower(container, target, tower, token) {
   const map = makeMap(container, [lon, lat], token, 12);
   return new Promise((resolve) => {
     map.on("load", () => {
+      addRangeRings(map, lat, lon);
       addCrowLine(map, lat, lon, tLat, tLon, milesFeetLabel(distMi));
       const asrn = tower.tower_registration_number
         ? `ASR #${tower.tower_registration_number}`

@@ -159,6 +159,16 @@ Deno.serve(async (req) => {
       ? parseFloat(Number(nearest.distance_miles).toFixed(2))
       : null;
 
+    // Tower height — the FCC ASR record may expose overall height under a few
+    // possible column names depending on the RPC view. Coalesce them so the UI
+    // can show a height (was always blank before).
+    const heightFt = nearest.overall_height_ft
+      ?? nearest.structure_height_ft
+      ?? nearest.height_ft
+      ?? nearest.overall_height_above_ground
+      ?? nearest.height_above_ground_ft
+      ?? null;
+
     const nearest_tower = {
       call_letters: nearest.call_letters || null,
       structure_type: nearest.structure_type || null,
@@ -168,6 +178,7 @@ Deno.serve(async (req) => {
       latitude_deg: nearest.latitude_deg ?? null,
       longitude_deg: nearest.longitude_deg ?? null,
       distance_miles: distanceMiles,
+      overall_height_ft: heightFt != null ? Math.round(Number(heightFt)) : null,
       line_geojson: nearest.line_geojson || null,
     };
 
