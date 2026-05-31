@@ -17,6 +17,7 @@ import HawkCellAirportIntelligence from "../components/scip/HawkCellAirportIntel
 import HawkViewshedIntelligence from "../components/scip/HawkViewshedIntelligence";
 import HawkFloodplainIntelligence from "../components/scip/HawkFloodplainIntelligence";
 import HawkWindSpeedIntelligence from "../components/scip/HawkWindSpeedIntelligence";
+import HawkCesium3DMap from "../components/scip/HawkCesium3DMap";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -201,6 +202,9 @@ export default function SCIPPreview() {
 
           {/* Hawk Wind Speed Intelligence — dark-mode ASCE 7-22 wind velocity zones (neon contour rings) + glassmorphism readout, centered on Target A */}
           <HawkWindSpeedIntelligence targetA={targets3?.[0] || null} />
+
+          {/* Hawk 3D RF / Viewshed Map — interactive CesiumJS globe (world terrain + satellite), waypoint, 0.25/0.5/1-mi rings, zoom + N/S/E/W directional treeline views, centered on Target A */}
+          <HawkCesium3DMap targetA={targets3?.[0] || null} siteName={candidate?.site_name} />
         </div>
       )}
 
