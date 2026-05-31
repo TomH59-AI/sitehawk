@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { loadPublicConfig } from '@/lib/publicConfig';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
@@ -43,6 +44,9 @@ import AppProtection from './components/security/AppProtection';
 
 function AppWithSplash() {
   const [splashDone, setSplashDone] = useState(false);
+  // Warm the public config (Mapbox token) at app boot so the FIRST Section 1
+  // SARF render never waits on a cold backend round-trip.
+  useEffect(() => { loadPublicConfig().catch(() => {}); }, []);
   if (!splashDone) return <SplashScreen onDone={() => setSplashDone(true)} />;
   return <AuthenticatedApp />;
 }

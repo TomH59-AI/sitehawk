@@ -151,6 +151,13 @@ export default function SiteSearch() {
 
   const coordsReady = searchCenter && Number.isFinite(searchCenter.lat) && Number.isFinite(searchCenter.lon);
 
+  // Stable primitive SARF inputs — the memoized map component only redraws when
+  // these actually change, not on unrelated parent re-renders.
+  const sarfLat = coordsReady ? Number(searchCenter.lat) : null;
+  const sarfLon = coordsReady ? Number(searchCenter.lon) : null;
+  const sarfRadius = searchParams.radius_miles;
+  const sarfAgent = searchParams.agent_name;
+
   return (
     <div className="space-y-6">
       {/* SiteHawk Vision chat toggle — paid subscribers only (not a scan) */}
@@ -216,10 +223,10 @@ export default function SiteSearch() {
             </div>
           </div>
           <Section1SarfMap
-            lat={Number(searchCenter.lat)}
-            lon={Number(searchCenter.lon)}
-            radiusMiles={searchParams.radius_miles}
-            agentName={searchParams.agent_name}
+            lat={sarfLat}
+            lon={sarfLon}
+            radiusMiles={sarfRadius}
+            agentName={sarfAgent}
             onReady={() => { setLoading(false); setSarfReady(true); }}
           />
         </div>
