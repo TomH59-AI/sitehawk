@@ -1,3 +1,4 @@
+// ZONEOMICS REMOVED — replaced by Regrid + Realie + Notion stack.
 /**
  * Section2Zoning — SiteHawk pipeline step 2 ("HAWK ZONING AND PERMITTING VISION").
  *
@@ -10,19 +11,21 @@
  *  - On finish: STOP. Never auto-advances to the next section.
  *
  * DATA SOURCE PIPELINE (generateZoningPermitReport, run serially on Run Zoning):
- *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY) → state / county / city
- *   STEP 2  Notion Ordinance Vacuum (PRIMARY for telecom tower-specific fields)
- *   STEP 3  Zoneomics (SECONDARY — district basics only)
- *   STEP 4  Local contact data from the matched Notion page (else Manual)
- *   STEP 5  Render four panels with a per-field source badge.
+ *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY)  → state / county / city
+ *   STEP 2  Regrid point parcel (REGRID_API_TOKEN)   → PRIMARY zoning district
+ *   STEP 3  Realie parcel cross-check (REALIE_API_KEY) → agreement / supplement
+ *   STEP 4  Notion Ordinance Vacuum (NOTION)         → PRIMARY telecom tower rules
+ *   STEP 5  LLM extraction fallback                  → fills gaps from ordinance prose
+ *   STEP 6  Render four panels with a per-field source badge.
  *
  * Each field is inline-editable; a manual edit overrides source data and the
  * badge flips to [Manual edit]. "Re-query Sources" re-runs the lookup WITHOUT
- * overwriting any field the user has manually edited.
+ * overwriting any field the user has manually edited. A wrong reverse-geocode
+ * can be corrected via the jurisdiction edit button.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Lock, ClipboardList, Sparkles, RefreshCw, MapPin } from "lucide-react";
+import { Lock, ClipboardList, Sparkles, RefreshCw, MapPin, Pencil, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
@@ -119,12 +122,13 @@ function reportToCells(report, prev) {
 }
 
 function countTags(cells) {
-  const c = { notion: 0, zoneomics: 0, ai: 0, manual: 0 };
+  const c = { regrid: 0, realie: 0, notion: 0, ai: 0, manual: 0 };
   for (const p of PANELS) {
     for (const [, key] of p.rows) {
       const tag = cells[p.section][key].tag;
-      if (tag === "notion") c.notion++;
-      else if (tag === "zoneomics") c.zoneomics++;
+      if (tag === "regrid" || tag === "discrepancy") c.regrid++;
+      else if (tag === "realie") c.realie++;
+      else if (tag === "notion") c.notion++;
       else if (tag === "ai") c.ai++;
       else c.manual++; // manual + manual edit both count as user-supplied gaps
     }
@@ -138,6 +142,9 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   const [done, setDone] = useState(false);
   const [jurisdiction, setJurisdiction] = useState(null);
   const [notionMatched, setNotionMatched] = useState(true);
+  const [discrepancy, setDiscrepancy] = useState(null);
+  const [editingJur, setEditingJur] = useState(false);
+  const [jurLabel, setJurLabel] = useState("");
   const ranRef = useRef(false);
 
   const handleChange = (section, key, val) => {
@@ -152,8 +159,11 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
     try {
       const res = await generateZoningPermitReport({ lat, lon, candidate });
       const report = res.data?.report || null;
-      setJurisdiction(res.data?.jurisdiction || null);
+      const jur = res.data?.jurisdiction || null;
+      setJurisdiction(jur);
+      setJurLabel(jur?.label || "");
       setNotionMatched(res.data?.notion_matched !== false);
+      setDiscrepancy(res.data?.zoning_discrepancy || null);
       setCells((prev) => reportToCells(report, preserveEdits ? prev : null));
       if (report) toast.success("Zoning ordinance provisions loaded.");
       else toast.warning("No zoning data found — manual entry required.");
@@ -161,11 +171,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
     } catch (err) {
       console.error(err);
       const msg = err?.message || "";
-      if (/notion api key/i.test(msg)) {
-        toast.error("Notion API key missing — set NOTION_API_KEY in Base44 secrets.");
-      } else {
-        toast.error(msg || "Zoning lookup failed — manual entry required.");
-      }
+      toast.error(msg || "Zoning lookup failed — manual entry required.");
       setNotionMatched(false);
       setDone(true);
     } finally {
@@ -232,13 +238,13 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       </div>
 
       {/* In-flight — hawk flying-in-place spinner ONLY */}
-      {loading && <HawkFlightSpinner label="Pulling the Ordinance Vacuum (Notion) + Zoneomics…" />}
+      {loading && <HawkFlightSpinner label="Regrid + Realie parcel · Notion Ordinance Vacuum…" />}
 
       {/* Idle — armed, waiting for the Run click */}
       {!loading && !done && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Resolve the jurisdiction from the SARF coordinates, then pull telecom tower provisions from the Notion
-          Ordinance Vacuum (primary) and Zoneomics (district basics). Click{" "}
+          Resolve the jurisdiction from the SARF coordinates, pull the zoning district from Regrid (cross-checked
+          against Realie), then pull telecom tower provisions from the Notion Ordinance Vacuum. Click{" "}
           <span className="font-semibold text-foreground">Run Zoning</span> to begin.
         </div>
       )}
@@ -246,26 +252,58 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       {/* Results */}
       {!loading && done && (
         <>
-          {/* Resolved jurisdiction + source summary */}
+          {/* Resolved jurisdiction (editable) + coverage banner */}
           <div className="px-4 py-3 border-b border-border bg-muted/30 space-y-1.5">
             <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-              <MapPin className="w-4 h-4 text-blue-600" />
-              Jurisdiction resolved:{" "}
-              <span className="font-mono">{jurisdiction?.label || "Unknown — confirm manually"}</span>
+              <MapPin className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="shrink-0">Jurisdiction resolved:</span>
+              {editingJur ? (
+                <input
+                  autoFocus
+                  value={jurLabel}
+                  onChange={(e) => setJurLabel(e.target.value)}
+                  onBlur={() => setEditingJur(false)}
+                  onKeyDown={(e) => { if (e.key === "Enter") setEditingJur(false); }}
+                  className="font-mono text-sm border border-blue-400 rounded px-2 py-0.5 bg-background outline-none flex-1 min-w-0"
+                />
+              ) : (
+                <>
+                  <span className="font-mono">{jurLabel || "Unknown — confirm manually"}</span>
+                  <button
+                    onClick={() => setEditingJur(true)}
+                    className="text-blue-600 hover:text-blue-700 shrink-0"
+                    title="Correct the resolved jurisdiction"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
             </div>
             <div className="text-xs font-mono text-muted-foreground">
-              Notion: {notionMatched ? "✓ match" : "✗ no match"} / {counts.notion} fields populated
-              {" | "}Zoneomics: {counts.zoneomics ? "✓" : "—"} / {counts.zoneomics} fields
+              Regrid: {counts.regrid ? "✓" : "—"}
+              {" | "}Realie: {counts.realie ? "✓" : "—"}
+              {" | "}Notion: {notionMatched ? `✓ ${counts.notion} fields` : "✗"}
               {" | "}AI: {counts.ai} fields
               {" | "}Manual: {counts.manual} fields
             </div>
           </div>
 
+          {/* Zoning discrepancy banner */}
+          {discrepancy && (
+            <div className="px-4 py-3 bg-red-50 dark:bg-red-950/20 border-b border-red-300/50 text-sm text-red-800 dark:text-red-200 font-medium flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                Zoning code disagreement — <strong>Regrid: {discrepancy.regrid}</strong> vs{" "}
+                <strong>Realie: {discrepancy.realie}</strong>. Confirm the correct district in the field below.
+              </span>
+            </div>
+          )}
+
           {/* No Notion page banner */}
           {!notionMatched && (
             <div className="px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-300/50 text-sm text-amber-800 dark:text-amber-200 font-medium">
-              No Notion page for {jurisdiction?.label || "this jurisdiction"} yet — run the Hacker Stackers skill in
-              Claude to add it to the Ordinance Vacuum, or fill the panels manually below.
+              No Notion page for {jurLabel || "this jurisdiction"} yet — run /hackerstacker-skill in Claude to add it
+              to the Ordinance Vacuum, or fill the panels manually below.
             </div>
           )}
 
