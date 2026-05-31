@@ -14,7 +14,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Lock, Network, Sparkles, RefreshCw } from "lucide-react";
+import { Lock, Network, Sparkles, RefreshCw, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "./HawkFlightSpinner";
@@ -30,6 +30,7 @@ export default function Section7Infrastructure({
 }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [error, setError] = useState(null);
   const [utility, setUtility] = useState(null);
   const [counts, setCounts] = useState({ power: 0, fiber: 0 });
   const [powerOn, setPowerOn] = useState(true);
@@ -48,7 +49,15 @@ export default function Section7Infrastructure({
     }
     const lat = Number(targetA.latitude);
     const lon = Number(targetA.longitude);
+    setError(null);
     setLoading(true);
+    // 20s watchdog — never spin forever.
+    const watchdog = setTimeout(() => {
+      setLoading((cur) => {
+        if (cur) setError("Infrastructure load timed out after 20s — OSM Overpass did not respond.");
+        return false;
+      });
+    }, 20000);
     try {
       const cfg = await loadPublicConfig();
       const token = cfg.mapboxAccessToken;
@@ -72,8 +81,10 @@ export default function Section7Infrastructure({
       toast.success(`Infrastructure map generated for Target A — ${data.power?.count || 0} power · ${data.fiber?.count || 0} fiber.`);
     } catch (err) {
       console.error(err);
+      setError(err?.message || "Infrastructure map failed.");
       toast.error(err?.message || "Infrastructure map failed.");
     } finally {
+      clearTimeout(watchdog);
       setLoading(false);
     }
   }, [targetA, radiusMiles]);
@@ -153,7 +164,20 @@ export default function Section7Infrastructure({
 
       {loading && <HawkFlightSpinner label="Loading power & fiber infrastructure for Target A…" />}
 
-      {!loading && !done && (
+      {/* Error surface — no silent forever-spinner. */}
+      {error && !loading && (
+        <div className="px-4 py-4 bg-destructive/5 border-y border-destructive/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-destructive">Infrastructure map failed: {error}</div>
+            <Button onClick={beginAndRun} size="sm" variant="outline" className="mt-2 border-destructive/40 text-destructive hover:bg-destructive/10">
+              <RefreshCw className="w-4 h-4 mr-2" /> Retry
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!loading && !done && !error && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
           One interactive map for Target A — power poles &amp; transformers and fiber runs within the search radius.
           Click <span className="font-semibold text-foreground">Run Infrastructure Map</span> to load, then drive it with the toolbar.
@@ -177,8 +201,10 @@ export default function Section7Infrastructure({
 
           {/* Legend */}
           <div className="absolute bottom-3 left-3 z-10 px-2.5 py-2 rounded-lg bg-black/60 backdrop-blur text-white text-[11px] font-mono leading-tight space-y-1">
-            <div className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-full" style={{ background: "#E60000" }} /> power (pole / transformer)</div>
+            <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: "#E60000" }} /> power pole / tower</div>
+            <div className="flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded-full" style={{ background: "#E60000" }} /> transformer / substation</div>
             <div className="flex items-center gap-1.5"><span className="inline-block w-4 h-0.5" style={{ background: "#FF8C00" }} /> fiber run</div>
+            <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full border border-white" style={{ background: "#FF8C00" }} /> fiber splice / handhole</div>
           </div>
         </div>
       </div>

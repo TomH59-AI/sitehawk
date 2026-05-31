@@ -91,11 +91,17 @@ function addInfraLayers(map, sources) {
       "circle-stroke-color": "#fff", "circle-stroke-width": 1.5,
     },
   });
-  // Power poles / transformers — red markers.
+  // Power poles / transformers — red markers. Transformers/substations render as
+  // larger squares; poles/towers as smaller circles (data-driven by 'kind').
   map.addLayer({
     id: "s7-power-pt", type: "circle", source: "s7-power",
     paint: {
-      "circle-radius": 6, "circle-color": POWER_RED,
+      "circle-radius": [
+        "match", ["get", "kind"],
+        "transformer", 8, "substation", 9,
+        6,
+      ],
+      "circle-color": POWER_RED,
       "circle-stroke-color": "#fff", "circle-stroke-width": 1.5,
     },
   });
