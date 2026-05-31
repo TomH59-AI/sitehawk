@@ -6,6 +6,7 @@ import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
 import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass, Network, Plane, Map, Scale } from "lucide-react";
 import HawkIcon from "./HawkIcon";
+import PipelineSidebarNav from "./PipelineSidebarNav";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { stripeCheckout } from "@/functions/stripeCheckout";
@@ -66,22 +67,29 @@ export default function Layout() {
             </div>
           </Link>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                }`}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-              </Link>
+              <div key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-primary/10 text-primary border border-primary/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </Link>
+                {/* On Site Search, mirror the live pipeline right under the menu item */}
+                {item.path === "/search" && location.pathname === "/search" && (
+                  <div className="mt-2 mb-1">
+                    <PipelineSidebarNav />
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

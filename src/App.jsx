@@ -5,6 +5,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { PipelineProvider } from '@/lib/PipelineContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
@@ -113,12 +114,14 @@ function App() {
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <Router>
-          <AppWithSplash />
-        </Router>
-        <Toaster />
-        <AppProtection />
-        <PWAInstallPrompt />
+        <PipelineProvider>
+          <Router>
+            <AppWithSplash />
+          </Router>
+          <Toaster />
+          <AppProtection />
+          <PWAInstallPrompt />
+        </PipelineProvider>
       </QueryClientProvider>
     </AuthProvider>
   )

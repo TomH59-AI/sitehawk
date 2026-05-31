@@ -14,11 +14,13 @@ import Section6Proximity from "../components/search/Section6Proximity";
 import Section7Infrastructure from "../components/search/Section7Infrastructure";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
+import { usePipeline } from "@/lib/PipelineContext";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
 
 export default function SiteSearch() {
   const { toast } = useToast();
+  const { setActiveStep, setCompletedSteps } = usePipeline();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -43,6 +45,27 @@ export default function SiteSearch() {
   const [viewshedsComplete, setViewshedsComplete] = useState(false);
   // True once all three Section 6 proximity maps are complete — unlocks Section 7.
   const [proximityComplete, setProximityComplete] = useState(false);
+
+  // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
+  useEffect(() => {
+    setActiveStep(searchCenter ? pipelineStep : null);
+  }, [pipelineStep, searchCenter, setActiveStep]);
+
+  useEffect(() => {
+    const done = [];
+    if (sarfReady) done.push("sarf");
+    if (zoningReady) done.push("zoning");
+    if (targetA) done.push("targets");
+    if (mapsComplete) done.push("maps");
+    if (viewshedsComplete) done.push("viewsheds");
+    if (proximityComplete) done.push("proximity");
+    setCompletedSteps(done);
+  }, [sarfReady, zoningReady, targetA, mapsComplete, viewshedsComplete, proximityComplete, setCompletedSteps]);
+
+  // Clear the sidebar pipeline when leaving Site Search.
+  useEffect(() => {
+    return () => { setActiveStep(null); setCompletedSteps([]); };
+  }, [setActiveStep, setCompletedSteps]);
 
   useEffect(() => {
     async function init() {
