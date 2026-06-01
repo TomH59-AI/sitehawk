@@ -133,7 +133,7 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
       if (agentName && agentName.trim()) {
         marker.setPopup(
           new window.mapboxgl.Popup({ offset: 18, closeButton: false })
-            .setHTML(`<div style="font-family:monospace;font-size:11px;"><strong>${agentName}</strong><br/>${lat.toFixed(6)}, ${lon.toFixed(6)}</div>`)
+            .setHTML(`<div style="font-family:monospace;font-size:11px;color:#3b82f6;"><strong style="color:#3b82f6;">${agentName}</strong><br/><span style="color:#3b82f6;">${lat.toFixed(6)}, ${lon.toFixed(6)}</span></div>`)
         );
         marker.togglePopup();
       }

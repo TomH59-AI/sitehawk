@@ -462,8 +462,8 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
       if (adj.features.length) {
         map.addSource("s4-adj", { type: "geojson", data: adj });
         // Faint fill so the whole parcel area is hover/click targetable + visible.
-        map.addLayer({ id: "s4-adj-fill", type: "fill", source: "s4-adj", paint: { "fill-color": "#22d3ee", "fill-opacity": 0.06 } });
-        map.addLayer({ id: "s4-adj-line", type: "line", source: "s4-adj", paint: { "line-color": "#22d3ee", "line-width": 1.8, "line-opacity": 0.9 } });
+        map.addLayer({ id: "s4-adj-fill", type: "fill", source: "s4-adj", paint: { "fill-color": "#22d3ee", "fill-opacity": 0.08 } });
+        map.addLayer({ id: "s4-adj-line", type: "line", source: "s4-adj", paint: { "line-color": "#22d3ee", "line-width": 2.2, "line-opacity": 1 } });
       }
 
       // Target A parcel — brand green highlight (if its geometry is available).

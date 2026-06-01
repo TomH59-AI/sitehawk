@@ -27,7 +27,7 @@ export default function SiteSearch() {
   const [pageLoading, setPageLoading] = useState(true);
   const [scanError, setScanError] = useState(null);
   const [searchCenter, setSearchCenter] = useState(null);
-  const [searchParams, setSearchParams] = useState({ radius_miles: 0.5, tower_height_ft: 199, agent_name: "", compound_size: "100x100" });
+  const [searchParams, setSearchParams] = useState({ radius_miles: 0.5, tower_height_ft: 199, agent_name: "", ring_name: "", compound_size: "100x100" });
   const [searchesThisMonth, setSearchesThisMonth] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   // Pipeline state machine. Steps: "sarf" → "zoning" → ... Each downstream
@@ -157,7 +157,7 @@ export default function SiteSearch() {
   const sarfLat = coordsReady ? Number(searchCenter.lat) : null;
   const sarfLon = coordsReady ? Number(searchCenter.lon) : null;
   const sarfRadius = searchParams.radius_miles;
-  const sarfAgent = searchParams.agent_name;
+  const sarfAgent = searchParams.ring_name?.trim() || searchParams.agent_name;
 
   return (
     <div className="space-y-6">
@@ -217,7 +217,7 @@ export default function SiteSearch() {
           <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500/15 via-transparent to-transparent border border-cyan-500/30">
             <div className="text-[10px] font-mono text-cyan-700 tracking-[0.3em] mb-0.5">IMAGE GENERATED · MAPBOX</div>
             <div className="font-heading font-bold text-foreground">
-              SARF Map — {searchParams.agent_name?.trim() || "Search Ring"} · {Number(searchCenter.lat).toFixed(6)}, {Number(searchCenter.lon).toFixed(6)}
+              SARF Map — {searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"} · {Number(searchCenter.lat).toFixed(6)}, {Number(searchCenter.lon).toFixed(6)}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
               {searchParams.radius_miles}-mile search ring. Advance to the next pipeline step manually when ready.
@@ -277,7 +277,7 @@ export default function SiteSearch() {
           srcLat={Number(searchCenter.lat)}
           srcLon={Number(searchCenter.lon)}
           radiusMiles={searchParams.radius_miles}
-          ringName={searchParams.agent_name?.trim() || "Search Ring"}
+          ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
           onRun={() => setPipelineStep("maps")}
           onComplete={() => setMapsComplete(true)}
         />
