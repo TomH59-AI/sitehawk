@@ -17,6 +17,7 @@ import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
+import BusProbePanel from "../components/search/BusProbePanel";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
 
@@ -56,6 +57,14 @@ export default function SiteSearch() {
   // NWI source as §4 map), power=HIFLD electricUtilityLookup (not §7's contact).
   const [sectionData, setSectionData] = useState({});
   const mergeSectionData = (d) => setSectionData((prev) => ({ ...prev, ...d }));
+
+  // ── TEMP RUNTIME PROBE ──────────────────────────────────────────────────
+  // Dumps the live bus to console on every emit so a real Target A run can be
+  // verified key-by-key. Remove (with BusProbePanel) once the scorecard lands.
+  useEffect(() => {
+    if (Object.keys(sectionData).length === 0) return;
+    console.log("🔬 BUS sectionData →", JSON.stringify(sectionData, null, 2));
+  }, [sectionData]);
 
   // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
   useEffect(() => {
@@ -191,6 +200,9 @@ export default function SiteSearch() {
 
   return (
     <div className="space-y-6">
+      {/* TEMP — live bus probe (admin only). Remove before launch. */}
+      {isAdmin && coordsReady && <BusProbePanel sectionData={sectionData} />}
+
       {/* SiteHawk Vision chat toggle — paid subscribers only (not a scan) */}
       {!isBlind && (
         <button
