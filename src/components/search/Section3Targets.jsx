@@ -21,9 +21,15 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import { scipBestParcels } from "@/functions/scipBestParcels";
-import { skipTrace } from "@/functions/skipTrace";
+import { skipTraceCascade } from "@/functions/skipTraceCascade";
+import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 
 const COLS = ["Target A", "Target B", "Target C"];
+
+// Session cache: key `${ownerName}|${mailingAddress}` → cascade result.
+// Persists for the browser session so re-rendering Section 3 doesn't re-burn credits.
+const cascadeCache = new Map();
+const cacheKey = (owner, addr) => `${(owner || "").trim().toLowerCase()}|${(addr || "").trim().toLowerCase()}`;
 
 // Row labels EXACTLY as Tom specified, in order. Each maps to a target field.
 const ROWS = [
@@ -80,6 +86,10 @@ export default function Section3Targets({
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [noData, setNoData] = useState(false);
+  // Per-column cascade results + loading flags for the Phone row.
+  const [phoneResults, setPhoneResults] = useState([null, null, null]);
+  const [phoneLoading, setPhoneLoading] = useState([false, false, false]);
+  const [targetMeta, setTargetMeta] = useState([null, null, null]); // {owner, addr} per col for retry
   const ranRef = useRef(false);
 
   const setCell = (rowKey, colIdx, val) => {
@@ -90,9 +100,38 @@ export default function Section3Targets({
     });
   };
 
+  // Resolve one target column's phone via the cascade, using the session cache.
+  const runCascade = useCallback(async (colIdx, owner, addr, label, force = false) => {
+    const key = cacheKey(owner, addr);
+    if (!force && cascadeCache.has(key)) {
+      const cached = cascadeCache.get(key);
+      applyCascade(colIdx, cached);
+      return;
+    }
+    setPhoneLoading((p) => { const n = [...p]; n[colIdx] = true; return n; });
+    try {
+      const res = await skipTraceCascade({ owner_name: owner, mailing_address: addr, target_label: label });
+      const data = res?.data ?? res;
+      cascadeCache.set(key, data);
+      applyCascade(colIdx, data);
+    } catch {
+      const miss = { is_entity_owner: false, phone: null, display: "", source: null, phones: [] };
+      applyCascade(colIdx, miss);
+    } finally {
+      setPhoneLoading((p) => { const n = [...p]; n[colIdx] = false; return n; });
+    }
+  }, []);
+
+  function applyCascade(colIdx, data) {
+    setPhoneResults((p) => { const n = [...p]; n[colIdx] = data; return n; });
+    if (data?.display) setCell("phone", colIdx, data.display);
+  }
+
   const runPipeline = useCallback(async () => {
     setLoading(true);
     setNoData(false);
+    setPhoneResults([null, null, null]);
+    setPhoneLoading([false, false, false]);
     try {
       // 1. Realie ring search + ranking + FEMA → best 3 targets
       const res = await scipBestParcels({
@@ -107,26 +146,19 @@ export default function Section3Targets({
         for (const [, key] of ROWS) fresh[key][colIdx] = col[key] ?? "";
       });
 
-      // 2. Enformion skip-trace each owner's phone, in sequence
+      setGrid(fresh);
+
+      // 2. Multi-source skip-trace cascade per target owner (Enformion → Apify
+      //    actors in parallel). Records meta for retry + fires the lookups.
+      const metas = [null, null, null];
       for (let colIdx = 0; colIdx < targets.length && colIdx < 3; colIdx++) {
         const t = targets[colIdx];
-        if (!t?.owner_name) {
-          fresh.phone[colIdx] = "Not found";
-          continue;
-        }
-        try {
-          const st = await skipTrace({
-            owner_name: t.owner_name,
-            mailing_address: t.mailing_address || t.parcel_address || "",
-          });
-          const phone = st.data?.phone || st.data?.phones?.[0] || st.data?.primary_phone || "";
-          fresh.phone[colIdx] = phone || "Not found";
-        } catch {
-          fresh.phone[colIdx] = "Not found";
-        }
+        if (t?.owner_name) metas[colIdx] = { owner: t.owner_name, addr: t.mailing_address || t.parcel_address || "" };
       }
-
-      setGrid(fresh);
+      setTargetMeta(metas);
+      // Fire all target cascades in parallel — each cascade internally runs its
+      // own sources (Enformion first, then the two Apify actors together).
+      metas.forEach((m, colIdx) => { if (m) runCascade(colIdx, m.owner, m.addr, COLS[colIdx]); });
       if (targets.length === 0) {
         setNoData(true);
         toast.warning("No buildable target parcels found in the ring.");
@@ -154,7 +186,7 @@ export default function Section3Targets({
     } finally {
       setLoading(false);
     }
-  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, onTargetAReady]);
+  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, onTargetAReady, runCascade]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "targets").
   useEffect(() => {
@@ -257,13 +289,24 @@ export default function Section3Targets({
                     </td>
                     {[0, 1, 2].map((colIdx) => (
                       <td key={colIdx} className="border border-border p-0 align-top">
-                        <textarea
-                          rows={1}
-                          value={grid[key][colIdx]}
-                          onChange={(e) => setCell(key, colIdx, e.target.value)}
-                          placeholder="—"
-                          className="w-full px-4 py-2 text-sm bg-transparent outline-none resize-y text-foreground focus:bg-emerald-50 dark:focus:bg-emerald-950/30"
-                        />
+                        {key === "phone" ? (
+                          <PhoneCascadeCell
+                            result={phoneResults[colIdx]}
+                            loading={phoneLoading[colIdx]}
+                            value={grid.phone[colIdx]}
+                            onChange={(v) => setCell("phone", colIdx, v)}
+                            onPick={(v) => setCell("phone", colIdx, v)}
+                            onRetry={() => { const m = targetMeta[colIdx]; if (m) runCascade(colIdx, m.owner, m.addr, COLS[colIdx], true); }}
+                          />
+                        ) : (
+                          <textarea
+                            rows={1}
+                            value={grid[key][colIdx]}
+                            onChange={(e) => setCell(key, colIdx, e.target.value)}
+                            placeholder="—"
+                            className="w-full px-4 py-2 text-sm bg-transparent outline-none resize-y text-foreground focus:bg-emerald-50 dark:focus:bg-emerald-950/30"
+                          />
+                        )}
                       </td>
                     ))}
                   </tr>
