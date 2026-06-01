@@ -16,6 +16,10 @@ function normalize(p) {
       .join(", ") || null,
     parcel_address: p.address || p.fullAddress || p.site_address || null,
     acreage: p.acres || p.acreage || p.lotSizeAcres || null,
+    // Lot dimensions when the assessor provides them (frontage x depth, ft).
+    lot_frontage_ft: p.lotFrontage || p.frontage || p.lot_frontage || p.lotWidth || p.lot_width || null,
+    lot_depth_ft: p.lotDepth || p.depth || p.lot_depth || null,
+    lot_size_sqft: p.lotSizeSqFt || p.lotSquareFeet || p.lot_size_sqft || p.squareFeet || null,
     land_use: p.landUse || p.land_use || p.useDescription || p.zoning || null,
     assessed_value: p.totalAssessedValue || p.assessedValue || p.marketValue || null,
     last_sale_date: p.lastSaleDate || p.last_sale_date || p.saleDate || null,

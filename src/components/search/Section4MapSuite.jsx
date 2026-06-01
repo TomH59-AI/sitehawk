@@ -214,11 +214,13 @@ export default function Section4MapSuite({
       } else if (step === "wetlands") {
         map = await renderWetlands(refs.wetlands.current, targetA, token);
       } else if (step === "parcel") {
+        // Pull every parcel inside the user-selected SARF ring (centered on the
+        // SARF center, not Target A) so we can draw all boundaries in the ring.
         const pres = await realieParcelsInRing({
-          lat: targetA.latitude, lon: targetA.longitude, radius_miles: 0.5,
+          lat: srcLat, lon: srcLon, radius_miles: radiusMiles,
         }).catch(() => null);
         const parcels = pres?.data?.parcels || [];
-        map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey, ringName);
+        map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey, ringName, srcLat, srcLon, radiusMiles);
       }
 
       maps.current[step] = map;

@@ -418,12 +418,31 @@ function zoneLine(zone) {
 // Draw Target A parcel boundary in brand green + adjacent parcels in light grey.
 // `parcels` = array of normalized Realie records (with parcel_geometry when present).
 // Hover/click a parcel → popup with owner + parcel ID + Zoneomics zoning code.
-export function renderParcel(container, target, parcels, token, zoneomicsKey, ringName) {
+export function renderParcel(container, target, parcels, token, zoneomicsKey, ringName, srcLat, srcLon, radiusMiles = 0.5) {
   const { latitude: lat, longitude: lon, owner, apn } = target;
-  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 16);
+  // Center the parcel map on the SARF center so the whole ring is in view.
+  const cLat = Number.isFinite(srcLat) ? srcLat : lat;
+  const cLon = Number.isFinite(srcLon) ? srcLon : lon;
+  const map = makeMap(container, SAT_STYLE, [cLon, cLat], token, 15);
   return new Promise((resolve) => {
     map.on("load", () => {
-      // Adjacent parcels — light grey outlines (only those with geometry).
+      // SARF search ring outline (the radius the user selected).
+      if (Number.isFinite(srcLat) && Number.isFinite(srcLon)) {
+        const ring = buildCircle(cLat, cLon, radiusMiles);
+        map.addSource("s4-sarf-ring", { type: "geojson", data: ring });
+        map.addLayer({ id: "s4-sarf-ring-line", type: "line", source: "s4-sarf-ring", paint: { "line-color": "#facc15", "line-width": 2.5, "line-dasharray": [3, 2] } });
+      }
+
+      // Compact dimension label for a parcel — acreage and/or frontage×depth.
+      const dimText = (p) => {
+        const parts = [];
+        if (p.acreage != null && Number(p.acreage) > 0) parts.push(`${Number(p.acreage).toFixed(2)} ac`);
+        if (p.lot_frontage_ft && p.lot_depth_ft) parts.push(`${Math.round(p.lot_frontage_ft)}×${Math.round(p.lot_depth_ft)} ft`);
+        else if (p.lot_size_sqft && Number(p.lot_size_sqft) > 0) parts.push(`${Math.round(Number(p.lot_size_sqft)).toLocaleString()} sf`);
+        return parts.join(" · ");
+      };
+
+      // All parcels in the SARF ring — visible cyan boundaries (those with geometry).
       const adj = {
         type: "FeatureCollection",
         features: (parcels || [])
@@ -434,6 +453,7 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
             properties: {
               apn: p.apn || "",
               owner: p.owner_name || p.owner || "",
+              dims: dimText(p),
               clat: parcelCentroid(p.parcel_geometry)?.lat ?? null,
               clon: parcelCentroid(p.parcel_geometry)?.lon ?? null,
             },
@@ -441,9 +461,9 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
       };
       if (adj.features.length) {
         map.addSource("s4-adj", { type: "geojson", data: adj });
-        // Transparent fill so the whole parcel area is hover/click targetable.
-        map.addLayer({ id: "s4-adj-fill", type: "fill", source: "s4-adj", paint: { "fill-color": "#cbd5e1", "fill-opacity": 0.01 } });
-        map.addLayer({ id: "s4-adj-line", type: "line", source: "s4-adj", paint: { "line-color": "#cbd5e1", "line-width": 1.5 } });
+        // Faint fill so the whole parcel area is hover/click targetable + visible.
+        map.addLayer({ id: "s4-adj-fill", type: "fill", source: "s4-adj", paint: { "fill-color": "#22d3ee", "fill-opacity": 0.06 } });
+        map.addLayer({ id: "s4-adj-line", type: "line", source: "s4-adj", paint: { "line-color": "#22d3ee", "line-width": 1.8, "line-opacity": 0.9 } });
       }
 
       // Target A parcel — brand green highlight (if its geometry is available).
@@ -453,7 +473,7 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
         const fc = {
           type: "Feature",
           geometry: targetParcel.parcel_geometry,
-          properties: { apn: targetParcel.apn || apn || "", owner: owner || "", clat: tc?.lat ?? lat, clon: tc?.lon ?? lon },
+          properties: { apn: targetParcel.apn || apn || "", owner: owner || "", dims: dimText(targetParcel), clat: tc?.lat ?? lat, clon: tc?.lon ?? lon },
         };
         map.addSource("s4-target", { type: "geojson", data: fc });
         map.addLayer({ id: "s4-target-fill", type: "fill", source: "s4-target", paint: { "fill-color": BRAND_GREEN, "fill-opacity": 0.3 } });
@@ -466,9 +486,11 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
 
       const popupHTML = (props, zone) => {
         const pid = props.apn || "—";
+        const dimsRow = props.dims ? `<span style="color:#3b82f6;">Dimensions: ${props.dims}</span><br/>` : "";
         return `<div style="font-family:monospace;font-size:11px;line-height:1.5;color:#3b82f6;">
           <strong style="color:#3b82f6;">${props.owner || "Owner —"}</strong><br/>
           <span style="color:#3b82f6;">Parcel ID: ${pid}</span><br/>
+          ${dimsRow}
           <span data-zone="${pid}" style="color:#3b82f6;">${zoneLine(zone)}</span>
         </div>`;
       };
@@ -507,7 +529,7 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
         map.on("mouseleave", layerId, clearCursor);
       }
 
-      // Parcel-number labels at each adjacent parcel's centroid across the SARF ring.
+      // Per-parcel labels at each centroid: APN on line 1, dimensions on line 2.
       const apnPoints = {
         type: "FeatureCollection",
         features: (parcels || [])
@@ -515,7 +537,8 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
           .map((p) => {
             const c = parcelCentroid(p.parcel_geometry);
             if (!c) return null;
-            return { type: "Feature", geometry: { type: "Point", coordinates: [c.lon, c.lat] }, properties: { apn: p.apn } };
+            const dims = dimText(p);
+            return { type: "Feature", geometry: { type: "Point", coordinates: [c.lon, c.lat] }, properties: { label: dims ? `${p.apn}\n${dims}` : p.apn } };
           })
           .filter(Boolean),
       };
@@ -523,7 +546,7 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
         map.addSource("s4-apn", { type: "geojson", data: apnPoints });
         map.addLayer({
           id: "s4-apn-layer", type: "symbol", source: "s4-apn",
-          layout: { "text-field": ["get", "apn"], "text-size": 11, "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"], "text-allow-overlap": false },
+          layout: { "text-field": ["get", "label"], "text-size": 10, "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"], "text-allow-overlap": false },
           paint: { "text-color": "#fff", "text-halo-color": "#0f172a", "text-halo-width": 2 },
         });
       }
@@ -540,7 +563,8 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey, ri
         paint: { "text-color": "#fff", "text-halo-color": BRAND_GREEN, "text-halo-width": 2.5 },
       });
       addTowerMarker(map, lat, lon, owner);
-      fitToRing(map, lat, lon, 0.3);
+      // Fit the whole SARF ring so every parcel boundary in the radius is visible.
+      fitToRing(map, cLat, cLon, radiusMiles);
       resolve(map);
     });
   });
