@@ -20,8 +20,10 @@ function normalize(p) {
     assessed_value: p.totalAssessedValue || p.assessedValue || p.marketValue || null,
     last_sale_date: p.lastSaleDate || p.last_sale_date || p.saleDate || null,
     last_sale_price: p.lastSalePrice || p.last_sale_price || p.salePrice || null,
-    latitude: p.latitude || p.lat || null,
-    longitude: p.longitude || p.lon || p.lng || null,
+    latitude: p.latitude || p.lat || (p.location?.coordinates?.[1]) || null,
+    longitude: p.longitude || p.lon || p.lng || (p.location?.coordinates?.[0]) || null,
+    // GeoJSON parcel polygon (Realie returns a MultiPolygon under `geometry`).
+    parcel_geometry: p.geometry || p.parcel_geometry || p.parcelGeometry || null,
   };
 }
 
