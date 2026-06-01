@@ -137,6 +137,7 @@ function hexToRgb(hex) {
 }
 
 function addGradientConeLayer(map, lat, lon, dir, rangeMiles, obstructed) {
+  const dk = dir.short; // unique-per-direction id suffix
   const ring = sectorRing(lat, lon, dir.bearing, dir.spread, rangeMiles);
   // bbox of the cone
   let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
@@ -199,24 +200,29 @@ function addGradientConeLayer(map, lat, lon, dir, rangeMiles, obstructed) {
   const coords = [
     [minLon, maxLat], [maxLon, maxLat], [maxLon, minLat], [minLon, minLat],
   ];
-  map.addSource("s5-cone-img", { type: "canvas", canvas: cvs, coordinates: coords, animate: false });
-  map.addLayer({ id: "s5-cone-img-layer", type: "raster", source: "s5-cone-img", paint: { "raster-opacity": 1, "raster-fade-duration": 0 } });
+  if (!map.getSource(`s5-cone-img-${dk}`)) {
+    map.addSource(`s5-cone-img-${dk}`, { type: "canvas", canvas: cvs, coordinates: coords, animate: false });
+    map.addLayer({ id: `s5-cone-img-layer-${dk}`, type: "raster", source: `s5-cone-img-${dk}`, paint: { "raster-opacity": 1, "raster-fade-duration": 0 } });
+  }
 
   // Crisp 2px stroke outline at 80% opacity (anti-aliased vector line).
   const cone = { type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: {} };
-  map.addSource("s5-cone-line", { type: "geojson", data: cone });
-  map.addLayer({ id: "s5-cone-stroke", type: "line", source: "s5-cone-line", paint: { "line-color": dir.color, "line-width": 2, "line-opacity": 0.8 } });
+  if (!map.getSource(`s5-cone-line-${dk}`)) {
+    map.addSource(`s5-cone-line-${dk}`, { type: "geojson", data: cone });
+    map.addLayer({ id: `s5-cone-stroke-${dk}`, type: "line", source: `s5-cone-line-${dk}`, paint: { "line-color": dir.color, "line-width": 2, "line-opacity": 0.8 } });
+  }
 }
 
 // Faint dashed concentric range rings at 0.25 / 0.5 / 1 mi (SARF convention).
-function addRangeRings(map, lat, lon) {
+function addRangeRings(map, lat, lon, dk = "x") {
   const rings = [0.25, 0.5, 1.0];
   const fc = {
     type: "FeatureCollection",
     features: rings.map((r) => ({ type: "Feature", geometry: { type: "Polygon", coordinates: [circleRing(lat, lon, r)] }, properties: { mi: r } })),
   };
-  map.addSource("s5-rings", { type: "geojson", data: fc });
-  map.addLayer({ id: "s5-rings-line", type: "line", source: "s5-rings", paint: { "line-color": "#ffffff", "line-opacity": 0.4, "line-width": 1, "line-dasharray": [3, 3] } });
+  if (map.getSource(`s5-rings-${dk}`)) return;
+  map.addSource(`s5-rings-${dk}`, { type: "geojson", data: fc });
+  map.addLayer({ id: `s5-rings-line-${dk}`, type: "line", source: `s5-rings-${dk}`, paint: { "line-color": "#ffffff", "line-opacity": 0.4, "line-width": 1, "line-dasharray": [3, 3] } });
   // Distance labels along the bearing line.
   const labels = {
     type: "FeatureCollection",
@@ -225,9 +231,9 @@ function addRangeRings(map, lat, lon) {
       return { type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] }, properties: { label: `${r} mi` } };
     }),
   };
-  map.addSource("s5-ring-labels", { type: "geojson", data: labels });
+  map.addSource(`s5-ring-labels-${dk}`, { type: "geojson", data: labels });
   map.addLayer({
-    id: "s5-ring-labels-layer", type: "symbol", source: "s5-ring-labels",
+    id: `s5-ring-labels-layer-${dk}`, type: "symbol", source: `s5-ring-labels-${dk}`,
     layout: { "text-field": ["get", "label"], "text-size": 10, "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"], "text-allow-overlap": true },
     paint: { "text-color": "#ffffff", "text-opacity": 0.55, "text-halo-color": "#000", "text-halo-width": 1 },
   });
@@ -287,27 +293,40 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
 
   const obstructed = obstructionForCone(profileDir, rangeMiles);
 
+  const dk = dir.short;
   return new Promise((resolve) => {
     map.on("load", () => {
-      // Container may have just become visible — force a resize so the canvas
-      // matches the real container size and tiles paint.
+      // Container may have just become visible (North arms the section, which
+      // re-renders the parent and can leave this container at 0px on first
+      // paint) — force a resize FIRST so the canvas matches the real size and
+      // the cone bbox math never runs against a collapsed (zero-area) canvas.
       try { map.resize(); } catch { /* noop */ }
-      // terrain-rgb hillshade.
-      map.addSource("s5-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
-      map.addLayer({ id: "s5-hillshade", type: "hillshade", source: "s5-dem", paint: { "hillshade-exaggeration": 0.4 } });
+      // Second resize on the next frame catches the layout settling after the
+      // active-state flip — without it North can paint into a 0-height canvas.
+      requestAnimationFrame(() => { try { map.resize(); } catch { /* noop */ } });
 
-      addRangeRings(map, lat, lon);
+      try {
+        // terrain-rgb hillshade (guard against duplicate add on re-render).
+        if (!map.getSource("s5-dem")) {
+          map.addSource("s5-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+          map.addLayer({ id: "s5-hillshade", type: "hillshade", source: "s5-dem", paint: { "hillshade-exaggeration": 0.4 } });
+        }
 
-      // 5 — cone polygon GeoJSON build.
-      console.log(`${tag} Cone build: bearing=${dir.bearing}° width=${dir.spread * 2}° range=${rangeMiles}mi`);
-      // 6 — raster (gradient canvas) + polygon (stroke) layer add.
-      addGradientConeLayer(map, lat, lon, dir, rangeMiles, obstructed);
-      console.log(`${tag} Cone + hatch layers added (blocked=${obstructed.blocked})`);
+        addRangeRings(map, lat, lon, dk);
 
-      addTowerVertex(map, lat, lon, dir);
+        // 5 — cone polygon GeoJSON build.
+        console.log(`${tag} Cone build: bearing=${dir.bearing}° width=${dir.spread * 2}° range=${rangeMiles}mi`);
+        // 6 — raster (gradient canvas) + polygon (stroke) layer add.
+        addGradientConeLayer(map, lat, lon, dir, rangeMiles, obstructed);
+        console.log(`${tag} Cone + hatch layers added (blocked=${obstructed.blocked})`);
 
-      const d = rangeMiles / 50;
-      map.fitBounds([[lon - d, lat - d], [lon + d, lat + d]], { padding: 40, duration: 0 });
+        addTowerVertex(map, lat, lon, dir);
+
+        const d = rangeMiles / 50;
+        map.fitBounds([[lon - d, lat - d], [lon + d, lat + d]], { padding: 40, duration: 0 });
+      } catch (e) {
+        console.error(`${tag} layer build threw:`, e?.message || e);
+      }
 
       resolve({ engine, instance: map, destroy: () => { try { map.remove(); } catch { /* noop */ } } });
     });
