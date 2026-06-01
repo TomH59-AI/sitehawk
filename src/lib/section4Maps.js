@@ -507,7 +507,28 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey) {
         map.on("mouseleave", layerId, clearCursor);
       }
 
-      // Label + tower marker on Target A.
+      // Parcel-number labels at each adjacent parcel's centroid across the SARF ring.
+      const apnPoints = {
+        type: "FeatureCollection",
+        features: (parcels || [])
+          .filter((p) => p.parcel_geometry && p.apn && p.apn !== apn)
+          .map((p) => {
+            const c = parcelCentroid(p.parcel_geometry);
+            if (!c) return null;
+            return { type: "Feature", geometry: { type: "Point", coordinates: [c.lon, c.lat] }, properties: { apn: p.apn } };
+          })
+          .filter(Boolean),
+      };
+      if (apnPoints.features.length) {
+        map.addSource("s4-apn", { type: "geojson", data: apnPoints });
+        map.addLayer({
+          id: "s4-apn-layer", type: "symbol", source: "s4-apn",
+          layout: { "text-field": ["get", "apn"], "text-size": 11, "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"], "text-allow-overlap": false },
+          paint: { "text-color": "#fff", "text-halo-color": "#0f172a", "text-halo-width": 2 },
+        });
+      }
+
+      // Label + tower marker on Target A — owner + Target A parcel number.
       const labelText = `${owner || "Owner —"}${apn ? ` · ${apn}` : ""}`;
       map.addSource("s4-label", {
         type: "geojson",
