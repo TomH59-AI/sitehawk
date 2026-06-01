@@ -289,6 +289,9 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
 
   return new Promise((resolve) => {
     map.on("load", () => {
+      // Container may have just become visible — force a resize so the canvas
+      // matches the real container size and tiles paint.
+      try { map.resize(); } catch { /* noop */ }
       // terrain-rgb hillshade.
       map.addSource("s5-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
       map.addLayer({ id: "s5-hillshade", type: "hillshade", source: "s5-dem", paint: { "hillshade-exaggeration": 0.4 } });

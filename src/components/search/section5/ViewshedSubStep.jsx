@@ -120,11 +120,15 @@ export default function ViewshedSubStep({
         </div>
       )}
 
-      {/* Map + overlays stay mounted once generated so the map persists. */}
-      <div style={{ display: done && !loading ? "block" : "none" }}>
+      {/* Map + overlays stay mounted once generated so the map persists.
+          The map container must be VISIBLE & SIZED while loading too — Mapbox
+          can't measure a display:none / 0×0 container and never paints tiles. */}
+      <div style={{ display: loading || done ? "block" : "none" }}>
         <div className="relative w-full bg-[#0C1B2E]" style={{ height: 540 }}>
           <div ref={mapRef} className="absolute inset-0" />
 
+          {/* Overlays only show once the map is done (hidden while loading). */}
+          <div style={{ display: done && !loading ? "block" : "none" }}>
           {/* Compass rose — top-right, active arrow glows the cone color. */}
           <div className="absolute top-3 right-3 z-10">
             <ViewshedCompassRose activeDir={dir.short} color={dir.color} size={40} />
@@ -148,6 +152,7 @@ export default function ViewshedSubStep({
               {engine === "cesium" ? "Cesium terrain" : "MapBox terrain-rgb"}
             </div>
           )}
+          </div>
         </div>
 
         {/* Elevation profile strip (toggle). */}
