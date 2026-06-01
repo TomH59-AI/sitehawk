@@ -280,6 +280,80 @@ export function renderZoning(container, target, token, zoneomicsKey, zone, parce
   });
 }
 
+// ────────────── 4b. ZONING GRID (no paid tiles needed) ──────────────
+// Draw a color-coded zoning overlay from zoneDetail grid samples. Each sample
+// becomes a small filled square colored by its district (color supplied by the
+// caller from the API-derived legend). Target A parcel boundary + pill label on
+// top. This gives VISIBLE zoning colors without the paid Zoneomics tile tier.
+//   cells:    [{ lat, lng, zone_code, color }]
+//   cellLat / cellLng: cell size in degrees (from the grid function)
+//   zone:     { zone_code, zone_name } for the Target A pill label
+export function renderZoningGrid(container, target, token, cells, cellLat, cellLng, zone, parcels = []) {
+  const { latitude: lat, longitude: lon, owner, apn } = target;
+  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 15);
+  map.on("error", (e) => console.error("[ZONING MAP DIAG] Mapbox error event:", e?.error || e));
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      // 1) Colored zoning cells — one square polygon per grid sample.
+      const dLat = (cellLat || 0.001) / 2;
+      const dLng = (cellLng || 0.001) / 2;
+      const features = (cells || [])
+        .filter((c) => Number.isFinite(c.lat) && Number.isFinite(c.lng) && c.color)
+        .map((c) => ({
+          type: "Feature",
+          properties: { color: c.color, zone_code: c.zone_code || "" },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[
+              [c.lng - dLng, c.lat - dLat],
+              [c.lng + dLng, c.lat - dLat],
+              [c.lng + dLng, c.lat + dLat],
+              [c.lng - dLng, c.lat + dLat],
+              [c.lng - dLng, c.lat - dLat],
+            ]],
+          },
+        }));
+
+      if (features.length) {
+        map.addSource("s4-zone-grid", { type: "geojson", data: { type: "FeatureCollection", features } });
+        map.addLayer({
+          id: "s4-zone-grid-fill", type: "fill", source: "s4-zone-grid",
+          paint: { "fill-color": ["get", "color"], "fill-opacity": 0.5 },
+        });
+        map.addLayer({
+          id: "s4-zone-grid-line", type: "line", source: "s4-zone-grid",
+          paint: { "line-color": ["get", "color"], "line-width": 0.5, "line-opacity": 0.4 },
+        });
+      }
+
+      // 2) Target A parcel boundary highlight (brand green) when geometry exists.
+      const tp = (parcels || []).find((p) => p.apn === apn && p.parcel_geometry) ||
+                 (parcels || []).find((p) => p.parcel_geometry);
+      if (tp) {
+        map.addSource("s4-zoning-target", { type: "geojson", data: { type: "Feature", geometry: tp.parcel_geometry, properties: {} } });
+        map.addLayer({ id: "s4-zoning-target-line", type: "line", source: "s4-zoning-target", paint: { "line-color": "#ffffff", "line-width": 3 } });
+      }
+
+      // 3) Target A pill label: "Target A: <Zone Code>".
+      const zoneCode = zone?.zone_code || "—";
+      const el = document.createElement("div");
+      el.textContent = `Target A: ${zoneCode}`;
+      el.style.cssText = `
+        font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; color:#fff;
+        background:${BRAND_GREEN}; padding:6px 12px; border-radius:9999px;
+        white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.3);
+      `;
+      new window.mapboxgl.Marker({ element: el, anchor: "bottom" })
+        .setLngLat([lon, lat])
+        .addTo(map);
+
+      addTowerMarker(map, lat, lon, owner);
+      fitToRing(map, lat, lon, 0.45);
+      resolve(map);
+    });
+  });
+}
+
 // ────────────── 5. WETLANDS ──────────────
 export function renderWetlands(container, target, token) {
   const { latitude: lat, longitude: lon, owner } = target;

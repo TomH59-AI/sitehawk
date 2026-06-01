@@ -1,0 +1,139 @@
+{
+  "name": "RedlineReview",
+  "type": "object",
+  "description": "Hawk Redline Counter \u2014 a carrier / site-acquisition specialist uploads their ORIGINAL lease and the LANDLORD ATTORNEY'S REDLINED version. AI compares them clause-by-clause and, from the carrier side, recommends accept / reject / counter for each change with a plain-English 'why'. Used to build a counter-offer to send back. Analysis, not legal advice.",
+  "properties": {
+    "review_name": {
+      "type": "string",
+      "description": "User label for the redline comparison (e.g. 'Marion Samson 75 \u2014 Landlord Redline R1')."
+    },
+    "original_file_url": {
+      "type": "string",
+      "description": "URL of the carrier's original lease version."
+    },
+    "original_file_name": {
+      "type": "string",
+      "description": "Original (carrier) version filename."
+    },
+    "redlined_file_url": {
+      "type": "string",
+      "description": "URL of the landlord attorney's redlined version."
+    },
+    "redlined_file_name": {
+      "type": "string",
+      "description": "Redlined (landlord) version filename."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Plain-English summary of what the landlord changed overall and the carrier-side posture."
+    },
+    "changes": {
+      "type": "array",
+      "description": "Clause-by-clause comparison. Each: { clause, original_text, redlined_text, change_type, recommendation('accept'|'reject'|'counter'), impact('GREEN'|'YELLOW'|'RED'), why, counter_language }.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "clause": {
+            "type": "string"
+          },
+          "original_text": {
+            "type": "string"
+          },
+          "redlined_text": {
+            "type": "string"
+          },
+          "change_type": {
+            "type": "string",
+            "description": "added | removed | modified"
+          },
+          "recommendation": {
+            "type": "string",
+            "enum": [
+              "accept",
+              "reject",
+              "counter"
+            ]
+          },
+          "impact": {
+            "type": "string",
+            "enum": [
+              "GREEN",
+              "YELLOW",
+              "RED"
+            ]
+          },
+          "why": {
+            "type": "string"
+          },
+          "counter_language": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "model_used": {
+      "type": "string",
+      "description": "Anthropic model string used (e.g. claude-opus-4-8)."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "uploaded",
+        "analyzing",
+        "completed",
+        "failed"
+      ],
+      "default": "uploaded",
+      "description": "uploaded=both files in; analyzing=AI comparing; completed=comparison ready; failed=error."
+    },
+    "analyzed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when the comparison completed."
+    }
+  },
+  "required": [
+    "review_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

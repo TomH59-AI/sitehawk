@@ -50,12 +50,12 @@ import MapSubStep from "./section4/MapSubStep";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
-import { zoneomicsTest } from "@/functions/zoneomicsTest";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoning, renderWetlands, renderParcel, BRAND_GREEN, buildCircle, probeZoneomicsTile,
+  renderZoningGrid, renderWetlands, renderParcel, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
-import { buildLegend } from "@/lib/zoningPalette";
+import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
+import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import ZoningLegend from "./section4/ZoningLegend";
 
 const STEPS = ["aerial", "topo", "fema", "zoning", "wetlands", "parcel"];
@@ -146,73 +146,71 @@ export default function Section4MapSuite({
         map = m;
         setFloodZone(fres?.data?.fema_zone || fres?.data?.fema_risk_factor || null);
       } else if (step === "zoning") {
-        // 15s watchdog — never spin forever. If still loading, surface an error.
-        const zoningWatchdog = setTimeout(() => {
-          setLoadingStep((cur) => {
-            if (cur === "zoning") {
-              setErrors((p) => ({ ...p, zoning: "Zoning lookup timed out — Zoneomics did not respond in 15s." }));
-              return null;
-            }
-            return cur;
-          });
-        }, 15000);
-        // ── [ZONING MAP DIAG] state at run time ──
         console.log("[ZONING MAP DIAG] Run Zoning Map — Target A:", targetA?.latitude, targetA?.longitude, "APN:", targetA?.apn);
         const key = `${targetA.latitude.toFixed(6)},${targetA.longitude.toFixed(6)}`;
         const cached = zoningCache.current[key];
 
-        // Resolve the Target A zone code/name/type from Zoneomics zoneDetail.
-        const zUrl = `zoneDetail lat=${targetA.latitude} lng=${targetA.longitude} output_fields=zoning`;
-        console.log("[ZONING MAP DIAG] Zoneomics zoneDetail call:", zUrl);
-        const zres = await zoneomicsTest({
-          lat: targetA.latitude, lng: targetA.longitude, output_fields: "zoning",
-        }).catch((e) => { console.error("[ZONING MAP DIAG] zoneDetail threw:", e); return null; });
-        const zStatus = zres?.data?.status ?? "n/a";
-        const zd = zres?.data?.data?.data?.zone_details || zres?.data?.data?.zone_details || null;
-        const fieldCount = zd ? Object.keys(zd).length : 0;
-        console.log("[ZONING MAP DIAG] zoneDetail status:", zStatus, "| zone_details field count:", fieldCount);
+        let gridCells, legend, zone, cellLat, cellLng;
 
-        // Auth failure (401/403) — surface a verify-key error, do not render.
-        if (zStatus === 401 || zStatus === 403) {
-          clearTimeout(zoningWatchdog);
-          setLoadingStep(null);
-          setErrors((p) => ({ ...p, zoning: "Zoneomics auth failed — verify ZONEOMICS_API_KEY" }));
-          return;
+        if (cached) {
+          ({ gridCells, legend, zone, cellLat, cellLng } = cached);
+        } else {
+          // Sample a grid of zoneDetail points around Target A — every cell gets
+          // its real district straight from the Zoneomics API.
+          const gres = await zoneomicsZoneGrid({
+            lat: targetA.latitude, lng: targetA.longitude, radius_miles: 0.4, grid: 7,
+          }).catch((e) => { console.error("[ZONING MAP DIAG] zoneGrid threw:", e); return null; });
+
+          const gdata = gres?.data ?? gres;
+          if (gdata?.error) {
+            setLoadingStep(null);
+            setErrors((p) => ({ ...p, zoning: gdata.error.includes("API_KEY") ? "Zoneomics auth failed — verify ZONEOMICS_API_KEY" : gdata.error }));
+            return;
+          }
+
+          const rawCells = gdata?.cells || [];
+          const districts = gdata?.districts || [];
+          cellLat = gdata?.cell_lat_deg;
+          cellLng = gdata?.cell_lng_deg;
+
+          if (!rawCells.length) {
+            setLoadingStep(null);
+            setErrors((p) => ({ ...p, zoning: "Zoneomics returned no zoning districts for this area." }));
+            return;
+          }
+
+          // Build the API-derived legend (color per district).
+          legend = buildLegend(districts);
+          const colorByCode = Object.fromEntries(legend.map((d) => [d.code, d.color]));
+
+          // Attach the legend color to each grid cell.
+          gridCells = rawCells.map((c) => ({
+            lat: c.lat, lng: c.lng, zone_code: c.zone_code,
+            color: colorByCode[c.zone_code] || swatchColor(normalizeZoneType(c.zone_type, c.zone_code), c.zone_code),
+          }));
+
+          // Target A's own district = the center cell (closest to Target A).
+          const center = rawCells.reduce((best, c) => {
+            const d = Math.hypot(c.lat - targetA.latitude, c.lng - targetA.longitude);
+            return !best || d < best.d ? { d, c } : best;
+          }, null)?.c;
+          zone = center ? { zone_code: center.zone_code, zone_name: center.zone_name, zone_type: center.zone_type } : null;
+
+          zoningCache.current[key] = { gridCells, legend, zone, cellLat, cellLng };
         }
 
-        const zone = zd ? { zone_code: zd.zone_code, zone_name: zd.zone_name, zone_type: zd.zone_type } : null;
         setZoneInfo(zone);
+        setZoningLegend(legend);
+        setZoningFallback(null);
+        console.log("[ZONING MAP DIAG] legend rendered with", legend.length, "districts /", gridCells.length, "cells");
 
-        // Probe the paid-tier raster tiles over Target A (401/403 vs 404 vs ok).
-        const probe = await probeZoneomicsTile(cfg.zoneomicsApiKey, targetA.latitude, targetA.longitude, 15);
-        if (probe.status === 401 || probe.status === 403) {
-          clearTimeout(zoningWatchdog);
-          setLoadingStep(null);
-          setErrors((p) => ({ ...p, zoning: "Zoneomics auth failed — verify ZONEOMICS_API_KEY" }));
-          return;
-        }
-        const tilesOk = probe.ok;
-        setZoningFallback(tilesOk ? null : "No zoning tiles for this area — showing district code only.");
-
-        // Pull parcels for the Target A boundary highlight (best-effort).
+        // Parcel boundary highlight for Target A (best-effort).
         const pres = await realieParcelsInRing({
           lat: targetA.latitude, lon: targetA.longitude, radius_miles: 0.3,
         }).catch(() => null);
         const zParcels = pres?.data?.parcels || [];
 
-        // Build the legend district list (cached per Target A coordinate). Source:
-        // distinct zone codes near Target A via zoneDetail; the zone itself always seeds it.
-        let legend = cached;
-        if (!legend) {
-          const districts = zone ? [zone] : [];
-          legend = buildLegend(districts);
-          zoningCache.current[key] = legend;
-        }
-        console.log("[ZONING MAP DIAG] legend rendered with", legend.length, "districts");
-        setZoningLegend(legend);
-
-        clearTimeout(zoningWatchdog);
-        map = await renderZoning(refs.zoning.current, targetA, token, cfg.zoneomicsApiKey, zone, zParcels, tilesOk);
+        map = await renderZoningGrid(refs.zoning.current, targetA, token, gridCells, cellLat, cellLng, zone, zParcels);
       } else if (step === "wetlands") {
         map = await renderWetlands(refs.wetlands.current, targetA, token);
       } else if (step === "parcel") {

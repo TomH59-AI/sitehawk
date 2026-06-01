@@ -1,0 +1,106 @@
+{
+  "name": "HawkLawReview",
+  "type": "object",
+  "description": "HawkLaw \u2014 AI lease analysis for telecom ground leases. The user picks ONE side (landlord or carrier/tenant) per lease and it is HARD-LOCKED on this record: once analyzed, the other side's playbook can never be viewed for this lease, so a user cannot negotiate against themselves. Analysis is NOT legal advice. A new lease = a new record = a fresh side pick.",
+  "properties": {
+    "lease_name": {
+      "type": "string",
+      "description": "User-provided label for the lease (e.g. 'Boyer Ground Lease - Marion Samson 75')."
+    },
+    "source_file_url": {
+      "type": "string",
+      "description": "URL/path of the uploaded lease document (PDF or DOCX)."
+    },
+    "source_file_name": {
+      "type": "string",
+      "description": "Original filename of the uploaded lease."
+    },
+    "side": {
+      "type": "string",
+      "enum": [
+        "landlord",
+        "carrier"
+      ],
+      "description": "FROZEN once set. Which side the analysis was run for. landlord = property owner; carrier = wireless tenant/carrier. This value must never be changed after the analysis is generated \u2014 it is the integrity lock that prevents self-negotiation."
+    },
+    "side_locked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when the side was confirmed and frozen. Presence of this value = the lock is engaged; the UI must not offer a side switch."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "uploaded",
+        "side_pending",
+        "analyzing",
+        "completed",
+        "failed"
+      ],
+      "default": "uploaded",
+      "description": "uploaded=file in, no side yet; side_pending=side chosen, awaiting confirm; analyzing=Claude running; completed=analysis ready; failed=error."
+    },
+    "analysis": {
+      "type": "object",
+      "description": "The completed analysis OBJECT for the locked side only. Runtime shape: { summary, parties, top_issues:[...], clauses:[{ name, flag(GREEN|YELLOW|RED), lease_says, your_side_lens, negotiation_move, suggested_language }], negotiation_strategy, tier1_must_haves:[...], tier2_should_haves:[...], tier3_concessions:[...] }. Generated for the frozen side; the opposing side's analysis is never stored."
+    },
+    "model_used": {
+      "type": "string",
+      "description": "Anthropic model string used for the analysis (e.g. claude-opus-4-8)."
+    },
+    "analyzed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when the analysis completed."
+    },
+    "disclaimer_ack": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if the user acknowledged the 'analysis, not legal advice' disclaimer. Required before analysis is shown."
+    }
+  },
+  "required": [
+    "lease_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
