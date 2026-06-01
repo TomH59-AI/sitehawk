@@ -61,7 +61,7 @@ import ZoningLegend from "./section4/ZoningLegend";
 const STEPS = ["aerial", "topo", "fema", "zoning", "wetlands", "parcel"];
 
 export default function Section4MapSuite({
-  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete,
+  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData,
 }) {
   // Which sub-steps have completed. Aerial is the only one initially unlocked.
   const [completed, setCompleted] = useState({});
@@ -144,7 +144,10 @@ export default function Section4MapSuite({
           femaFloodLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         ]);
         map = m;
-        setFloodZone(fres?.data?.fema_zone || fres?.data?.fema_risk_factor || null);
+        const fz = fres?.data?.fema_zone || fres?.data?.fema_risk_factor || null;
+        setFloodZone(fz);
+        // Emit FEMA factor to the bus — §4 centroid lookup is canonical for FEMA.
+        onData?.({ fema: { flood_zone: fz } });
       } else if (step === "zoning") {
         console.log("[ZONING MAP DIAG] Run Zoning Map — Target A:", targetA?.latitude, targetA?.longitude, "APN:", targetA?.apn);
         const key = `${targetA.latitude.toFixed(6)},${targetA.longitude.toFixed(6)}`;
@@ -200,6 +203,8 @@ export default function Section4MapSuite({
         }
 
         setZoneInfo(zone);
+        // Emit Zoneomics district to the bus (zoning canonical = Zoneomics).
+        if (zone?.zone_code) onData?.({ zoneomicsDistrict: { zone_code: zone.zone_code, zone_name: zone.zone_name || null } });
         setZoningLegend(legend);
         setZoningFallback(null);
         console.log("[ZONING MAP DIAG] legend rendered with", legend.length, "districts /", gridCells.length, "cells");

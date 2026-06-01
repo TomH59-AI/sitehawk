@@ -16,6 +16,7 @@ import Section8Propagation from "../components/search/Section8Propagation";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 import { usePipeline } from "@/lib/PipelineContext";
+import { wetlandsLookup } from "@/functions/wetlandsLookup";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
 
@@ -46,6 +47,15 @@ export default function SiteSearch() {
   const [viewshedsComplete, setViewshedsComplete] = useState(false);
   // True once all three Section 6 proximity maps are complete — unlocks Section 7.
   const [proximityComplete, setProximityComplete] = useState(false);
+  // ── SHARED TARGET-KEYED DATA BUS ──────────────────────────────────────────
+  // Single object every section emits its ALREADY-COMPUTED factor values into
+  // (additive onData callbacks, zero business-logic change). The scorecard reads
+  // ONLY this object — never re-fetches — so there is no drift. Canonical sources
+  // per the 6 conflict-map decisions: parcel=§3 record, tower=§6 ASR+OpenCellID,
+  // zoning=Zoneomics(§2), FEMA=§4 centroid, wetlands=quiet wetlandsLookup (same
+  // NWI source as §4 map), power=HIFLD electricUtilityLookup (not §7's contact).
+  const [sectionData, setSectionData] = useState({});
+  const mergeSectionData = (d) => setSectionData((prev) => ({ ...prev, ...d }));
 
   // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
   useEffect(() => {
@@ -67,6 +77,25 @@ export default function SiteSearch() {
   useEffect(() => {
     return () => { setActiveStep(null); setCompletedSteps([]); };
   }, [setActiveStep, setCompletedSteps]);
+
+  // ── #5 WETLANDS (score-only) ──────────────────────────────────────────────
+  // Quiet wetlandsLookup fired once when Target A resolves. Emits a present/type
+  // value into the bus for the scorecard's Environmental factor ONLY. Draws from
+  // the SAME USFWS NWI MapServer the §4 wetlands map renders, so map and score
+  // cannot contradict each other. Does NOT touch the §4 map render path.
+  useEffect(() => {
+    const lat = targetA?.latitude, lon = targetA?.longitude;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    let cancelled = false;
+    wetlandsLookup({ lat, lon })
+      .then((res) => {
+        if (cancelled) return;
+        const d = res?.data || {};
+        mergeSectionData({ wetlands: { present: !!d.wetlands_present, type: d.wetland_type || (d.wetland_types?.[0] ?? null) } });
+      })
+      .catch(() => {}); // score-only; silent failure → scorecard shows "no data"
+    return () => { cancelled = true; };
+  }, [targetA?.latitude, targetA?.longitude]);
 
   useEffect(() => {
     async function init() {
@@ -131,6 +160,7 @@ export default function SiteSearch() {
     setMapsComplete(false);
     setViewshedsComplete(false);
     setProximityComplete(false);
+    setSectionData({});
     setSearchCenter({ lat: latitude, lon: longitude });
     setPipelineStep("sarf");
   };
@@ -247,6 +277,7 @@ export default function SiteSearch() {
           candidate={{ latitude: Number(searchCenter.lat), longitude: Number(searchCenter.lon) }}
           onRun={() => setPipelineStep("zoning")}
           onComplete={() => setZoningReady(true)}
+          onData={mergeSectionData}
         />
       )}
 
@@ -263,6 +294,7 @@ export default function SiteSearch() {
           compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
           onRun={() => setPipelineStep("targets")}
           onTargetAReady={setTargetA}
+          onData={mergeSectionData}
         />
       )}
 
@@ -280,6 +312,7 @@ export default function SiteSearch() {
           ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
           onRun={() => setPipelineStep("maps")}
           onComplete={() => setMapsComplete(true)}
+          onData={mergeSectionData}
         />
       )}
 
@@ -308,6 +341,7 @@ export default function SiteSearch() {
           targetA={targetA}
           onRun={() => setPipelineStep("proximity")}
           onComplete={() => setProximityComplete(true)}
+          onData={mergeSectionData}
         />
       )}
 
@@ -321,6 +355,7 @@ export default function SiteSearch() {
           targetA={targetA}
           radiusMiles={searchParams.radius_miles}
           onRun={() => setPipelineStep("infrastructure")}
+          onData={mergeSectionData}
         />
       )}
 
@@ -332,6 +367,7 @@ export default function SiteSearch() {
           unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           targetA={targetA}
           towerHeightFt={searchParams.tower_height_ft || 150}
+          onData={mergeSectionData}
         />
       )}
     </div>

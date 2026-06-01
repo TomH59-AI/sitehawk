@@ -134,7 +134,7 @@ function countTags(cells) {
   return c;
 }
 
-export default function Section2Zoning({ unlocked, active, lat, lon, candidate, onRun, onComplete }) {
+export default function Section2Zoning({ unlocked, active, lat, lon, candidate, onRun, onComplete, onData }) {
   const [cells, setCells] = useState(emptyCells);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -163,6 +163,20 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       setZoneomics(res.data?.zoneomics || null);
       setDistrictConflict(res.data?.zoning_district_conflict || null);
       setCells((prev) => reportToCells(report, preserveEdits ? prev : null));
+      // Emit zoning factor to the shared bus — Zoneomics canonical, Realie fallback.
+      const zo = report?.zoning_overview || {};
+      const tw = report?.tower_specifics || {};
+      onData?.({
+        zoning: {
+          district: zo.property_zoning_district?.value || jur?.zone_code || null,
+          height_limit: tw.maximum_tower_height?.value || null,
+          setback: tw.residential_separation?.value || null,
+          fall_zone: tw.fall_zone_requirements?.value || null,
+          permit_path: zo.zoning_process?.value || null,
+          source: res.data?.zoneomics?.ok ? "zoneomics" : "realie_or_ai",
+          conflict: res.data?.zoning_district_conflict || null,
+        },
+      });
       if (report) toast.success("Zoning ordinance provisions loaded.");
       else toast.warning("No zoning data found — manual entry required.");
       setDone(true);

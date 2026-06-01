@@ -40,7 +40,7 @@ const STYLES = {
   streets: "mapbox://styles/mapbox/streets-v12",
 };
 
-export default function Section8Propagation({ unlocked, targetA, towerHeightFt = 150 }) {
+export default function Section8Propagation({ unlocked, targetA, towerHeightFt = 150, onData }) {
   const lat = targetA?.latitude;
   const lon = targetA?.longitude;
   const coordsOk = Number.isFinite(lat) && Number.isFinite(lon);
@@ -85,6 +85,8 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
       cacheRef.current[key] = data;
       setResult(data);
       setActiveCarrier(data.coverages.find((c) => c.png_url)?.carrier_name || null);
+      // Emit propagation summary to the bus (bonus context, not a weighted factor).
+      onData?.({ propagation: { carrier_count: data.carrier_count ?? (data.coverages?.length || 0) } });
       setStatus("done");
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || "Propagation run failed");

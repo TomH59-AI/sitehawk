@@ -26,7 +26,7 @@ import {
 } from "@/lib/section7Infrastructure";
 
 export default function Section7Infrastructure({
-  unlocked, active, targetA, radiusMiles = 0.5, onRun,
+  unlocked, active, targetA, radiusMiles = 0.5, onRun, onData,
 }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -78,6 +78,18 @@ export default function Section7Infrastructure({
       setUtility(data.utility || null);
       setTelco(data.carriers?.telco || null);
       setCounts({ power: data.power?.count || 0, fiber: data.fiber?.count || 0, carriers: data.carriers?.count || 0 });
+      // Emit fiber + carriers to the bus (Fiber/backhaul scorecard factor).
+      // NOTE: §7's utility (electricProviderContact = nearest provider office) is
+      // intentionally NOT emitted as the Power factor — Power canonical is HIFLD
+      // electricUtilityLookup (whose-territory-you're-in). §7 utility stays a map banner only.
+      onData?.({
+        fiber: { count: data.fiber?.count || 0 },
+        carriers: {
+          telco: data.carriers?.telco || null,
+          count: data.carriers?.count || 0,
+          lit_buildings: data.carriers?.lit_buildings || [],
+        },
+      });
       // Reset interactive controls to defaults: all layers ON, Streets view.
       setPowerOn(true); setFiberOn(true); setCarriersOn(true); setBase("streets");
       setDone(true);

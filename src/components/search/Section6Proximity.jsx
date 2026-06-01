@@ -31,7 +31,7 @@ import {
 const STEPS = ["airport", "celltower", "wind"];
 
 export default function Section6Proximity({
-  unlocked, active, targetA, onRun, onComplete,
+  unlocked, active, targetA, onRun, onComplete, onData,
 }) {
   const [completed, setCompleted] = useState({});
   const [loadingStep, setLoadingStep] = useState(null);
@@ -107,6 +107,8 @@ export default function Section6Proximity({
         console.log(`${tag} nearestAirportFromDirectory →`, airport ? `${airport.callnumber} ${airport.distance_miles}mi (${res.data?.candidates_scanned} scanned)` : "no match");
         if (!airport) throw new Error("No airport found near Target A.");
         map = await renderAirport(refs.airport.current, targetA, airport, token);
+        // Emit airport factor to the bus.
+        onData?.({ airport: { name: airport.name || airport.callnumber || null, distance_miles: Number(airport.distance_miles), type: airport.type || null } });
         setInfoByStep((p) => ({
           ...p,
           airport: {
@@ -126,6 +128,8 @@ export default function Section6Proximity({
         console.log(`${tag} cellTowerLookup →`, tower ? `${tower.licensee || "?"} ASR#${tower.tower_registration_number || "—"} ${tower.distance_miles}mi src=${tower.source || "FCC"}` : "no tower");
         if (!tower || tower.latitude_deg == null) throw new Error("No cell tower found near Target A.");
         map = await renderCellTower(refs.celltower.current, targetA, tower, token);
+        // Emit tower factor to the bus — source-labeled (ASR+OpenCellID @10mi, canonical).
+        onData?.({ tower: { owner: tower.licensee || null, distance_miles: Number(tower.distance_miles), height_ft: tower.overall_height_ft != null ? Number(tower.overall_height_ft) : null, source: tower.tower_registration_number ? "FCC ASR" : (tower.source || "OpenCellID") } });
         const asrn = tower.tower_registration_number ? `ASR #${tower.tower_registration_number}` : (tower.source || "OpenCellID");
         setInfoByStep((p) => ({
           ...p,
@@ -148,6 +152,8 @@ export default function Section6Proximity({
         ]);
         console.log(`${tag} windSpeedLookup →`, windRes?.data?.wind_speed_mph ?? "no value", "mph");
         setWindInfo(windRes?.data || null);
+        // Emit wind factor to the bus.
+        onData?.({ wind: { wind_speed_mph: windRes?.data?.wind_speed_mph ?? null, risk_level: windRes?.data?.wind_risk_level ?? null } });
         map = m;
       }
 

@@ -80,7 +80,7 @@ function targetToColumn(t) {
 
 export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
-  towerHeightFt = 199, compoundSideFt = 100, onRun, onTargetAReady,
+  towerHeightFt = 199, compoundSideFt = 100, onRun, onTargetAReady, onData,
 }) {
   const [grid, setGrid] = useState(emptyGrid);
   const [loading, setLoading] = useState(false);
@@ -176,6 +176,17 @@ export default function Section3Targets({
             zoning_classification: a.zoning_classification || "",
           });
         }
+        // Emit parcel-fit factor to the shared bus — REUSES Target A's already-
+        // computed record (no new Realie query, canonical parcel = §3 record).
+        onData?.({
+          parcelFit: {
+            acreage: a?.acreage != null ? Number(a.acreage) : null,
+            zoning_classification: a?.zoning_classification || null,
+            dimensions: a?.boundaries || null,
+            apn: a?.apn || null,
+            fema_risk_factor: a?.fema_risk_factor || null,
+          },
+        });
       }
       setDone(true);
     } catch (err) {
