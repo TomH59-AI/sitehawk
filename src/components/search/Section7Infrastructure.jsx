@@ -32,9 +32,11 @@ export default function Section7Infrastructure({
   const [done, setDone] = useState(false);
   const [error, setError] = useState(null);
   const [utility, setUtility] = useState(null);
-  const [counts, setCounts] = useState({ power: 0, fiber: 0 });
+  const [telco, setTelco] = useState(null);
+  const [counts, setCounts] = useState({ power: 0, fiber: 0, carriers: 0 });
   const [powerOn, setPowerOn] = useState(true);
   const [fiberOn, setFiberOn] = useState(true);
+  const [carriersOn, setCarriersOn] = useState(true);
   const [base, setBase] = useState("streets");
 
   const mapRef = useRef(null);
@@ -74,11 +76,12 @@ export default function Section7Infrastructure({
       const controller = await renderInfrastructure(mapRef.current, targetA, data, token);
       ctrl.current = controller;
       setUtility(data.utility || null);
-      setCounts({ power: data.power?.count || 0, fiber: data.fiber?.count || 0 });
-      // Reset interactive controls to defaults: both layers ON, Streets view.
-      setPowerOn(true); setFiberOn(true); setBase("streets");
+      setTelco(data.carriers?.telco || null);
+      setCounts({ power: data.power?.count || 0, fiber: data.fiber?.count || 0, carriers: data.carriers?.count || 0 });
+      // Reset interactive controls to defaults: all layers ON, Streets view.
+      setPowerOn(true); setFiberOn(true); setCarriersOn(true); setBase("streets");
       setDone(true);
-      toast.success(`Infrastructure map generated for Target A — ${data.power?.count || 0} power · ${data.fiber?.count || 0} fiber.`);
+      toast.success(`Infrastructure map generated for Target A — ${data.power?.count || 0} power · ${data.fiber?.count || 0} fiber · ${data.carriers?.count || 0} carriers.`);
     } catch (err) {
       console.error(err);
       setError(err?.message || "Infrastructure map failed.");
@@ -95,6 +98,7 @@ export default function Section7Infrastructure({
   // ── interactive toolbar handlers ──
   const togglePower = () => { const v = !powerOn; setPowerOn(v); ctrl.current?.toggleLayer("power", v); };
   const toggleFiber = () => { const v = !fiberOn; setFiberOn(v); ctrl.current?.toggleLayer("fiber", v); };
+  const toggleCarriers = () => { const v = !carriersOn; setCarriersOn(v); ctrl.current?.toggleLayer("carriers", v); };
   const switchBase = (b) => {
     setBase(b);
     ctrl.current?.setBaseStyle(b === "satellite" ? SAT_STYLE : STREETS_STYLE);
@@ -102,6 +106,7 @@ export default function Section7Infrastructure({
     setTimeout(() => {
       ctrl.current?.toggleLayer("power", powerOn);
       ctrl.current?.toggleLayer("fiber", fiberOn);
+      ctrl.current?.toggleLayer("carriers", carriersOn);
     }, 400);
   };
 
@@ -157,8 +162,19 @@ export default function Section7Infrastructure({
           <span className="font-mono">{utility.name}</span>
           {utility.phone && <span className="font-mono text-muted-foreground">· 📞 {utility.phone}</span>}
           <span className="ml-auto text-[11px] font-mono text-muted-foreground">
-            {counts.power} power · {counts.fiber} fiber assets
+            {counts.power} power · {counts.fiber} fiber · {counts.carriers} carriers
           </span>
+        </div>
+      )}
+
+      {/* Incumbent telco contact banner (CarrierFinder) */}
+      {done && telco && (
+        <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-b border-emerald-300/40 text-sm flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-emerald-800 dark:text-emerald-200">Local fiber telco:</span>
+          <span className="font-mono">{telco.name}</span>
+          {telco.parent && telco.parent !== telco.name && <span className="font-mono text-muted-foreground">({telco.parent})</span>}
+          {telco.phone && <span className="font-mono text-muted-foreground">· 📞 {telco.phone}</span>}
+          {telco.co_distance && <span className="ml-auto text-[11px] font-mono text-muted-foreground">CO {telco.co_distance} away · {telco.co_city}, {telco.co_state}</span>}
         </div>
       )}
 
@@ -191,8 +207,8 @@ export default function Section7Infrastructure({
 
           {/* Floating interactive toolbar */}
           <InfraToolbar
-            powerOn={powerOn} fiberOn={fiberOn} base={base}
-            onTogglePower={togglePower} onToggleFiber={toggleFiber}
+            powerOn={powerOn} fiberOn={fiberOn} carriersOn={carriersOn} base={base}
+            onTogglePower={togglePower} onToggleFiber={toggleFiber} onToggleCarriers={toggleCarriers}
             onSwitchBase={switchBase}
             onZoomIn={() => ctrl.current?.zoomIn?.()}
             onZoomOut={() => ctrl.current?.zoomOut?.()}
@@ -205,6 +221,8 @@ export default function Section7Infrastructure({
             <div className="flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded-full" style={{ background: "#E60000" }} /> transformer / substation</div>
             <div className="flex items-center gap-1.5"><span className="inline-block w-4 h-0.5" style={{ background: "#FF8C00" }} /> fiber run</div>
             <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full border border-white" style={{ background: "#FF8C00" }} /> fiber splice / handhole</div>
+            <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full border border-white" style={{ background: "#16A34A" }} /> carrier — on-net (lit)</div>
+            <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full border border-white" style={{ background: "#EAB308" }} /> carrier — near-net</div>
           </div>
         </div>
       </div>

@@ -51,6 +51,19 @@ Deno.serve(async (req) => {
       console.log(`[section7Infrastructure] utility contact lookup failed: ${e.message}`);
     }
 
+    // 2b) CarrierFinder — fiber-lit buildings (named carriers) + incumbent telco.
+    let litBuildings = [];
+    let telco = null;
+    try {
+      const cfRes = await base44.functions.invoke('carrierFinderFiber', {
+        lat: cLat, lon: cLon, radius_miles: Number(radius_miles),
+      });
+      litBuildings = cfRes?.data?.lit_buildings || [];
+      telco = cfRes?.data?.telco || null;
+    } catch (e) {
+      console.log(`[section7Infrastructure] CarrierFinder lookup failed: ${e.message}`);
+    }
+
     // ── POWER points: poles + transformers (+ substations) as markers ──
     const utilityName = utility?.name || null;
     const utilityPhone = utility?.phone || null;
@@ -91,6 +104,12 @@ Deno.serve(async (req) => {
         lines: fiberLines,
         points: fiberPoints,
         count: fiberLines.length + fiberPoints.length,
+      },
+      // CarrierFinder fiber-lit buildings + incumbent telco contact.
+      carriers: {
+        lit_buildings: litBuildings,
+        telco,
+        count: litBuildings.length,
       },
     });
   } catch (error) {

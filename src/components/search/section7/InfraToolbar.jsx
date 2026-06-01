@@ -4,7 +4,7 @@
  * switcher, zoom in/out, and reset-to-Target-A. Brand-green accent.
  */
 
-import { Zap, Cable, Plus, Minus, Crosshair } from "lucide-react";
+import { Zap, Cable, Plus, Minus, Crosshair, Router } from "lucide-react";
 
 const BRAND_GREEN = "#628C83";
 
@@ -24,8 +24,8 @@ function Toggle({ on, color, icon: Icon, label, onClick }) {
 }
 
 export default function InfraToolbar({
-  powerOn, fiberOn, base,
-  onTogglePower, onToggleFiber, onSwitchBase,
+  powerOn, fiberOn, carriersOn, base,
+  onTogglePower, onToggleFiber, onToggleCarriers, onSwitchBase,
   onZoomIn, onZoomOut, onReset,
 }) {
   return (
@@ -34,6 +34,7 @@ export default function InfraToolbar({
       <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-white/95 backdrop-blur shadow-lg border border-slate-200">
         <Toggle on={powerOn} color="#E60000" icon={Zap} label="Power" onClick={onTogglePower} />
         <Toggle on={fiberOn} color="#FF8C00" icon={Cable} label="Fiber" onClick={onToggleFiber} />
+        <Toggle on={carriersOn} color="#16A34A" icon={Router} label="Carriers" onClick={onToggleCarriers} />
       </div>
 
       {/* Base layer switcher (segmented control) */}
