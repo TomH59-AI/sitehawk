@@ -10,7 +10,7 @@
 //     → returns the document snapshot (public, no auth required) so anyone
 //       with the link can view/print the completed application.
 
-import { createClientFromRequest, createClient } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 function randomId() {
   return Array.from(crypto.getRandomValues(new Uint8Array(8)))
@@ -45,8 +45,7 @@ Deno.serve(async (req) => {
       const { share_id } = body;
       if (!share_id) return Response.json({ error: 'share_id required' }, { status: 400 });
 
-      const appId = Deno.env.get('BASE44_APP_ID');
-      const base44 = createClient({ appId, requiresAuth: false });
+      const base44 = createClientFromRequest(req);
       const docs = await base44.asServiceRole.entities.HawkDocument.filter({ share_id });
       const doc = docs?.[0];
       if (!doc) return Response.json({ error: 'Share link not found' }, { status: 404 });
