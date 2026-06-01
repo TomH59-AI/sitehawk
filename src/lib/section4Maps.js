@@ -466,7 +466,7 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey) {
 
       const popupHTML = (props, zone) => {
         const pid = props.apn || "—";
-        return `<div style="font-family:monospace;font-size:11px;line-height:1.5;">
+        return `<div style="font-family:monospace;font-size:11px;line-height:1.5;color:#2563eb;">
           <strong>${props.owner || "Owner —"}</strong><br/>
           Parcel ID: ${pid}<br/>
           <span data-zone="${pid}">${zoneLine(zone)}</span>
