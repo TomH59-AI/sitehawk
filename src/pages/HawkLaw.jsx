@@ -6,6 +6,7 @@ import ReviewsList from "../components/hawklaw/ReviewsList";
 import NewReview from "../components/hawklaw/NewReview";
 import SidePicker from "../components/hawklaw/SidePicker";
 import AnalysisView from "../components/hawklaw/AnalysisView";
+import HawkLawDisclaimerBanner from "../components/hawklaw/HawkLawDisclaimerBanner";
 
 // Screens: list -> new -> side -> analysis
 export default function HawkLaw() {
@@ -70,9 +71,16 @@ export default function HawkLaw() {
     }
   }
 
-  if (screen === "new") return <NewReview onBack={goList} onReady={onUploadReady} />;
-  if (screen === "side") return <SidePicker leaseName={active?.lease_name} analyzing={analyzing} onBack={goList} onConfirm={confirmSide} />;
-  if (screen === "analysis" && analysis) return <AnalysisView review={active} analysis={analysis} onBack={goList} />;
+  let content;
+  if (screen === "new") content = <NewReview onBack={goList} onReady={onUploadReady} />;
+  else if (screen === "side") content = <SidePicker leaseName={active?.lease_name} analyzing={analyzing} onBack={goList} onConfirm={confirmSide} />;
+  else if (screen === "analysis" && analysis) content = <AnalysisView review={active} analysis={analysis} onBack={goList} />;
+  else content = <ReviewsList reviews={reviews} loading={loading} onNew={() => setScreen("new")} onOpen={openCompleted} />;
 
-  return <ReviewsList reviews={reviews} loading={loading} onNew={() => setScreen("new")} onOpen={openCompleted} />;
+  return (
+    <>
+      <HawkLawDisclaimerBanner />
+      {content}
+    </>
+  );
 }

@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Lock, ArrowLeft, Download, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { HL, SIDE_LABEL, FLAG_COLOR, DISCLAIMER } from "./hawklawConst";
+import HawkLawOutputFooter from "./HawkLawOutputFooter";
+import { HAWKLAW_DISCLAIMER_FULL } from "./HawkLawDisclaimerBanner";
 
 function Disclaimer() {
   return (
@@ -41,6 +43,19 @@ export default function AnalysisView({ review, analysis, onBack }) {
       pdf.addImage(img, "PNG", 0, pos, w, h);
       remaining -= pageH;
       while (remaining > 0) { pdf.addPage(); pos -= pageH; pdf.addImage(img, "PNG", 0, pos, w, h); remaining -= pageH; }
+
+      // PLACEMENT C — full disclaimer on every page footer, 8pt italic gray.
+      const total = pdf.internal.getNumberOfPages();
+      const margin = 36;
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(8);
+      pdf.setTextColor(120, 120, 120);
+      const lines = pdf.splitTextToSize(HAWKLAW_DISCLAIMER_FULL, w - margin * 2);
+      for (let p = 1; p <= total; p++) {
+        pdf.setPage(p);
+        const startY = pageH - 12 - (lines.length - 1) * 10;
+        pdf.text(lines, margin, startY);
+      }
       pdf.save(`HawkLaw_${(review.lease_name || "lease").replace(/\s+/g, "_")}.pdf`);
     } catch {
       toast.error("PDF export failed");
@@ -116,6 +131,7 @@ export default function AnalysisView({ review, analysis, onBack }) {
         </div>
 
         <Disclaimer />
+        <HawkLawOutputFooter />
       </div>
     </div>
   );
