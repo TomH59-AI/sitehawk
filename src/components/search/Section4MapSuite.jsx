@@ -61,7 +61,7 @@ import ZoningLegend from "./section4/ZoningLegend";
 const STEPS = ["aerial", "topo", "fema", "zoning", "wetlands", "parcel"];
 
 export default function Section4MapSuite({
-  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, onRun, onComplete,
+  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete,
 }) {
   // Which sub-steps have completed. Aerial is the only one initially unlocked.
   const [completed, setCompleted] = useState({});
@@ -218,7 +218,7 @@ export default function Section4MapSuite({
           lat: targetA.latitude, lon: targetA.longitude, radius_miles: 0.5,
         }).catch(() => null);
         const parcels = pres?.data?.parcels || [];
-        map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey);
+        map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey, ringName);
       }
 
       maps.current[step] = map;

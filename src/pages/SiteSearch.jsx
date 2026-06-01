@@ -277,6 +277,7 @@ export default function SiteSearch() {
           srcLat={Number(searchCenter.lat)}
           srcLon={Number(searchCenter.lon)}
           radiusMiles={searchParams.radius_miles}
+          ringName={searchParams.agent_name?.trim() || "Search Ring"}
           onRun={() => setPipelineStep("maps")}
           onComplete={() => setMapsComplete(true)}
         />

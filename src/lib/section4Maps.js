@@ -418,7 +418,7 @@ function zoneLine(zone) {
 // Draw Target A parcel boundary in brand green + adjacent parcels in light grey.
 // `parcels` = array of normalized Realie records (with parcel_geometry when present).
 // Hover/click a parcel → popup with owner + parcel ID + Zoneomics zoning code.
-export function renderParcel(container, target, parcels, token, zoneomicsKey) {
+export function renderParcel(container, target, parcels, token, zoneomicsKey, ringName) {
   const { latitude: lat, longitude: lon, owner, apn } = target;
   const map = makeMap(container, SAT_STYLE, [lon, lat], token, 16);
   return new Promise((resolve) => {
@@ -466,10 +466,10 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey) {
 
       const popupHTML = (props, zone) => {
         const pid = props.apn || "—";
-        return `<div style="font-family:monospace;font-size:11px;line-height:1.5;color:#2563eb;">
-          <strong>${props.owner || "Owner —"}</strong><br/>
-          Parcel ID: ${pid}<br/>
-          <span data-zone="${pid}">${zoneLine(zone)}</span>
+        return `<div style="font-family:monospace;font-size:11px;line-height:1.5;color:#3b82f6;">
+          <strong style="color:#3b82f6;">${props.owner || "Owner —"}</strong><br/>
+          <span style="color:#3b82f6;">Parcel ID: ${pid}</span><br/>
+          <span data-zone="${pid}" style="color:#3b82f6;">${zoneLine(zone)}</span>
         </div>`;
       };
 
@@ -528,8 +528,8 @@ export function renderParcel(container, target, parcels, token, zoneomicsKey) {
         });
       }
 
-      // Label + tower marker on Target A — owner + Target A parcel number.
-      const labelText = `${owner || "Owner —"}${apn ? ` · ${apn}` : ""}`;
+      // Label + tower marker on Target A — ring name (user input) + parcel number.
+      const labelText = `${ringName || "Search Ring"}${apn ? ` · ${apn}` : ""}`;
       map.addSource("s4-label", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [lon, lat] }, properties: { label: labelText } }] },
