@@ -233,6 +233,21 @@ Deno.serve(async (req) => {
           break;
         }
 
+        // ── Hawk Compliance subscription unlock ──
+        if (type === 'hawk_compliance') {
+          if (userEmail) {
+            const cUsers = await base44.asServiceRole.entities.User.filter({ email: userEmail });
+            if (cUsers.length) {
+              await base44.asServiceRole.entities.User.update(cUsers[0].id, {
+                hawk_compliance_active: true,
+                stripe_customer_id: session.customer,
+              });
+              console.log(`Hawk Compliance unlocked for ${userEmail}`);
+            }
+          }
+          break;
+        }
+
         if (!userEmail || !plan) break;
 
         console.log(`Checkout completed for ${userEmail}, plan: ${plan}`);
@@ -293,12 +308,19 @@ Deno.serve(async (req) => {
         const customerId = sub.customer;
         console.log(`Subscription cancelled for customer: ${customerId}`);
 
+        // If the cancelled subscription was Hawk Compliance, lock it back.
+        const isCompliance = sub.metadata?.type === 'hawk_compliance' || sub.metadata?.plan === 'hawk_compliance';
         const users = await base44.asServiceRole.entities.User.filter({ stripe_customer_id: customerId });
         if (users.length) {
-          await base44.asServiceRole.entities.User.update(users[0].id, {
-            tier: 'blind',
-            subscription_plan: null,
-          });
+          if (isCompliance) {
+            await base44.asServiceRole.entities.User.update(users[0].id, { hawk_compliance_active: false });
+            console.log(`Hawk Compliance locked for customer ${customerId}`);
+          } else {
+            await base44.asServiceRole.entities.User.update(users[0].id, {
+              tier: 'blind',
+              subscription_plan: null,
+            });
+          }
         }
         break;
       }

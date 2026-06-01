@@ -1,0 +1,282 @@
+{
+  "name": "ComplianceCheck",
+  "type": "object",
+  "description": "Hawk Compliance \u2014 a Section 106 / NEPA regulatory clearance record for one cell tower site project. Anchored to a ScipRecord (scipRecordId). Tracks NEPA categorical-exclusion screening (47 CFR 1.1307), SHPO state-level historic review, and THPO tribal consultation as a live workflow with a 30-day FCC NPA shot clock. Pre-screened from data the SiteSearch pipeline already collected on the linked ScipRecord. Analysis / workflow tracking, not legal advice.",
+  "properties": {
+    "scipRecordId": {
+      "type": "string",
+      "description": "Linked ScipRecord id \u2014 the site project this compliance record tracks. One record per ScipRecord."
+    },
+    "siteName": {
+      "type": "string",
+      "description": "Cached site name from the linked ScipRecord for display in the portfolio table."
+    },
+    "ownerName": {
+      "type": "string",
+      "description": "Cached Target A parcel owner name from the linked ScipRecord."
+    },
+    "projectType": {
+      "type": "string",
+      "enum": [
+        "new_tower",
+        "collocation"
+      ],
+      "default": "new_tower",
+      "description": "new_tower drives a Form 620 packet + heavier NEPA scrutiny; collocation drives a Form 621 packet and is more likely CatEx-eligible."
+    },
+    "nepaTriggerFlags": {
+      "type": "object",
+      "description": "The 8 environmental triggers from 47 CFR 1.1307(a). Any true flag knocks the site out of a Categorical Exclusion.",
+      "properties": {
+        "floodplain": {
+          "type": "boolean",
+          "default": false,
+          "description": "Site in a FEMA floodplain (from Section 4 FEMA data)."
+        },
+        "wetlands": {
+          "type": "boolean",
+          "default": false,
+          "description": "Wetlands on/adjacent to the parcel (from Section 4 NWI data)."
+        },
+        "listedSpeciesHabitat": {
+          "type": "boolean",
+          "default": false,
+          "description": "USFWS-listed threatened/endangered species critical habitat."
+        },
+        "historicDistrict": {
+          "type": "boolean",
+          "default": false,
+          "description": "Site in or near a listed historic district."
+        },
+        "indianReligiousSite": {
+          "type": "boolean",
+          "default": false,
+          "description": "Site may affect an Indian religious site (manual entry)."
+        },
+        "residentialArea": {
+          "type": "boolean",
+          "default": false,
+          "description": "Parcel zoned residential (from Section 2 zoning)."
+        },
+        "hazardousWasteSite": {
+          "type": "boolean",
+          "default": false,
+          "description": "EPA hazardous waste / Superfund site within 0.5 mi."
+        },
+        "lightingMigratoryBirdImpact": {
+          "type": "boolean",
+          "default": false,
+          "description": "Tower >= 200 ft AGL requires FAA lighting (migratory bird impact)."
+        }
+      }
+    },
+    "nepaDetermination": {
+      "type": "string",
+      "enum": [
+        "Not Started",
+        "CatEx Eligible",
+        "EA Required",
+        "EIS Required",
+        "Complete"
+      ],
+      "default": "Not Started",
+      "description": "Computed NEPA determination based on the trigger flags, ground disturbance, and project type."
+    },
+    "groundDisturbanceDepth": {
+      "type": "number",
+      "description": "Planned ground disturbance depth in inches."
+    },
+    "groundDisturbanceArea": {
+      "type": "number",
+      "description": "Planned ground disturbance area in square feet (required for the determination)."
+    },
+    "shpoRecords": {
+      "type": "array",
+      "description": "State Historic Preservation Office review records. Sites near state borders can trigger multiple SHPOs.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "submissionDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "determination": {
+            "type": "string",
+            "enum": [
+              "Not Submitted",
+              "Pending Review",
+              "No Historic Properties Affected",
+              "No Adverse Effect",
+              "Adverse Effect",
+              "Insufficient Information"
+            ],
+            "default": "Not Submitted"
+          },
+          "responseDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "daysOutstanding": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "thpoRecords": {
+      "type": "array",
+      "description": "Tribal Historic Preservation Office consultation records \u2014 one per notified tribe.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tribeName": {
+            "type": "string"
+          },
+          "contactEmail": {
+            "type": "string"
+          },
+          "notificationDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Not Notified",
+              "Notified",
+              "Cleared",
+              "Objection Received",
+              "Extension Requested"
+            ],
+            "default": "Not Notified"
+          },
+          "responseDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "daysOutstanding": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "nacdTribesIdentified": {
+      "type": "array",
+      "description": "Tribe names from the NPS Native American Consultation Database lookup for the site's county.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "documents": {
+      "type": "array",
+      "description": "Generated packets and uploaded exhibits. Stored under hawk-compliance/{scipRecordId}/.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "e.g. form_620, form_621, photo, exhibit"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "supabaseUrl": {
+            "type": "string",
+            "description": "Public/file URL of the stored document."
+          },
+          "uploadedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uploadedBy": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "auditLog": {
+      "type": "array",
+      "description": "Append-only activity log. Every status change, document upload, packet generation and field edit appends an entry.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "user": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "description": "status_change | document_uploaded | packet_generated | field_edit | pre_screen"
+          },
+          "field": {
+            "type": "string"
+          },
+          "oldValue": {
+            "type": "string"
+          },
+          "newValue": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "scipRecordId"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

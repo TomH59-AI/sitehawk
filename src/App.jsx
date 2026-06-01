@@ -69,6 +69,7 @@ import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
 import HawkLaw from './pages/HawkLaw';
 import HawkDocs from './pages/HawkDocs';
+import HawkCompliance from './pages/HawkCompliance';
 import HawkDocShareView from './pages/HawkDocShareView';
 
 import SplashScreen from './components/SplashScreen';
@@ -141,6 +142,8 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id" element={<ScipDetail />} />
         <Route path="/hawklaw" element={<HawkLaw />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
+        <Route path="/hawk-compliance" element={<HawkCompliance />} />
+        <Route path="/hawk-compliance/:siteId" element={<HawkCompliance />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

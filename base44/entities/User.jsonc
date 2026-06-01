@@ -46,6 +46,11 @@
     "pending_propositions": {
       "type": "object",
       "description": "Keyed map of in-flight single-landlord proposition letter drafts awaiting Stripe payment. Cleared after Lob fulfillment."
+    },
+    "hawk_compliance_active": {
+      "type": "boolean",
+      "description": "True if the user has an active Hawk Compliance subscription (unlocks the /hawk-compliance route).",
+      "default": false
     }
   },
   "required": [
