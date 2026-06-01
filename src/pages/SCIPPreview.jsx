@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
+import ShareSCIPButton from "../components/scip/ShareSCIPButton";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import SARFMap from "../components/scip/SARFMap";
@@ -187,6 +188,7 @@ export default function SCIPPreview() {
           </p>
         </div>
         <div data-coach="scip-print" className="flex gap-2 flex-wrap">
+          <ShareSCIPButton candidate={candidate} ordinance={state?.ordinance} searchCenter={state?.searchCenter} agent={agent} />
           <PrintSCIPButton />
         </div>
       </div>
@@ -197,6 +199,7 @@ export default function SCIPPreview() {
           ✓ Hawk Aerial Intelligence renders 3 dedicated print pages.
         </div>
         <div className="flex gap-2 flex-wrap">
+          <ShareSCIPButton candidate={candidate} ordinance={state?.ordinance} searchCenter={state?.searchCenter} agent={agent} />
           <PrintSCIPButton />
         </div>
       </div>

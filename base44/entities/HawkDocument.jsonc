@@ -1,7 +1,7 @@
 {
   "name": "HawkDocument",
   "type": "object",
-  "description": "Hawk Document Intelligence \u2014 an uploaded zoning or building-permit application that SiteHawk reads, explains, and fills. AI extracts every form field, explains what it asks for, pre-fills from a chosen SCIP record, and the user completes the rest via Q&A.",
+  "description": "Hawk Document Intelligence \u2014 an uploaded zoning or building-permit application that SiteHawk reads, explains, and fills. AI extracts every form field, explains what it asks for, pre-fills from a chosen SCIP record, and the user completes the rest via Q&A. The completed application can be e-signed, printed, and shared via a public read-only link.",
   "properties": {
     "doc_name": {
       "type": "string",
@@ -78,16 +78,42 @@
         }
       }
     },
+    "applicant_signature": {
+      "type": "string",
+      "description": "The applicant's e-signature \u2014 either a data-URL PNG of the drawn signature or the typed full name."
+    },
+    "signature_mode": {
+      "type": "string",
+      "enum": [
+        "drawn",
+        "typed"
+      ],
+      "description": "Whether applicant_signature is a drawn image or a typed name."
+    },
+    "signed_by": {
+      "type": "string",
+      "description": "Printed full name of the person who signed."
+    },
+    "signed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when the application was signed."
+    },
+    "share_id": {
+      "type": "string",
+      "description": "Short random ID used in the public read-only share URL (/hawk-doc-share?id=...)."
+    },
     "status": {
       "type": "string",
       "enum": [
         "uploaded",
         "analyzing",
         "ready",
+        "signed",
         "failed"
       ],
       "default": "uploaded",
-      "description": "uploaded=file in; analyzing=AI reading; ready=fields extracted; failed=error."
+      "description": "uploaded=file in; analyzing=AI reading; ready=fields extracted; signed=e-signed; failed=error."
     },
     "analyzed_at": {
       "type": "string",

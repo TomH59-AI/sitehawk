@@ -69,6 +69,7 @@ import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
 import HawkLaw from './pages/HawkLaw';
 import HawkDocs from './pages/HawkDocs';
+import HawkDocShareView from './pages/HawkDocShareView';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -111,6 +112,7 @@ const AuthenticatedApp = () => {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/scip-share" element={<SCIPShareView />} />
+      <Route path="/hawk-doc-share" element={<HawkDocShareView />} />
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />
