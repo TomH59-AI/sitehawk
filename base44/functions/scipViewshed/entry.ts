@@ -88,18 +88,22 @@ function viewshedMapUrl(token, lat, lon, bearing) {
   return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${marker}/${c.lon},${c.lat},14,${bearing},60/1100x620@2x?access_token=${token}`;
 }
 
-async function buildProfile(lat, lon, bearing, towerTopFt) {
-  // Tower elevation: ground at site + tower height.
-  const baseGround = await elevationFt(lat, lon);
+async function buildProfile(lat, lon, bearing, towerTopFt, baseGroundPre) {
+  // Tower elevation: ground at site + tower height. baseGroundPre lets the
+  // caller fetch the site elevation ONCE and reuse it across all directions.
+  const baseGround = baseGroundPre !== undefined ? baseGroundPre : await elevationFt(lat, lon);
   const apex = (baseGround ?? 0) + towerTopFt;
 
-  const samples = [];
+  // Fetch all corridor samples in PARALLEL (was sequential → 11x slower and the
+  // cause of the >30s viewshed timeout).
+  const sampleSpecs = [];
   for (let i = 1; i <= PROFILE_STEPS; i++) {
     const dist = (i / PROFILE_STEPS) * PROFILE_MILES;
     const p = destPoint(lat, lon, bearing, dist);
-    const ground = await elevationFt(p.lat, p.lon);
-    samples.push({ dist_mi: Number(dist.toFixed(3)), ground_ft: ground });
+    sampleSpecs.push({ dist_mi: Number(dist.toFixed(3)), lat: p.lat, lon: p.lon });
   }
+  const grounds = await Promise.all(sampleSpecs.map((s) => elevationFt(s.lat, s.lon)));
+  const samples = sampleSpecs.map((s, idx) => ({ dist_mi: s.dist_mi, ground_ft: grounds[idx] }));
 
   // Line-of-sight: straight line from apex (at dist 0) down to the corridor end ground.
   const endGround = samples[samples.length - 1].ground_ft ?? baseGround ?? 0;
@@ -130,7 +134,7 @@ Deno.serve(async (req) => {
     const token = Deno.env.get("MAPBOX_ACCESS_TOKEN");
     if (!token) return Response.json({ error: "Mapbox token not configured" }, { status: 500 });
 
-    const { lat, lon, ring_miles, tower_height_ft } = await req.json();
+    const { lat, lon, ring_miles, tower_height_ft, direction } = await req.json();
     const latN = Number(lat), lonN = Number(lon);
     if (!Number.isFinite(latN) || !Number.isFinite(lonN)) {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
@@ -140,10 +144,19 @@ Deno.serve(async (req) => {
 
     const aerial_ring_url = aerialRingUrl(token, latN, lonN, ring);
 
-    const directions = [];
-    for (const d of DIRECTIONS) {
-      const { profile, first_obstruction_mi, clear } = await buildProfile(latN, lonN, d.bearing, towerFt);
-      directions.push({
+    // Fetch the site (base) elevation ONCE and reuse for every direction.
+    const baseGround = await elevationFt(latN, lonN);
+
+    // If the caller asks for ONE direction, only build that one (the frontend
+    // renders directions one at a time — building all 4 was the timeout cause).
+    const wanted = direction
+      ? DIRECTIONS.filter((d) => d.short === String(direction).toUpperCase())
+      : DIRECTIONS;
+
+    // Build the requested directions in parallel.
+    const directions = await Promise.all(wanted.map(async (d) => {
+      const { profile, first_obstruction_mi, clear } = await buildProfile(latN, lonN, d.bearing, towerFt, baseGround);
+      return {
         label: d.label,
         short: d.short,
         bearing: d.bearing,
@@ -152,8 +165,8 @@ Deno.serve(async (req) => {
         profile,
         first_obstruction_mi,
         clear,
-      });
-    }
+      };
+    }));
 
     console.log(`scipViewshed for ${latN},${lonN} tower=${towerFt}ft user=${user.email}`);
     return Response.json({

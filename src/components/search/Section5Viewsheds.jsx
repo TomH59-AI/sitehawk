@@ -120,7 +120,7 @@ export default function Section5Viewsheds({
       const cacheKey = `${lat.toFixed(6)},${lon.toFixed(6)}|${dirKey}|${towerHeightFt}`;
       let profileDir = computeCache.current[cacheKey];
       if (profileDir === undefined) {
-        const res = await scipViewshed({ lat, lon, ring_miles: radiusMiles, tower_height_ft: towerHeightFt }).catch((e) => {
+        const res = await scipViewshed({ lat, lon, ring_miles: radiusMiles, tower_height_ft: towerHeightFt, direction: dirKey }).catch((e) => {
           console.error(`${tag} scipViewshed threw:`, e?.message); return null;
         });
         const dirs = res?.data?.viewshed?.directions || [];
