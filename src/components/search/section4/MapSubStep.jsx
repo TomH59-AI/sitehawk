@@ -93,8 +93,21 @@ export default function MapSubStep({
         {done && !loading && banner}
         <div className="relative w-full bg-card" style={{ minHeight: 500, height: 560, width: "100%" }}>
           <div ref={ref} className="absolute inset-0" style={{ width: "100%", height: "100%" }} />
+          {/* Legend / overlay menu — absolutely positioned in the top-left on
+              desktop/tablet (below map controls), hidden here on mobile. */}
+          {done && !loading && children && (
+            <div className="hidden sm:block absolute top-16 left-4 z-[500]">
+              {children}
+            </div>
+          )}
         </div>
-        {done && !loading && children}
+        {/* Mobile: render the same legend statically BELOW the map so it never
+            floats over working map content. */}
+        {done && !loading && children && (
+          <div className="sm:hidden px-3 pb-3 pt-2">
+            {children}
+          </div>
+        )}
       </div>
     </div>
   );

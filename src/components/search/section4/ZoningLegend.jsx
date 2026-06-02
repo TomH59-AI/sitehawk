@@ -51,19 +51,20 @@ export default function ZoningLegend({ districts = [] }) {
   const moreCount = districts.length - DEFAULT_VISIBLE;
 
   return (
-    <div className="ml-4 w-64 max-w-[80vw] rounded-lg shadow-xl border border-black/10 bg-white/95 backdrop-blur overflow-hidden">
+    <div className="w-full sm:w-64 sm:max-w-sm rounded-lg shadow-lg border border-black/10 bg-white/95 backdrop-blur overflow-hidden">
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-800 text-white"
       >
         <span className="flex items-center gap-2 text-xs font-semibold tracking-wide">
           <Layers className="w-3.5 h-3.5" /> Zoning Districts
+          <span className="text-white/50 font-normal">({districts.length})</span>
         </span>
-        {open ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </button>
 
       {open && (
-        <div className="px-3 py-2 space-y-1.5 max-h-72 overflow-y-auto">
+        <div className="px-3 py-2.5 space-y-2 max-h-64 sm:max-h-[60vh] overflow-y-auto">
           {visible.map((d) => (
             <div key={d.code} className="flex items-start gap-2 text-[11px] leading-tight">
               <span
