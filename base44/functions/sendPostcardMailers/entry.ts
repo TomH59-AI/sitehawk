@@ -15,25 +15,19 @@ import Stripe from 'npm:stripe@14.21.0';
  *                       postcards with a per-recipient idempotency key, stores
  *                       Lob ids/status. Skips recipients already "sent".
  *
- * Pricing (configurable via env, falls back to defaults):
- *   POSTCARD_PRICE_3_USD  (default 49) — up to 3 postcards
- *   POSTCARD_PRICE_5_USD  (default 79) — 4–5 postcards
+ * Pricing: up to 3 postcards = $49, 4–5 postcards = $79.
  */
 
 const LOB_POSTCARDS_URL = 'https://api.lob.com/v1/postcards';
 const LOB_VERIFY_URL = 'https://api.lob.com/v1/us_verifications';
 const MAX_RECIPIENTS = 5;
+const PRICE_3_USD = 49;
+const PRICE_5_USD = 79;
 
-function pricing() {
-  const p3 = Number(Deno.env.get('POSTCARD_PRICE_3_USD')) || 49;
-  const p5 = Number(Deno.env.get('POSTCARD_PRICE_5_USD')) || 79;
-  return { p3, p5 };
-}
 function priceForCount(n) {
-  const { p3, p5 } = pricing();
   if (n <= 0) return 0;
-  if (n <= 3) return p3;
-  return p5;
+  if (n <= 3) return PRICE_3_USD;
+  return PRICE_5_USD;
 }
 
 function lobKey() {
