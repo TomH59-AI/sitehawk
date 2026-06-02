@@ -103,20 +103,15 @@ export default function Section5Viewsheds({
     setErrors((p) => ({ ...p, [dirKey]: null }));
     setLoadingDir(dirKey);
 
-    // 15s per-direction timeout → actionable error + Retry.
-    const watchdog = setTimeout(() => {
-      setLoadingDir((cur) => {
-        if (cur === dirKey) {
-          console.error(`${tag} Timed out after 15s.`);
-          setErrors((p) => ({ ...p, [dirKey]: "Viewshed timed out after 15s — terrain source did not respond." }));
-          return null;
-        }
-        return cur;
-      });
-    }, 15000);
+    // The watchdog guards ONLY the map render below — not the scipViewshed
+    // backend compute, which legitimately takes ~20s+ (it fetches USGS elevation
+    // samples for the profile). Armed right before renderViewshed.
+    let watchdog = null;
 
     try {
       // Viewshed compute (scipViewshed profile) — cached per (coord, dir, tower).
+      // No timeout here: it is slow but reliable; a tight timeout was falsely
+      // failing directions that actually succeed a few seconds later.
       const cacheKey = `${lat.toFixed(6)},${lon.toFixed(6)}|${dirKey}|${towerHeightFt}`;
       let profileDir = computeCache.current[cacheKey];
       if (profileDir === undefined) {
@@ -145,8 +140,18 @@ export default function Section5Viewsheds({
       await new Promise((r) => requestAnimationFrame(r));
 
       // Render with the per-direction beam angle (override of default 90°).
+      // Arm the 20s render watchdog HERE — it guards only the map paint, which
+      // is the part that can silently hang (terrain tiles / GL load).
       const dirCfg = { ...DIRECTIONS[dirKey], spread: (beamAngles[dirKey] || 90) / 2 };
-      const result = await renderViewshed(refs[dirKey].current, lat, lon, dirKey, radiusMiles, dirCfg, profileDir);
+      const result = await Promise.race([
+        renderViewshed(refs[dirKey].current, lat, lon, dirKey, radiusMiles, dirCfg, profileDir),
+        new Promise((_, reject) => {
+          watchdog = setTimeout(() => {
+            console.error(`${tag} Map render timed out after 20s.`);
+            reject(new Error("Viewshed map render timed out after 20s — terrain source did not respond."));
+          }, 20000);
+        }),
+      ]);
       maps.current[dirKey] = result;
       setEngines((prev) => ({ ...prev, [dirKey]: result.engine }));
       // 7 — stats render.
