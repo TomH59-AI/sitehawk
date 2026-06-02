@@ -264,7 +264,7 @@ export default function AIVisionAnalyzer() {
         </div>
       )}
       {sarfCoords && !rfLoading && rfResult && (
-        <RFProximityMaps site={sarfCoords} result={rfResult} />
+        <RFProximityMaps site={sarfCoords} result={rfResult} rfRadiusMiles={2} />
       )}
 
       {/* ── STEP 2: AI Vision Analysis (only visible after map is generated) ── */}

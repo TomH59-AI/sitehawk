@@ -87,13 +87,13 @@ function MapPanel({ site, dest, line, glyphColor }) {
   return <div ref={ref} className="w-full bg-[#0C1B2E]" style={{ height: 420 }} />;
 }
 
-export default function RFProximityMaps({ site, result }) {
+export default function RFProximityMaps({ site, result, rfRadiusMiles = 2 }) {
   if (!result) return null;
   const airport = result.airport || null;
   const tower = result.tower || null;
   const hasAirport = airport && airport.latitude_deg != null && airport.longitude_deg != null;
   const hasTower = tower && tower.latitude_deg != null && tower.longitude_deg != null;
-  const towerVerdict = result.rf?.verdict || `No cell tower found within 2 miles.`;
+  const towerVerdict = result.rf?.verdict || `No cell tower found within ${rfRadiusMiles} miles.`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -138,6 +138,9 @@ export default function RFProximityMaps({ site, result }) {
               {hasTower
                 ? `${tower.licensee || tower.call_letters || "Tower"}${tower.distance_miles != null ? ` · ${Number(tower.distance_miles).toFixed(2)} mi` : ""}`
                 : "No tower found"}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              Closest cell tower search uses a fixed {rfRadiusMiles}-mile radius.
             </div>
           </div>
         </div>
