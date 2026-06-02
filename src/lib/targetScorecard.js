@@ -129,6 +129,18 @@ function floodRisk(target, rec) {
   return cat(score, note, "fema_risk_factor / existing_conditions");
 }
 
+// ── Permit Path (PE Self-Cert) — does the jurisdiction accept a Professional
+// Engineer's sealed self-certification (faster, administrative path that eases
+// setback/height/process)? Read from the saved zoning report's overview.
+function peSelfCert(rec) {
+  const v = rec?.zoning_report?.zoning_overview?.pe_self_certification?.value;
+  if (!has(v) || /needs research|unknown/i.test(v)) return cat(null, null, "zoning_report.zoning_overview.pe_self_certification");
+  const allowed = /\byes\b|accept|self[- ]cert|administrative|by[- ]right/i.test(v) && !/^no\b|not accept|full review|public hearing required/i.test(v);
+  return allowed
+    ? cat(90, `PE self-certification accepted — faster administrative permit path; more flexible setbacks/height. ${v}`, "zoning_report.zoning_overview.pe_self_certification")
+    : cat(55, `No PE self-certification — full review / hearing likely. ${v}`, "zoning_report.zoning_overview.pe_self_certification");
+}
+
 // ── Owner Outreach Readiness — owner name + mailing address present.
 function ownerReadiness(target) {
   const owner = has(target.owner_name);
@@ -139,7 +151,7 @@ function ownerReadiness(target) {
 }
 
 export const CATEGORY_ORDER = [
-  "RF Fit", "Zoning Fit", "Parcel Size / Buildability", "Utility Access",
+  "RF Fit", "Zoning Fit", "Permit Path (PE Self-Cert)", "Parcel Size / Buildability", "Utility Access",
   "Fiber Access", "Access Road Potential", "Airport / FAA Risk",
   "Environmental / Flood Risk", "Owner Outreach Readiness",
 ];
@@ -165,6 +177,7 @@ export function buildScorecard(record, index) {
   const categories = {
     "RF Fit": rfFit(target, center, rfSlot),
     "Zoning Fit": zoningFit(target),
+    "Permit Path (PE Self-Cert)": peSelfCert(record),
     "Parcel Size / Buildability": parcelSize(target),
     "Utility Access": utilityAccess(power),
     "Fiber Access": index === (record?.active_target_index || 0) ? fiberAccess(record) : cat(null, null, "fiber data"),
@@ -210,6 +223,7 @@ function whyBullets(record, index, target, categories) {
     if (center !== null && !out.some((b) => /ring/i.test(b))) out.push(`~${center.toFixed(2)} mi from search-ring center.`);
     if (has(target.acreage) && !out.some((b) => /ac\b|acre/i.test(b))) out.push(`Parcel size ${Number(target.acreage).toFixed(2)} ac.`);
     if (has(target.zoning_classification) && !out.some((b) => /zon/i.test(b))) out.push(`Zoned ${target.zoning_classification}.`);
+    if (categories["Permit Path (PE Self-Cert)"].score >= 80 && !out.some((b) => /pe self|self-cert/i.test(b))) out.push("PE self-certification accepted — faster permit path eases setback/height limits.");
     if (categories["Airport / FAA Risk"].score !== null && !out.some((b) => /airport|faa/i.test(b))) out.push(categories["Airport / FAA Risk"].explanation);
     if (categories["Utility Access"].score !== null && !out.some((b) => /power|provider/i.test(b))) out.push(categories["Utility Access"].explanation);
     if (has(target.mailing_address) && !out.some((b) => /mail/i.test(b))) out.push("Owner mailing address available.");
