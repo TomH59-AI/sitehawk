@@ -7,6 +7,7 @@ import { SKYWAVE } from "@/lib/skywave";
 import { stampPatch, SECTION_KEYS } from "@/lib/scipTarget";
 import ScipPowerAirportPage from "./ScipPowerAirportPage";
 import SectionStaleBanner from "./SectionStaleBanner";
+import LiveAirportMap from "./LiveAirportMap";
 
 // Step 3.6 — Power (electric service) + Airport maps for the active target.
 export default function HawkPowerAirport({ record, onUpdate }) {
@@ -66,6 +67,16 @@ export default function HawkPowerAirport({ record, onUpdate }) {
 
       <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.power_airport} hasData={!!data} />
       {data && <ScipPowerAirportPage data={data} />}
+
+      {target && (
+        <div className="mt-4 no-print">
+          <LiveAirportMap
+            lat={Number(target.latitude ?? record.latitude)}
+            lon={Number(target.longitude ?? record.longitude)}
+            label={target.label || "Target A"}
+          />
+        </div>
+      )}
     </div>
   );
 }
