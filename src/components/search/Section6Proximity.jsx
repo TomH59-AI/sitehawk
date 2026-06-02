@@ -160,6 +160,12 @@ export default function Section6Proximity({
 
       maps.current[step] = map;
       setCompleted((prev) => ({ ...prev, [step]: true }));
+      // The canvas wrapper is display:none while loading (zero size), so Mapbox
+      // initializes blank. Once the panel flips to visible, force a resize on the
+      // next frames so the canvas paints at its real 540px height.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        try { map.resize(); } catch { /* map disposed */ }
+      }));
       console.log(`${tag} Map generated OK.`);
       toast.success(`${step === "celltower" ? "Cell tower" : step.charAt(0).toUpperCase() + step.slice(1)} map generated for Target A.`);
     } catch (err) {
