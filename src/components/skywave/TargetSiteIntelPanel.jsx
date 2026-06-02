@@ -3,9 +3,45 @@ import { zoneomicsTargetIntel } from "@/functions/zoneomicsTargetIntel";
 import { ensureMapboxLoaded } from "@/lib/section6Proximity";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { normalizeZoneType } from "@/lib/zoningPalette";
-import { Building2, Hammer, MapPinned, ChevronDown, Loader2, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { Building2, Hammer, MapPinned, ChevronDown, Loader2, PanelLeftClose, PanelLeftOpen, X, Sparkles, TrendingUp, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const NEON = "#00FFCC";
+
+// Zoneomics FLUM vector tile template (reused from section4Maps convention).
+const FLUM_TILES = (key) => `https://api.zoneomics.com/v2/flum/tiles/{z}/{x}/{y}.mvt?api_key=${key}`;
+
+// Does a future land-use designation align with wireless/telecom infrastructure?
+// Telecom towers are generally permitted/conditional in commercial, industrial,
+// agricultural, mixed-use & special districts, and resisted in residential ones.
+function rezoningAlignment(name, type) {
+  const t = `${name || ""} ${type || ""}`.toLowerCase();
+  if (/resid|single.?family|low.?density|neighborhood/.test(t)) {
+    return {
+      level: "low",
+      verdict: "Likely Misaligned",
+      text: "This future designation prioritizes residential character. Wireless infrastructure typically requires a conditional-use permit or variance here, and long-term policy goals may resist tower siting. Expect heightened scrutiny on stealth design, setbacks and separation from dwellings.",
+    };
+  }
+  if (/indust|manufactur|commerc|business|employ|airport|utility|transport/.test(t)) {
+    return {
+      level: "high",
+      verdict: "Strongly Aligned",
+      text: "This future designation favors employment, commercial or industrial activity. Wireless infrastructure is broadly consistent with these long-term policy goals, making approval pathways more straightforward and rezoning risk low.",
+    };
+  }
+  if (/agric|rural|farm|mixed|special|planned|institut|public/.test(t)) {
+    return {
+      level: "medium",
+      verdict: "Conditionally Aligned",
+      text: "This future designation can accommodate wireless infrastructure as a conditional or accessory use. Alignment with the municipality's long-term plan is moderate — confirm the specific permitted-use table and any overlay conditions before relying on it.",
+    };
+  }
+  return {
+    level: "medium",
+    verdict: "Review Required",
+    text: "The future land-use policy intent for this designation is unclear. Verify against the comprehensive-plan permitted uses to confirm whether wireless infrastructure aligns with long-term goals.",
+  };
+}
 
 // Color-coded badge palette for permitted land-use categories.
 const USE_BADGES = {
@@ -45,6 +81,66 @@ function Accordion({ icon, title, defaultOpen, children }) {
         <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && <div className="px-5 pb-5">{children}</div>}
+    </div>
+  );
+}
+
+function FlumBody({ loading, flum }) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-white/60">
+        <Loader2 className="w-6 h-6 animate-spin mb-3" />
+        <span className="text-sm">Querying future land-use policy…</span>
+      </div>
+    );
+  }
+  const name = flum?.name || "";
+  const code = flum?.code || "";
+  if (!name && !code) {
+    return (
+      <div className="flex flex-col items-center justify-center text-center py-24 px-8 text-white/50">
+        <Sparkles className="w-10 h-10 mb-4 text-white/30" />
+        <p className="text-sm leading-relaxed">No Future Land Use designation found for this point.</p>
+      </div>
+    );
+  }
+  const align = rezoningAlignment(name, flum?.type);
+  const alignStyle = {
+    high: { bar: "bg-emerald-500", chip: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", icon: <CheckCircle2 className="w-4 h-4" /> },
+    medium: { bar: "bg-amber-500", chip: "bg-amber-500/15 text-amber-300 border-amber-500/30", icon: <AlertTriangle className="w-4 h-4" /> },
+    low: { bar: "bg-rose-500", chip: "bg-rose-500/15 text-rose-300 border-rose-500/30", icon: <AlertTriangle className="w-4 h-4" /> },
+  }[align.level];
+  return (
+    <div>
+      {/* TAB 1 — Future Vision */}
+      <Accordion icon={<Sparkles className="w-4 h-4" style={{ color: NEON }} />} title="🔮 Future Vision" defaultOpen>
+        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+          {code && <div className="text-[10px] uppercase tracking-[0.2em] text-white/40 mb-1">Designation Code</div>}
+          {code && <div className="text-2xl font-bold tracking-tight" style={{ color: NEON }}>{code}</div>}
+          <div className="text-lg font-semibold text-white mt-2 leading-snug">{name || "Future Land Use Designation"}</div>
+          {flum?.type && (
+            <div className="inline-block mt-2 text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/10 text-white/70">{flum.type}</div>
+          )}
+          {flum?.description ? (
+            <p className="text-xs text-white/50 mt-3 leading-relaxed">{flum.description}</p>
+          ) : (
+            <p className="text-xs text-white/40 mt-3 leading-relaxed">Long-term plan notes were not provided by the source for this designation.</p>
+          )}
+        </div>
+      </Accordion>
+
+      {/* TAB 2 — Rezoning Probability */}
+      <Accordion icon={<TrendingUp className="w-4 h-4" style={{ color: NEON }} />} title="📈 Rezoning Probability" defaultOpen>
+        <div className="rounded-xl bg-white/5 border border-white/10 p-4">
+          <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${alignStyle.chip}`}>
+            {alignStyle.icon} {align.verdict}
+          </span>
+          <div className="mt-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div className={`h-full ${alignStyle.bar}`} style={{ width: align.level === "high" ? "90%" : align.level === "medium" ? "55%" : "22%" }} />
+          </div>
+          <p className="text-xs text-white/60 mt-3 leading-relaxed">{align.text}</p>
+        </div>
+      </Accordion>
     </div>
   );
 }
@@ -127,8 +223,11 @@ export default function TargetSiteIntelPanel({ lat, lon, label }) {
   const ref = useRef(null);
   const mapRef = useRef(null);
   const [intel, setIntel] = useState(null);
+  const [flum, setFlum] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [flumLoading, setFlumLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [layer, setLayer] = useState("zoning"); // "zoning" | "flum"
   const hasTarget = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
 
   // Init map once.
@@ -197,9 +296,11 @@ export default function TargetSiteIntelPanel({ lat, lon, label }) {
     if (map?.isStyleLoaded?.()) apply();
     else map?.once?.("load", apply);
 
-    // Fetch Zoneomics intel for this point.
+    // Fetch Zoneomics zoning intel for this point. FLUM designation is read from
+    // the FLUM vector tile feature under Target A when the FLUM layer is active.
     let cancelled = false;
     setLoading(true);
+    setFlum(null);
     setCollapsed(false);
     zoneomicsTargetIntel({ lat: tLat, lng: tLon })
       .then((res) => { if (!cancelled) setIntel(res.data?.ok ? res.data : null); })
@@ -208,6 +309,72 @@ export default function TargetSiteIntelPanel({ lat, lon, label }) {
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lon]);
+
+  // Toggle the FLUM vector-tile overlay on/off when the layer switches. The neon
+  // Target A outline stays on top in both views, and focus stays locked on Target A.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = async () => {
+      const cfg = await loadPublicConfig();
+      const key = cfg.zoneomicsApiKey;
+      const showFlum = layer === "flum";
+      // Add the FLUM source/layer lazily (once) when first switching to FLUM.
+      if (showFlum && key && !map.getSource("ti-flum")) {
+        map.addSource("ti-flum", { type: "vector", tiles: [FLUM_TILES(key)], minzoom: 8, maxzoom: 16 });
+        const before = map.getLayer("ta-zone-fill") ? "ta-zone-fill" : undefined;
+        for (const srcLayer of ["flum", "future_land_use", "default"]) {
+          map.addLayer({
+            id: `ti-flum-fill-${srcLayer}`, type: "fill", source: "ti-flum", "source-layer": srcLayer,
+            paint: { "fill-color": "#7C3AED", "fill-opacity": 0.28 },
+          }, before);
+          map.addLayer({
+            id: `ti-flum-line-${srcLayer}`, type: "line", source: "ti-flum", "source-layer": srcLayer,
+            paint: { "line-color": "#A78BFA", "line-width": 1.2, "line-opacity": 0.7 },
+          }, before);
+        }
+      }
+      // Toggle FLUM layer visibility.
+      const fillIds = [];
+      ["flum", "future_land_use", "default"].forEach((s) => {
+        ["fill", "line"].forEach((kind) => {
+          const id = `ti-flum-${kind}-${s}`;
+          if (map.getLayer(id)) {
+            map.setLayoutProperty(id, "visibility", showFlum ? "visible" : "none");
+            if (kind === "fill") fillIds.push(id);
+          }
+        });
+      });
+      // Keep focus locked on Target A regardless of layer.
+      if (hasTarget) map.flyTo({ center: [Number(lon), Number(lat)], zoom: 16, speed: 0.9, essential: true });
+
+      // Read the FLUM designation from the vector-tile feature under Target A.
+      if (showFlum) {
+        setFlumLoading(true);
+        setFlum(null);
+        const readFlum = () => {
+          const pt = map.project([Number(lon), Number(lat)]);
+          const feats = fillIds.length ? map.queryRenderedFeatures(pt, { layers: fillIds }) : [];
+          const p = feats?.[0]?.properties || null;
+          if (p) {
+            setFlum({
+              code: p.flum_code || p.code || p.zone_code || "",
+              name: p.flum_name || p.name || p.future_land_use || p.designation || p.land_use || "",
+              type: p.flum_type || p.type || "",
+              description: p.description || p.notes || "",
+            });
+          }
+          setFlumLoading(false);
+        };
+        // Wait for FLUM tiles to render before sampling.
+        if (map.areTilesLoaded?.()) setTimeout(readFlum, 400);
+        else map.once("idle", readFlum);
+      }
+    };
+    if (map.isStyleLoaded?.()) apply();
+    else map.once?.("load", apply);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layer]);
 
   return (
     <div className="relative w-full rounded-xl overflow-hidden border border-white/10" style={{ height: 620 }}>
@@ -221,6 +388,28 @@ export default function TargetSiteIntelPanel({ lat, lon, label }) {
 
       {/* Right — full Mapbox view */}
       <div ref={ref} className="absolute inset-0 bg-[#0B1220]" />
+
+      {/* Top — layer segment toggle (Current Zoning / Future Land Use) */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30">
+        <div className="flex items-center p-1 rounded-full bg-[#0F172A]/90 border border-white/10 backdrop-blur-xl shadow-lg">
+          {[
+            { id: "zoning", label: "Current Zoning" },
+            { id: "flum", label: "Future Land Use (FLUM)" },
+          ].map((opt) => {
+            const active = layer === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => setLayer(opt.id)}
+                className="relative px-4 py-1.5 text-xs font-semibold rounded-full transition-colors"
+                style={active ? { background: NEON, color: "#06251F" } : { color: "rgba(255,255,255,0.7)" }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Desktop collapse toggle */}
       <button
@@ -238,11 +427,15 @@ export default function TargetSiteIntelPanel({ lat, lon, label }) {
         style={{ width: 400, transform: collapsed ? "translateX(-100%)" : "translateX(0)" }}
       >
         <div className="px-5 py-4 border-b border-white/10">
-          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: NEON }}>Target Site Intelligence</div>
+          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: NEON }}>
+            {layer === "flum" ? "Future Land Use Intelligence" : "Target Site Intelligence"}
+          </div>
           <div className="text-white font-bold text-lg mt-0.5">{label || "Target A"}</div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <PanelBody loading={loading} intel={intel} />
+          {layer === "flum"
+            ? <FlumBody loading={flumLoading} flum={flum} />
+            : <PanelBody loading={loading} intel={intel} />}
         </div>
       </div>
 
@@ -251,13 +444,17 @@ export default function TargetSiteIntelPanel({ lat, lon, label }) {
         <div className="flex items-center justify-between px-5 pt-3 pb-2">
           <div className="mx-auto w-10 h-1 rounded-full bg-white/20 absolute left-1/2 -translate-x-1/2 top-2" />
           <div>
-            <div className="text-[10px] uppercase tracking-[0.25em]" style={{ color: NEON }}>Target Site Intelligence</div>
+            <div className="text-[10px] uppercase tracking-[0.25em]" style={{ color: NEON }}>
+              {layer === "flum" ? "Future Land Use Intelligence" : "Target Site Intelligence"}
+            </div>
             <div className="text-white font-bold mt-0.5">{label || "Target A"}</div>
           </div>
           {intel && <button onClick={() => setIntel(null)} className="text-white/50"><X className="w-5 h-5" /></button>}
         </div>
         <div className="flex-1 overflow-y-auto">
-          <PanelBody loading={loading} intel={intel} />
+          {layer === "flum"
+            ? <FlumBody loading={flumLoading} flum={flum} />
+            : <PanelBody loading={loading} intel={intel} />}
         </div>
       </div>
     </div>
