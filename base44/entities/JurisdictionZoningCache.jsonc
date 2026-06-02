@@ -1,0 +1,106 @@
+{
+  "name": "JurisdictionZoningCache",
+  "type": "object",
+  "description": "App-wide, jurisdiction-level cache of telecom (cell tower) zoning + permitting requirements. Keyed by (state_code, jurisdiction_name_normalized, jurisdiction_type). One Zoneomics/zoning fetch per jurisdiction is stored once here and reused across every SCIP, user, and session. District-specific zoning rows are kept per zoning_district under district_reports so jurisdiction-wide telecom rules can be reused while district rules are tracked separately. NOT user-scoped \u2014 readable/writable by any signed-in user so the cache works across the whole app.",
+  "properties": {
+    "state_code": {
+      "type": "string",
+      "description": "Two-letter uppercase state code (e.g. FL)."
+    },
+    "jurisdiction_name": {
+      "type": "string",
+      "description": "Human-readable jurisdiction label (e.g. 'City of Tampa' or 'Hillsborough County')."
+    },
+    "jurisdiction_name_normalized": {
+      "type": "string",
+      "description": "Lowercased, punctuation-stripped jurisdiction name used as the cache key (e.g. 'tampa', 'hillsborough')."
+    },
+    "jurisdiction_type": {
+      "type": "string",
+      "enum": [
+        "city",
+        "county",
+        "unknown"
+      ],
+      "default": "unknown",
+      "description": "Whether the jurisdiction is a municipality (city) or county-level authority."
+    },
+    "county_name": {
+      "type": "string",
+      "description": "County name for reference/display."
+    },
+    "report": {
+      "type": "object",
+      "description": "The jurisdiction-wide zoning + permitting report panel structure (zoning_overview, tower_specifics, site_plan, building_permit) \u2014 same shape generateZoningPermitReport returns. Reused for every SCIP in this jurisdiction."
+    },
+    "telecom_requirements": {
+      "type": "object",
+      "description": "Flat extracted cell-tower requirements pulled from the report for quick reuse: { max_tower_height, stealth_required, required_collocations, residential_separation, tower_separation, fall_zone_requirements, setback_rules, approval_path, site_plan_requirements, building_permit_notes }."
+    },
+    "district_reports": {
+      "type": "object",
+      "description": "District-specific zoning rows keyed by zoning_district code (e.g. { 'A-1': { property_zoning_district, ... } }). Jurisdiction-wide telecom rules live in `report`; this only tracks what differs per district.",
+      "additionalProperties": true
+    },
+    "zone_code": {
+      "type": "string",
+      "description": "Last Zoneomics zone code resolved when this cache entry was written (context only)."
+    },
+    "source_name": {
+      "type": "string",
+      "description": "Primary source of the cached data (e.g. 'Zoneomics + AI')."
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Authoritative source URL (LDC / ordinance portal) if known."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium",
+      "description": "Overall confidence in the cached jurisdiction data."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "published",
+        "stale",
+        "failed"
+      ],
+      "default": "published",
+      "description": "published = usable cache; stale = should refetch; failed = last fetch failed."
+    },
+    "raw_response": {
+      "type": "object",
+      "description": "Raw payload returned by the zoning fetch (Zoneomics diagnostics + full function response) for provenance/debugging."
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when the underlying zoning source was last fetched."
+    },
+    "last_verified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when the cached data was last verified/refreshed."
+    }
+  },
+  "required": [
+    "state_code",
+    "jurisdiction_name_normalized"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
