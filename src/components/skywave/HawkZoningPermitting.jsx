@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
 import ScipZoningPage from "./ScipZoningPage";
+import TargetSiteIntelPanel from "./TargetSiteIntelPanel";
 
 // Step 2 — Hawk Zoning & Permitting. Reuses an app-wide jurisdiction-level cache
 // (JurisdictionZoningCache) so same jurisdiction = fetch once, reuse many times.
@@ -129,6 +130,15 @@ export default function HawkZoningPermitting({ record, onUpdate }) {
       )}
 
       {report && <ScipZoningPage report={report} />}
+
+      <div className="mt-5 no-print">
+        <h4 className="font-bold text-sm mb-2" style={{ color: SKYWAVE.navy }}>Target Site Intelligence — {target?.label || "Target A"}</h4>
+        <TargetSiteIntelPanel
+          lat={Number(target?.latitude ?? record.latitude)}
+          lon={Number(target?.longitude ?? record.longitude)}
+          label={target?.label || "Target A"}
+        />
+      </div>
     </div>
   );
 }
