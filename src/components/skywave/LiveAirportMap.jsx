@@ -137,7 +137,7 @@ export default function LiveAirportMap({ lat, lon, label, radiusMiles = 1 }) {
             const d = distMiles(tLat, tLon, c[1], c[0]);
             if (!best || d < best.dist) best = { dist: d, coord: c, props: f.properties || {} };
           }
-          if (!best || (mapRef.current && mapRef.current.__drewLine)) return;
+          if (!best || map.__drewLine) return;
           map.__drewLine = true;
 
           // crow-flies line
@@ -160,7 +160,15 @@ export default function LiveAirportMap({ lat, lon, label, radiusMiles = 1 }) {
           const b = new window.mapboxgl.LngLatBounds(center, center);
           b.extend(best.coord);
           map.fitBounds(b, { padding: 80, duration: 0, maxZoom: 12 });
-          if (!cancelled) setNearest({ name: best.props.Facility_Name || best.props.Location_ID || "Airport", dist: best.dist });
+          if (!cancelled) {
+            const p = best.props;
+            setNearest({
+              name: p.NAME || "Airport",
+              ident: p.IDENT || p.ICAO_ID || "—",
+              icao: p.ICAO_ID || "",
+              dist: best.dist,
+            });
+          }
         };
         map.on("sourcedata", (e) => { if (e.sourceId === "airports" && e.isSourceLoaded) drawNearest(); });
 
@@ -181,12 +189,13 @@ export default function LiveAirportMap({ lat, lon, label, radiusMiles = 1 }) {
           const coords = f.geometry.coordinates.slice();
           const d = distMiles(tLat, tLon, coords[1], coords[0]);
           const html = `
-            <div style="font-family:sans-serif;font-size:12px;line-height:1.5;min-width:170px">
-              <div style="font-weight:700;color:${SKYWAVE.navy};margin-bottom:4px">${p.Facility_Name || "Airport"}</div>
-              <div><strong>ID:</strong> ${p.Location_ID || "—"}</div>
-              <div><strong>City:</strong> ${p.City || "—"}</div>
-              <div><strong>State:</strong> ${p.State || "—"}</div>
-              <div><strong>Ownership:</strong> ${p.Ownership || "—"}</div>
+            <div style="font-family:sans-serif;font-size:12px;line-height:1.5;min-width:180px">
+              <div style="font-weight:700;color:${SKYWAVE.navy};margin-bottom:4px">${p.NAME || "Airport"}</div>
+              <div><strong>Call Letters (FAA ID):</strong> ${p.IDENT || "—"}</div>
+              <div><strong>ICAO:</strong> ${p.ICAO_ID || "—"}</div>
+              <div><strong>City:</strong> ${p.SERVCITY || "—"}</div>
+              <div><strong>State:</strong> ${p.STATE || "—"}</div>
+              <div><strong>Use:</strong> ${p.MIL_CODE || "—"}${p.PRIVATEUSE === 1 ? " · Private Use" : ""}</div>
               <div style="margin-top:4px;color:#0891B2"><strong>Distance:</strong> ${milesFeetLabel(d)}</div>
             </div>`;
           new window.mapboxgl.Popup().setLngLat(coords).setHTML(html).addTo(map);
@@ -220,7 +229,7 @@ export default function LiveAirportMap({ lat, lon, label, radiusMiles = 1 }) {
         >
           {faaLikely ? <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" /> : <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />}
           <span>
-            Nearest airport: <strong>{nearest.name}</strong> — {milesFeetLabel(nearest.dist)}.
+            Nearest airport: <strong>{nearest.name}</strong> ({nearest.ident}{nearest.icao ? ` / ${nearest.icao}` : ""}) — {milesFeetLabel(nearest.dist)}.
             {faaLikely
               ? " Within ~20,000 ft of an airport — an FAA Form 7460-1 determination is likely required."
               : " Beyond ~20,000 ft of the nearest airport — FAA notice less likely (verify against runway type & tower height)."}
