@@ -10,7 +10,6 @@ import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
-import Section5Viewsheds from "../components/search/Section5Viewsheds";
 import Section6Proximity from "../components/search/Section6Proximity";
 import Section7Infrastructure from "../components/search/Section7Infrastructure";
 import Section8Propagation from "../components/search/Section8Propagation";
@@ -44,10 +43,8 @@ export default function SiteSearch() {
   const [zoningReady, setZoningReady] = useState(false);
   // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
   const [targetA, setTargetA] = useState(null);
-  // True once all six Section 4 maps are complete — unlocks Section 5.
+  // True once all six Section 4 maps are complete — unlocks Section 6 (viewsheds removed).
   const [mapsComplete, setMapsComplete] = useState(false);
-  // True once all four Section 5 viewsheds are complete — unlocks Section 6.
-  const [viewshedsComplete, setViewshedsComplete] = useState(false);
   // True once all three Section 6 proximity maps are complete — unlocks Section 7.
   const [proximityComplete, setProximityComplete] = useState(false);
   // ── PER-SECTION CLEAR / REMOUNT ───────────────────────────────────────────
@@ -55,7 +52,7 @@ export default function SiteSearch() {
   // Clearing a section also rolls back the parent readiness flags for it AND
   // every section downstream, so the pipeline correctly re-locks after it.
   const [clearKeys, setClearKeys] = useState({
-    sarf: 0, zoning: 0, targets: 0, maps: 0, viewsheds: 0, proximity: 0, infrastructure: 0, propagation: 0,
+    sarf: 0, zoning: 0, targets: 0, maps: 0, proximity: 0, infrastructure: 0, propagation: 0,
   });
   const bumpKeys = (steps) =>
     setClearKeys((prev) => {
@@ -77,7 +74,7 @@ export default function SiteSearch() {
   // Ordered pipeline steps (sarf is Section 1, always present). Section 8
   // (propagation) is standalone — it gates nothing, so clearing it only remounts
   // itself and does not roll back any other section.
-  const PIPELINE_ORDER = ["zoning", "targets", "maps", "viewsheds", "proximity", "infrastructure"];
+  const PIPELINE_ORDER = ["zoning", "targets", "maps", "proximity", "infrastructure"];
 
   // Clear ONE section and everything downstream of it: remount those sections
   // (wipes their internal state) and roll back the parent readiness flags so the
@@ -97,7 +94,6 @@ export default function SiteSearch() {
     if (affected.includes("zoning")) setZoningReady(false);
     if (affected.includes("targets")) setTargetA(null);
     if (affected.includes("maps")) setMapsComplete(false);
-    if (affected.includes("viewsheds")) setViewshedsComplete(false);
     if (affected.includes("proximity")) setProximityComplete(false);
 
     // Drop bus data emitted by the cleared sections so the scorecard can't read stale values.
@@ -112,12 +108,11 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setMapsComplete(false);
-    setViewshedsComplete(false);
     setProximityComplete(false);
     setSectionData({});
     setSearchCenter(null);
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps", "viewsheds", "proximity", "infrastructure", "propagation"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "proximity", "infrastructure", "propagation"]);
   };
 
   // ── TEMP RUNTIME PROBE ──────────────────────────────────────────────────
@@ -139,10 +134,9 @@ export default function SiteSearch() {
     if (zoningReady) done.push("zoning");
     if (targetA) done.push("targets");
     if (mapsComplete) done.push("maps");
-    if (viewshedsComplete) done.push("viewsheds");
     if (proximityComplete) done.push("proximity");
     setCompletedSteps(done);
-  }, [sarfReady, zoningReady, targetA, mapsComplete, viewshedsComplete, proximityComplete, setCompletedSteps]);
+  }, [sarfReady, zoningReady, targetA, mapsComplete, proximityComplete, setCompletedSteps]);
 
   // Clear the sidebar pipeline when leaving Site Search.
   useEffect(() => {
@@ -229,7 +223,6 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setMapsComplete(false);
-    setViewshedsComplete(false);
     setProximityComplete(false);
     setSectionData({});
     // Normalize the SARF center to 4 decimals (~11 m) at the single entry point.
@@ -410,30 +403,13 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* SECTION 5 — HAWK RF VIEWSHED VISION. Locked until all six Section 4
-          maps are complete. Four 2D tree-line viewsheds (N→S→E→W), each fired
-          one-at-a-time by its own button. Target A ONLY. */}
-      {coordsReady && sarfReady && zoningReady && (
-        <Section5Viewsheds
-          key={`viewsheds-${clearKeys.viewsheds}`}
-          unlocked={mapsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
-          active={pipelineStep === "viewsheds"}
-          onClear={() => clearFrom("viewsheds")}
-          targetA={targetA}
-          radiusMiles={searchParams.radius_miles}
-          towerHeightFt={searchParams.tower_height_ft || 199}
-          onRun={() => setPipelineStep("viewsheds")}
-          onComplete={() => setViewshedsComplete(true)}
-        />
-      )}
-
-      {/* SECTION 6 — HAWK PROXIMITY & ENVIRONMENT VISION. Locked until all four
-          Section 5 viewsheds are complete. Three maps (airport → cell tower →
-          wind), each fired one-at-a-time by its own button. Target A ONLY. */}
+      {/* SECTION 6 — HAWK PROXIMITY & ENVIRONMENT VISION. Locked until all six
+          Section 4 maps are complete (viewsheds removed). Three maps (airport →
+          cell tower → wind), each fired one-at-a-time by its own button. Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section6Proximity
           key={`proximity-${clearKeys.proximity}`}
-          unlocked={viewshedsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          unlocked={mapsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           active={pipelineStep === "proximity"}
           onClear={() => clearFrom("proximity")}
           targetA={targetA}
