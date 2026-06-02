@@ -289,6 +289,11 @@
         }
       }
     },
+    "notion_snapshot_sync": {
+      "type": "boolean",
+      "default": false,
+      "description": "Toggle \u2014 'Sync snapshot summaries to Notion'. When true, DataSourceSnapshot creates/refreshes are optionally mirrored to a human-readable Notion audit database. Notion is a review mirror only; Base44 remains the source of truth and sync failures never block SCIP work."
+    },
     "status": {
       "type": "string",
       "enum": [

@@ -1,0 +1,173 @@
+{
+  "name": "DataSourceSnapshot",
+  "type": "object",
+  "description": "Append-only audit record of one external-data fetch/refresh for a SCIP section. DataSourceSnapshot is the source of truth for SCIP data freshness and history; ScipRecord keeps only lightweight current-status fields for fast UI badges. Each fetch/refresh of a section creates a NEW snapshot (never updated in place except to flip is_current=false when superseded). Old completed SCIPs reference the snapshot IDs they used so they never silently change when newer data is fetched later. Notion is an optional human-readable mirror only; raw_response stays here.",
+  "properties": {
+    "scip_record_id": {
+      "type": "string",
+      "description": "The ScipRecord this snapshot belongs to."
+    },
+    "target_index": {
+      "type": "number",
+      "default": 0,
+      "description": "Which parcel_targets index this snapshot pertains to (0 = Target A). Use 0 for jurisdiction-wide sections."
+    },
+    "section_key": {
+      "type": "string",
+      "enum": [
+        "parcel_owner",
+        "zoning",
+        "rf_analysis",
+        "airport",
+        "cell_tower",
+        "coverage_viewshed",
+        "utility_infrastructure",
+        "fiber",
+        "electric_power",
+        "postcard_address_verification",
+        "scorecard"
+      ],
+      "description": "Which SCIP data section this snapshot is for."
+    },
+    "source_name": {
+      "type": "string",
+      "description": "Human-readable source/dataset name (e.g. 'Zoneomics + AI', 'Realie', 'FCC BDC', 'HIFLD', 'Lob US Verification')."
+    },
+    "source_url": {
+      "type": "string",
+      "description": "Authoritative source URL if known."
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider/vendor identifier (e.g. 'zoneomics', 'realie', 'fcc', 'hifld', 'carrierfinder', 'lob', 'cloudrf', 'usgs')."
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when the underlying source was fetched for this snapshot."
+    },
+    "last_verified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp when this data was last verified/confirmed current."
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp after which this snapshot is considered stale (fetched_at + section TTL)."
+    },
+    "stale_status": {
+      "type": "string",
+      "enum": [
+        "fresh",
+        "aging",
+        "stale",
+        "failed"
+      ],
+      "default": "fresh",
+      "description": "fresh = well within TTL; aging = nearing expiry; stale = past expiry; failed = last refresh failed (old data kept visible)."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium",
+      "description": "Confidence in this snapshot's data."
+    },
+    "request_hash": {
+      "type": "string",
+      "description": "Stable hash of the inputs (lat/lon/radius/tower height/target/etc.) so identical requests can be deduped and RF/coverage can detect when key inputs changed."
+    },
+    "normalized_result": {
+      "type": "object",
+      "description": "The normalized, app-ready result for this section (what the UI/SCIP consumes)."
+    },
+    "raw_response": {
+      "type": "object",
+      "description": "Raw provider payload for provenance/debugging (optional; omit for very large payloads). NEVER mirrored to Notion."
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Failure reason if this refresh failed (stale_status='failed'). Old current snapshot stays is_current until a successful refresh."
+    },
+    "is_current": {
+      "type": "boolean",
+      "default": true,
+      "description": "True for the latest successful snapshot for (scip_record_id + target_index + section_key + source_name). Prior snapshots are flipped to false (the only in-place mutation allowed)."
+    },
+    "supersedes_snapshot_id": {
+      "type": "string",
+      "description": "The snapshot id this one replaces (the previously-current snapshot for the same key), forming an audit chain."
+    },
+    "is_reset_event": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if this is a clear/reset marker (section flagged as needing refresh) rather than a real data fetch."
+    },
+    "notion_sync_status": {
+      "type": "string",
+      "enum": [
+        "not_synced",
+        "synced",
+        "failed",
+        "skipped"
+      ],
+      "default": "not_synced",
+      "description": "Optional Notion review-mirror sync status. not_synced = never attempted; synced = mirrored to Notion; failed = sync attempt failed (snapshot stays intact, never blocks); skipped = toggle off."
+    },
+    "notion_page_id": {
+      "type": "string",
+      "description": "Notion database row (page) id for this snapshot's human-readable mirror, if synced."
+    },
+    "notion_synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of the last successful Notion mirror sync."
+    },
+    "notion_sync_error": {
+      "type": "string",
+      "description": "Last Notion sync failure reason (Notion is a mirror only; failures never block SCIP work)."
+    }
+  },
+  "required": [
+    "scip_record_id",
+    "section_key"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
