@@ -4,7 +4,9 @@ import { scipMapSuite } from "@/functions/scipMapSuite";
 import { Loader2, Map } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
+import { stampPatch, SECTION_KEYS } from "@/lib/scipTarget";
 import ScipHawkMapsPage from "./ScipHawkMapsPage";
+import SectionStaleBanner from "./SectionStaleBanner";
 
 // Step 3.5 — HAWK MAPS for the active target (Aerial / Topography / Floodplain / Zoning).
 export default function HawkMaps({ record, onUpdate }) {
@@ -44,7 +46,7 @@ export default function HawkMaps({ record, onUpdate }) {
         zone_code: byType.zoning?.zone_code || "",
         center_amsl_ft: byType.topography?.center_amsl_ft ?? null,
       };
-      const updated = await base44.entities.ScipRecord.update(record.id, { hawk_maps });
+      const updated = await base44.entities.ScipRecord.update(record.id, { hawk_maps, ...stampPatch(record, SECTION_KEYS.hawk_maps) });
       onUpdate(updated);
       toast.success("HAWK MAPS generated for " + (target.label || "Target A"));
     } catch {
@@ -78,6 +80,7 @@ export default function HawkMaps({ record, onUpdate }) {
         Renders the four core HAWK MAPS for Target A — Aerial, Topography (USGS 3DEP), Floodplain (FEMA NFHL overlay) and Zoning (Zoneomics overlay).
       </p>
 
+      <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.hawk_maps} hasData={!!maps} />
       {maps && <ScipHawkMapsPage hawkMaps={maps} />}
     </div>
   );

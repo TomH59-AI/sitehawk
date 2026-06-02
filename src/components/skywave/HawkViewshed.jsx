@@ -4,7 +4,9 @@ import { scipViewshed } from "@/functions/scipViewshed";
 import { Loader2, Mountain } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
+import { stampPatch, SECTION_KEYS } from "@/lib/scipTarget";
 import ScipViewshedPage from "./ScipViewshedPage";
+import SectionStaleBanner from "./SectionStaleBanner";
 
 // Step 5 — Viewshed Analysis for Target A.
 export default function HawkViewshed({ record, onUpdate }) {
@@ -28,7 +30,7 @@ export default function HawkViewshed({ record, onUpdate }) {
       });
       const viewshed = res.data?.viewshed;
       if (!viewshed) throw new Error("no viewshed");
-      const updated = await base44.entities.ScipRecord.update(record.id, { viewshed });
+      const updated = await base44.entities.ScipRecord.update(record.id, { viewshed, ...stampPatch(record, SECTION_KEYS.viewshed) });
       onUpdate(updated);
       toast.success("Viewshed analysis generated for " + (target.label || "Target A"));
     } catch {
@@ -62,6 +64,7 @@ export default function HawkViewshed({ record, onUpdate }) {
         Mapbox aerial of the Target A waypoint with the radius ring + tower marker, then N/S/E/W tree-line viewshed maps and USGS elevation profiles so the RF engineer can spot obstructions in the frequency path.
       </p>
 
+      <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.viewshed} hasData={!!vs} />
       {vs && <ScipViewshedPage viewshed={vs} siteName={record.site_name} />}
     </div>
   );

@@ -4,6 +4,8 @@ import { scipExistingConditions } from "@/functions/scipExistingConditions";
 import { Loader2, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
+import { stampPatch, SECTION_KEYS } from "@/lib/scipTarget";
+import SectionStaleBanner from "./SectionStaleBanner";
 
 const ROWS = [
   ["flood_zone", "Flood Zone(s)"],
@@ -39,7 +41,7 @@ export default function HawkExistingConditions({ record, onUpdate }) {
       });
       const conditions = res.data?.conditions;
       if (!conditions) throw new Error("no conditions");
-      const updated = await base44.entities.ScipRecord.update(record.id, { existing_conditions: conditions });
+      const updated = await base44.entities.ScipRecord.update(record.id, { existing_conditions: conditions, ...stampPatch(record, SECTION_KEYS.existing_conditions) });
       onUpdate(updated);
       toast.success("Existing conditions generated for " + (target.label || "Target A"));
     } catch {
@@ -73,6 +75,7 @@ export default function HawkExistingConditions({ record, onUpdate }) {
         Pulls FEMA flood zone, USFWS wetlands, and nearest police/fire for Target A, plus web-researched water management district, hazardous-waste/brownfield status, and access notes.
       </p>
 
+      <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.existing_conditions} hasData={!!ec} />
       {ec && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">

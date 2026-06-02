@@ -4,7 +4,9 @@ import { scipPowerAirportMaps } from "@/functions/scipPowerAirportMaps";
 import { Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
+import { stampPatch, SECTION_KEYS } from "@/lib/scipTarget";
 import ScipPowerAirportPage from "./ScipPowerAirportPage";
+import SectionStaleBanner from "./SectionStaleBanner";
 
 // Step 3.6 — Power (electric service) + Airport maps for the active target.
 export default function HawkPowerAirport({ record, onUpdate }) {
@@ -28,7 +30,7 @@ export default function HawkPowerAirport({ record, onUpdate }) {
       });
       const payload = { power: res.data?.power || null, airport: res.data?.airport || null };
       if (!payload.power && !payload.airport) throw new Error("no maps");
-      const updated = await base44.entities.ScipRecord.update(record.id, { power_airport_maps: payload });
+      const updated = await base44.entities.ScipRecord.update(record.id, { power_airport_maps: payload, ...stampPatch(record, SECTION_KEYS.power_airport) });
       onUpdate(updated);
       toast.success("Power & Airport maps generated for " + (target.label || "Target A"));
     } catch {
@@ -62,6 +64,7 @@ export default function HawkPowerAirport({ record, onUpdate }) {
         Electric service map — nearest power provider connected to the tower site with company name, contact address &amp; transmission-line voltage. Airport map — property waypoint with the radius ring and nearest airport (plane icon), distance shown as the hawk flies.
       </p>
 
+      <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.power_airport} hasData={!!data} />
       {data && <ScipPowerAirportPage data={data} />}
     </div>
   );
