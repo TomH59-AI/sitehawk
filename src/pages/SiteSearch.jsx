@@ -18,6 +18,7 @@ import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import BusProbePanel from "../components/search/BusProbePanel";
+import { round4 } from "@/lib/coords";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
 
@@ -170,7 +171,9 @@ export default function SiteSearch() {
     setViewshedsComplete(false);
     setProximityComplete(false);
     setSectionData({});
-    setSearchCenter({ lat: latitude, lon: longitude });
+    // Normalize the SARF center to 4 decimals (~11 m) at the single entry point.
+    // Every downstream fetch / cache key / emit reads off this rounded center.
+    setSearchCenter({ lat: round4(latitude), lon: round4(longitude) });
     setPipelineStep("sarf");
   };
 
@@ -305,7 +308,7 @@ export default function SiteSearch() {
           towerHeightFt={searchParams.tower_height_ft || 199}
           compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
           onRun={() => setPipelineStep("targets")}
-          onTargetAReady={setTargetA}
+          onTargetAReady={(t) => setTargetA(t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : t)}
           onData={mergeSectionData}
         />
       )}
