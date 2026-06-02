@@ -10,6 +10,7 @@ import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
 import HawkZoningPermitting from "../components/skywave/HawkZoningPermitting";
 import HawkParcelTargets from "../components/skywave/HawkParcelTargets";
 import HawkMaps from "../components/skywave/HawkMaps";
+import HawkParcelBoundaryMap from "../components/skywave/HawkParcelBoundaryMap";
 import HawkPowerAirport from "../components/skywave/HawkPowerAirport";
 import HawkRFCoverage from "../components/skywave/HawkRFCoverage";
 import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
@@ -158,6 +159,17 @@ export default function ScipDetail() {
         {/* Step 3.5 — HAWK MAPS for Target A (not printed) */}
         <div className="mb-5">
           <HawkMaps record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Parcel Boundary Map — interactive Target A boundary + candidate toggles (not printed) */}
+        <div className="mb-5 no-print">
+          <div className="bg-white rounded-lg border p-5" style={{ borderColor: SKYWAVE.line }}>
+            <h3 className="font-bold text-lg mb-1" style={{ color: SKYWAVE.navy }}>Parcel Boundary Map</h3>
+            <p className="text-xs mb-4" style={{ color: SKYWAVE.muted }}>
+              Shows the active Target A parcel boundary. Toggle on all candidate boundaries (A/B/C) for context. Boundary geometry is fetched and saved to the SCIP record so it can be reused.
+            </p>
+            <HawkParcelBoundaryMap record={record} onUpdate={setRecord} />
+          </div>
         </div>
 
         {/* Step 3.6 — Power & Airport maps for Target A (not printed) */}
