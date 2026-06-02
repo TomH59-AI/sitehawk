@@ -45,8 +45,9 @@ import { toast } from "sonner";
 import ViewshedSubStep from "./section5/ViewshedSubStep";
 import SectionClearButton from "./SectionClearButton";
 import { scipViewshed } from "@/functions/scipViewshed";
+import { cloudRFViewshedDirection } from "@/functions/cloudRFViewshedDirection";
 import {
-  renderViewshed, obstructionStats, buildCombinedInset, DIRECTIONS, BRAND_GREEN,
+  renderViewshedCloudRF, obstructionStats, buildCombinedInset, DIRECTIONS, BRAND_GREEN,
 } from "@/lib/section5Viewsheds";
 
 const ORDER = ["N", "S", "E", "W"];
@@ -135,21 +136,30 @@ export default function Section5Viewsheds({
       setStatsByDir((prev) => ({ ...prev, [dirKey]: stats }));
       setProfileByDir((prev) => ({ ...prev, [dirKey]: prof }));
 
+      // CloudRF directional coverage — the real RF heatmap PNG for this beam.
+      const beamAngle = beamAngles[dirKey] || 90;
+      const cloudResp = await cloudRFViewshedDirection({
+        lat, lon, bearing: DIRECTIONS[dirKey].bearing, height_ft: towerHeightFt,
+        radius_mi: radiusMiles, hbw: beamAngle, site_name: `Target A ${dirKey} Viewshed`,
+      }).catch((e) => { console.error(`${tag} cloudRF threw:`, e?.message); return null; });
+      const cloudRF = cloudResp?.data;
+      if (!cloudRF?.png_url) throw new Error("CloudRF returned no coverage image — retry.");
+      console.log(`${tag} CloudRF PNG ready: ${cloudRF.png_url}`);
+
       // Dispose any prior instance for this direction before re-rendering.
       maps.current[dirKey]?.destroy?.();
       maps.current[dirKey] = null;
       await new Promise((r) => requestAnimationFrame(r));
 
-      // Render with the per-direction beam angle (override of default 90°).
-      // Arm the 20s render watchdog HERE — it guards only the map paint, which
-      // is the part that can silently hang (terrain tiles / GL load).
-      const dirCfg = { ...DIRECTIONS[dirKey], spread: (beamAngles[dirKey] || 90) / 2 };
+      // Overlay the CloudRF heatmap on a Mapbox satellite map.
+      // Arm the 20s render watchdog HERE — it guards only the map paint.
+      const dirCfg = { ...DIRECTIONS[dirKey], spread: beamAngle / 2 };
       const result = await Promise.race([
-        renderViewshed(refs[dirKey].current, lat, lon, dirKey, radiusMiles, dirCfg, profileDir),
+        renderViewshedCloudRF(refs[dirKey].current, lat, lon, dirKey, radiusMiles, dirCfg, cloudRF),
         new Promise((_, reject) => {
           watchdog = setTimeout(() => {
             console.error(`${tag} Map render timed out after 20s.`);
-            reject(new Error("Viewshed map render timed out after 20s — terrain source did not respond."));
+            reject(new Error("Viewshed map render timed out after 20s."));
           }, 20000);
         }),
       ]);

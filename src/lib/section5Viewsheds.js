@@ -348,6 +348,91 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
   });
 }
 
+// ────────────── CloudRF PNG overlay renderer ──────────────
+// Render one direction's viewshed by overlaying a CloudRF heatmap PNG on a
+// Mapbox satellite map. cloudRF = { png_url, bounds:[maxLat,maxLon,minLat,minLon] }.
+// Same container/resize hardening as the cone renderer. Returns { engine:"cloudrf",
+// instance, destroy }.
+export async function renderViewshedCloudRF(container, lat, lon, dirKey, rangeMiles, dirOverride, cloudRF) {
+  const dir = dirOverride || DIRECTIONS[dirKey];
+  const tag = `[VIEWSHED DIAG ${dir.short}]`;
+  const cfg = await loadPublicConfig();
+  const mapboxToken = cfg.mapboxAccessToken;
+  if (!mapboxToken) throw new Error("Mapbox token unavailable for viewshed.");
+  if (!cloudRF?.png_url || !Array.isArray(cloudRF?.bounds)) {
+    throw new Error("CloudRF returned no coverage image for this direction.");
+  }
+  await ensureMapboxLoaded();
+  window.mapboxgl.accessToken = mapboxToken;
+
+  // Wait for the container to actually have dimensions (black-canvas fix).
+  await new Promise((resolveSize, rejectSize) => {
+    let frames = 0;
+    const check = () => {
+      const w = container?.clientWidth || 0;
+      const h = container?.clientHeight || 0;
+      if (w > 0 && h > 0) { console.log(`${tag} container sized ${w}×${h} — constructing CloudRF map`); return resolveSize(); }
+      if (frames > 180) return rejectSize(new Error("Map container never sized — retry."));
+      frames += 1;
+      requestAnimationFrame(check);
+    };
+    check();
+  });
+
+  // CloudRF bounds = [maxLat, maxLon, minLat, minLon].
+  const [maxLat, maxLon, minLat, minLon] = cloudRF.bounds.map(Number);
+  // Mapbox image source coordinates: [TL, TR, BR, BL] as [lon, lat].
+  const imgCoords = [
+    [minLon, maxLat], [maxLon, maxLat], [maxLon, minLat], [minLon, minLat],
+  ];
+
+  const map = new window.mapboxgl.Map({
+    container,
+    style: "mapbox://styles/mapbox/satellite-streets-v12",
+    center: [lon, lat],
+    zoom: rangeMiles <= 0.25 ? 15 : rangeMiles <= 0.5 ? 14 : 13,
+    preserveDrawingBuffer: true,
+  });
+  map.on("error", (e) => console.error(`${tag} Mapbox error:`, e?.error || e));
+  map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
+  map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
+
+  let ro = null;
+  try {
+    ro = new ResizeObserver(() => { try { map.resize(); } catch { /* noop */ } });
+    ro.observe(container);
+  } catch { /* noop */ }
+
+  const dk = dir.short;
+  return new Promise((resolve) => {
+    let settled = false;
+    const buildLayers = () => {
+      if (settled) return;
+      settled = true;
+      try { map.resize(); } catch { /* noop */ }
+      requestAnimationFrame(() => { try { map.resize(); } catch { /* noop */ } });
+      try {
+        addRangeRings(map, lat, lon, dk);
+        // CloudRF heatmap PNG overlay.
+        console.log(`${tag} CloudRF overlay: ${cloudRF.png_url}`);
+        if (!map.getSource(`s5-cloudrf-${dk}`)) {
+          map.addSource(`s5-cloudrf-${dk}`, { type: "image", url: cloudRF.png_url, coordinates: imgCoords });
+          map.addLayer({ id: `s5-cloudrf-layer-${dk}`, type: "raster", source: `s5-cloudrf-${dk}`, paint: { "raster-opacity": 0.78, "raster-fade-duration": 0 } });
+        }
+        addTowerVertex(map, lat, lon, dir);
+        const d = rangeMiles / 50;
+        map.fitBounds([[lon - d, lat - d], [lon + d, lat + d]], { padding: 40, duration: 0 });
+      } catch (e) {
+        console.error(`${tag} CloudRF layer build threw:`, e?.message || e);
+      }
+      resolve({ engine: "cloudrf", instance: map, destroy: () => { try { ro?.disconnect(); } catch { /* noop */ } try { map.remove(); } catch { /* noop */ } } });
+    };
+    map.on("load", buildLayers);
+    map.once("idle", buildLayers);
+    setTimeout(() => { if (!settled) { console.warn(`${tag} no load/idle within 12s — forcing build.`); buildLayers(); } }, 12000);
+  });
+}
+
 // ────────────── combined-view inset (all four cones) ──────────────
 // Tiny static-image inset: all four generated cones overlaid on a transparent
 // disc. Returns a data-URL the panel can drop into an <img>. Pure canvas — no
