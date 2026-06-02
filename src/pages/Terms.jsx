@@ -1,14 +1,13 @@
 import { Link } from "react-router-dom";
-import { FileText } from "lucide-react";
 import { SUPPORT_EMAIL_DISPLAY, SUPPORT_EMAIL_MAILTO } from "@/lib/contactEmail";
+import HawkIcon from "../components/HawkIcon";
+import BrandFooter from "../components/BrandFooter";
 
 export default function Terms() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 py-4">
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-          <FileText className="w-6 h-6 text-primary" />
-        </div>
+        <HawkIcon size={48} />
         <div>
           <h1 className="font-heading font-bold text-2xl text-foreground">Terms of Service</h1>
           <p className="text-xs text-muted-foreground">SkyWave LLC — SiteHawk Platform · Last updated: April 14, 2026</p>
@@ -178,6 +177,8 @@ export default function Terms() {
         </section>
 
       </div>
+
+      <BrandFooter />
 
       <div className="text-center">
         <Link to="/dashboard" className="text-xs text-muted-foreground hover:text-foreground transition-colors">← Back to Dashboard</Link>

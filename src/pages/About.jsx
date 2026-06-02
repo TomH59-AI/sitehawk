@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
-import { Mail, Globe, Radio } from "lucide-react";
+import { Mail, Globe } from "lucide-react";
 import { SUPPORT_EMAIL_DISPLAY, SUPPORT_EMAIL_MAILTO } from "@/lib/contactEmail";
+import HawkIcon from "../components/HawkIcon";
+import BrandFooter from "../components/BrandFooter";
 
 export default function About() {
   return (
     <div className="max-w-2xl mx-auto space-y-8 py-4">
       <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
-          <Radio className="w-7 h-7 text-primary-foreground" />
-        </div>
+        <HawkIcon size={56} />
         <div>
           <h1 className="font-heading font-bold text-3xl text-foreground">About SiteHawk</h1>
           <p className="text-sm text-muted-foreground italic">A SkyWave AI Product</p>
@@ -46,6 +46,8 @@ export default function About() {
         </div>
         <p className="text-xs text-muted-foreground/60 mt-2">SkyWave LLC — Michigan, USA</p>
       </div>
+
+      <BrandFooter />
 
       <div className="text-center">
         <Link to="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">← Back to Dashboard</Link>

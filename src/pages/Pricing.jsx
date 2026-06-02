@@ -5,6 +5,7 @@ import HawkIcon from "../components/HawkIcon";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { stripeCheckout } from "@/functions/stripeCheckout";
+import BrandFooter from "../components/BrandFooter";
 
 const tiers = [
   {
@@ -253,10 +254,8 @@ export default function Pricing() {
         })}
       </div>
 
-      {/* Footer */}
-      <p className="text-center text-xs text-muted-foreground/50 tracking-widest uppercase mt-4">
-        Powered by SkyWave AI · S.A.I.R. is a trademark of SkyWave LLC
-      </p>
+      {/* Branded footer */}
+      <BrandFooter />
     </div>
   );
 }
