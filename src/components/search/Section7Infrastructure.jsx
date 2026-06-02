@@ -130,12 +130,12 @@ export default function Section7Infrastructure({
         <div className="px-4 py-3 flex items-center gap-2 text-white/80" style={{ background: "#3f5a54" }}>
           <Lock className="w-4 h-4" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">SCIP · SECTION 7 · LOCKED</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">SCIP · SECTION 6 · LOCKED</div>
             <h2 className="font-heading font-bold text-lg leading-tight">Hawk Infrastructure Vision — Target A</h2>
           </div>
         </div>
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Complete all three maps in Section 6 to unlock the Target A infrastructure map.
+          Complete all three maps in Section 5 to unlock the Target A infrastructure map.
         </div>
       </div>
     );
@@ -150,7 +150,7 @@ export default function Section7Infrastructure({
         <div className="flex items-center gap-2">
           <Network className="w-5 h-5" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 7 · INFRASTRUCTURE</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 6 · INFRASTRUCTURE</div>
             <h2 className="font-heading font-bold text-lg leading-tight">HAWK INFRASTRUCTURE VISION — TARGET A</h2>
             <div className="text-[11px] font-mono opacity-90 mt-0.5">
               Power poles &amp; transformers · fiber runs &amp; splice points{ownerLabel ? ` · ${ownerLabel}` : ""}

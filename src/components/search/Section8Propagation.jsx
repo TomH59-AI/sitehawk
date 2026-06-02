@@ -194,7 +194,7 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
       {/* Header */}
       <div className="px-5 py-4 border-b border-[#628C83]/30 flex items-start justify-between gap-3" style={{ background: `${BRAND_GREEN}14` }}>
         <div>
-          <div className="text-[10px] font-mono tracking-[0.3em]" style={{ color: BRAND_GREEN }}>SECTION 8 · CLOUDRF</div>
+          <div className="text-[10px] font-mono tracking-[0.3em]" style={{ color: BRAND_GREEN }}>SECTION 7 · CLOUDRF</div>
           <h2 className="font-heading font-bold text-lg text-foreground">HAWK RF PROPAGATION VISION — TARGET A</h2>
           <p className="text-xs text-muted-foreground mt-0.5">1-mile CloudRF coverage simulation across area carriers</p>
         </div>
