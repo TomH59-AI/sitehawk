@@ -76,7 +76,34 @@ export async function ensureMapboxLoaded() {
   await mapboxLoadingPromise;
 }
 
-function makeMap(container, style, center, token, zoom = 14) {
+// Wait for the container to report real (non-zero) dimensions before resolving.
+// Mirrors the proven Section 5 fix: Mapbox GL cannot measure a 0×0 container —
+// it never paints tiles and `map.on("load")` never fires, leaving a black map.
+// Sub-step panels flip visible in the SAME render that calls the renderer, so on
+// first paint the container can still be 0×0. Poll on animation frames (~3s cap).
+function waitForContainerSize(container, tag = "[S4 DIAG]") {
+  return new Promise((resolve) => {
+    let frames = 0;
+    const check = () => {
+      const w = container?.clientWidth || 0;
+      const h = container?.clientHeight || 0;
+      if ((w > 0 && h > 0) || frames > 180) {
+        if (frames > 180) console.warn(`${tag} container still ${w}×${h} after wait — building anyway`);
+        else console.log(`${tag} container sized ${w}×${h} — constructing map`);
+        return resolve();
+      }
+      frames += 1;
+      requestAnimationFrame(check);
+    };
+    check();
+  });
+}
+
+// NOTE: now async — every renderer already `await`s makeMap indirectly via the
+// load Promise, but they call it synchronously. We make the size-gate awaitable
+// by returning a Promise<map>; renderers await it before wiring `on("load")`.
+async function makeMap(container, style, center, token, zoom = 14) {
+  await waitForContainerSize(container);
   window.mapboxgl.accessToken = token;
   const map = new window.mapboxgl.Map({
     container, style, center, zoom, preserveDrawingBuffer: true,
@@ -123,9 +150,9 @@ function fitToRing(map, lat, lon, radiusMiles) {
 // ────────────── 1. AERIAL ──────────────
 // Satellite centered on Target A + the SARF search ring (Section 1 radius) with
 // its center waypoint pin + a tower icon on Target A.
-export function renderAerial(container, target, srcLat, srcLon, radiusMiles, token) {
+export async function renderAerial(container, target, srcLat, srcLon, radiusMiles, token) {
   const { latitude: lat, longitude: lon, owner } = target;
-  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 14);
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 14);
   // Surface Mapbox internal errors (tile/auth failures) to the console.
   map.on("error", (e) => console.error("[AERIAL DIAG] Mapbox error event:", e?.error || e));
   return new Promise((resolve) => {
@@ -153,9 +180,9 @@ export function renderAerial(container, target, srcLat, srcLon, radiusMiles, tok
 // ────────────── 2. TOPOGRAPHY ──────────────
 // USGS contour raster overlay (contour lines + AMSL ft labels are baked into the
 // USGS contour service) on a satellite base, bound to the Target A vicinity.
-export function renderTopo(container, target, token) {
+export async function renderTopo(container, target, token) {
   const { latitude: lat, longitude: lon, owner } = target;
-  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 14);
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 14);
   return new Promise((resolve) => {
     map.on("load", () => {
       const [w, s, e, n] = ringBbox(lat, lon, 0.6);
@@ -172,9 +199,9 @@ export function renderTopo(container, target, token) {
 }
 
 // ────────────── 3. FEMA FLOODPLAIN ──────────────
-export function renderFema(container, target, token) {
+export async function renderFema(container, target, token) {
   const { latitude: lat, longitude: lon, owner } = target;
-  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 14);
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 14);
   return new Promise((resolve) => {
     map.on("load", () => {
       const tileUrl =
@@ -234,9 +261,9 @@ export async function probeZoneomicsTile(zoneomicsKey, lat, lon, z = 15) {
 //   zone:   { zone_code, zone_name, zone_type } resolved from zoneDetail (label)
 //   parcels: optional Realie records (for the Target A boundary highlight)
 //   tilesOk: whether the raster probe succeeded (caller probes first)
-export function renderZoning(container, target, token, zoneomicsKey, zone, parcels = [], tilesOk = true) {
+export async function renderZoning(container, target, token, zoneomicsKey, zone, parcels = [], tilesOk = true) {
   const { latitude: lat, longitude: lon, owner, apn } = target;
-  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 15);
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 15);
   map.on("error", (e) => console.error("[ZONING MAP DIAG] Mapbox error event:", e?.error || e));
   return new Promise((resolve) => {
     map.on("load", () => {
@@ -288,9 +315,9 @@ export function renderZoning(container, target, token, zoneomicsKey, zone, parce
 //   cells:    [{ lat, lng, zone_code, color }]
 //   cellLat / cellLng: cell size in degrees (from the grid function)
 //   zone:     { zone_code, zone_name } for the Target A pill label
-export function renderZoningGrid(container, target, token, cells, cellLat, cellLng, zone, parcels = []) {
+export async function renderZoningGrid(container, target, token, cells, cellLat, cellLng, zone, parcels = []) {
   const { latitude: lat, longitude: lon, owner, apn } = target;
-  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 15);
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 15);
   map.on("error", (e) => console.error("[ZONING MAP DIAG] Mapbox error event:", e?.error || e));
   return new Promise((resolve) => {
     map.on("load", () => {
@@ -355,9 +382,9 @@ export function renderZoningGrid(container, target, token, cells, cellLat, cellL
 }
 
 // ────────────── 5. WETLANDS ──────────────
-export function renderWetlands(container, target, token) {
+export async function renderWetlands(container, target, token) {
   const { latitude: lat, longitude: lon, owner } = target;
-  const map = makeMap(container, SAT_STYLE, [lon, lat], token, 14);
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 14);
   return new Promise((resolve) => {
     map.on("load", () => {
       const tileUrl =
@@ -418,12 +445,12 @@ function zoneLine(zone) {
 // Draw Target A parcel boundary in brand green + adjacent parcels in light grey.
 // `parcels` = array of normalized Realie records (with parcel_geometry when present).
 // Hover/click a parcel → popup with owner + parcel ID + Zoneomics zoning code.
-export function renderParcel(container, target, parcels, token, zoneomicsKey, ringName, srcLat, srcLon, radiusMiles = 0.5) {
+export async function renderParcel(container, target, parcels, token, zoneomicsKey, ringName, srcLat, srcLon, radiusMiles = 0.5) {
   const { latitude: lat, longitude: lon, owner, apn } = target;
   // Center the parcel map on the SARF center so the whole ring is in view.
   const cLat = Number.isFinite(srcLat) ? srcLat : lat;
   const cLon = Number.isFinite(srcLon) ? srcLon : lon;
-  const map = makeMap(container, SAT_STYLE, [cLon, cLat], token, 15);
+  const map = await makeMap(container, SAT_STYLE, [cLon, cLat], token, 15);
   return new Promise((resolve) => {
     map.on("load", () => {
       // SARF search ring outline (the radius the user selected).
