@@ -103,6 +103,12 @@ export default function TargetPostcardModal({ deals, onClose }) {
   const canSend = (selected.length > 0 || bonusCount > 0) && (sender.name || sender.company) && phase === "setup";
 
   const handleSend = async () => {
+    // Block checkout inside the builder iframe (Stripe needs the published app).
+    if (window.self !== window.top) {
+      setError("Checkout only works from the published app. Open your live app to pay & mail.");
+      setPhase("error");
+      return;
+    }
     setPhase("sending");
     try {
       localStorage.setItem("sitehawk_sender", JSON.stringify(sender));
@@ -117,13 +123,20 @@ export default function TargetPostcardModal({ deals, onClose }) {
         mailing_address: t.mailing_address || t.parcel_address,
       }));
       const targets = [...baseTargets, ...extraTargets];
-      const res = await sendTargetPostcards({ action: "send", targets, sender, message, bonus_count: extraTargets.length });
+      // Pay first — fulfillment (Lob send) happens in the Stripe webhook.
+      const res = await sendTargetPostcards({
+        action: "checkout", targets, sender, message,
+        bonus_count: extraTargets.length,
+        return_path: window.location.pathname,
+      });
       if (res.data?.error) {
         setError(res.data.error);
         setPhase("error");
+      } else if (res.data?.url) {
+        window.location.href = res.data.url;
       } else {
-        setResults(res.data);
-        setPhase("done");
+        setError("Could not start checkout.");
+        setPhase("error");
       }
     } catch (e) {
       setError(e.message);
@@ -297,7 +310,7 @@ export default function TargetPostcardModal({ deals, onClose }) {
                   disabled={!canSend}
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-bold transition-all"
                 >
-                  <Send className="w-4 h-4" /> Send & Charge ${total.toFixed(2)}
+                  <Send className="w-4 h-4" /> Pay & Mail ${total.toFixed(2)}
                 </button>
               </div>
             </>
@@ -306,8 +319,8 @@ export default function TargetPostcardModal({ deals, onClose }) {
           {phase === "sending" && (
             <div className="flex flex-col items-center gap-3 py-12 text-muted-foreground">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <div className="text-sm font-semibold text-foreground">Printing & mailing postcards via Lob…</div>
-              <div className="text-xs">Please don't close this window.</div>
+              <div className="text-sm font-semibold text-foreground">Redirecting to secure checkout…</div>
+              <div className="text-xs">Your postcards mail automatically once payment clears.</div>
             </div>
           )}
 

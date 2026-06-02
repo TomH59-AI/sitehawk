@@ -223,6 +223,37 @@ Deno.serve(async (req) => {
           break;
         }
 
+        // ── Hawk Postcard Candidate Mailers via Lob (post-payment) ──
+        if (type === 'target_postcard') {
+          try {
+            const draftKey = session.metadata?.draft_key;
+            if (!userEmail || !draftKey) throw new Error('Missing user_email or draft_key on target_postcard metadata');
+            const pcUsers = await base44.asServiceRole.entities.User.filter({ email: userEmail });
+            if (!pcUsers.length) throw new Error(`User ${userEmail} not found`);
+            const pcUser = pcUsers[0];
+            const drafts = pcUser.pending_postcards || {};
+            const draft = drafts[draftKey];
+            if (!draft) throw new Error(`Postcard draft ${draftKey} not found`);
+
+            // Fire the actual Lob send via the existing postcard function (service role).
+            const res = await base44.asServiceRole.functions.invoke('sendTargetPostcards', {
+              action: 'send',
+              targets: draft.targets,
+              sender: draft.sender,
+              message: draft.message,
+              bonus_count: draft.bonus_count,
+            });
+            console.log(`Target-postcard fulfillment for ${userEmail}:`, JSON.stringify(res?.data || res));
+
+            const remaining = { ...drafts };
+            delete remaining[draftKey];
+            await base44.asServiceRole.entities.User.update(pcUser.id, { pending_postcards: remaining });
+          } catch (pcErr) {
+            console.error('Target-postcard fulfillment error:', pcErr.message);
+          }
+          break;
+        }
+
         // ── Single-Landlord Proposition Letter via Lob ──
         if (type === 'single_proposition') {
           try {

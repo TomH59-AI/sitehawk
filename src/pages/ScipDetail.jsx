@@ -13,6 +13,7 @@ import HawkMaps from "../components/skywave/HawkMaps";
 import HawkPowerAirport from "../components/skywave/HawkPowerAirport";
 import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
 import HawkViewshed from "../components/skywave/HawkViewshed";
+import HawkPostcardMailers from "../components/scip/HawkPostcardMailers";
 
 const STATUS = {
   draft: { label: "Draft", bg: SKYWAVE.muted },
@@ -146,6 +147,11 @@ export default function ScipDetail() {
         {/* Step 3 — interactive parcel targeting (not printed) */}
         <div className="mb-5">
           <HawkParcelTargets record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Hawk Post Card Candidate Mailers — pay & mail SCIP targets (not printed) */}
+        <div className="mb-5 no-print">
+          <HawkPostcardMailers record={record} />
         </div>
 
         {/* Step 3.5 — HAWK MAPS for Target A (not printed) */}

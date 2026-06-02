@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import Stripe from 'npm:stripe@14.21.0';
 
 // SiteHawk — Target Postcard Mailer.
 // Sends engaging 6x9 postcards to up to 3 target property owners pitching a
@@ -134,6 +135,61 @@ Deno.serve(async (req) => {
         bonus_batch_usd: BONUS_BATCH_USD,
         total_cost_usd: total,
       });
+    }
+
+    // ── checkout: create a Stripe session; fulfillment happens in the webhook ──
+    if (action === 'checkout') {
+      if (!sender?.name && !sender?.company) {
+        return Response.json({ error: 'Sender contact name or company is required.' }, { status: 400 });
+      }
+      if (validCount === 0) {
+        return Response.json({ error: 'No valid mailing addresses to send to.' }, { status: 400 });
+      }
+      const bonusCount = Math.min(Math.max(parseInt(body.bonus_count, 10) || 0, 0), 3);
+      const hasPrimary = validCount - bonusCount > 0;
+      const totalCents = Math.round(((hasPrimary ? PRIMARY_BATCH_USD : 0) + (bonusCount > 0 ? BONUS_BATCH_USD : 0)) * 100);
+      if (totalCents <= 0) return Response.json({ error: 'Nothing to charge.' }, { status: 400 });
+
+      const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
+      const origin = req.headers.get('origin') || 'https://app.base44.com';
+
+      // Stash the full mailer payload on the user so the webhook can fulfill it
+      // post-payment without exceeding Stripe's metadata size limits.
+      const draftKey = `pc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const users = await base44.asServiceRole.entities.User.filter({ email: user.email });
+      if (users.length) {
+        const u = users[0];
+        const drafts = u.pending_postcards || {};
+        drafts[draftKey] = { targets, sender, message: message || '', bonus_count: bonusCount };
+        await base44.asServiceRole.entities.User.update(u.id, { pending_postcards: drafts });
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        mode: 'payment',
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            unit_amount: totalCents,
+            product_data: {
+              name: 'Hawk Postcard Candidate Mailers',
+              description: `${validCount} personalized cell-tower-lease postcard(s) mailed to your selected targets`,
+            },
+          },
+          quantity: 1,
+        }],
+        customer_email: user.email,
+        success_url: `${origin}${body.return_path || '/results'}?postcard_success=1`,
+        cancel_url: `${origin}${body.return_path || '/results'}?postcard_cancel=1`,
+        metadata: {
+          base44_app_id: Deno.env.get('BASE44_APP_ID'),
+          type: 'target_postcard',
+          user_email: user.email,
+          draft_key: draftKey,
+        },
+      });
+      console.log(`Target-postcard checkout created: ${validCount} cards ($${(totalCents / 100).toFixed(2)}) for ${user.email}`);
+      return Response.json({ url: session.url });
     }
 
     if (action === 'send') {
