@@ -85,10 +85,12 @@ export default function HawkParcelBoundaryMap({ record, onUpdate }) {
       map.on("zoomstart", (e) => { if (e.originalEvent) userMovedRef.current = true; });
       map.on("load", () => {
         if (cancelled) return;
-        // Proposed tower / site marker at Target A center.
+        // Proposed tower / site marker at Target A center — polished cell-tower badge.
         const el = document.createElement("div");
-        el.style.cssText = "width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.92);border:2px solid #16A34A;border-radius:50%;box-shadow:0 0 10px rgba(22,163,74,0.8);font-size:13px;";
-        el.textContent = "📡";
+        el.title = "Target A";
+        el.style.cssText = "width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.92);border:2px solid #16A34A;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.4),0 0 10px rgba(22,163,74,0.7);color:#16A34A;";
+        // Lucide RadioTower icon
+        el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47"/><path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1"/><path d="M9.5 18h5"/><path d="m8 22 4-11 4 11"/></svg>';
         new window.mapboxgl.Marker({ element: el, anchor: "center" }).setLngLat([towerLon, towerLat]).addTo(map);
         mapRef.current = map; setReady(true);
       });

@@ -14,6 +14,9 @@ import { ensureMapboxLoaded } from "@/lib/section6Proximity";
 import { loadPublicConfig } from "@/lib/publicConfig";
 
 const BRAND = "#2563EB";
+const AIRPORT_ACCENT = "#0891B2"; // cyan-600 — distinct from the green Target A marker
+// Lucide Plane icon
+const PLANE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>';
 
 function lineBounds(line, fallback) {
   if (line?.coordinates?.length) {
@@ -50,8 +53,10 @@ function renderProximityMap(container, site, dest, line, glyphColor) {
       // Destination marker
       if (dest && dest.lat != null && dest.lon != null) {
         const dEl = document.createElement("div");
-        dEl.style.cssText = `width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid ${glyphColor};border-radius:50%;box-shadow:0 0 0 2px ${glyphColor}55;font-size:14px;`;
-        dEl.textContent = dest.glyph;
+        if (dest.title) dEl.title = dest.title;
+        dEl.style.cssText = `width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid ${glyphColor};border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,0.3),0 0 0 2px ${glyphColor}44;color:${glyphColor};`;
+        if (dest.svg) dEl.innerHTML = dest.svg;
+        else dEl.textContent = dest.glyph;
         new window.mapboxgl.Marker({ element: dEl, anchor: "center" }).setLngLat([dest.lon, dest.lat]).addTo(map);
       }
       const b = lineBounds(line, [site.lon, site.lat]);
@@ -106,9 +111,14 @@ export default function RFProximityMaps({ site, result }) {
         {airport && airport.latitude_deg != null ? (
           <MapPanel
             site={site}
-            dest={{ lat: Number(airport.latitude_deg), lon: Number(airport.longitude_deg), glyph: "✈️" }}
+            dest={{
+              lat: Number(airport.latitude_deg),
+              lon: Number(airport.longitude_deg),
+              svg: PLANE_SVG,
+              title: airport.name || airport.call_letters || "Airport",
+            }}
             line={airport.line_geojson}
-            glyphColor={BRAND}
+            glyphColor={AIRPORT_ACCENT}
           />
         ) : (
           <div className="px-4 py-8 text-sm text-muted-foreground flex items-center gap-2">
