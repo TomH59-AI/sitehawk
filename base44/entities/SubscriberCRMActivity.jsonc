@@ -1,0 +1,79 @@
+{
+  "name": "SubscriberCRMActivity",
+  "type": "object",
+  "description": "ADMIN-ONLY append-only activity / audit log on a SubscriberCRMContact: signups, logins, subscription/payment events, emails sent/opened/clicked, support & admin notes, HawkBot outreach drafts, completed follow-ups, demo calls, cancellations and winbacks. Separate from ScipCRMActivity and the legacy CRM. Admin-only via RLS.",
+  "properties": {
+    "subscriber_contact_id": {
+      "type": "string",
+      "description": "The SubscriberCRMContact this activity belongs to."
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "signup",
+        "login",
+        "subscription_change",
+        "payment_event",
+        "email_sent",
+        "email_opened",
+        "email_clicked",
+        "support_note",
+        "admin_note",
+        "hawkbot_draft",
+        "follow_up_completed",
+        "demo_call",
+        "cancellation",
+        "winback",
+        "system"
+      ],
+      "default": "admin_note",
+      "description": "Activity type."
+    },
+    "summary": {
+      "type": "string",
+      "description": "What happened / was logged."
+    },
+    "actor": {
+      "type": "string",
+      "description": "Email of the admin (or 'system'/'hawkbot') who performed/logged this."
+    },
+    "related_campaign_id": {
+      "type": "string",
+      "description": "Optional related SubscriberCampaign id (for email events)."
+    },
+    "related_task_id": {
+      "type": "string",
+      "description": "Optional related SubscriberCRMTask id."
+    },
+    "meta": {
+      "type": "object",
+      "description": "Optional structured detail (old/new tier, amount, stripe event id, email subject, etc.)."
+    }
+  },
+  "required": [
+    "subscriber_contact_id",
+    "type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

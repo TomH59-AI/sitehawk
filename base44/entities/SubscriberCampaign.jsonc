@@ -1,0 +1,111 @@
+{
+  "name": "SubscriberCampaign",
+  "type": "object",
+  "description": "ADMIN-ONLY marketing/lifecycle email campaign in the SiteHawk subscriber CRM (product update, special, onboarding, winback, announcement, upgrade nudge). HawkBot can DRAFT the subject/body; an admin must review & approve before it is sent. Marketing campaigns only go to opted-in, non-unsubscribed, non-bounced contacts in the target segment. Admin-only via RLS.",
+  "properties": {
+    "campaign_name": {
+      "type": "string",
+      "description": "Internal campaign name."
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "product_update",
+        "special",
+        "onboarding",
+        "winback",
+        "announcement",
+        "upgrade_nudge"
+      ],
+      "default": "product_update",
+      "description": "Campaign category."
+    },
+    "email_class": {
+      "type": "string",
+      "enum": [
+        "marketing",
+        "transactional"
+      ],
+      "default": "marketing",
+      "description": "marketing = requires opt-in + unsubscribe link; transactional = service messages, kept separate."
+    },
+    "target_segment": {
+      "type": "string",
+      "description": "Segment key this campaign targets (e.g. all, trial, churn_risk_high, no_scip, scip_not_exported, postcard_users, enterprise_prospects, canceled, tier_hawk_vision)."
+    },
+    "subject": {
+      "type": "string"
+    },
+    "body": {
+      "type": "string",
+      "description": "Email body (HTML or markdown). An unsubscribe link is appended automatically for marketing emails."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "pending_approval",
+        "approved",
+        "scheduled",
+        "sending",
+        "sent",
+        "canceled"
+      ],
+      "default": "draft"
+    },
+    "drafted_by_hawkbot": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if HawkBot generated the draft."
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Email of the admin who approved the campaign."
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of the admin who created the campaign."
+    },
+    "scheduled_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stats": {
+      "type": "object",
+      "description": "Send results rollup: { recipients, sent, skipped_unsubscribed, skipped_bounced, failed, opened, clicked }."
+    }
+  },
+  "required": [
+    "campaign_name"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

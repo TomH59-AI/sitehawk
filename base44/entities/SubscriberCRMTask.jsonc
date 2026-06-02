@@ -1,0 +1,91 @@
+{
+  "name": "SubscriberCRMTask",
+  "type": "object",
+  "description": "ADMIN-ONLY reminder / task on a SubscriberCRMContact for customer-success work: welcome call, check-in after first SCIP, inactivity follow-up, testimonial ask, upgrade conversation, renewal reminder, failed-payment follow-up, winback sequence. Drives the admin CRM 'follow-ups due today' view. Separate from ScipCRMTask. Admin-only via RLS.",
+  "properties": {
+    "subscriber_contact_id": {
+      "type": "string",
+      "description": "The SubscriberCRMContact this task belongs to."
+    },
+    "task_type": {
+      "type": "string",
+      "enum": [
+        "welcome_call",
+        "first_scip_checkin",
+        "inactivity_followup",
+        "testimonial_ask",
+        "upgrade_conversation",
+        "renewal_reminder",
+        "failed_payment_followup",
+        "winback",
+        "other"
+      ],
+      "default": "other",
+      "description": "Kind of admin task."
+    },
+    "title": {
+      "type": "string",
+      "description": "What needs to be done."
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "done",
+        "snoozed",
+        "canceled"
+      ],
+      "default": "open"
+    },
+    "assigned_admin": {
+      "type": "string",
+      "description": "Email of the admin responsible."
+    },
+    "related_activity_id": {
+      "type": "string",
+      "description": "Optional related SubscriberCRMActivity id."
+    },
+    "auto_generated": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if created automatically (signup, inactivity, etc.)."
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "subscriber_contact_id",
+    "title"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

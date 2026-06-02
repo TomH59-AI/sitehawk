@@ -72,6 +72,7 @@ import HawkLaw from './pages/HawkLaw';
 import HawkDocs from './pages/HawkDocs';
 import HawkCompliance from './pages/HawkCompliance';
 import HawkDocShareView from './pages/HawkDocShareView';
+import SubscriberCRM from './pages/SubscriberCRM';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -126,6 +127,7 @@ const AuthenticatedApp = () => {
         <Route path="/send-update" element={<SendUpdate />} />
         <Route path="/mail-orders" element={<MailOrders />} />
         <Route path="/crm" element={<CRM />} />
+        <Route path="/subscriber-crm" element={<SubscriberCRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/parcel-scout" element={<ParcelScout />} />
         <Route path="/ai-vision" element={<AIVisionAnalyzer />} />

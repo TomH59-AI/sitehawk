@@ -1,0 +1,201 @@
+{
+  "name": "SubscriberCRMContact",
+  "type": "object",
+  "description": "ADMIN-ONLY internal SiteHawk/SkyWave subscriber CRM contact. One per app subscriber/customer. Tracks the customer relationship \u2014 tier, health, usage, consent, onboarding, retention. This is SiteHawk's OWN customer-success CRM and is COMPLETELY SEPARATE from ScipCRMDeal (the subscriber's site-acquisition CRM) and the legacy SearchResult CRMDeal. Readable/writable by ADMIN users only via RLS so subscribers can never see each other's records.",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Base44 User id of the subscriber."
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Account / organization id if the subscriber belongs to a team."
+    },
+    "name": {
+      "type": "string",
+      "description": "Subscriber full name."
+    },
+    "email": {
+      "type": "string",
+      "description": "Subscriber email (primary key for matching on signup)."
+    },
+    "phone": {
+      "type": "string"
+    },
+    "company": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "description": "Job title / role."
+    },
+    "signup_source": {
+      "type": "string",
+      "description": "Where they came from (referral, organic, ad, demo, etc.)."
+    },
+    "subscription_tier": {
+      "type": "string",
+      "enum": [
+        "Trial",
+        "Hawk Vision",
+        "Hawk Site",
+        "Hawk Enterprise",
+        "Canceled",
+        "Unknown"
+      ],
+      "default": "Unknown",
+      "description": "Normalized subscription tier."
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "trialing",
+        "past_due",
+        "canceled",
+        "incomplete",
+        "unknown"
+      ],
+      "default": "unknown",
+      "description": "Billing status."
+    },
+    "stripe_customer_id": {
+      "type": "string",
+      "description": "Stripe customer id if known."
+    },
+    "stripe_subscription_id": {
+      "type": "string",
+      "description": "Stripe subscription id if known."
+    },
+    "signup_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the subscriber signed up."
+    },
+    "last_login_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "last_active_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last meaningful product activity."
+    },
+    "total_scips_created": {
+      "type": "number",
+      "default": 0
+    },
+    "total_scips_exported": {
+      "type": "number",
+      "default": 0
+    },
+    "total_mailers_sent": {
+      "type": "number",
+      "default": 0
+    },
+    "usage_summary": {
+      "type": "object",
+      "description": "Free-form usage rollup (counts of features used, last feature, etc.)."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Admin segmentation tags (e.g. postcard_user, fiber_user, enterprise_prospect)."
+    },
+    "notes": {
+      "type": "string",
+      "description": "PRIVATE admin notes \u2014 never shown to the subscriber."
+    },
+    "health_score": {
+      "type": "number",
+      "description": "0-100 customer health score."
+    },
+    "churn_risk": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "unknown"
+      ],
+      "default": "unknown",
+      "description": "Computed/assigned churn risk."
+    },
+    "assigned_admin": {
+      "type": "string",
+      "description": "Email of the SiteHawk CSM/admin who owns this account."
+    },
+    "next_follow_up_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "marketing_opt_in": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if the subscriber consented to marketing/specials emails."
+    },
+    "transactional_email_allowed": {
+      "type": "boolean",
+      "default": true,
+      "description": "Transactional emails are always allowed unless legally required otherwise; kept separate from marketing."
+    },
+    "unsubscribed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the subscriber unsubscribed from marketing. If set, never send marketing."
+    },
+    "unsubscribe_reason": {
+      "type": "string"
+    },
+    "consent_source": {
+      "type": "string",
+      "description": "How marketing consent was captured (signup_checkbox, import, manual, etc.)."
+    },
+    "consent_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "email_bounce_status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "soft_bounce",
+        "hard_bounce",
+        "complaint"
+      ],
+      "default": "ok",
+      "description": "Deliverability status. hard_bounce/complaint suppress all sends."
+    },
+    "last_email_sent_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "email"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

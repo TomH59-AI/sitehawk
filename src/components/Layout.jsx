@@ -4,7 +4,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass, Network, Plane, Map, Scale, ScanLine, Shield } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass, Network, Plane, Map, Scale, ScanLine, Shield, Users } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import { useState, useEffect } from "react";
@@ -43,7 +43,7 @@ export default function Layout() {
   }, []);
 
   const navItems = isAdmin
-    ? [...BASE_NAV, { path: "/send-update", icon: Send, label: "Send Update" }, { path: "/mail-orders", icon: Mail, label: "Mail Orders" }, { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" }]
+    ? [...BASE_NAV, { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" }, { path: "/send-update", icon: Send, label: "Send Update" }, { path: "/mail-orders", icon: Mail, label: "Mail Orders" }, { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" }]
     : BASE_NAV;
 
   const handleLogout = () => {

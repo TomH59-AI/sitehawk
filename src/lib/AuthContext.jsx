@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { appParams } from '@/lib/app-params';
 import { createAxiosClient } from '@base44/sdk/dist/utils/axios-client';
 import { referral } from '@/functions/referral';
+import { subscriberCrmSync } from '@/functions/subscriberCrmSync';
 
 const AuthContext = createContext();
 
@@ -107,6 +108,9 @@ export const AuthProvider = ({ children }) => {
         }
         localStorage.removeItem("sitehawk_ref_code");
       }
+
+      // Keep the admin Subscriber CRM contact current (idempotent, non-blocking)
+      subscriberCrmSync({}).catch(() => {});
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);
