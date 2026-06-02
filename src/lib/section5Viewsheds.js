@@ -280,6 +280,29 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
   await ensureMapboxLoaded();
   window.mapboxgl.accessToken = mapboxToken;
 
+  // ── REAL FIX for the black-canvas bug ──────────────────────────────────────
+  // The panel flips visible in the SAME React render that calls renderViewshed,
+  // so on first paint `container` can still be 0×0. Mapbox GL cannot measure a
+  // zero-area container — it never paints tiles and `map.on("load")` never fires,
+  // so all the resize-inside-load safety never runs (full data, black map).
+  // Do NOT construct the map until the container actually has real dimensions.
+  // Poll on animation frames (≈ up to 3s) for a non-zero size before building.
+  await new Promise((resolveSize) => {
+    let frames = 0;
+    const check = () => {
+      const w = container?.clientWidth || 0;
+      const h = container?.clientHeight || 0;
+      if ((w > 0 && h > 0) || frames > 180) {
+        if (frames > 180) console.warn(`${tag} container still ${w}×${h} after wait — building anyway`);
+        else console.log(`${tag} container sized ${w}×${h} — constructing map`);
+        return resolveSize();
+      }
+      frames += 1;
+      requestAnimationFrame(check);
+    };
+    check();
+  });
+
   const map = new window.mapboxgl.Map({
     container,
     style: "mapbox://styles/mapbox/satellite-streets-v12",
