@@ -294,6 +294,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── TEMP DIAGNOSTIC — rejection breakdown (Tyler positive-case probe) ──
+    const diag = {
+      total_in_ring: scored.length,
+      residential_known: scored.filter((s) => s.score_reasons.some((r) => r.startsWith("Residential use"))).length,
+      too_small: scored.filter((s) => s.score_reasons.some((r) => r.includes("too small to build"))).length,
+      needs_zoning_resolve: scored.filter((s) => s.needs_zoning_resolve).length,
+      buildable_before_fema_zoning: scored.filter((s) => s.buildable).length,
+    };
+    console.log("🔬 SCRUB DIAG (pre-FEMA/zoning) →", JSON.stringify(diag));
+    // Log the 5 largest parcels so we can see if a good commercial lot is being
+    // killed by the lot-size floor vs. zoning.
+    const largest = [...scored].sort((a, b) => (b.acreage || 0) - (a.acreage || 0)).slice(0, 5)
+      .map((s) => ({ apn: s.apn, ac: s.acreage, zoning: s.zoning_classification, land_use: s.land_use, buildable: s.buildable, why: s.score_reasons }));
+    console.log("🔬 LARGEST 5 PARCELS →", JSON.stringify(largest, null, 2));
+
     // HONEST EMPTY-RING DISCIPLINE — if nothing is buildable (all residential /
     // too small), do NOT pad with ineligible parcels. Return the no-data halt.
     const buildableSet = scored.filter((s) => s.buildable);
@@ -338,10 +353,22 @@ Deno.serve(async (req) => {
     // returns nothing it stays ineligible (never passed on absent data).
     const zoneKey = Deno.env.get("ZONEOMICS_API_KEY");
     const toResolve = buildableSet.filter((s) => s.needs_zoning_resolve && s.latitude && s.longitude);
+    console.log("🔬 TO-RESOLVE GATE →", JSON.stringify({
+      zoneKey_present: !!zoneKey,
+      buildable: buildableSet.length,
+      flagged_resolve: buildableSet.filter((s) => s.needs_zoning_resolve).length,
+      flagged_with_coords: toResolve.length,
+    }));
     if (toResolve.length) {
       const resolved = await Promise.all(
         toResolve.map((s) => zoneomicsZone(s.latitude, s.longitude, zoneKey))
       );
+      console.log("🔬 ZONEOMICS RESOLUTION →", JSON.stringify({
+        attempted: toResolve.length,
+        returned_code: resolved.filter(Boolean).length,
+        returned_null: resolved.filter((z) => !z).length,
+        sample: toResolve.slice(0, 8).map((s, i) => ({ apn: s.apn, lat: s.latitude, lon: s.longitude, zc: resolved[i] })),
+      }, null, 2));
       toResolve.forEach((s, i) => {
         const zc = resolved[i];
         if (!zc) {
