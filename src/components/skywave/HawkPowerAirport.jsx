@@ -8,6 +8,7 @@ import { stampPatch, SECTION_KEYS } from "@/lib/scipTarget";
 import ScipPowerAirportPage from "./ScipPowerAirportPage";
 import SectionStaleBanner from "./SectionStaleBanner";
 import LiveAirportMap from "./LiveAirportMap";
+import LiveTowerMap from "./LiveTowerMap";
 
 // Step 3.6 — Power (electric service) + Airport maps for the active target.
 export default function HawkPowerAirport({ record, onUpdate }) {
@@ -76,6 +77,13 @@ export default function HawkPowerAirport({ record, onUpdate }) {
             label={target.label || "Target A"}
             radiusMiles={Number(record.search_radius) || 1}
           />
+          <div className="mt-4">
+            <LiveTowerMap
+              lat={Number(target.latitude ?? record.latitude)}
+              lon={Number(target.longitude ?? record.longitude)}
+              label={target.label || "Target A"}
+            />
+          </div>
         </div>
       )}
     </div>
