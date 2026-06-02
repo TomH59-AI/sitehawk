@@ -43,6 +43,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Lock, Eye } from "lucide-react";
 import { toast } from "sonner";
 import ViewshedSubStep from "./section5/ViewshedSubStep";
+import SectionClearButton from "./SectionClearButton";
 import { scipViewshed } from "@/functions/scipViewshed";
 import {
   renderViewshed, obstructionStats, buildCombinedInset, DIRECTIONS, BRAND_GREEN,
@@ -52,7 +53,7 @@ const ORDER = ["N", "S", "E", "W"];
 const RUN_LABEL = { N: "Run North Viewshed", S: "Run South Viewshed", E: "Run East Viewshed", W: "Run West Viewshed" };
 
 export default function Section5Viewsheds({
-  unlocked, active, targetA, radiusMiles = 0.5, towerHeightFt = 199, onRun, onComplete,
+  unlocked, active, targetA, radiusMiles = 0.5, towerHeightFt = 199, onRun, onComplete, onClear,
 }) {
   const [completed, setCompleted] = useState({});
   const [loadingDir, setLoadingDir] = useState(null);
@@ -216,15 +217,18 @@ export default function Section5Viewsheds({
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Section banner */}
-      <div className="px-4 py-3 flex items-center gap-2 text-white" style={{ background: BRAND_GREEN }}>
-        <Eye className="w-5 h-5" />
-        <div>
-          <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 5 · VIEWSHED VISION</div>
-          <h2 className="font-heading font-bold text-lg leading-tight">HAWK RF VIEWSHED VISION — TARGET A</h2>
-          <div className="text-[11px] font-mono opacity-90 mt-0.5">
-            Tree-line obstruction checks — what the RF frequency sees{ownerLabel ? ` · ${ownerLabel}` : ""}
+      <div className="px-4 py-3 flex items-center justify-between gap-2 text-white" style={{ background: BRAND_GREEN }}>
+        <div className="flex items-center gap-2">
+          <Eye className="w-5 h-5" />
+          <div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 5 · VIEWSHED VISION</div>
+            <h2 className="font-heading font-bold text-lg leading-tight">HAWK RF VIEWSHED VISION — TARGET A</h2>
+            <div className="text-[11px] font-mono opacity-90 mt-0.5">
+              Tree-line obstruction checks — what the RF frequency sees{ownerLabel ? ` · ${ownerLabel}` : ""}
+            </div>
           </div>
         </div>
+        {active && onClear && <SectionClearButton onClear={onClear} />}
       </div>
 
       {/* Idle — armed, waiting for the first Run click */}

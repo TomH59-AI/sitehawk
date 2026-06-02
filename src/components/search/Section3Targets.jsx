@@ -23,6 +23,7 @@ import HawkFlightSpinner from "./HawkFlightSpinner";
 import { scipBestParcels } from "@/functions/scipBestParcels";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import PhoneCascadeCell from "./section3/PhoneCascadeCell";
+import SectionClearButton from "./SectionClearButton";
 
 const COLS = ["Target A", "Target B", "Target C"];
 
@@ -80,7 +81,7 @@ function targetToColumn(t) {
 
 export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
-  towerHeightFt = 199, compoundSideFt = 100, onRun, onTargetAReady, onData,
+  towerHeightFt = 199, compoundSideFt = 100, onRun, onTargetAReady, onData, onClear,
 }) {
   const [grid, setGrid] = useState(emptyGrid);
   const [loading, setLoading] = useState(false);
@@ -239,20 +240,23 @@ export default function Section3Targets({
             <h2 className="font-heading font-bold text-lg leading-tight">Hawk Target Parcel Vision</h2>
           </div>
         </div>
-        {!active ? (
-          <Button onClick={onRun} className="bg-white hover:bg-emerald-50 font-semibold shadow" style={{ color: HEADER_GREEN }}>
-            <Sparkles className="w-4 h-4 mr-2" /> Run Targets
-          </Button>
-        ) : done ? (
-          <Button
-            onClick={runPipeline}
-            disabled={loading}
-            variant="outline"
-            className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-semibold"
-          >
-            <Sparkles className="w-4 h-4 mr-2" /> Re-run
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {!active ? (
+            <Button onClick={onRun} className="bg-white hover:bg-emerald-50 font-semibold shadow" style={{ color: HEADER_GREEN }}>
+              <Sparkles className="w-4 h-4 mr-2" /> Run Targets
+            </Button>
+          ) : done ? (
+            <Button
+              onClick={runPipeline}
+              disabled={loading}
+              variant="outline"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-semibold"
+            >
+              <Sparkles className="w-4 h-4 mr-2" /> Re-run
+            </Button>
+          ) : null}
+          {active && onClear && <SectionClearButton onClear={onClear} />}
+        </div>
       </div>
 
       {/* In-flight — hawk flying-in-place spinner ONLY */}

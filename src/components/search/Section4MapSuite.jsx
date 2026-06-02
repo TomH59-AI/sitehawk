@@ -47,6 +47,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Lock, Layers } from "lucide-react";
 import { toast } from "sonner";
 import MapSubStep from "./section4/MapSubStep";
+import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
@@ -61,7 +62,7 @@ import ZoningLegend from "./section4/ZoningLegend";
 const STEPS = ["aerial", "topo", "fema", "zoning", "wetlands", "parcel"];
 
 export default function Section4MapSuite({
-  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData,
+  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData, onClear,
 }) {
   // Which sub-steps have completed. Aerial is the only one initially unlocked.
   const [completed, setCompleted] = useState({});
@@ -308,15 +309,18 @@ export default function Section4MapSuite({
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Section banner */}
-      <div className="px-4 py-3 flex items-center gap-2 text-white" style={{ background: BRAND_GREEN }}>
-        <Layers className="w-5 h-5" />
-        <div>
-          <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 4 · MAP SUITE</div>
-          <h2 className="font-heading font-bold text-lg leading-tight">Hawk Target A Map Suite</h2>
-          <div className="text-[11px] font-mono opacity-90 mt-0.5">
-            Maps generated for Target A only{ownerLabel ? ` · ${ownerLabel}` : ""}
+      <div className="px-4 py-3 flex items-center justify-between gap-2 text-white" style={{ background: BRAND_GREEN }}>
+        <div className="flex items-center gap-2">
+          <Layers className="w-5 h-5" />
+          <div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 4 · MAP SUITE</div>
+            <h2 className="font-heading font-bold text-lg leading-tight">Hawk Target A Map Suite</h2>
+            <div className="text-[11px] font-mono opacity-90 mt-0.5">
+              Maps generated for Target A only{ownerLabel ? ` · ${ownerLabel}` : ""}
+            </div>
           </div>
         </div>
+        {active && onClear && <SectionClearButton onClear={onClear} />}
       </div>
 
       {/* Idle — armed, waiting for the first Run click */}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { RotateCcw } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import SearchForm from "../components/search/SearchForm";
@@ -49,6 +50,20 @@ export default function SiteSearch() {
   const [viewshedsComplete, setViewshedsComplete] = useState(false);
   // True once all three Section 6 proximity maps are complete — unlocks Section 7.
   const [proximityComplete, setProximityComplete] = useState(false);
+  // ── PER-SECTION CLEAR / REMOUNT ───────────────────────────────────────────
+  // Each pipeline section is remounted (state wiped) by bumping its key here.
+  // Clearing a section also rolls back the parent readiness flags for it AND
+  // every section downstream, so the pipeline correctly re-locks after it.
+  const [clearKeys, setClearKeys] = useState({
+    sarf: 0, zoning: 0, targets: 0, maps: 0, viewsheds: 0, proximity: 0, infrastructure: 0, propagation: 0,
+  });
+  const bumpKeys = (steps) =>
+    setClearKeys((prev) => {
+      const next = { ...prev };
+      for (const s of steps) next[s] = (next[s] || 0) + 1;
+      return next;
+    });
+
   // ── SHARED TARGET-KEYED DATA BUS ──────────────────────────────────────────
   // Single object every section emits its ALREADY-COMPUTED factor values into
   // (additive onData callbacks, zero business-logic change). The scorecard reads
@@ -58,6 +73,52 @@ export default function SiteSearch() {
   // NWI source as §4 map), power=HIFLD electricUtilityLookup (not §7's contact).
   const [sectionData, setSectionData] = useState({});
   const mergeSectionData = (d) => setSectionData((prev) => ({ ...prev, ...d }));
+
+  // Ordered pipeline steps (sarf is Section 1, always present). Section 8
+  // (propagation) is standalone — it gates nothing, so clearing it only remounts
+  // itself and does not roll back any other section.
+  const PIPELINE_ORDER = ["zoning", "targets", "maps", "viewsheds", "proximity", "infrastructure"];
+
+  // Clear ONE section and everything downstream of it: remount those sections
+  // (wipes their internal state) and roll back the parent readiness flags so the
+  // pipeline re-locks correctly. The cleared step becomes the active step again.
+  const clearFrom = (step) => {
+    if (step === "propagation") {
+      // Standalone — just remount Section 8, touch nothing else.
+      bumpKeys(["propagation"]);
+      return;
+    }
+    const startIdx = PIPELINE_ORDER.indexOf(step);
+    if (startIdx === -1) return;
+    const affected = PIPELINE_ORDER.slice(startIdx);
+    bumpKeys([...affected, "propagation"]); // propagation depends on Target A
+
+    // Roll back readiness flags from the cleared step onward.
+    if (affected.includes("zoning")) setZoningReady(false);
+    if (affected.includes("targets")) setTargetA(null);
+    if (affected.includes("maps")) setMapsComplete(false);
+    if (affected.includes("viewsheds")) setViewshedsComplete(false);
+    if (affected.includes("proximity")) setProximityComplete(false);
+
+    // Drop bus data emitted by the cleared sections so the scorecard can't read stale values.
+    setSectionData({});
+    setPipelineStep(step);
+  };
+
+  // Clear ALL sections for a total rescan — back to a fresh Section 1 SARF state.
+  const clearAll = () => {
+    setScanError(null);
+    setSarfReady(false);
+    setZoningReady(false);
+    setTargetA(null);
+    setMapsComplete(false);
+    setViewshedsComplete(false);
+    setProximityComplete(false);
+    setSectionData({});
+    setSearchCenter(null);
+    setPipelineStep("sarf");
+    bumpKeys(["sarf", "zoning", "targets", "maps", "viewsheds", "proximity", "infrastructure", "propagation"]);
+  };
 
   // ── TEMP RUNTIME PROBE ──────────────────────────────────────────────────
   // Dumps the live bus to console on every emit so a real Target A run can be
@@ -233,7 +294,19 @@ export default function SiteSearch() {
             Section One — drop your SARF center and generate the search-ring map. Later pipeline steps run manually.
           </p>
         </div>
-        {isAdmin && <DemoModeButton />}
+        <div className="flex items-center gap-2">
+          {coordsReady && (
+            <button
+              onClick={clearAll}
+              title="Clear every section and start a brand-new scan"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20 transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Clear All · Total Rescan
+            </button>
+          )}
+          {isAdmin && <DemoModeButton />}
+        </div>
       </div>
 
       {/* Section One intake form */}
@@ -285,8 +358,10 @@ export default function SiteSearch() {
           when the user clicks "Run Zoning" (advances pipelineStep → "zoning"). */}
       {coordsReady && sarfReady && (
         <Section2Zoning
+          key={`zoning-${clearKeys.zoning}`}
           unlocked={sarfReady}
           active={pipelineStep === "zoning"}
+          onClear={() => clearFrom("zoning")}
           lat={Number(searchCenter.lat)}
           lon={Number(searchCenter.lon)}
           candidate={{ latitude: Number(searchCenter.lat), longitude: Number(searchCenter.lon) }}
@@ -300,8 +375,10 @@ export default function SiteSearch() {
           fires only when the user clicks "Run Targets" (pipelineStep → "targets"). */}
       {coordsReady && sarfReady && zoningReady && (
         <Section3Targets
+          key={`targets-${clearKeys.targets}`}
           unlocked={zoningReady}
           active={pipelineStep === "targets"}
+          onClear={() => clearFrom("targets")}
           lat={Number(searchCenter.lat)}
           lon={Number(searchCenter.lon)}
           radiusMiles={searchParams.radius_miles}
@@ -318,8 +395,10 @@ export default function SiteSearch() {
           button. Maps render for Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section4MapSuite
+          key={`maps-${clearKeys.maps}`}
           unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           active={pipelineStep === "maps"}
+          onClear={() => clearFrom("maps")}
           targetA={targetA}
           srcLat={Number(searchCenter.lat)}
           srcLon={Number(searchCenter.lon)}
@@ -336,8 +415,10 @@ export default function SiteSearch() {
           one-at-a-time by its own button. Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section5Viewsheds
+          key={`viewsheds-${clearKeys.viewsheds}`}
           unlocked={mapsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           active={pipelineStep === "viewsheds"}
+          onClear={() => clearFrom("viewsheds")}
           targetA={targetA}
           radiusMiles={searchParams.radius_miles}
           towerHeightFt={searchParams.tower_height_ft || 199}
@@ -351,8 +432,10 @@ export default function SiteSearch() {
           wind), each fired one-at-a-time by its own button. Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section6Proximity
+          key={`proximity-${clearKeys.proximity}`}
           unlocked={viewshedsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           active={pipelineStep === "proximity"}
+          onClear={() => clearFrom("proximity")}
           targetA={targetA}
           onRun={() => setPipelineStep("proximity")}
           onComplete={() => setProximityComplete(true)}
@@ -365,8 +448,10 @@ export default function SiteSearch() {
           with toggles. Single Run button. Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section7Infrastructure
+          key={`infrastructure-${clearKeys.infrastructure}`}
           unlocked={proximityComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           active={pipelineStep === "infrastructure"}
+          onClear={() => clearFrom("infrastructure")}
           targetA={targetA}
           radiusMiles={searchParams.radius_miles}
           onRun={() => setPipelineStep("infrastructure")}
@@ -379,7 +464,9 @@ export default function SiteSearch() {
           button → UnwiredLabs carrier scan + per-carrier CloudRF → map. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section8Propagation
+          key={`propagation-${clearKeys.propagation}`}
           unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          onClear={() => clearFrom("propagation")}
           targetA={targetA}
           towerHeightFt={searchParams.tower_height_ft || 150}
           onData={mergeSectionData}

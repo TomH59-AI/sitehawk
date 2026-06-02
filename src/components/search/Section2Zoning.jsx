@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import SourceBadge, { normalizeSource } from "./section2/SourceBadge";
+import SectionClearButton from "./SectionClearButton";
 import { generateZoningPermitReport } from "@/functions/generateZoningPermitReport";
 
 const PANELS = [
@@ -134,7 +135,7 @@ function countTags(cells) {
   return c;
 }
 
-export default function Section2Zoning({ unlocked, active, lat, lon, candidate, onRun, onComplete, onData }) {
+export default function Section2Zoning({ unlocked, active, lat, lon, candidate, onRun, onComplete, onData, onClear }) {
   const [cells, setCells] = useState(emptyCells);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -245,6 +246,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
               <RefreshCw className="w-4 h-4 mr-2" /> Re-query Sources
             </Button>
           ) : null}
+          {active && onClear && <SectionClearButton onClear={onClear} />}
         </div>
       </div>
 
