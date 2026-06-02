@@ -254,6 +254,27 @@ Deno.serve(async (req) => {
           break;
         }
 
+        // ── Postcard Mailer Pack (PostcardMailerOrder) via Lob (post-payment) ──
+        if (type === 'postcard_mailer_pack') {
+          try {
+            const orderId = session.metadata?.order_id;
+            if (!orderId) throw new Error('Missing order_id on postcard_mailer_pack metadata');
+            // Mark paid first so a Lob failure doesn't lose the payment record.
+            await base44.asServiceRole.entities.PostcardMailerOrder.update(orderId, {
+              payment_status: 'paid',
+              mailing_status: 'processing',
+            });
+            const res = await base44.asServiceRole.functions.invoke('sendPostcardMailers', {
+              action: 'fulfill',
+              order_id: orderId,
+            });
+            console.log(`Postcard Mailer Pack fulfillment for order ${orderId}:`, JSON.stringify(res?.data || res));
+          } catch (pcErr) {
+            console.error('Postcard Mailer Pack fulfillment error:', pcErr.message);
+          }
+          break;
+        }
+
         // ── Single-Landlord Proposition Letter via Lob ──
         if (type === 'single_proposition') {
           try {
