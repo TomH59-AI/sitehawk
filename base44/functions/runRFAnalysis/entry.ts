@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { lat, lon, radius_miles = 5 } = await req.json();
+    const { lat, lon, radius_miles = 5, heights_ft, force_refresh } = await req.json();
     if (lat == null || lon == null) {
       return Response.json({ error: 'lat and lon are required' }, { status: 400 });
     }
@@ -45,6 +45,8 @@ Deno.serve(async (req) => {
         lat: Number(lat),
         lon: Number(lon),
         radius_miles: Number(radius_miles),
+        ...(Array.isArray(heights_ft) ? { heights_ft } : {}),
+        ...(force_refresh != null ? { force_refresh } : {}),
         base44_user_id: user.id,
       }),
     });

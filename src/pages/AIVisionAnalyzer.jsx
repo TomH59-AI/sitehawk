@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Upload, Eye, AlertTriangle, CheckCircle, Info, Loader2, MapPin, Map } from "lucide-react";
 import HawkIcon from "@/components/HawkIcon";
 import { aiVisionAnalyze } from "@/functions/aiVisionAnalyze";
+import { runRFAnalysis } from "@/functions/runRFAnalysis";
 import SARFMapInline from "@/components/ai-vision/SARFMapInline";
+import RFProximityMaps from "@/components/ai-vision/RFProximityMaps";
 import { RADIUS_OPTIONS } from "@/components/search/constants";
 
 const ANALYSIS_TYPES = [
@@ -53,6 +55,11 @@ export default function AIVisionAnalyzer() {
   const [radius, setRadius] = useState(0.5);
   const [sarfCoords, setSarfCoords] = useState(null);
 
+  // RF proximity analysis (closest airport + closest cell tower)
+  const [rfResult, setRfResult] = useState(null);
+  const [rfLoading, setRfLoading] = useState(false);
+  const [rfError, setRfError] = useState(null);
+
   // Step 2 — AI Vision
   const [analysisType, setAnalysisType] = useState("aerial");
   const [imageFile, setImageFile] = useState(null);
@@ -61,7 +68,7 @@ export default function AIVisionAnalyzer() {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
 
-  const handleGenerateMap = (e) => {
+  const handleGenerateMap = async (e) => {
     e.preventDefault();
     const parsedLat = parseFloat(lat);
     const parsedLon = parseFloat(lon);
@@ -71,6 +78,28 @@ export default function AIVisionAnalyzer() {
     }
     setSarfCoords({ lat: parsedLat, lon: parsedLon, radius });
     setResult(null);
+
+    // Run RF proximity analysis (closest airport + closest cell tower).
+    setRfResult(null);
+    setRfError(null);
+    setRfLoading(true);
+    try {
+      const res = await runRFAnalysis({
+        lat: parsedLat,
+        lon: parsedLon,
+        radius_miles: radius,
+        heights_ft: [Number(towerHeight)],
+        force_refresh: true,
+      });
+      // A 404 (no cell tower) still carries usable airport data — treat as success.
+      const data = res.data || {};
+      if (data.error && !data.airport && !data.tower) throw new Error(data.error);
+      setRfResult(data);
+    } catch (err) {
+      setRfError(err.message || "RF analysis failed.");
+    } finally {
+      setRfLoading(false);
+    }
   };
 
   const handleFileChange = (e) => {
@@ -204,6 +233,28 @@ export default function AIVisionAnalyzer() {
           </div>
           <SARFMapInline lat={sarfCoords.lat} lon={sarfCoords.lon} radius={sarfCoords.radius} />
         </div>
+      )}
+
+      {/* RF Proximity — Closest Airport + Closest Cell Tower */}
+      {sarfCoords && rfLoading && (
+        <div className="rounded-xl border border-border bg-card flex flex-col items-center justify-center p-12 text-center space-y-3">
+          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+          <p className="font-heading font-semibold text-foreground">Analyzing proximity — airport & cell tower…</p>
+        </div>
+      )}
+      {sarfCoords && !rfLoading && rfError && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-destructive">Proximity analysis failed: {rfError}</div>
+            <Button onClick={handleGenerateMap} size="sm" variant="outline" className="mt-2 border-destructive/40 text-destructive hover:bg-destructive/10">
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
+      {sarfCoords && !rfLoading && rfResult && (
+        <RFProximityMaps site={sarfCoords} result={rfResult} />
       )}
 
       {/* ── STEP 2: AI Vision Analysis (only visible after map is generated) ── */}
