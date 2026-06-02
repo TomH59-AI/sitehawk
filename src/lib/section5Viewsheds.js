@@ -287,15 +287,20 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
   // so all the resize-inside-load safety never runs (full data, black map).
   // Do NOT construct the map until the container actually has real dimensions.
   // Poll on animation frames (≈ up to 3s) for a non-zero size before building.
-  await new Promise((resolveSize) => {
+  // If it NEVER sizes, THROW — building into a dead 0×0 node guarantees a black
+  // map and a hung load event, so we fail loudly (Retry) instead of silently.
+  await new Promise((resolveSize, rejectSize) => {
     let frames = 0;
     const check = () => {
       const w = container?.clientWidth || 0;
       const h = container?.clientHeight || 0;
-      if ((w > 0 && h > 0) || frames > 180) {
-        if (frames > 180) console.warn(`${tag} container still ${w}×${h} after wait — building anyway`);
-        else console.log(`${tag} container sized ${w}×${h} — constructing map`);
+      if (w > 0 && h > 0) {
+        console.log(`${tag} container sized ${w}×${h} — constructing map`);
         return resolveSize();
+      }
+      if (frames > 180) {
+        console.error(`${tag} container still ${w}×${h} after wait — aborting (would build a 0×0 black map).`);
+        return rejectSize(new Error("Map container never sized — retry."));
       }
       frames += 1;
       requestAnimationFrame(check);
@@ -313,6 +318,15 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
   map.on("error", (e) => console.error(`${tag} Mapbox error:`, e?.error || e));
   map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
   map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
+
+  // Repaint guard: if the container settles to its real size a frame or two
+  // LATE (the active-state flip re-layouts the parent), a ResizeObserver forces
+  // map.resize() so the WebGL canvas matches and never stays black.
+  let ro = null;
+  try {
+    ro = new ResizeObserver(() => { try { map.resize(); } catch { /* noop */ } });
+    ro.observe(container);
+  } catch { /* ResizeObserver unsupported — fixed-height container still works */ }
 
   const obstructed = obstructionForCone(profileDir, rangeMiles);
 
@@ -354,7 +368,7 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
         console.error(`${tag} layer build threw:`, e?.message || e);
       }
 
-      resolve({ engine, instance: map, destroy: () => { try { map.remove(); } catch { /* noop */ } } });
+      resolve({ engine, instance: map, destroy: () => { try { ro?.disconnect(); } catch { /* noop */ } try { map.remove(); } catch { /* noop */ } } });
     };
 
     // Resolve on whichever fires first — some style/GL-context states emit
