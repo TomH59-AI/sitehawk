@@ -294,21 +294,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── TEMP DIAGNOSTIC — rejection breakdown (Tyler positive-case probe) ──
-    const diag = {
-      total_in_ring: scored.length,
-      residential_known: scored.filter((s) => s.score_reasons.some((r) => r.startsWith("Residential use"))).length,
-      too_small: scored.filter((s) => s.score_reasons.some((r) => r.includes("too small to build"))).length,
-      needs_zoning_resolve: scored.filter((s) => s.needs_zoning_resolve).length,
-      buildable_before_fema_zoning: scored.filter((s) => s.buildable).length,
-    };
-    console.log("🔬 SCRUB DIAG (pre-FEMA/zoning) →", JSON.stringify(diag));
-    // Log the 5 largest parcels so we can see if a good commercial lot is being
-    // killed by the lot-size floor vs. zoning.
-    const largest = [...scored].sort((a, b) => (b.acreage || 0) - (a.acreage || 0)).slice(0, 5)
-      .map((s) => ({ apn: s.apn, ac: s.acreage, zoning: s.zoning_classification, land_use: s.land_use, buildable: s.buildable, why: s.score_reasons }));
-    console.log("🔬 LARGEST 5 PARCELS →", JSON.stringify(largest, null, 2));
-
     // HONEST EMPTY-RING DISCIPLINE — if nothing is buildable (all residential /
     // too small), do NOT pad with ineligible parcels. Return the no-data halt.
     const buildableSet = scored.filter((s) => s.buildable);
@@ -345,37 +330,46 @@ Deno.serve(async (req) => {
       }
     });
 
-    // ZONING FALLBACK — cost-controlled. The free filters (residential-known,
-    // too-small, FEMA) have already run. NOW resolve zoning via Zoneomics ONLY
-    // for the survivors that have blank Realie zoning — never the whole ring.
-    // A blank-zoning parcel can only become eligible once its zoning is KNOWN;
-    // if Zoneomics resolves it residential it is excluded here, and if Zoneomics
-    // returns nothing it stays ineligible (never passed on absent data).
+    // RANK FIRST on cheap data (Realie + FEMA only) — dry buildable first, then
+    // confirmed acreage fit, then score, then distance to center. This lets us
+    // resolve zoning via the PAID Zoneomics API on ONLY the top few ranked
+    // parcels, never all survivors (the 48-call cost/runtime blowup).
+    const confirmedFits = (s) => Number(s.acreage) >= needAcres ? 1 : 0;
+    const rankCmp = (a, b) => {
+      if (!!a.flood_excluded !== !!b.flood_excluded) return a.flood_excluded ? 1 : -1;
+      const ca = confirmedFits(a), cb = confirmedFits(b);
+      if (ca !== cb) return cb - ca;
+      if (b.score !== a.score) return b.score - a.score;
+      const da = a.latitude ? haversineMiles(lat, lon, a.latitude, a.longitude) : 99;
+      const db = b.latitude ? haversineMiles(lat, lon, b.latitude, b.longitude) : 99;
+      return da - db;
+    };
+    buildableSet.sort(rankCmp);
+
+    // ZONING RESOLUTION — cost-controlled. Resolve via Zoneomics on ONLY the top
+    // 5 ranked candidates that have blank Realie zoning. Three outcomes per the
+    // approved policy:
+    //   • residential  → EXCLUDE (disqualified by client criteria)
+    //   • non-resident. → PASS, zoning_status = "confirmed"
+    //   • null/nothing  → PASS (known-residential filter already removed homes),
+    //                     but TAG zoning_status = "unverified" so the user knows
+    //                     to confirm before pursuing. Never presented as confirmed.
+    // Parcels whose zoning is already KNOWN from Realie are "confirmed" as-is.
+    buildableSet.forEach((s) => { if (!s.needs_zoning_resolve) s.zoning_status = "confirmed"; });
+
     const zoneKey = Deno.env.get("ZONEOMICS_API_KEY");
-    const toResolve = buildableSet.filter((s) => s.needs_zoning_resolve && s.latitude && s.longitude);
-    console.log("🔬 TO-RESOLVE GATE →", JSON.stringify({
-      zoneKey_present: !!zoneKey,
-      buildable: buildableSet.length,
-      flagged_resolve: buildableSet.filter((s) => s.needs_zoning_resolve).length,
-      flagged_with_coords: toResolve.length,
-    }));
+    const toResolve = buildableSet.filter((s) => s.needs_zoning_resolve && s.latitude && s.longitude).slice(0, 5);
     if (toResolve.length) {
       const resolved = await Promise.all(
         toResolve.map((s) => zoneomicsZone(s.latitude, s.longitude, zoneKey))
       );
-      console.log("🔬 ZONEOMICS RESOLUTION →", JSON.stringify({
-        attempted: toResolve.length,
-        returned_code: resolved.filter(Boolean).length,
-        returned_null: resolved.filter((z) => !z).length,
-        sample: toResolve.slice(0, 8).map((s, i) => ({ apn: s.apn, lat: s.latitude, lon: s.longitude, zc: resolved[i] })),
-      }, null, 2));
       toResolve.forEach((s, i) => {
         const zc = resolved[i];
         if (!zc) {
-          // Zoning still unknown → cannot pass on absent data. Mark ineligible.
-          s.buildable = false;
-          s.zoning_unresolved = true;
-          s.score_reasons.push("Zoning unresolved (Realie + Zoneomics both blank) — cannot pass on absent data");
+          // Zoneomics returned nothing → PASS but flag unverified (non-residential
+          // assumption; actual homes were already removed by the free filter).
+          s.zoning_status = "unverified";
+          s.score_reasons.push("Zoning unverified (Realie + Zoneomics blank) — passed on non-residential assumption; confirm before pursuing");
           return;
         }
         s.zoning_classification = zc;
@@ -386,14 +380,19 @@ Deno.serve(async (req) => {
         } else {
           const zs2 = zoningScore(zc, null);
           s.score = Math.max(0, Math.min(100, s.score + 10 + zs2.pts));
-          s.score_reasons.push(`Zoneomics resolved zoning "${zc}" — non-residential (${zs2.reason})`);
+          s.zoning_status = "confirmed";
+          s.score_reasons.push(`Zoneomics confirmed zoning "${zc}" — non-residential (${zs2.reason})`);
         }
       });
     }
+    // Any blank-zoning parcel beyond the top-5 resolution window passes on the
+    // non-residential assumption too, flagged unverified (no paid call spent).
+    buildableSet.forEach((s) => { if (s.needs_zoning_resolve && !s.zoning_status) s.zoning_status = "unverified"; });
 
-    // Re-filter after zoning resolution — any survivor flipped ineligible by the
-    // Zoneomics check (residential or unresolved) drops out before ranking.
+    // Re-rank: a top-5 parcel flipped residential by Zoneomics is now ineligible
+    // and its score dropped, so re-sort to float the true best to the top.
     const eligibleSet = buildableSet.filter((s) => s.buildable);
+    eligibleSet.sort(rankCmp);
     if (eligibleSet.length === 0) {
       return Response.json({
         count_scanned: seen.size,
@@ -404,23 +403,9 @@ Deno.serve(async (req) => {
         min_buildable_acres: Number(minBuildableAcres.toFixed(3)),
         targets: [],
         no_buildable: true,
-        message: "No buildable parcel in ring — all parcels are residential (confirmed via zoning), too small for the compound + fall zone, or have unresolvable zoning. Adjust the SARF ring or enter a target manually.",
+        message: "No buildable parcel in ring — all parcels are residential (confirmed via zoning), too small for the compound + fall zone, or otherwise ineligible. Adjust the SARF ring or enter a target manually.",
       });
     }
-
-    // Rank: dry buildable first, then by confirmed acreage fit, then score, then
-    // distance to center (closer = better RF). Flood-excluded buildable parcels
-    // sink to the bottom but remain selectable when nothing dry qualifies.
-    const confirmedFits = (s) => Number(s.acreage) >= needAcres ? 1 : 0;
-    eligibleSet.sort((a, b) => {
-      if (!!a.flood_excluded !== !!b.flood_excluded) return a.flood_excluded ? 1 : -1;
-      const ca = confirmedFits(a), cb = confirmedFits(b);
-      if (ca !== cb) return cb - ca;
-      if (b.score !== a.score) return b.score - a.score;
-      const da = a.latitude ? haversineMiles(lat, lon, a.latitude, a.longitude) : 99;
-      const db = b.latitude ? haversineMiles(lat, lon, b.latitude, b.longitude) : 99;
-      return da - db;
-    });
 
     const labels = ["Target A", "Target B", "Target C"];
     const top = eligibleSet.slice(0, 3);
@@ -429,12 +414,16 @@ Deno.serve(async (req) => {
     // via Zoneomics in the cost-controlled fallback above. No extra calls here.
     const targets = top.map((t, i) => {
       const fema = t._fema || { code: "—", level: "unknown" };
-      const { raw, dist_mi, _fema, needs_zoning_resolve, zoning_unresolved, ...clean } = t;
+      const { raw, dist_mi, _fema, needs_zoning_resolve, ...clean } = t;
       const zone = clean.zoning_classification || null;
+      const zStatus = t.zoning_status || (zone ? "confirmed" : "unverified");
       return {
         label: labels[i],
         ...clean,
         zoning_classification: zone || null,
+        zoning_status: zStatus,
+        zoning_unverified: zStatus === "unverified",
+        zoning_note: zStatus === "unverified" ? "Zoning unverified — confirm before pursuing" : null,
         distance_from_center_mi: dist_mi != null ? Number(dist_mi.toFixed(3)) : null,
         fema_risk_factor: fema.code === "—" ? "—" : `${fema.code} (${fema.level})`,
       };
