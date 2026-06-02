@@ -381,6 +381,68 @@ export async function renderZoningGrid(container, target, token, cells, cellLat,
   });
 }
 
+// ────────────── 4c. FLUM (Future Land Use) ──────────────
+// Zoneomics FLUM vector tiles (MVT, /flum/tiles) on a light base, centered on
+// Target A. Each FLUM polygon is filled with a hashed color from its category
+// string + outlined; the Target A pill label sits on top. If the FLUM tile tier
+// isn't enabled on the key the tiles simply 404 (no overlay) — the details
+// banner (zoneomicsFlumDetails) still reports the point's designation.
+const FLUM_TILES = (key) =>
+  `https://api.zoneomics.com/v2/flum/tiles/{z}/{x}/{y}.mvt?api_key=${key}`;
+
+// Deterministic pastel color from a FLUM category string.
+function flumColor(s) {
+  const str = String(s || "flum");
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
+  return `hsl(${h}, 65%, 55%)`;
+}
+
+export async function renderFlum(container, target, token, zoneomicsKey, flumLabel) {
+  const { latitude: lat, longitude: lon, owner } = target;
+  const map = await makeMap(container, LIGHT_STYLE, [lon, lat], token, 14);
+  map.on("error", (e) => console.error("[FLUM MAP DIAG] Mapbox error event:", e?.error || e));
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      if (zoneomicsKey) {
+        map.addSource("s4-flum", { type: "vector", tiles: [FLUM_TILES(zoneomicsKey)], minzoom: 8, maxzoom: 16 });
+        // Try common source-layer names; Mapbox ignores layers whose source-layer
+        // doesn't exist, so listing a few covers Zoneomics naming variations.
+        for (const srcLayer of ["flum", "future_land_use", "default"]) {
+          map.addLayer({
+            id: `s4-flum-fill-${srcLayer}`, type: "fill", source: "s4-flum", "source-layer": srcLayer,
+            paint: {
+              "fill-color": ["case", ["has", "flum_code"], ["to-color", ["concat", "#", ""]], flumColor(flumLabel)],
+              "fill-opacity": 0.35,
+            },
+          });
+          map.addLayer({
+            id: `s4-flum-line-${srcLayer}`, type: "line", source: "s4-flum", "source-layer": srcLayer,
+            paint: { "line-color": flumColor(flumLabel), "line-width": 1.2, "line-opacity": 0.7 },
+          });
+        }
+        console.log("[FLUM MAP DIAG] FLUM vector tiles added:", FLUM_TILES(zoneomicsKey).replace(zoneomicsKey, "***"));
+      } else {
+        console.warn("[FLUM MAP DIAG] No Zoneomics key — FLUM overlay skipped, label only.");
+      }
+
+      // Target A pill label: "FLUM: <designation>".
+      const el = document.createElement("div");
+      el.textContent = `FLUM: ${flumLabel || "—"}`;
+      el.style.cssText = `
+        font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; color:#fff;
+        background:${BRAND_GREEN}; padding:6px 12px; border-radius:9999px;
+        white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.3);
+      `;
+      new window.mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat([lon, lat]).addTo(map);
+
+      addTowerMarker(map, lat, lon, owner);
+      fitToRing(map, lat, lon, 0.45);
+      resolve(map);
+    });
+  });
+}
+
 // ────────────── 5. WETLANDS ──────────────
 export async function renderWetlands(container, target, token) {
   const { latitude: lat, longitude: lon, owner } = target;

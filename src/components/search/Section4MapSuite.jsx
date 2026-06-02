@@ -53,13 +53,14 @@ import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderWetlands, renderParcel, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlum, renderWetlands, renderParcel, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
+import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "wetlands", "parcel"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "parcel"];
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData, onClear,
@@ -69,6 +70,7 @@ export default function Section4MapSuite({
   const [loadingStep, setLoadingStep] = useState(null);
   const [floodZone, setFloodZone] = useState(null);
   const [zoneInfo, setZoneInfo] = useState(null);
+  const [flumInfo, setFlumInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -85,7 +87,7 @@ export default function Section4MapSuite({
 
   const refs = {
     aerial: useRef(null), topo: useRef(null), fema: useRef(null),
-    zoning: useRef(null), wetlands: useRef(null), parcel: useRef(null),
+    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), parcel: useRef(null),
   };
   const maps = useRef({});
 
@@ -217,6 +219,13 @@ export default function Section4MapSuite({
         const zParcels = pres?.data?.parcels || [];
 
         map = await renderZoningGrid(refs.zoning.current, targetA, token, gridCells, cellLat, cellLng, zone, zParcels);
+      } else if (step === "flum") {
+        // Future Land Use map — point details for the banner + FLUM tile overlay.
+        const fres = await zoneomicsFlumDetails({ lat: targetA.latitude, lng: targetA.longitude }).catch(() => null);
+        const flum = fres?.data?.flum || null;
+        const flumLabel = flum ? [flum.code, flum.name].filter(Boolean).join(" — ") : "";
+        setFlumInfo(flum && (flum.code || flum.name) ? flum : null);
+        map = await renderFlum(refs.flum.current, targetA, token, cfg.zoneomicsApiKey, flumLabel);
       } else if (step === "wetlands") {
         map = await renderWetlands(refs.wetlands.current, targetA, token);
       } else if (step === "parcel") {
@@ -302,6 +311,12 @@ export default function Section4MapSuite({
         ) : null}
       </>
     ),
+    flum: flumInfo ? (
+      <div className="px-4 py-2 bg-violet-50 dark:bg-violet-950/20 border-y border-violet-300/50 text-sm font-semibold text-violet-800 dark:text-violet-200">
+        Future Land Use at Target A: <span className="font-mono">{[flumInfo.code, flumInfo.name].filter(Boolean).join(" — ")}</span>
+        {flumInfo.description ? <span className="font-normal opacity-80"> — {flumInfo.description}</span> : null}
+      </div>
+    ) : null,
     wetlands: null,
     parcel: null,
   };
@@ -326,7 +341,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate six Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Wetlands, Parcel.
+          Generate seven Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Parcel.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -372,14 +387,21 @@ export default function Section4MapSuite({
           </div>
         </MapSubStep>
         <MapSubStep
-          index={5} title="Wetlands Map" runLabel="Run Wetlands Map"
+          index={5} title="Future Land Use (FLUM) Map" runLabel="Run FLUM Map"
+          spinnerLabel="Generating Target A future land use map…"
+          unlocked={active && isUnlocked("flum")}
+          loading={loadingStep === "flum"} done={!!completed.flum}
+          onRun={() => runStep("flum")} mapRef={refs.flum} banner={banners.flum}
+        />
+        <MapSubStep
+          index={6} title="Wetlands Map" runLabel="Run Wetlands Map"
           spinnerLabel="Generating Target A wetlands map…"
           unlocked={active && isUnlocked("wetlands")}
           loading={loadingStep === "wetlands"} done={!!completed.wetlands}
           onRun={() => runStep("wetlands")} mapRef={refs.wetlands} banner={banners.wetlands}
         />
         <MapSubStep
-          index={6} title="Parcel Map" runLabel="Run Parcel Map"
+          index={7} title="Parcel Map" runLabel="Run Parcel Map"
           spinnerLabel="Generating Target A parcel map…"
           unlocked={active && isUnlocked("parcel")}
           loading={loadingStep === "parcel"} done={!!completed.parcel}

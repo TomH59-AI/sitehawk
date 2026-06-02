@@ -156,6 +156,31 @@ function zoPick(flat, needles, valueRx = null) {
   }
   return '';
 }
+// Zoneomics /conditionalControls — control values that are FIXED or VARY by the
+// specific land-use type (e.g. the height/setback that applies to a wireless
+// communication facility, not the generic base-zone value). Returns a flattened
+// { leafKey: value } map so the same zoPick() name-matching can run against it.
+async function getConditionalControls(lat, lon, zoneCode) {
+  const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
+  if (!apiKey) return {};
+  const url = new URL('https://api.zoneomics.com/v2/conditionalControls');
+  url.searchParams.set('api_key', apiKey);
+  url.searchParams.set('lat', String(lat));
+  url.searchParams.set('lng', String(lon));
+  if (zoneCode) url.searchParams.set('zone_code', zoneCode);
+  const redacted = url.toString().replace(apiKey, '***');
+  const res = await fetchJsonWithTimeout(url.toString(), {}, 12000);
+  if (!res.ok) {
+    console.log(`[ZONEOMICS COND DIAG] url=${redacted} status=${res.status} populated=0`);
+    return {};
+  }
+  const json = res.data || {};
+  const root = json?.data?.data || json?.data || json;
+  const flat = zoFlatten(root?.controls || root?.conditional_controls || root);
+  console.log(`[ZONEOMICS COND DIAG] url=${redacted} status=${res.status} keys=${Object.keys(flat).length}`);
+  return flat;
+}
+
 async function getZoneomics(lat, lon) {
   const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
   if (!apiKey) return { ok: false, http_status: 500, error: 'ZONEOMICS_API_KEY not set', fields: {} };
@@ -190,6 +215,15 @@ async function getZoneomics(lat, lon) {
   const zoneCode = zoCleanVal(zd.zone_code);
   const districtLabel = [zoneCode, zoCleanVal(zd.zone_name)].filter(Boolean).join(' — ');
 
+  // Land-use-specific control values take priority for the telecom fields. Prefer
+  // a gde-controls block if zoneDetail returned one inline; otherwise best-effort
+  // call the standalone /conditionalControls endpoint (fails silently if the
+  // key's tier doesn't include it).
+  let cond = zoFlatten(root?.gde_controls || root?.['gde-controls'] || {});
+  if (Object.keys(cond).length === 0) {
+    cond = await getConditionalControls(lat, lon, zoneCode).catch(() => ({}));
+  }
+
   const fields = {};
   const put = (f, v) => { const c = zoCleanVal(v); if (c) fields[f] = c; };
 
@@ -198,16 +232,27 @@ async function getZoneomics(lat, lon) {
   put('zoning_process', zoPick(flat, ['special_use', 'conditional_use', 'approval_process']));
   put('zoning_approval_timeframe', zoPick(flat, ['timeframe', 'approval_time']));
   put('zoning_contact_information', zoPick(flat, ['contact', 'department']));
+  // Telecom-specific controls: conditionalControls FIRST, then generic controls.
   put('maximum_tower_height',
+    zoPick(cond, ['tower_height', 'antenna_height', 'max_height', 'height_ft'], MEASURE) ||
     zoPick(flat, ['tower_height', 'antenna_height']) ||
     zoPick(flat, ['max_height', 'building_height', 'height_ft'], MEASURE));
   put('residential_separation',
+    zoPick(cond, ['residential_separation', 'separation_residential', 'antenna_setback', 'tower_setback']) ||
     zoPick(flat, ['residential_separation', 'separation_residential']) ||
     zoPick(flat, ['antenna_setback', 'tower_setback']));
-  put('tower_separation', zoPick(flat, ['tower_separation', 'separation_tower', 'separation_between']));
-  put('fall_zone_requirements', zoPick(flat, ['fall_zone', 'fall-zone', 'fallzone']));
-  put('stealth_required', zoPick(flat, ['stealth', 'concealment', 'camouflage']));
-  put('required_collocations', zoPick(flat, ['collocation', 'co-location', 'colocation']));
+  put('tower_separation',
+    zoPick(cond, ['tower_separation', 'separation_tower', 'separation_between']) ||
+    zoPick(flat, ['tower_separation', 'separation_tower', 'separation_between']));
+  put('fall_zone_requirements',
+    zoPick(cond, ['fall_zone', 'fall-zone', 'fallzone']) ||
+    zoPick(flat, ['fall_zone', 'fall-zone', 'fallzone']));
+  put('stealth_required',
+    zoPick(cond, ['stealth', 'concealment', 'camouflage']) ||
+    zoPick(flat, ['stealth', 'concealment', 'camouflage']));
+  put('required_collocations',
+    zoPick(cond, ['collocation', 'co-location', 'colocation']) ||
+    zoPick(flat, ['collocation', 'co-location', 'colocation']));
   put('ldc_section_references', zoPick(flat, ['ordinance_section', 'code_section', 'ldc_section']) || zoCleanVal(zd.link));
 
   console.log(`[ZONEOMICS DIAG] url=${redacted} status=${res.status} zone=${zoneCode || '—'} city=${meta.city_name || '—'} populated=${Object.keys(fields).length}`);
