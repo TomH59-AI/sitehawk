@@ -110,6 +110,11 @@
         }
       }
     },
+    "rf_enrichment": {
+      "type": "object",
+      "description": "RF proximity + coverage enrichment for the active Target A, KEYED BY active_target_index (string key, e.g. {\"0\": {...}}). Promoting a backup target to Target A uses a new index slot, so its enrichment regenerates rather than reusing stale data. Each slot: { target_index, target_lat, target_lon, radius_miles, tower_height_ft, generated_at, rf:{ airport, tower, rf, error }, coverage:{ png_url, bounds, key_data, area_covered_sq_km, max_range_km, error } }.",
+      "additionalProperties": true
+    },
     "parcel_targets": {
       "type": "array",
       "description": "Top 3 candidate parcels (Target A/B/C) chosen from all parcels in the ring, scored against tower-siting criteria. Index 0 = Target A (the SCIP focus).",
