@@ -156,31 +156,6 @@ function zoPick(flat, needles, valueRx = null) {
   }
   return '';
 }
-// Zoneomics /conditionalControls — control values that are FIXED or VARY by the
-// specific land-use type (e.g. the height/setback that applies to a wireless
-// communication facility, not the generic base-zone value). Returns a flattened
-// { leafKey: value } map so the same zoPick() name-matching can run against it.
-async function getConditionalControls(lat, lon, zoneCode) {
-  const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
-  if (!apiKey) return {};
-  const url = new URL('https://api.zoneomics.com/v2/conditionalControls');
-  url.searchParams.set('api_key', apiKey);
-  url.searchParams.set('lat', String(lat));
-  url.searchParams.set('lng', String(lon));
-  if (zoneCode) url.searchParams.set('zone_code', zoneCode);
-  const redacted = url.toString().replace(apiKey, '***');
-  const res = await fetchJsonWithTimeout(url.toString(), {}, 12000);
-  if (!res.ok) {
-    console.log(`[ZONEOMICS COND DIAG] url=${redacted} status=${res.status} populated=0`);
-    return {};
-  }
-  const json = res.data || {};
-  const root = json?.data?.data || json?.data || json;
-  const flat = zoFlatten(root?.controls || root?.conditional_controls || root);
-  console.log(`[ZONEOMICS COND DIAG] url=${redacted} status=${res.status} keys=${Object.keys(flat).length}`);
-  return flat;
-}
-
 async function getZoneomics(lat, lon) {
   const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
   if (!apiKey) return { ok: false, http_status: 500, error: 'ZONEOMICS_API_KEY not set', fields: {} };
@@ -189,7 +164,8 @@ async function getZoneomics(lat, lon) {
   url.searchParams.set('api_key', apiKey);
   url.searchParams.set('lat', String(lat));
   url.searchParams.set('lng', String(lon));
-  url.searchParams.set('output_fields', 'zoning,controls,plu');
+  // Plan-allowed output fields only: zoning, controls, plu, parcels, plu-tags, geom.
+  url.searchParams.set('output_fields', 'zoning,controls,plu,parcels,plu-tags');
   const redacted = url.toString().replace(apiKey, '***');
 
   const res = await fetchJsonWithTimeout(url.toString(), {}, 12000);
@@ -215,14 +191,20 @@ async function getZoneomics(lat, lon) {
   const zoneCode = zoCleanVal(zd.zone_code);
   const districtLabel = [zoneCode, zoCleanVal(zd.zone_name)].filter(Boolean).join(' — ');
 
-  // Land-use-specific control values take priority for the telecom fields. Prefer
-  // a gde-controls block if zoneDetail returned one inline; otherwise best-effort
-  // call the standalone /conditionalControls endpoint (fails silently if the
-  // key's tier doesn't include it).
-  let cond = zoFlatten(root?.gde_controls || root?.['gde-controls'] || {});
-  if (Object.keys(cond).length === 0) {
-    cond = await getConditionalControls(lat, lon, zoneCode).catch(() => ({}));
-  }
+  // permitted land-use (plu) + plu-tags — allowed output fields on this tier.
+  const pluTags = root?.plu_tags || root?.['plu-tags'] || root?.plu?.tags || root?.plu || null;
+  const tagText = (t) => {
+    if (t == null) return '';
+    if (typeof t !== 'object') return zoCleanVal(t);
+    return zoCleanVal(t.name || t.tag || t.label || t.title || t.value || t.type || t.category || '');
+  };
+  const landUseTags = Array.isArray(pluTags)
+    ? [...new Set(pluTags.map(tagText).filter(Boolean))].join(', ')
+    : tagText(pluTags);
+
+  // conditionalControls/gde-controls are NOT on this Zoneomics tier — telecom
+  // controls come from the generic `controls` block only.
+  const cond = {};
 
   const fields = {};
   const put = (f, v) => { const c = zoCleanVal(v); if (c) fields[f] = c; };
@@ -255,8 +237,8 @@ async function getZoneomics(lat, lon) {
     zoPick(flat, ['collocation', 'co-location', 'colocation']));
   put('ldc_section_references', zoPick(flat, ['ordinance_section', 'code_section', 'ldc_section']) || zoCleanVal(zd.link));
 
-  console.log(`[ZONEOMICS DIAG] url=${redacted} status=${res.status} zone=${zoneCode || '—'} city=${meta.city_name || '—'} populated=${Object.keys(fields).length}`);
-  return { ok: true, http_status: res.status, zone_code: zoneCode, city_name: zoCleanVal(meta.city_name) || null, fields };
+  console.log(`[ZONEOMICS DIAG] url=${redacted} status=${res.status} zone=${zoneCode || '—'} city=${meta.city_name || '—'} populated=${Object.keys(fields).length} tags=${landUseTags || '—'}`);
+  return { ok: true, http_status: res.status, zone_code: zoneCode, city_name: zoCleanVal(meta.city_name) || null, land_use_tags: landUseTags || null, fields };
 }
 
 // ─── STEP 4: LLM structured extraction (web-grounded gap-fill) ──────────────
@@ -466,6 +448,7 @@ Deno.serve(async (req) => {
         error: zoneomics?.error || null,
         populated_count: Object.keys(zoneomics?.fields || {}).length,
         zone_code: zoneomics?.zone_code || null,
+        land_use_tags: zoneomics?.land_use_tags || null,
       },
       zoning_district_conflict,
       parcel: realie ? {
