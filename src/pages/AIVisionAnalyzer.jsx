@@ -87,7 +87,7 @@ export default function AIVisionAnalyzer() {
       const res = await runRFAnalysis({
         lat: parsedLat,
         lon: parsedLon,
-        radius_miles: radius,
+        radius_miles: 2, // RF proximity always searches a 2-mile radius for the nearest cell tower
         heights_ft: [Number(towerHeight)],
         force_refresh: true,
       });

@@ -87,7 +87,7 @@ export default function RFProximityMaps({ site, result }) {
   const airport = result.airport;
   const tower = result.tower;
   const hasTower = tower && tower.latitude_deg != null && tower.longitude_deg != null;
-  const towerVerdict = result.rf?.verdict || `No cell tower found within ${site.radius} miles.`;
+  const towerVerdict = result.rf?.verdict || `No cell tower found within 2 miles.`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
