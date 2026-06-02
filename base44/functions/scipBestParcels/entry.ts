@@ -119,6 +119,46 @@ async function zoneomicsZone(lat, lon, apiKey) {
   }
 }
 
+// Full Zoneomics enrichment for ONE target — owner / acreage / address / land
+// use / zone code. Realie's location endpoint is geometry-only for many
+// parcels (empty transfers/assessments), so Zoneomics' parcels block fills the
+// SCIP fields the user expects. Returns { owner_name, parcel_address, acreage,
+// land_use, zone_code, owner_mailing } (any field may be null).
+async function zoneomicsEnrich(lat, lon, apiKey) {
+  if (!apiKey) return null;
+  try {
+    const url = new URL("https://api.zoneomics.com/v2/zoneDetail");
+    url.searchParams.set("api_key", apiKey);
+    url.searchParams.set("lat", String(lat));
+    url.searchParams.set("lng", String(lon));
+    url.searchParams.set("output_fields", "zoning,parcels");
+    const r = await fetch(url.toString());
+    if (!r.ok) return null;
+    const d = (await r.json())?.data || {};
+    const zd = d.zone_details || d.zoning || {};
+    const parcel = (d.parcels && d.parcels[0]) || null;
+    // Sentinel scrub — Zoneomics returns "NA"/"Unknown"/"-" for missing fields.
+    const cln = (v) => {
+      const s = String(v ?? "").trim();
+      return s && !/^(na|n\/a|unknown|none|null|-|—)$/i.test(s) ? s : null;
+    };
+    const acreage =
+      parcel?.area_unit === "acres" ? Number(parcel.area)
+      : parcel?.area_unit === "sq.yds" ? Number(parcel.area) / 4840
+      : null;
+    return {
+      owner_name: cln(parcel?.owner_info?.owner_name),
+      owner_mailing: cln(parcel?.owner_info?.owner_address),
+      parcel_address: cln(parcel?.address),
+      land_use: cln(parcel?.land_use),
+      acreage: Number.isFinite(acreage) && acreage > 0 ? Math.round(acreage * 100) / 100 : null,
+      zone_code: cln(zd.zone_code) || cln(zd.zone_name),
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function femaRisk(lat, lon) {
   try {
     const params = new URLSearchParams({
@@ -409,6 +449,23 @@ Deno.serve(async (req) => {
 
     const labels = ["Target A", "Target B", "Target C"];
     const top = eligibleSet.slice(0, 3);
+
+    // ENRICH the final 3 — Realie's location endpoint is geometry-only for many
+    // parcels (no owner/acreage/address), so fill the blank SCIP fields from
+    // Zoneomics' parcels block. Only 3 paid calls (the displayed targets).
+    const enrichments = await Promise.all(
+      top.map((t) => (t.latitude && t.longitude ? zoneomicsEnrich(t.latitude, t.longitude, zoneKey) : Promise.resolve(null)))
+    );
+    top.forEach((t, i) => {
+      const e = enrichments[i];
+      if (!e) return;
+      if (!t.owner_name && e.owner_name) t.owner_name = e.owner_name;
+      if ((!t.parcel_address || t.parcel_address === "UNKNOWN") && e.parcel_address) t.parcel_address = e.parcel_address;
+      if (!t.acreage && e.acreage) t.acreage = e.acreage;
+      if (!t.land_use && e.land_use) t.land_use = e.land_use;
+      if (!t.mailing_address && e.owner_mailing) t.mailing_address = e.owner_mailing;
+      if (!t.zoning_classification && e.zone_code) { t.zoning_classification = e.zone_code; t.zoning_status = "confirmed"; }
+    });
 
     // Zoning is already canonical on each target — known from Realie or resolved
     // via Zoneomics in the cost-controlled fallback above. No extra calls here.
