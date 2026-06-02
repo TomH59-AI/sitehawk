@@ -11,6 +11,7 @@ import { Satellite, RefreshCw, AlertTriangle, Radio } from "lucide-react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import PropagationLegend from "./section8/PropagationLegend";
+import SectionClearButton from "./SectionClearButton";
 import { section8Propagation } from "@/functions/section8Propagation";
 
 const BRAND_GREEN = "#628C83";
@@ -40,7 +41,7 @@ const STYLES = {
   streets: "mapbox://styles/mapbox/streets-v12",
 };
 
-export default function Section8Propagation({ unlocked, targetA, towerHeightFt = 150, onData }) {
+export default function Section8Propagation({ unlocked, targetA, towerHeightFt = 150, onData, onClear }) {
   const lat = targetA?.latitude;
   const lon = targetA?.longitude;
   const coordsOk = Number.isFinite(lat) && Number.isFinite(lon);
@@ -191,10 +192,13 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
   return (
     <div className="rounded-xl border border-[#628C83]/40 bg-card overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-[#628C83]/30" style={{ background: `${BRAND_GREEN}14` }}>
-        <div className="text-[10px] font-mono tracking-[0.3em]" style={{ color: BRAND_GREEN }}>SECTION 8 · CLOUDRF</div>
-        <h2 className="font-heading font-bold text-lg text-foreground">HAWK RF PROPAGATION VISION — TARGET A</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">1-mile CloudRF coverage simulation across area carriers</p>
+      <div className="px-5 py-4 border-b border-[#628C83]/30 flex items-start justify-between gap-3" style={{ background: `${BRAND_GREEN}14` }}>
+        <div>
+          <div className="text-[10px] font-mono tracking-[0.3em]" style={{ color: BRAND_GREEN }}>SECTION 8 · CLOUDRF</div>
+          <h2 className="font-heading font-bold text-lg text-foreground">HAWK RF PROPAGATION VISION — TARGET A</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">1-mile CloudRF coverage simulation across area carriers</p>
+        </div>
+        {status !== "idle" && onClear && <SectionClearButton onClear={onClear} />}
       </div>
 
       <div className="p-5 space-y-4">

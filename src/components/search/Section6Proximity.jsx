@@ -20,6 +20,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Lock, Compass } from "lucide-react";
 import { toast } from "sonner";
 import ProximitySubStep from "./section6/ProximitySubStep";
+import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
@@ -31,7 +32,7 @@ import {
 const STEPS = ["airport", "celltower", "wind"];
 
 export default function Section6Proximity({
-  unlocked, active, targetA, onRun, onComplete, onData,
+  unlocked, active, targetA, onRun, onComplete, onData, onClear,
 }) {
   const [completed, setCompleted] = useState({});
   const [loadingStep, setLoadingStep] = useState(null);
@@ -215,15 +216,18 @@ export default function Section6Proximity({
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Section banner */}
-      <div className="px-4 py-3 flex items-center gap-2 text-white" style={{ background: BRAND_GREEN }}>
-        <Compass className="w-5 h-5" />
-        <div>
-          <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 6 · PROXIMITY & ENVIRONMENT</div>
-          <h2 className="font-heading font-bold text-lg leading-tight">HAWK PROXIMITY &amp; ENVIRONMENT VISION — TARGET A</h2>
-          <div className="text-[11px] font-mono opacity-90 mt-0.5">
-            Nearest airport · nearest tower · wind exposure{ownerLabel ? ` · ${ownerLabel}` : ""}
+      <div className="px-4 py-3 flex items-center justify-between gap-2 text-white" style={{ background: BRAND_GREEN }}>
+        <div className="flex items-center gap-2">
+          <Compass className="w-5 h-5" />
+          <div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 6 · PROXIMITY & ENVIRONMENT</div>
+            <h2 className="font-heading font-bold text-lg leading-tight">HAWK PROXIMITY &amp; ENVIRONMENT VISION — TARGET A</h2>
+            <div className="text-[11px] font-mono opacity-90 mt-0.5">
+              Nearest airport · nearest tower · wind exposure{ownerLabel ? ` · ${ownerLabel}` : ""}
+            </div>
           </div>
         </div>
+        {active && onClear && <SectionClearButton onClear={onClear} />}
       </div>
 
       {/* Idle — armed, waiting for the first Run click */}

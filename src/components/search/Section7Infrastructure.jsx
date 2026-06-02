@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import InfraToolbar from "./section7/InfraToolbar";
+import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { section7Infrastructure } from "@/functions/section7Infrastructure";
 import {
@@ -26,7 +27,7 @@ import {
 } from "@/lib/section7Infrastructure";
 
 export default function Section7Infrastructure({
-  unlocked, active, targetA, radiusMiles = 0.5, onRun, onData,
+  unlocked, active, targetA, radiusMiles = 0.5, onRun, onData, onClear,
 }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -156,15 +157,18 @@ export default function Section7Infrastructure({
             </div>
           </div>
         </div>
-        {!done ? (
-          <Button onClick={beginAndRun} disabled={loading} className="bg-white hover:bg-white/90 font-semibold shadow" style={{ color: BRAND_GREEN }}>
-            <Sparkles className="w-4 h-4 mr-2" /> Run Infrastructure Map
-          </Button>
-        ) : (
-          <Button onClick={beginAndRun} disabled={loading} variant="outline" className="bg-white/10 border-white/40 text-white hover:bg-white/20 font-semibold">
-            <RefreshCw className="w-4 h-4 mr-2" /> Regenerate
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {active && onClear && <SectionClearButton onClear={onClear} />}
+          {!done ? (
+            <Button onClick={beginAndRun} disabled={loading} className="bg-white hover:bg-white/90 font-semibold shadow" style={{ color: BRAND_GREEN }}>
+              <Sparkles className="w-4 h-4 mr-2" /> Run Infrastructure Map
+            </Button>
+          ) : (
+            <Button onClick={beginAndRun} disabled={loading} variant="outline" className="bg-white/10 border-white/40 text-white hover:bg-white/20 font-semibold">
+              <RefreshCw className="w-4 h-4 mr-2" /> Regenerate
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Utility-to-contact banner */}
