@@ -149,7 +149,7 @@ export default function ViewshedSubStep({
 
           {engine && (
             <div className="absolute bottom-3 right-3 z-10 px-2 py-1 rounded bg-black/55 backdrop-blur text-white/90 text-[10px] font-mono uppercase tracking-widest">
-              {engine === "cesium" ? "Cesium terrain" : "MapBox terrain-rgb"}
+              MapBox terrain-rgb
             </div>
           )}
           </div>

@@ -71,41 +71,6 @@ function circleRing(lat, lon, radiusMiles, steps = 64) {
 }
 
 // ────────────── Cesium Ion terrain-coverage probe ──────────────
-// Hit Cesium Ion's REST API for the world-terrain asset (1) endpoint metadata.
-// Returns { ok, status, fallback } — we only use this to decide terrain source,
-// the actual map is always Mapbox. Logs every checkpoint per direction.
-async function probeCesiumTerrain(ionToken, dirShort) {
-  const tag = `[VIEWSHED DIAG ${dirShort}]`;
-  if (!ionToken) {
-    console.warn(`${tag} No Cesium Ion token — MapBox terrain-rgb fallback.`);
-    return { ok: false, status: 0, fallback: true };
-  }
-  const endpoint = "https://api.cesium.com/v1/assets/1/endpoint";
-  console.log(`${tag} Cesium Ion call: token=${String(ionToken).slice(0, 8)}… endpoint=${endpoint}`);
-  try {
-    const res = await fetch(`${endpoint}?access_token=${ionToken}`, {
-      method: "GET",
-      signal: AbortSignal.timeout(8000),
-    });
-    const text = await res.text();
-    console.log(`${tag} Cesium Ion status=${res.status} responseSize=${text.length}B`);
-    if (res.status === 401 || res.status === 403) {
-      const err = new Error("Cesium auth failed — verify CESIUM_ION_TOKEN");
-      err.code = res.status;
-      throw err;
-    }
-    if (!res.ok) {
-      console.log(`${tag} Cesium no-coverage, falling back to MapBox`);
-      return { ok: false, status: res.status, fallback: true };
-    }
-    return { ok: true, status: res.status, fallback: false };
-  } catch (e) {
-    if (e.code === 401 || e.code === 403) throw e; // auth bubbles up to a hard error
-    console.log(`${tag} Cesium no-coverage, falling back to MapBox`);
-    return { ok: false, status: 0, fallback: true };
-  }
-}
-
 // ────────────── Mapbox GL loader (idempotent, CDN) ──────────────
 const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js";
 const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css";
@@ -260,21 +225,16 @@ function obstructionForCone(profileDir, rangeMiles) {
 }
 
 // ────────────── public API ──────────────
-// Render one direction's 2D viewshed on Mapbox (Cesium Ion is probed for terrain
-// coverage). Logs every [VIEWSHED DIAG] checkpoint. Returns { engine, instance,
-// destroy } where engine ∈ "cesium" | "mapbox" (terrain authority used).
+// Render one direction's 2D viewshed on Mapbox (satellite + terrain-rgb
+// hillshade). Cesium was removed — Mapbox does everything and there is no extra
+// probe call to hang or 401. Logs every [VIEWSHED DIAG] checkpoint. Returns
+// { engine:"mapbox", instance, destroy }.
 export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, dirOverride, profileDir) {
   const dir = dirOverride || DIRECTIONS[dirKey];
   const tag = `[VIEWSHED DIAG ${dir.short}]`;
   const cfg = await loadPublicConfig();
-  const ionToken = cfg.cesiumIonToken;
   const mapboxToken = cfg.mapboxAccessToken;
-
-  // 2 — Cesium Ion terrain-coverage probe (throws on 401/403).
-  const probe = await probeCesiumTerrain(ionToken, dir.short);
-  // 3 — MapBox fallback trigger.
-  const engine = probe.ok ? "cesium" : "mapbox";
-  if (!probe.ok) console.log(`${tag} MapBox terrain-rgb fallback active (cesiumOk=${probe.ok})`);
+  const engine = "mapbox";
 
   if (!mapboxToken) throw new Error("Mapbox token unavailable for viewshed.");
   await ensureMapboxLoaded();
