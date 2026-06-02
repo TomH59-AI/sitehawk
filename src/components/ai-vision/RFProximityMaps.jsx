@@ -89,8 +89,9 @@ function MapPanel({ site, dest, line, glyphColor }) {
 
 export default function RFProximityMaps({ site, result }) {
   if (!result) return null;
-  const airport = result.airport;
-  const tower = result.tower;
+  const airport = result.airport || null;
+  const tower = result.tower || null;
+  const hasAirport = airport && airport.latitude_deg != null && airport.longitude_deg != null;
   const hasTower = tower && tower.latitude_deg != null && tower.longitude_deg != null;
   const towerVerdict = result.rf?.verdict || `No cell tower found within 2 miles.`;
 
@@ -108,7 +109,7 @@ export default function RFProximityMaps({ site, result }) {
             </div>
           </div>
         </div>
-        {airport && airport.latitude_deg != null ? (
+        {hasAirport ? (
           <MapPanel
             site={site}
             dest={{
@@ -117,7 +118,7 @@ export default function RFProximityMaps({ site, result }) {
               svg: PLANE_SVG,
               title: airport.name || airport.call_letters || "Airport",
             }}
-            line={airport.line_geojson}
+            line={airport.line_geojson || null}
             glyphColor={AIRPORT_ACCENT}
           />
         ) : (
@@ -144,7 +145,7 @@ export default function RFProximityMaps({ site, result }) {
           <MapPanel
             site={site}
             dest={{ lat: Number(tower.latitude_deg), lon: Number(tower.longitude_deg), glyph: "🗼" }}
-            line={tower.line_geojson}
+            line={tower.line_geojson || null}
             glyphColor={BRAND}
           />
         ) : (

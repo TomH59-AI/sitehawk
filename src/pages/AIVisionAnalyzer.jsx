@@ -76,6 +76,13 @@ export default function AIVisionAnalyzer() {
       toast({ title: "Invalid coordinates", description: "Please enter valid latitude and longitude.", variant: "destructive" });
       return;
     }
+    // Validate tower height before any RF call — must be a realistic AGL value.
+    const parsedHeight = parseFloat(towerHeight);
+    if (isNaN(parsedHeight) || parsedHeight <= 0 || parsedHeight > 2000) {
+      toast({ title: "Invalid tower height", description: "Enter a tower height in feet between 1 and 2000.", variant: "destructive" });
+      return;
+    }
+
     setSarfCoords({ lat: parsedLat, lon: parsedLon, radius });
     setResult(null);
 
@@ -88,7 +95,7 @@ export default function AIVisionAnalyzer() {
         lat: parsedLat,
         lon: parsedLon,
         radius_miles: 2, // RF proximity always searches a 2-mile radius for the nearest cell tower
-        heights_ft: [Number(towerHeight)],
+        heights_ft: [parsedHeight],
         force_refresh: true,
       });
       // A 404 (no cell tower) still carries usable airport data — treat as success.
@@ -213,6 +220,9 @@ export default function AIVisionAnalyzer() {
                 </button>
               ))}
             </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Note: the closest airport uses this search radius. <span className="font-medium text-foreground">Cell tower search radius: 2 miles</span> (fixed).
+            </p>
           </div>
 
           <Button type="submit" className="gap-2 font-heading font-semibold" disabled={!lat || !lon}>

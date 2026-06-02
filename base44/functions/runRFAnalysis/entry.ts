@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SkyHawk Intelligence — proxies to Supabase Edge Function `run-rf-analysis`.
@@ -58,6 +58,24 @@ Deno.serve(async (req) => {
     } catch {
       console.error(`run-rf-analysis non-JSON HTTP ${res.status}: ${text.slice(0, 500)}`);
       return Response.json({ error: `RF analysis returned non-JSON: ${res.status}`, detail: text.slice(0, 300) }, { status: 502 });
+    }
+
+    // "No cell tower found" is a NORMAL business case, not an error. The upstream
+    // edge function sometimes signals it with a 404. Normalize that to HTTP 200:
+    // keep any airport data, set tower:null, and surface an rf.error verdict so
+    // the airport map still renders and the UI shows a friendly tower message.
+    if (res.status === 404 || (data && data.tower == null && (data.error || data.rf == null))) {
+      const radiusLabel = Number(radius_miles);
+      return Response.json({
+        airport: data?.airport || null,
+        tower: null,
+        rf: {
+          ...(data?.rf || {}),
+          status: "error",
+          verdict: data?.rf?.verdict || data?.error || `No cell tower found within ${radiusLabel} miles`,
+        },
+        cached: data?.cached === true,
+      });
     }
 
     if (!res.ok && !data?.airport && !data?.tower && !data?.rf) {
