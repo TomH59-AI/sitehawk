@@ -1,0 +1,142 @@
+{
+  "name": "ScipCRMContact",
+  "type": "object",
+  "description": "A potential landlord / parcel owner tied to a SCIP CRM deal. One per Target A/B/C (and optional extra reviewed parcels). Holds the contact + outreach status for that owner. Separate from the legacy CRM \u2014 keyed on scip_crm_deal_id and scip_record_id.",
+  "properties": {
+    "scip_crm_deal_id": {
+      "type": "string",
+      "description": "The ScipCRMDeal this contact belongs to."
+    },
+    "scip_record_id": {
+      "type": "string",
+      "description": "The ScipRecord this contact's parcel came from."
+    },
+    "target_label": {
+      "type": "string",
+      "enum": [
+        "Target A",
+        "Target B",
+        "Target C",
+        "Extra"
+      ],
+      "default": "Target A",
+      "description": "Which target this owner represents."
+    },
+    "target_index": {
+      "type": "number",
+      "default": 0,
+      "description": "parcel_targets index this owner came from (0 = Target A)."
+    },
+    "owner_name": {
+      "type": "string",
+      "description": "Parcel owner / landlord name."
+    },
+    "parcel_address": {
+      "type": "string",
+      "description": "Situs / site address."
+    },
+    "mailing_address": {
+      "type": "string",
+      "description": "Owner mailing address."
+    },
+    "apn": {
+      "type": "string",
+      "description": "Parcel / APN identifier."
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "contact_status": {
+      "type": "string",
+      "enum": [
+        "not_contacted",
+        "attempted",
+        "reached",
+        "interested",
+        "not_interested",
+        "do_not_contact"
+      ],
+      "default": "not_contacted",
+      "description": "Outreach status for this owner."
+    },
+    "interest_level": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "cold",
+        "warm",
+        "hot"
+      ],
+      "default": "unknown",
+      "description": "Subjective interest read."
+    },
+    "last_contacted": {
+      "type": "string",
+      "format": "date",
+      "description": "Last time this owner was contacted."
+    },
+    "next_follow_up_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Next planned follow-up with this owner."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Contact-level notes."
+    }
+  },
+  "required": [
+    "scip_crm_deal_id",
+    "owner_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

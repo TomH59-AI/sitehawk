@@ -18,6 +18,7 @@ import HawkViewshed from "../components/skywave/HawkViewshed";
 import PostcardMailerSection from "../components/scip/postcard/PostcardMailerSection";
 import TargetScorecard from "../components/scip/TargetScorecard";
 import NotionSyncToggle from "../components/scip/NotionSyncToggle";
+import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
 
 const STATUS = {
   draft: { label: "Draft", bg: SKYWAVE.muted },
@@ -141,6 +142,11 @@ export default function ScipDetail() {
             <ToolbarBtn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />
             <ToolbarBtn icon={Copy} label="Duplicate" onClick={handleDuplicate} busy={busy} />
           </div>
+        </div>
+
+        {/* SCIP-centric CRM workspace — landlords, mailers, tasks, next actions (not printed) */}
+        <div className="mb-5 no-print">
+          <ScipCrmPanel record={record} />
         </div>
 
         {/* Optional Notion review-mirror toggle for data-source snapshots (not printed) */}

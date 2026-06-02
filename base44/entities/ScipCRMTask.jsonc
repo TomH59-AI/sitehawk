@@ -1,0 +1,122 @@
+{
+  "name": "ScipCRMTask",
+  "type": "object",
+  "description": "A reminder / task on a SCIP CRM deal (call owner, send follow-up, review zoning, upload permit app, complete lease draft, confirm utility/fiber, check postcard status, submit application). Drives the SCIP CRM dashboard (due today / overdue / waiting).",
+  "properties": {
+    "scip_crm_deal_id": {
+      "type": "string",
+      "description": "The ScipCRMDeal this task belongs to."
+    },
+    "scip_record_id": {
+      "type": "string",
+      "description": "The related ScipRecord."
+    },
+    "scip_crm_contact_id": {
+      "type": "string",
+      "description": "Optional related contact (owner)."
+    },
+    "title": {
+      "type": "string",
+      "description": "What needs to be done."
+    },
+    "task_type": {
+      "type": "string",
+      "enum": [
+        "call",
+        "email",
+        "postcard",
+        "document",
+        "zoning",
+        "permit",
+        "lease",
+        "utility",
+        "submit",
+        "other"
+      ],
+      "default": "call",
+      "description": "Kind of task."
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When the task is due."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "done",
+        "snoozed",
+        "overdue"
+      ],
+      "default": "open",
+      "description": "Task status."
+    },
+    "assigned_user": {
+      "type": "string",
+      "description": "Email of the assignee."
+    },
+    "auto_generated": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if created automatically (e.g. follow-up after postcard send)."
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When marked done."
+    },
+    "completed_by": {
+      "type": "string",
+      "description": "Who completed it (email)."
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "scip_crm_deal_id",
+    "title"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

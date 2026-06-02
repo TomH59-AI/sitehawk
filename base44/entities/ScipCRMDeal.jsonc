@@ -1,0 +1,126 @@
+{
+  "name": "ScipCRMDeal",
+  "type": "object",
+  "description": "SCIP-centric CRM deal (Site Opportunity). One per ScipRecord. Tracks the site-acquisition workflow from SCIP generation through completion across Target A/B/C. This is a SEPARATE layer from the SearchResult-based CRMDeal \u2014 never merge them. Source of truth for the deal stage, next action, and owner contacts is this record + its ScipCRMContact / ScipCRMTask / ScipCRMActivity children.",
+  "properties": {
+    "scip_record_id": {
+      "type": "string",
+      "description": "The ScipRecord this deal tracks (one deal per SCIP)."
+    },
+    "site_name": {
+      "type": "string",
+      "description": "Cached SCIP site / ring name for display."
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Cached zoning jurisdiction for display."
+    },
+    "active_target_index": {
+      "type": "number",
+      "default": 0,
+      "description": "Which parcel_targets index is the current focus (0 = Target A)."
+    },
+    "target_summary": {
+      "type": "string",
+      "description": "Short human summary of Target A/B/C owners + APNs for the deal card."
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "scip_generated",
+        "mailers_drafted",
+        "mailers_sent",
+        "call_due",
+        "owner_contacted",
+        "interested",
+        "not_interested",
+        "loi_terms",
+        "lease_drafting",
+        "zoning_package",
+        "permit_package",
+        "submitted",
+        "approved",
+        "on_hold",
+        "lost",
+        "exhausted"
+      ],
+      "default": "scip_generated",
+      "description": "Current pipeline stage of the site opportunity."
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium",
+      "description": "Deal priority for sorting / attention."
+    },
+    "next_action": {
+      "type": "string",
+      "description": "Plain-English next step (e.g. 'Call Target A owner about postcard')."
+    },
+    "next_action_due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "When the next action is due."
+    },
+    "assigned_user": {
+      "type": "string",
+      "description": "Email of the team member responsible for this deal."
+    },
+    "linked_crm_deal_id": {
+      "type": "string",
+      "description": "Optional link to a legacy SearchResult-based CRMDeal when a clean relationship exists. Never forced."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form deal-level notes."
+    }
+  },
+  "required": [
+    "scip_record_id"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

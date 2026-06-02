@@ -1,0 +1,96 @@
+{
+  "name": "ScipCRMActivity",
+  "type": "object",
+  "description": "Append-only activity / audit log entry on a SCIP CRM deal: notes, calls, emails, postcards sent, document uploads, stage changes, HawkBot drafted text, and user actions. Never deleted as part of section clear/reset.",
+  "properties": {
+    "scip_crm_deal_id": {
+      "type": "string",
+      "description": "The ScipCRMDeal this activity belongs to."
+    },
+    "scip_record_id": {
+      "type": "string",
+      "description": "The related ScipRecord."
+    },
+    "scip_crm_contact_id": {
+      "type": "string",
+      "description": "Optional related contact."
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "note",
+        "call",
+        "email",
+        "postcard",
+        "document",
+        "stage_change",
+        "hawkbot_draft",
+        "task",
+        "system"
+      ],
+      "default": "note",
+      "description": "Activity type."
+    },
+    "summary": {
+      "type": "string",
+      "description": "What happened / was logged."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "positive",
+        "neutral",
+        "negative",
+        "no_answer"
+      ],
+      "default": "neutral",
+      "description": "Result of the interaction, when applicable."
+    },
+    "actor": {
+      "type": "string",
+      "description": "Email of the user (or 'hawkbot') who performed/logged this."
+    },
+    "meta": {
+      "type": "object",
+      "description": "Optional structured detail (e.g. old/new stage, postcard order id, document id)."
+    }
+  },
+  "required": [
+    "scip_crm_deal_id",
+    "type"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
