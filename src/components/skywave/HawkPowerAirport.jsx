@@ -74,6 +74,7 @@ export default function HawkPowerAirport({ record, onUpdate }) {
             lat={Number(target.latitude ?? record.latitude)}
             lon={Number(target.longitude ?? record.longitude)}
             label={target.label || "Target A"}
+            radiusMiles={Number(record.search_radius) || 1}
           />
         </div>
       )}
