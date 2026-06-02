@@ -16,6 +16,7 @@ import HawkRFCoverage from "../components/skywave/HawkRFCoverage";
 import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
 import HawkViewshed from "../components/skywave/HawkViewshed";
 import PostcardMailerSection from "../components/scip/postcard/PostcardMailerSection";
+import TargetScorecard from "../components/scip/TargetScorecard";
 
 const STATUS = {
   draft: { label: "Draft", bg: SKYWAVE.muted },
@@ -149,6 +150,11 @@ export default function ScipDetail() {
         {/* Step 3 — interactive parcel targeting (not printed) */}
         <div className="mb-5">
           <HawkParcelTargets record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Target Selection Scorecard — display-only "why A/B/C" (not printed; in export) */}
+        <div className="mb-5 no-print">
+          <TargetScorecard record={record} />
         </div>
 
         {/* Send Postcard Mailers — paid Lob postcard add-on for SCIP targets (not printed) */}

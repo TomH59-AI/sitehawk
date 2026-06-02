@@ -7,6 +7,7 @@ import ScipHawkMapsPage from "./ScipHawkMapsPage";
 import ScipPowerAirportPage from "./ScipPowerAirportPage";
 import ScipExistingConditionsPage from "./ScipExistingConditionsPage";
 import ScipViewshedPage from "./ScipViewshedPage";
+import ScipScorecardPage from "./ScipScorecardPage";
 
 function fmtDate(d) {
   try { return format(new Date(d + "T00:00:00"), "MMM d, yyyy"); } catch { return d || ""; }
@@ -192,6 +193,29 @@ export default function ScipPrintDoc({ record }) {
           </div>
 
           <Footer page={3} right={`Hawk Parcel Data · Site: ${r.site_name || ""}`} />
+        </div>
+      )}
+
+      {/* TARGET SELECTION SCORECARD — display-only "why A/B/C" (only when targets exist) */}
+      {Array.isArray(r.parcel_targets) && r.parcel_targets.length > 0 && (
+        <div className="page flex flex-col" style={{ width: "8.5in", minHeight: "11in", padding: "0.4in 0.5in", background: "#fff" }}>
+          <div className="flex items-end justify-between pb-2 mb-4" style={{ borderBottom: `3px solid ${SKYWAVE.blue}` }}>
+            <div className="text-[16pt] font-bold">
+              <span style={{ color: SKYWAVE.navy }}>TARGET SELECTION</span>{" "}
+              <span style={{ color: SKYWAVE.yellow }}>SCORECARD</span>
+            </div>
+            <div className="text-[9pt] text-right" style={{ color: SKYWAVE.muted }}>
+              Why Target A / B / C were chosen
+            </div>
+          </div>
+
+          <ScipScorecardPage record={r} />
+
+          <div className="mt-4 text-[8.5pt]" style={{ color: SKYWAVE.muted }}>
+            Display-only explanation of the target ranking for the carrier, RF and A&amp;E teams — it does not change the selection. Scores labeled <em>estimated</em> are derived transparently from available SCIP fields; "Not scored: data unavailable" marks categories without supporting data. Field verification recommended.
+          </div>
+
+          <Footer page={4} right={`Target Scorecard · Site: ${r.site_name || ""}`} />
         </div>
       )}
 
