@@ -318,7 +318,10 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
 
   const dk = dir.short;
   return new Promise((resolve) => {
-    map.on("load", () => {
+    let settled = false;
+    const buildLayers = () => {
+      if (settled) return;
+      settled = true;
       // Container may have just become visible (North arms the section, which
       // re-renders the parent and can leave this container at 0px on first
       // paint) — force a resize FIRST so the canvas matches the real size and
@@ -352,7 +355,22 @@ export async function renderViewshed(container, lat, lon, dirKey, rangeMiles, di
       }
 
       resolve({ engine, instance: map, destroy: () => { try { map.remove(); } catch { /* noop */ } } });
-    });
+    };
+
+    // Resolve on whichever fires first — some style/GL-context states emit
+    // "idle" but never a clean "load", which previously left the Promise (and
+    // the spinner) hanging forever. Both paths funnel through the guarded
+    // buildLayers() so layers are only built once.
+    map.on("load", buildLayers);
+    map.once("idle", buildLayers);
+    // Last-resort safety net: if neither event fires within 12s, build anyway
+    // so the map paints and the spinner always clears.
+    setTimeout(() => {
+      if (!settled) {
+        console.warn(`${tag} no load/idle within 12s — forcing layer build.`);
+        buildLayers();
+      }
+    }, 12000);
   });
 }
 
