@@ -87,6 +87,7 @@ export default function Section3Targets({
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [noData, setNoData] = useState(false);
+  const [scanStats, setScanStats] = useState(null); // {scanned, required_acres} from scipBestParcels
   // Per-column cascade results + loading flags for the Phone row.
   const [phoneResults, setPhoneResults] = useState([null, null, null]);
   const [phoneLoading, setPhoneLoading] = useState([false, false, false]);
@@ -140,6 +141,10 @@ export default function Section3Targets({
         tower_height_ft: towerHeightFt, compound_side_ft: compoundSideFt,
       });
       const targets = res.data?.targets || [];
+      setScanStats({
+        scanned: res.data?.count_in_ring ?? res.data?.count_scanned ?? 0,
+        required_acres: res.data?.required_acres ?? null,
+      });
 
       const fresh = emptyGrid();
       targets.slice(0, 3).forEach((t, colIdx) => {
@@ -274,8 +279,16 @@ export default function Section3Targets({
       {!loading && done && (
         <>
           {noData && (
-            <div className="px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-300/50 text-sm text-amber-800 dark:text-amber-200 font-medium">
-              No buildable target parcels found — adjust the SARF ring or enter targets manually below.
+            <div className="px-4 py-3 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-300/50 text-sm text-amber-800 dark:text-amber-200 font-medium space-y-1">
+              <p>
+                No buildable target parcels found
+                {scanStats?.scanned ? ` — scanned ${scanStats.scanned} parcel${scanStats.scanned !== 1 ? "s" : ""} in the ring, but none meet the${scanStats.required_acres ? ` ~${scanStats.required_acres} acre` : ""} footprint + fall-zone requirement (the rest are residential or too small).` : "."}
+              </p>
+              <p className="font-normal">
+                {Number(radiusMiles) < 1
+                  ? "Try expanding the ring size to 1 mile to pull in larger rural parcels, lower the tower height/compound size, or enter targets manually below."
+                  : "Try lowering the tower height/compound size, or enter targets manually below."}
+              </p>
             </div>
           )}
           <div className="overflow-x-auto">
