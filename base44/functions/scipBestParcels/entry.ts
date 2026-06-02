@@ -48,6 +48,29 @@ function isResidential(useCode, zoning, landUse) {
   return RESIDENTIAL_TOKENS.some((t) => s.includes(t));
 }
 
+// FEMA high-risk Special Flood Hazard Areas — A/AE/V families are a hard
+// exclusion at scrub time (the parcel can still be flagged if nothing else
+// qualifies, but it never ranks ahead of a dry parcel).
+function isHighRiskFlood(code) {
+  const z = String(code || "").trim().toUpperCase();
+  return /^(A|AE|AH|AO|AR|A99|V|VE)$/.test(z);
+}
+
+// Owner-type posture — commercial/industrial/institutional owners are easier to
+// negotiate a ground lease with than an individual homeowner. Best-effort from
+// the owner name string (LLC / INC / CORP / CHURCH / COUNTY / STATE etc.).
+function ownerTypeScore(owner) {
+  const o = String(owner || "").toLowerCase();
+  if (!o.trim()) return { pts: 0, reason: "Owner unknown" };
+  if (/(county|city of|state of|usa|federal|district|authority|board of|department)/.test(o))
+    return { pts: 10, reason: "Institutional / government owner — favorable" };
+  if (/(church|ministr|temple|synagog|mosque|school|university|college|hospital)/.test(o))
+    return { pts: 8, reason: "Institutional owner — favorable" };
+  if (/(llc|inc\b|corp|company|\bco\b|ltd|lp\b|llp|holdings|properties|partners|enterprises|trust|group)/.test(o))
+    return { pts: 8, reason: "Commercial / entity owner — favorable" };
+  return { pts: 2, reason: "Individual owner" };
+}
+
 // Required compound footprint diameter in feet for the tower + buffers.
 function requiredFootprintFt({ tower_height_ft, compound_side_ft, setback_ft, fall_zone_ft, separation_ft }) {
   const fall = fall_zone_ft > 0 ? fall_zone_ft : tower_height_ft; // default fall zone = full height
@@ -192,6 +215,7 @@ Deno.serve(async (req) => {
       const reasons = [];
       let score = 50;
       let disqualified = false; // residential or physically-too-small = cannot build
+      let floodExcluded = false; // FEMA A/AE/V — excluded unless no alternatives exist
 
       // 0. Data completeness — a parcel we know nothing about can't be a confident pick.
       if (!owner && !acreage && !useCode) {
@@ -229,9 +253,15 @@ Deno.serve(async (req) => {
         reasons.push("Lot size unknown — verify it fits setbacks/fall zone");
       }
 
+      // 4. Owner type (commercial / industrial / institutional preferred).
+      const os = ownerTypeScore(owner);
+      score += os.pts;
+      reasons.push(os.reason);
+
       scored.push({
         raw: p,
         buildable: !disqualified,
+        flood_excluded: floodExcluded, // set later once FEMA resolves
         dist_mi: distMi,
         score: Math.max(0, Math.min(100, Math.round(score))),
         score_reasons: reasons,
@@ -253,12 +283,48 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Buildable parcels ALWAYS rank above disqualified ones (residential / too
-    // small); then prefer parcels with CONFIRMED adequate acreage over those with
-    // unknown size; then by score; then by distance to center (closer = better RF).
+    // HONEST EMPTY-RING DISCIPLINE — if nothing is buildable (all residential /
+    // too small), do NOT pad with ineligible parcels. Return the no-data halt.
+    const buildableSet = scored.filter((s) => s.buildable);
+    if (buildableSet.length === 0) {
+      return Response.json({
+        count_scanned: seen.size,
+        count_in_ring: scored.length,
+        count_buildable: 0,
+        required_footprint_ft: footprintFt,
+        required_acres: Number(needAcres.toFixed(3)),
+        min_buildable_acres: Number(minBuildableAcres.toFixed(3)),
+        targets: [],
+        no_buildable: true,
+        message: "No buildable parcel in ring — all parcels are residential, too small for the compound + fall zone, or otherwise ineligible. Adjust the SARF ring or enter a target manually.",
+      });
+    }
+
+    // FEMA is now an ELIGIBILITY factor, not post-rank decoration. Fetch flood
+    // zone for every buildable parcel (capped at 25 to stay fast) so A/AE/V can
+    // be excluded BEFORE ranking. Flag a flood parcel rather than drop it only
+    // when there is no dry alternative.
+    const floodCandidates = buildableSet.slice(0, 25);
+    const femaForBuildable = await Promise.all(
+      floodCandidates.map((s) => (s.latitude && s.longitude ? femaRisk(s.latitude, s.longitude) : Promise.resolve({ code: "—", level: "unknown" })))
+    );
+    floodCandidates.forEach((s, i) => {
+      s._fema = femaForBuildable[i];
+      if (isHighRiskFlood(femaForBuildable[i].code)) {
+        s.flood_excluded = true;
+        s.score = Math.max(0, s.score - 35);
+        s.score_reasons.push(`FEMA ${femaForBuildable[i].code} high-risk flood zone — excluded unless no dry alternative`);
+      } else if (femaForBuildable[i].code !== "—") {
+        s.score_reasons.push(`FEMA ${femaForBuildable[i].code} (${femaForBuildable[i].level}) flood zone`);
+      }
+    });
+
+    // Rank: dry buildable first, then by confirmed acreage fit, then score, then
+    // distance to center (closer = better RF). Flood-excluded buildable parcels
+    // sink to the bottom but remain selectable when nothing dry qualifies.
     const confirmedFits = (s) => Number(s.acreage) >= needAcres ? 1 : 0;
-    scored.sort((a, b) => {
-      if (a.buildable !== b.buildable) return a.buildable ? -1 : 1;
+    buildableSet.sort((a, b) => {
+      if (!!a.flood_excluded !== !!b.flood_excluded) return a.flood_excluded ? 1 : -1;
       const ca = confirmedFits(a), cb = confirmedFits(b);
       if (ca !== cb) return cb - ca;
       if (b.score !== a.score) return b.score - a.score;
@@ -268,18 +334,18 @@ Deno.serve(async (req) => {
     });
 
     const labels = ["Target A", "Target B", "Target C"];
-    const top = scored.slice(0, 3);
+    const top = buildableSet.slice(0, 3);
     const zoneKey = Deno.env.get("ZONEOMICS_API_KEY");
 
-    // FEMA flood risk + Zoneomics zoning for the chosen 3 only (keeps it fast).
-    const [femaResults, zoneResults] = await Promise.all([
-      Promise.all(top.map((t) => (t.latitude && t.longitude ? femaRisk(t.latitude, t.longitude) : Promise.resolve({ code: "—", level: "unknown" })))),
-      Promise.all(top.map((t) => (t.latitude && t.longitude ? zoneomicsZone(t.latitude, t.longitude, zoneKey) : Promise.resolve(null)))),
-    ]);
+    // Zoneomics canonical zoning for the chosen 3 only (keeps it fast). FEMA was
+    // already resolved above and is carried on each target as _fema.
+    const zoneResults = await Promise.all(
+      top.map((t) => (t.latitude && t.longitude ? zoneomicsZone(t.latitude, t.longitude, zoneKey) : Promise.resolve(null)))
+    );
 
     const targets = top.map((t, i) => {
-      const fema = femaResults[i];
-      const { raw, dist_mi, ...clean } = t;
+      const fema = t._fema || { code: "—", level: "unknown" };
+      const { raw, dist_mi, _fema, ...clean } = t;
       const zone = clean.zoning_classification || zoneResults[i];
       return {
         label: labels[i],
@@ -290,15 +356,21 @@ Deno.serve(async (req) => {
       };
     });
 
-    const buildableCount = scored.filter((s) => s.buildable).length;
+    const buildableCount = buildableSet.length;
+    const dryCount = buildableSet.filter((s) => !s.flood_excluded).length;
 
     return Response.json({
       count_scanned: seen.size,
       count_in_ring: scored.length,
       count_buildable: buildableCount,
+      count_dry_buildable: dryCount,
       required_footprint_ft: footprintFt,
       required_acres: Number(needAcres.toFixed(3)),
       min_buildable_acres: Number(minBuildableAcres.toFixed(3)),
+      // Honest count discipline — if fewer than 3 qualified, the caller gets only
+      // what qualified (B/C may be absent). Never padded with ineligible parcels.
+      returned_count: targets.length,
+      flood_only: dryCount === 0,
       targets,
     });
   } catch (error) {
