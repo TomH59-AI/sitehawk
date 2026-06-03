@@ -11,6 +11,7 @@
 // regenerated. (HawkRFCoverage already keys its enrichment by index directly.)
 
 export const SECTION_KEYS = {
+  parcel_targets: "parcel_targets",
   sarf_map: "sarf_map",
   parcel_boundary: "parcel_boundary",
   zoning: "zoning",
@@ -26,6 +27,35 @@ export const SECTION_KEYS = {
   existing_conditions: "existing_conditions",
   viewshed: "viewshed",
 };
+
+// ───────────────────────────────────────────────────────────────────────────
+// CANONICAL SCIP SECTION ORDER — the single source of truth for how SCIP
+// sections are numbered and displayed. The displayed number is PURELY
+// presentational; every section is still identified internally by its
+// section_key string. Change the order here and the whole UI follows.
+// ───────────────────────────────────────────────────────────────────────────
+export const SCIP_SECTION_ORDER = [
+  { key: "parcel_targets", title: "Hawk Parcel Data" },
+  { key: SECTION_KEYS.hawk_maps, title: "HAWK MAPS" },
+  { key: SECTION_KEYS.viewshed, title: "Viewshed Analysis" },
+  { key: SECTION_KEYS.coverage_viewshed, title: "RF Proximity & Coverage" },
+  { key: SECTION_KEYS.zoning, title: "Hawk Zoning & Permitting" },
+  { key: SECTION_KEYS.power_airport, title: "Power & Airport" },
+  { key: SECTION_KEYS.existing_conditions, title: "Existing Conditions" },
+];
+
+// 1-based display number for a section_key per the canonical order (0 if absent).
+export function sectionNumber(key) {
+  const i = SCIP_SECTION_ORDER.findIndex((s) => s.key === key);
+  return i === -1 ? 0 : i + 1;
+}
+
+// Full "Section N — Title" label for a section_key, derived from the one list.
+export function sectionLabel(key) {
+  const i = SCIP_SECTION_ORDER.findIndex((s) => s.key === key);
+  if (i === -1) return "";
+  return `Section ${i + 1} — ${SCIP_SECTION_ORDER[i].title}`;
+}
 
 // The canonical active target index (0 = Target A).
 export function activeIndex(record) {

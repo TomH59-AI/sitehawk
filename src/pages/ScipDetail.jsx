@@ -154,12 +154,7 @@ export default function ScipDetail() {
           <NotionSyncToggle record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Step 2 — Hawk Zoning & Permitting (not printed) */}
-        <div className="mb-5">
-          <HawkZoningPermitting record={record} onUpdate={setRecord} />
-        </div>
-
-        {/* Step 3 — interactive parcel targeting (not printed) */}
+        {/* Section 1 — interactive parcel targeting (Target A/B/C) (not printed) */}
         <div className="mb-5">
           <HawkParcelTargets record={record} onUpdate={setRecord} />
         </div>
@@ -174,11 +169,6 @@ export default function ScipDetail() {
           <PostcardMailerSection record={record} />
         </div>
 
-        {/* Step 3.5 — HAWK MAPS for Target A (not printed) */}
-        <div className="mb-5">
-          <HawkMaps record={record} onUpdate={setRecord} />
-        </div>
-
         {/* Parcel Boundary Map — interactive Target A boundary + candidate toggles (not printed) */}
         <div className="mb-5 no-print">
           <div className="bg-white rounded-lg border p-5" style={{ borderColor: SKYWAVE.line }}>
@@ -190,24 +180,34 @@ export default function ScipDetail() {
           </div>
         </div>
 
-        {/* Step 3.6 — Power & Airport maps for Target A (not printed) */}
+        {/* Section 2 — HAWK MAPS for Target A (not printed) */}
         <div className="mb-5">
-          <HawkPowerAirport record={record} onUpdate={setRecord} />
+          <HawkMaps record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Step 3.7 — RF Proximity (airport + cell tower) & CloudRF coverage for Target A (not printed) */}
+        {/* Section 3 — Viewshed Analysis for Target A (not printed) */}
+        <div className="mb-5">
+          <HawkViewshed record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Section 4 — RF Proximity (airport + cell tower) & CloudRF coverage for Target A (not printed) */}
         <div className="mb-5">
           <HawkRFCoverage record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Step 4 — Existing Conditions for Target A (not printed) */}
+        {/* Section 5 — Hawk Zoning & Permitting (not printed) */}
         <div className="mb-5">
-          <HawkExistingConditions record={record} onUpdate={setRecord} />
+          <HawkZoningPermitting record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Step 5 — Viewshed Analysis for Target A (not printed) */}
+        {/* Section 6 — Power & Airport maps for Target A (not printed) */}
         <div className="mb-5">
-          <HawkViewshed record={record} onUpdate={setRecord} />
+          <HawkPowerAirport record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Section 7 — Existing Conditions for Target A (not printed) */}
+        <div className="mb-5">
+          <HawkExistingConditions record={record} onUpdate={setRecord} />
         </div>
 
         {/* The printable document (also the on-screen preview) */}

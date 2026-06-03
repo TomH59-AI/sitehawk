@@ -4,7 +4,7 @@ import { scipViewshed } from "@/functions/scipViewshed";
 import { Loader2, Mountain } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
-import { stampPatch, SECTION_KEYS } from "@/lib/scipTarget";
+import { stampPatch, SECTION_KEYS, sectionLabel } from "@/lib/scipTarget";
 import ScipViewshedPage from "./ScipViewshedPage";
 import SectionStaleBanner from "./SectionStaleBanner";
 
@@ -17,7 +17,7 @@ export default function HawkViewshed({ record, onUpdate }) {
 
   async function generate() {
     if (!target) {
-      toast.error("Run Step 3 (Find 3 Best Parcels) first — viewshed is for Target A.");
+      toast.error("Run Section 1 (Find 3 Best Parcels) first — viewshed is for Target A.");
       return;
     }
     setBusy(true);
@@ -46,7 +46,7 @@ export default function HawkViewshed({ record, onUpdate }) {
         <div className="flex items-center gap-2">
           <Mountain className="w-5 h-5" style={{ color: SKYWAVE.blue }} />
           <h3 className="font-bold text-lg" style={{ color: SKYWAVE.navy }}>
-            Step 5 — Viewshed Analysis {target ? `(${target.label})` : ""}
+            {sectionLabel(SECTION_KEYS.viewshed)} {target ? `(${target.label})` : ""}
           </h3>
         </div>
         <button

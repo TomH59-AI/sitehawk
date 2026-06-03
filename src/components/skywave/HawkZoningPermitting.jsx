@@ -6,6 +6,7 @@ import { Loader2, ClipboardList, RefreshCw, DatabaseZap } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
+import { sectionLabel, SECTION_KEYS } from "@/lib/scipTarget";
 import ScipZoningPage from "./ScipZoningPage";
 import TargetSiteIntelPanel from "./TargetSiteIntelPanel";
 
@@ -86,7 +87,7 @@ export default function HawkZoningPermitting({ record, onUpdate }) {
         <div className="flex items-center gap-2">
           <ClipboardList className="w-5 h-5" style={{ color: SKYWAVE.blue }} />
           <h3 className="font-bold text-lg" style={{ color: SKYWAVE.navy }}>
-            Step 2 — Hawk Zoning &amp; Permitting
+            {sectionLabel(SECTION_KEYS.zoning)}
           </h3>
         </div>
         <div className="flex items-center gap-2 flex-wrap">

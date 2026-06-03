@@ -4,6 +4,7 @@ import { scipBestParcels } from "@/functions/scipBestParcels";
 import { Loader2, Crosshair, ChevronRight, Award } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
+import { sectionLabel, SECTION_KEYS } from "@/lib/scipTarget";
 
 const ROWS = [
   ["owner_name", "Owner's Name"],
@@ -76,7 +77,7 @@ export default function HawkParcelTargets({ record, onUpdate }) {
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div className="flex items-center gap-2">
           <Crosshair className="w-5 h-5" style={{ color: SKYWAVE.blue }} />
-          <h3 className="font-bold text-lg" style={{ color: SKYWAVE.navy }}>Step 3 — Hawk Parcel Data</h3>
+          <h3 className="font-bold text-lg" style={{ color: SKYWAVE.navy }}>{sectionLabel(SECTION_KEYS.parcel_targets)}</h3>
         </div>
         <button
           onClick={generate}

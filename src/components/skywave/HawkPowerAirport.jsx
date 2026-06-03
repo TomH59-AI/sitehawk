@@ -4,7 +4,7 @@ import { scipPowerAirportMaps } from "@/functions/scipPowerAirportMaps";
 import { Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
-import { stampPatch, SECTION_KEYS } from "@/lib/scipTarget";
+import { stampPatch, SECTION_KEYS, sectionLabel } from "@/lib/scipTarget";
 import ScipPowerAirportPage from "./ScipPowerAirportPage";
 import SectionStaleBanner from "./SectionStaleBanner";
 import LiveAirportMap from "./LiveAirportMap";
@@ -19,7 +19,7 @@ export default function HawkPowerAirport({ record, onUpdate }) {
 
   async function generate() {
     if (!target) {
-      toast.error("Run Step 3 (Find 3 Best Parcels) first — these maps are for Target A.");
+      toast.error("Run Section 1 (Find 3 Best Parcels) first — these maps are for Target A.");
       return;
     }
     setBusy(true);
@@ -48,7 +48,7 @@ export default function HawkPowerAirport({ record, onUpdate }) {
         <div className="flex items-center gap-2">
           <Zap className="w-5 h-5" style={{ color: SKYWAVE.blue }} />
           <h3 className="font-bold text-lg" style={{ color: SKYWAVE.navy }}>
-            Step 3.6 — Power &amp; Airport {target ? `(${target.label})` : ""}
+            {sectionLabel(SECTION_KEYS.power_airport)} {target ? `(${target.label})` : ""}
           </h3>
         </div>
         <button

@@ -5,6 +5,7 @@ import { cloudRFCoverage } from "@/functions/cloudRFCoverage";
 import { Loader2, RadioTower, AlertTriangle, Signal } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
+import { sectionLabel, SECTION_KEYS } from "@/lib/scipTarget";
 import RFProximityMaps from "@/components/ai-vision/RFProximityMaps";
 
 /**
@@ -117,7 +118,7 @@ export default function HawkRFCoverage({ record, onUpdate }) {
         <div className="flex items-center gap-2">
           <RadioTower className="w-5 h-5" style={{ color: SKYWAVE.blue }} />
           <h3 className="font-bold text-lg" style={{ color: SKYWAVE.navy }}>
-            Step 3.7 — RF Proximity &amp; Coverage {target ? `(${target.label || "Target A"})` : ""}
+            {sectionLabel(SECTION_KEYS.coverage_viewshed)} {target ? `(${target.label || "Target A"})` : ""}
           </h3>
         </div>
         <button
@@ -138,7 +139,7 @@ export default function HawkRFCoverage({ record, onUpdate }) {
       {!target && (
         <div className="flex items-center gap-2 text-sm rounded-lg p-3" style={{ background: "#FEF3C7", color: "#92400E" }}>
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Target A must be selected before maps can be generated. Run Step 3 (Find 3 Best Parcels) first.
+          Target A must be selected before maps can be generated. Run Section 1 (Find 3 Best Parcels) first.
         </div>
       )}
 
