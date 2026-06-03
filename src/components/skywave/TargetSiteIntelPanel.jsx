@@ -3,6 +3,7 @@ import { zoneomicsTargetIntel } from "@/functions/zoneomicsTargetIntel";
 import { ensureMapboxLoaded } from "@/lib/section6Proximity";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { normalizeZoneType } from "@/lib/zoningPalette";
+import Section7Fiber from "./Section7Fiber";
 import { Building2, Hammer, MapPinned, ChevronDown, Loader2, PanelLeftClose, PanelLeftOpen, X, Sparkles, TrendingUp, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const NEON = "#00FFCC";
@@ -435,7 +436,7 @@ export default function TargetSiteIntelPanel({ lat, lon, label }) {
         <div className="flex-1 overflow-y-auto">
           {layer === "flum"
             ? <FlumBody loading={flumLoading} flum={flum} />
-            : <PanelBody loading={loading} intel={intel} />}
+            : <><PanelBody loading={loading} intel={intel} /><Section7Fiber lat={lat} lon={lon} /></>}
         </div>
       </div>
 
@@ -454,7 +455,7 @@ export default function TargetSiteIntelPanel({ lat, lon, label }) {
         <div className="flex-1 overflow-y-auto">
           {layer === "flum"
             ? <FlumBody loading={flumLoading} flum={flum} />
-            : <PanelBody loading={loading} intel={intel} />}
+            : <><PanelBody loading={loading} intel={intel} /><Section7Fiber lat={lat} lon={lon} /></>}
         </div>
       </div>
     </div>
