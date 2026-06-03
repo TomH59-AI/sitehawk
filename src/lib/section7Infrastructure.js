@@ -41,7 +41,7 @@ export async function ensureMapboxLoaded() {
 
 const esc = (v) => (v == null ? "" : String(v));
 
-// Build the GeoJSON sources for power markers, fiber lines + fiber markers.
+// Build the GeoJSON sources for power markers, power lines, fiber lines + fiber markers.
 function buildSources(data) {
   const power = {
     type: "FeatureCollection",
@@ -52,6 +52,15 @@ function buildSources(data) {
         id: p.id, kind: p.kind, voltage: p.voltage || "",
         company: p.utility_company || p.operator || "", phone: p.utility_phone || "",
       },
+    })),
+  };
+  // HIFLD transmission lines — drawn as red power lines.
+  const powerLines = {
+    type: "FeatureCollection",
+    features: (data.power?.lines || []).map((l) => ({
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: l.coords },
+      properties: { id: l.id, voltage: l.voltage || "", company: l.operator || "" },
     })),
   };
   const fiberLines = {
@@ -92,15 +101,23 @@ function buildSources(data) {
         },
       })),
   };
-  return { power, fiberLines, fiberPoints, carriers };
+  return { power, powerLines, fiberLines, fiberPoints, carriers };
 }
 
 // Add all infrastructure layers (idempotent — call after each style load).
 function addInfraLayers(map, sources) {
   map.addSource("s7-power", { type: "geojson", data: sources.power });
+  map.addSource("s7-power-lines", { type: "geojson", data: sources.powerLines });
   map.addSource("s7-fiber-lines", { type: "geojson", data: sources.fiberLines });
   map.addSource("s7-fiber-points", { type: "geojson", data: sources.fiberPoints });
   map.addSource("s7-carriers", { type: "geojson", data: sources.carriers });
+
+  // Power transmission lines — red lines (HIFLD).
+  map.addLayer({
+    id: "s7-power-line", type: "line", source: "s7-power-lines",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": POWER_RED, "line-width": 3, "line-opacity": 0.85 },
+  });
 
   // Fiber runs — orange lines (drawn first, under markers).
   map.addLayer({
@@ -193,7 +210,7 @@ function wirePopups(map) {
   };
   const clear = () => { map.getCanvas().style.cursor = ""; popup.remove(); };
 
-  ["s7-power-pt"].forEach((id) => {
+  ["s7-power-pt", "s7-power-line"].forEach((id) => {
     map.on("mouseenter", id, showPower);
     map.on("click", id, showPower);
     map.on("mouseleave", id, clear);
@@ -268,7 +285,7 @@ export async function renderInfrastructure(container, target, data, token) {
         toggleLayer: (which, visible) => {
           const vis = visible ? "visible" : "none";
           const ids = which === "power"
-            ? ["s7-power-pt"]
+            ? ["s7-power-pt", "s7-power-line"]
             : which === "carriers"
             ? ["s7-carrier-pt", "s7-carrier-label"]
             : ["s7-fiber-line", "s7-fiber-pt"];

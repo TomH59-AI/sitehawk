@@ -57,7 +57,7 @@ export default function Section7Infrastructure({
     // 20s watchdog — never spin forever.
     const watchdog = setTimeout(() => {
       setLoading((cur) => {
-        if (cur) setError("Infrastructure load timed out after 20s — OSM Overpass did not respond.");
+        if (cur) setError("Infrastructure load timed out after 20s — try Regenerate.");
         return false;
       });
     }, 20000);
