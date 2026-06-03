@@ -39,7 +39,7 @@ function renderProximityMap(container, site, dest, line, glyphColor) {
   map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
 
   return new Promise((resolve) => {
-    map.on("load", () => {
+    const draw = () => {
       if (line) {
         map.addSource("rf-line", { type: "geojson", data: { type: "Feature", geometry: line, properties: {} } });
         map.addLayer({ id: "rf-line-casing", type: "line", source: "rf-line", layout: { "line-cap": "round" }, paint: { "line-color": "#fff", "line-width": 5, "line-opacity": 0.85 } });
@@ -63,7 +63,10 @@ function renderProximityMap(container, site, dest, line, glyphColor) {
       map.fitBounds(b, { padding: 70, duration: 0, maxZoom: 13 });
       requestAnimationFrame(() => requestAnimationFrame(() => { try { map.resize(); } catch { /* disposed */ } }));
       resolve(map);
-    });
+    };
+    // `load` may have already fired by the time we attach; guard both cases.
+    if (map.loaded()) draw();
+    else map.on("load", draw);
   });
 }
 
@@ -75,15 +78,25 @@ function MapPanel({ site, dest, line, glyphColor }) {
     (async () => {
       const cfg = await loadPublicConfig();
       if (cancelled || !ref.current) return;
-      window.mapboxgl && (window.mapboxgl.accessToken = cfg.mapboxAccessToken);
       await ensureMapboxLoaded();
-      window.mapboxgl.accessToken = cfg.mapboxAccessToken;
       if (cancelled || !ref.current) return;
+      window.mapboxgl.accessToken = cfg.mapboxAccessToken;
       mapRef.current = await renderProximityMap(ref.current, site, dest, line, glyphColor);
     })();
     return () => { cancelled = true; mapRef.current?.remove?.(); mapRef.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Re-create the map whenever the site/destination/line changes (e.g. a new
+    // analysis at different coordinates) so stale maps are never left behind.
+  }, [site?.lat, site?.lon, dest?.lat, dest?.lon, line, glyphColor]);
+
+  // Resize once the container has real layout dimensions — guards the common
+  // "map mounts at height 0 inside a freshly-revealed block and never tiles" bug.
+  useEffect(() => {
+    if (!ref.current || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => { try { mapRef.current?.resize(); } catch { /* disposed */ } });
+    ro.observe(ref.current);
+    return () => ro.disconnect();
   }, []);
+
   return <div ref={ref} className="w-full bg-[#0C1B2E]" style={{ height: 420 }} />;
 }
 
