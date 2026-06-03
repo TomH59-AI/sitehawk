@@ -901,8 +901,8 @@ Deno.serve(async (req) => {
     if (!targets.length) return Response.json({ error: "targets[] required (1-3 entries)" }, { status: 400 });
     if (!jurisdiction || !state) return Response.json({ error: "jurisdiction and state required" }, { status: 400 });
 
-    const mapboxToken = Deno.env.get("MAPBOX_ACCESS_TOKEN");
-    if (!mapboxToken) return Response.json({ error: "MAPBOX_ACCESS_TOKEN not configured" }, { status: 500 });
+    const mapboxToken = Deno.env.get("MAPBOX_API_KEY");
+    if (!mapboxToken) return Response.json({ error: "MAPBOX_API_KEY not configured" }, { status: 500 });
 
     const fallbacks = [];
     const cacheStats = { hits: 0, misses: 0 };

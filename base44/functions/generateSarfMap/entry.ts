@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const token = Deno.env.get('MAPBOX_ACCESS_TOKEN');
+    const token = Deno.env.get('MAPBOX_API_KEY');
     if (!token) return Response.json({ error: 'Mapbox token not configured' }, { status: 500 });
 
     const { lat, lon, search_radius, site_name } = await req.json();
