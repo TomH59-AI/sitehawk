@@ -98,10 +98,13 @@ export default function AIVisionAnalyzer() {
         heights_ft: [parsedHeight],
         force_refresh: true,
       });
+      // Defensively unwrap the RF payload — the analytical fields may sit at the
+      // top level or be nested under data/analysis depending on the response shape.
+      const rawPayload = res.data || {};
+      const nestedData = rawPayload.data || rawPayload.analysis || rawPayload;
       // A 404 (no cell tower) still carries usable airport data — treat as success.
-      const data = res.data || {};
-      if (data.error && !data.airport && !data.tower) throw new Error(data.error);
-      setRfResult(data);
+      if (nestedData.error && !nestedData.airport && !nestedData.tower) throw new Error(nestedData.error);
+      setRfResult({ ...nestedData, airport: nestedData.airport || null, tower: nestedData.tower || null });
     } catch (err) {
       setRfError(err.message || "RF analysis failed.");
     } finally {
