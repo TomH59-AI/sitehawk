@@ -40,6 +40,7 @@ function milesFeetLabel(mi) {
 export default function LiveAirportMap({ lat, lon, label, radiusMiles = 1 }) {
   const ref = useRef(null);
   const mapRef = useRef(null);
+  const roRef = useRef(null);
   const [nearest, setNearest] = useState(null); // { name, dist }
 
   useEffect(() => {
@@ -66,6 +67,13 @@ export default function LiveAirportMap({ lat, lon, label, radiusMiles = 1 }) {
       mapRef.current = map;
       map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
       map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
+
+      // Fix black-canvas: resize whenever the container gains/changes size
+      // (it can mount inside a collapsed/zero-height section).
+      if (typeof ResizeObserver !== "undefined" && ref.current) {
+        roRef.current = new ResizeObserver(() => { try { map.resize(); } catch { /* disposed */ } });
+        roRef.current.observe(ref.current);
+      }
 
       map.on("load", () => {
         // 1 + 2 + 3 — live FAA GeoJSON source with clustering
@@ -210,7 +218,7 @@ export default function LiveAirportMap({ lat, lon, label, radiusMiles = 1 }) {
         requestAnimationFrame(() => requestAnimationFrame(() => { try { map.resize(); } catch { /* disposed */ } }));
       });
     })();
-    return () => { cancelled = true; mapRef.current?.remove?.(); mapRef.current = null; };
+    return () => { cancelled = true; roRef.current?.disconnect?.(); roRef.current = null; mapRef.current?.remove?.(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lon, radiusMiles]);
 
