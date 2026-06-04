@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { parcelFullLookup } from "@/functions/parcelFullLookup";
-import { ensureMapboxLoaded } from "@/lib/section6Proximity";
+import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { getTargetGeometry, extendBoundsWithGeometry } from "@/lib/parcelGeometry";
 import { Loader2, Crosshair, MapPin, AlertTriangle } from "lucide-react";

@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Lock, Compass } from "lucide-react";
 import { toast } from "sonner";
 import ProximitySubStep from "./section6/ProximitySubStep";
+import StaticImageSanityCheck from "./section6/StaticImageSanityCheck";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
@@ -221,6 +222,7 @@ export default function Section6Proximity({
       )}
 
       <div className="p-4 space-y-4">
+        <StaticImageSanityCheck />
         <ProximitySubStep
           index={1} title="Closest Airport Map" runLabel="Run Closest Airport Map"
           spinnerLabel="Finding nearest airport to Target A…"
