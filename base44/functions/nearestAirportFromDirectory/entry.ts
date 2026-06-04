@@ -31,15 +31,19 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'lat and lon required' }, { status: 400 });
     }
 
+    // Exclude heliports and closed strips — only real fixed-wing airports.
+    const EXCLUDED_TYPES = new Set(['heliport', 'closed', 'balloonport', 'seaplane_base']);
+
     // Expanding bbox search: start at ~0.3deg (~20mi), grow until we get hits.
     const deltas = [0.3, 0.6, 1.2, 2.5, 5.0];
     let candidates = [];
     for (const d of deltas) {
-      candidates = await base44.asServiceRole.entities.Airport.filter({
+      const raw = await base44.asServiceRole.entities.Airport.filter({
         latitude_deg: { $gte: cLat - d, $lte: cLat + d },
         longitude_deg: { $gte: cLon - d, $lte: cLon + d },
       }, null, 2000);
-      if (candidates && candidates.length > 0) break;
+      candidates = (raw || []).filter((a) => !EXCLUDED_TYPES.has(String(a.airport_type || '').toLowerCase()));
+      if (candidates.length > 0) break;
     }
 
     if (!candidates || candidates.length === 0) {

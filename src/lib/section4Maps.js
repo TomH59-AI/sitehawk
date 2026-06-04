@@ -462,6 +462,48 @@ export async function renderWetlands(container, target, token) {
   });
 }
 
+// ────────────── 7. NEAREST AIRPORT ──────────────
+// Satellite map showing Target A (tower icon) and the nearest fixed-wing airport,
+// with a connecting line + distance label. `airport` is the match returned by
+// nearestAirportFromDirectory: { name, callnumber, type, latitude, longitude,
+// distance_miles }.
+export async function renderAirport(container, target, airport, token) {
+  const { latitude: lat, longitude: lon, owner } = target;
+  const aLat = Number(airport.latitude);
+  const aLon = Number(airport.longitude);
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 12);
+  map.on("error", (e) => console.error("[AIRPORT MAP DIAG] Mapbox error event:", e?.error || e));
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      // Connecting line Target A → airport.
+      map.addSource("s4-air-line", {
+        type: "geojson",
+        data: { type: "Feature", geometry: { type: "LineString", coordinates: [[lon, lat], [aLon, aLat]] }, properties: {} },
+      });
+      map.addLayer({ id: "s4-air-line-layer", type: "line", source: "s4-air-line", paint: { "line-color": "#facc15", "line-width": 2.5, "line-dasharray": [2, 1.5] } });
+
+      // Airport marker (plane pin).
+      const ael = document.createElement("div");
+      ael.style.cssText = "width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.92);border:2px solid #facc15;border-radius:50%;box-shadow:0 0 12px rgba(250,204,21,0.7);";
+      ael.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>';
+      new window.mapboxgl.Marker({ element: ael, anchor: "center" })
+        .setLngLat([aLon, aLat])
+        .setPopup(new window.mapboxgl.Popup({ offset: 18 }).setHTML(
+          `<div style="font-family:monospace;font-size:11px;"><strong>${airport.name || airport.callnumber || "Airport"}</strong><br/>${airport.callnumber || ""}${airport.type ? ` · ${String(airport.type).replace(/_/g, " ")}` : ""}<br/>${Number(airport.distance_miles).toFixed(2)} mi from Target A</div>`
+        ))
+        .addTo(map);
+
+      addTowerMarker(map, lat, lon, owner);
+
+      // Fit both points.
+      const b = new window.mapboxgl.LngLatBounds([lon, lat], [lon, lat]);
+      b.extend([aLon, aLat]);
+      map.fitBounds(b, { padding: 80, duration: 0, maxZoom: 13 });
+      resolve(map);
+    });
+  });
+}
+
 // ── Parcel popup Zoneomics zoning lookup (session cache + 300ms debounce) ──
 // Keyed by parcel ID for the whole session so repeated hovers don't re-query.
 const parcelZoneCache = new Map();

@@ -51,16 +51,17 @@ import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
+import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlum, renderWetlands, renderParcel, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderParcel, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "parcel"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "parcel"];
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData, onClear,
@@ -71,6 +72,7 @@ export default function Section4MapSuite({
   const [floodZone, setFloodZone] = useState(null);
   const [zoneInfo, setZoneInfo] = useState(null);
   const [flumInfo, setFlumInfo] = useState(null);
+  const [airportInfo, setAirportInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -87,7 +89,7 @@ export default function Section4MapSuite({
 
   const refs = {
     aerial: useRef(null), topo: useRef(null), fema: useRef(null),
-    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), parcel: useRef(null),
+    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), parcel: useRef(null),
   };
   const maps = useRef({});
 
@@ -228,6 +230,13 @@ export default function Section4MapSuite({
         map = await renderFlum(refs.flum.current, targetA, token, cfg.zoneomicsApiKey, flumLabel);
       } else if (step === "wetlands") {
         map = await renderWetlands(refs.wetlands.current, targetA, token);
+      } else if (step === "airport") {
+        const ares = await nearestAirportFromDirectory({ lat: targetA.latitude, lon: targetA.longitude });
+        const airport = ares.data?.match;
+        if (!airport) throw new Error("No airport found near Target A.");
+        setAirportInfo(airport);
+        onData?.({ airport: { name: airport.name || airport.callnumber || null, distance_miles: Number(airport.distance_miles), type: airport.type || null } });
+        map = await renderAirport(refs.airport.current, targetA, airport, token);
       } else if (step === "parcel") {
         // Pull every parcel inside the user-selected SARF ring (centered on the
         // SARF center, not Target A) so we can draw all boundaries in the ring.
@@ -318,6 +327,13 @@ export default function Section4MapSuite({
       </div>
     ) : null,
     wetlands: null,
+    airport: airportInfo ? (
+      <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/20 border-y border-amber-300/50 text-sm font-semibold text-amber-800 dark:text-amber-200">
+        Nearest airport to Target A: <span className="font-mono">{airportInfo.name || airportInfo.callnumber}</span>
+        {airportInfo.type ? <span className="font-normal opacity-80"> · {String(airportInfo.type).replace(/_/g, " ")}</span> : null}
+        {" "}— <span className="font-mono">{Number(airportInfo.distance_miles).toFixed(2)} mi</span>
+      </div>
+    ) : null,
     parcel: null,
   };
 
@@ -341,7 +357,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate seven Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Parcel.
+          Generate eight Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Parcel.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -401,7 +417,14 @@ export default function Section4MapSuite({
           onRun={() => runStep("wetlands")} mapRef={refs.wetlands} banner={banners.wetlands}
         />
         <MapSubStep
-          index={7} title="Parcel Map" runLabel="Run Parcel Map"
+          index={7} title="Nearest Airport Map" runLabel="Run Nearest Airport Map"
+          spinnerLabel="Finding nearest airport to Target A…"
+          unlocked={active && isUnlocked("airport")}
+          loading={loadingStep === "airport"} done={!!completed.airport}
+          onRun={() => runStep("airport")} mapRef={refs.airport} banner={banners.airport}
+        />
+        <MapSubStep
+          index={8} title="Parcel Map" runLabel="Run Parcel Map"
           spinnerLabel="Generating Target A parcel map…"
           unlocked={active && isUnlocked("parcel")}
           loading={loadingStep === "parcel"} done={!!completed.parcel}

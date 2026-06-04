@@ -23,14 +23,13 @@ import ProximitySubStep from "./section6/ProximitySubStep";
 import StaticImageSanityCheck from "./section6/StaticImageSanityCheck";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
-import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import {
-  buildAirportMap, buildCellTowerMap, buildWindMap, BRAND_GREEN,
+  buildCellTowerMap, buildWindMap, BRAND_GREEN,
 } from "@/lib/section6Proximity";
 
-const STEPS = ["airport", "celltower", "wind"];
+const STEPS = ["celltower", "wind"];
 
 export default function Section6Proximity({
   unlocked, active, targetA, onRun, onComplete, onData, onClear,
@@ -86,29 +85,7 @@ export default function Section6Proximity({
         clearTimeout(watchdog); setLoadingStep(null); return;
       }
 
-      if (step === "airport") {
-        const res = await nearestAirportFromDirectory({ lat, lon });
-        const airport = res.data?.match;
-        console.log(`${tag} nearestAirportFromDirectory →`, airport ? `${airport.callnumber} ${airport.distance_miles}mi (${res.data?.candidates_scanned} scanned)` : "no match");
-        if (!airport) throw new Error("No airport found near Target A.");
-        const { url } = buildAirportMap(targetA, airport, token);
-        setImgByStep((p) => ({ ...p, airport: url }));
-        // Emit airport factor to the bus.
-        onData?.({ airport: { name: airport.name || airport.callnumber || null, distance_miles: Number(airport.distance_miles), type: airport.type || null } });
-        setInfoByStep((p) => ({
-          ...p,
-          airport: {
-            kicker: "NEAREST AIRPORT",
-            title: airport.callnumber || airport.name || "Airport",
-            distMi: Number(airport.distance_miles),
-            rows: [
-              { label: "Name", value: airport.name },
-              { label: "Type", value: airport.type ? String(airport.type).replace(/_/g, " ") : null },
-              { label: "Coords", value: `${Number(airport.latitude).toFixed(5)}, ${Number(airport.longitude).toFixed(5)}` },
-            ],
-          },
-        }));
-      } else if (step === "celltower") {
+      if (step === "celltower") {
         const res = await cellTowerLookup({ lat, lon, radius_miles: 10 });
         const tower = res.data?.nearest_tower;
         console.log(`${tag} cellTowerLookup →`, tower ? `${tower.licensee || "?"} ASR#${tower.tower_registration_number || "—"} ${tower.distance_miles}mi src=${tower.source || "FCC"}` : "no tower");
@@ -155,9 +132,9 @@ export default function Section6Proximity({
     }
   }, [targetA]);
 
-  // The Airport button also arms the section (pipelineStep → "proximity").
+  // The Cell Tower button also arms the section (pipelineStep → "proximity").
   const beginAndRun = (step) => {
-    if (!active && step === "airport") onRun?.();
+    if (!active && step === "celltower") onRun?.();
     runStep(step);
   };
 
@@ -206,7 +183,7 @@ export default function Section6Proximity({
             <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 6 · PROXIMITY & ENVIRONMENT</div>
             <h2 className="font-heading font-bold text-lg leading-tight">HAWK PROXIMITY &amp; ENVIRONMENT VISION — TARGET A</h2>
             <div className="text-[11px] font-mono opacity-90 mt-0.5">
-              Nearest airport · nearest tower · wind exposure{ownerLabel ? ` · ${ownerLabel}` : ""}
+              Nearest tower · wind exposure{ownerLabel ? ` · ${ownerLabel}` : ""}
             </div>
           </div>
         </div>
@@ -216,33 +193,24 @@ export default function Section6Proximity({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate three Target A maps one at a time — Closest Airport, Closest Cell Tower, Wind Speed.
-          Click <span className="font-semibold text-foreground">Run Closest Airport Map</span> below to begin.
+          Generate two Target A maps one at a time — Closest Cell Tower, Wind Speed.
+          Click <span className="font-semibold text-foreground">Run Closest Cell Tower Map</span> below to begin.
         </div>
       )}
 
       <div className="p-4 space-y-4">
         <StaticImageSanityCheck />
         <ProximitySubStep
-          index={1} title="Closest Airport Map" runLabel="Run Closest Airport Map"
-          spinnerLabel="Finding nearest airport to Target A…"
-          legend="Target A → Nearest Airport"
-          unlocked={isUnlocked("airport")}
-          loading={loadingStep === "airport"} done={!!completed.airport}
-          error={errors.airport} info={infoByStep.airport}
-          onRun={() => beginAndRun("airport")} imgUrl={imgByStep.airport}
-        />
-        <ProximitySubStep
-          index={2} title="Closest Cell Tower Map" runLabel="Run Closest Cell Tower Map"
+          index={1} title="Closest Cell Tower Map" runLabel="Run Closest Cell Tower Map"
           spinnerLabel="Finding nearest existing tower to Target A…"
           legend="Target A → Nearest Existing Tower"
-          unlocked={active && isUnlocked("celltower")}
+          unlocked={isUnlocked("celltower")}
           loading={loadingStep === "celltower"} done={!!completed.celltower}
           error={errors.celltower} info={infoByStep.celltower}
-          onRun={() => runStep("celltower")} imgUrl={imgByStep.celltower}
+          onRun={() => beginAndRun("celltower")} imgUrl={imgByStep.celltower}
         />
         <ProximitySubStep
-          index={3} title="Wind Speed Map" runLabel="Run Wind Speed Map"
+          index={2} title="Wind Speed Map" runLabel="Run Wind Speed Map"
           spinnerLabel="Generating Target A wind speed map…"
           legend="ASCE 7-22 Wind Speed Zones"
           unlocked={active && isUnlocked("wind")}
