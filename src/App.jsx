@@ -53,8 +53,6 @@ import MailOrders from './pages/MailOrders';
 import CRM from './pages/CRM';
 import RefundPolicy from './pages/RefundPolicy';
 import ParcelScout from './pages/ParcelScout';
-import AIVisionAnalyzer from './pages/AIVisionAnalyzer';
-import MarketAnalytics from './pages/MarketAnalytics';
 import MailAnalytics from './pages/MailAnalytics';
 import TowerPlacement from './pages/TowerPlacement';
 import SCIPPreview from './pages/SCIPPreview';
@@ -63,8 +61,6 @@ import PowerLinesDashboard from './pages/PowerLinesDashboard';
 import HawkFrequency from './pages/HawkFrequency';
 import Infrastructure from './pages/Infrastructure';
 import CoverageAnalysis from './pages/CoverageAnalysis';
-import SiteEvaluate from './pages/SiteEvaluate';
-import SARFMap from './pages/SARFMap';
 import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
 import HawkScip from './pages/HawkScip';
@@ -130,8 +126,6 @@ const AuthenticatedApp = () => {
         <Route path="/subscriber-crm" element={<SubscriberCRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/parcel-scout" element={<ParcelScout />} />
-        <Route path="/ai-vision" element={<AIVisionAnalyzer />} />
-        <Route path="/market-analytics" element={<MarketAnalytics />} />
         <Route path="/mail-analytics" element={<MailAnalytics />} />
         <Route path="/tower-placement" element={<TowerPlacement />} />
         <Route path="/scip" element={<SCIPPreview />} />
@@ -139,8 +133,6 @@ const AuthenticatedApp = () => {
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
         <Route path="/infrastructure" element={<Infrastructure />} />
         <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
-        <Route path="/dashboard/evaluate" element={<SiteEvaluate />} />
-        <Route path="/sarf-map" element={<SARFMap />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         <Route path="/scip/:id/hawk" element={<HawkScip />} />

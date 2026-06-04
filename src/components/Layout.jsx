@@ -4,7 +4,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, Eye, TrendingUp, BarChart2, Compass, Network, Plane, Map, Scale, ScanLine, Shield, Users } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, BarChart2, Compass, Network, Scale, ScanLine, Shield, Users } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import { useState, useEffect } from "react";
@@ -21,10 +21,6 @@ const BASE_NAV = [
   { path: "/parcel-scout", icon: ScanSearch, label: "Parcel Scout" },
   { path: "/tower-placement", icon: Compass, label: "Tower Placement" },
   { path: "/infrastructure", icon: Network, label: "Infrastructure" },
-  { path: "/ai-vision", icon: Eye, label: "AI Vision" },
-  { path: "/market-analytics", icon: TrendingUp, label: "Market Analytics" },
-  { path: "/dashboard/evaluate", icon: Plane, label: "Aviation & Land Intel" },
-  { path: "/sarf-map", icon: Map, label: "SARF Map" },
   { path: "/hawklaw", icon: Scale, label: "HawkLaw" },
   { path: "/hawk-compliance", icon: Shield, label: "Hawk Compliance" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
