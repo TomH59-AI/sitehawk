@@ -1,0 +1,99 @@
+{
+  "name": "CellularSite",
+  "type": "object",
+  "description": "Cleaned US cellular sites directory (SkyWave/SWCellID-derived). Each row is an existing cell site with ASR number, coordinates, market/cluster, and E911 address used for nearest-tower and coverage analysis.",
+  "properties": {
+    "asr_number": {
+      "type": "number",
+      "description": "ASR (Antenna Structure Registration) number / row index."
+    },
+    "site_num": {
+      "type": "number",
+      "description": "Internal site number."
+    },
+    "site_name": {
+      "type": "string",
+      "description": "Site name."
+    },
+    "reg": {
+      "type": "string",
+      "description": "Region code (e.g. SW)."
+    },
+    "cluster": {
+      "type": "string",
+      "description": "Cluster (e.g. OKLAHOMA)."
+    },
+    "market": {
+      "type": "string",
+      "description": "Market name (e.g. TULSA MSA)."
+    },
+    "mkt_num": {
+      "type": "number",
+      "description": "Market number."
+    },
+    "status": {
+      "type": "string",
+      "description": "Status code (St.), e.g. A = active."
+    },
+    "in_service": {
+      "type": "string",
+      "description": "In-service date."
+    },
+    "type": {
+      "type": "string",
+      "description": "Site type (e.g. CE, NSP)."
+    },
+    "etc_area": {
+      "type": "string",
+      "description": "ETC Area flag (Yes/No)."
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Site latitude in decimal degrees."
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Site longitude in decimal degrees."
+    },
+    "sw_cell_id": {
+      "type": "number",
+      "description": "SkyWave cell ID (SWCellID)."
+    },
+    "site_address": {
+      "type": "string",
+      "description": "Site street address."
+    },
+    "city": {
+      "type": "string",
+      "description": "City."
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter state code."
+    },
+    "county": {
+      "type": "string",
+      "description": "County."
+    },
+    "zip": {
+      "type": "string",
+      "description": "ZIP code."
+    },
+    "e911_address": {
+      "type": "string",
+      "description": "E911 address."
+    },
+    "e911_city": {
+      "type": "string",
+      "description": "E911 city."
+    },
+    "e911_county": {
+      "type": "string",
+      "description": "E911 county."
+    }
+  },
+  "required": [
+    "latitude",
+    "longitude"
+  ]
+}
