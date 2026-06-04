@@ -99,7 +99,21 @@ export default function Section6Proximity({
       // Dispose any prior instance for this step before re-rendering.
       maps.current[step]?.remove?.();
       maps.current[step] = null;
-      await new Promise((r) => requestAnimationFrame(r));
+
+      // The map panel is display:none until `loading` flips true. Wait until React
+      // has committed that change AND the browser has laid out the 540px container
+      // before creating the map — otherwise Mapbox initializes at 0×0 and paints a
+      // blank (black) canvas that never recovers. Poll the ref for real height.
+      const waitForContainer = async () => {
+        for (let i = 0; i < 30; i++) {
+          await new Promise((r) => requestAnimationFrame(r));
+          const el = refs[step].current;
+          if (el && el.offsetHeight > 0 && el.offsetWidth > 0) return true;
+        }
+        return false;
+      };
+      const sized = await waitForContainer();
+      if (!sized) throw new Error("Map container failed to size — try Regenerate.");
 
       let map;
       if (step === "airport") {

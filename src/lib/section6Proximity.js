@@ -164,6 +164,7 @@ export function renderAirport(container, target, airport, token) {
   const map = makeMap(container, [lon, lat], token, 11);
   return new Promise((resolve) => {
     map.on("load", () => {
+      map.resize();
       addRangeRings(map, lat, lon);
       addCrowLine(map, lat, lon, aLat, aLon, milesFeetLabel(distMi));
       const callLetters = airport.callnumber || "—";
@@ -191,6 +192,7 @@ export function renderCellTower(container, target, tower, token) {
   const map = makeMap(container, [lon, lat], token, 12);
   return new Promise((resolve) => {
     map.on("load", () => {
+      map.resize();
       addRangeRings(map, lat, lon);
       addCrowLine(map, lat, lon, tLat, tLon, milesFeetLabel(distMi));
       const asrn = tower.tower_registration_number
@@ -222,6 +224,7 @@ export function renderWind(container, target, token) {
   const map = makeMap(container, [lon, lat], token, 9);
   return new Promise((resolve) => {
     map.on("load", () => {
+      map.resize();
       const tileUrl =
         `${ASCE_EXPORT}?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857` +
         `&size=512,512&dpi=96&format=png32&transparent=true&layers=show:5&f=image`;
