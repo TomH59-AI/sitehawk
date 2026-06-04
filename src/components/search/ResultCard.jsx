@@ -3,7 +3,6 @@ import SkipTraceButton from "./SkipTraceButton";
 import SendPropositionButton from "./SendPropositionButton";
 import { Badge } from "@/components/ui/badge";
 import CRMPanel from "@/components/crm/CRMPanel";
-import TowerPlacementButton from "@/components/tower/TowerPlacementButton";
 import UtilityRow from "./UtilityRow";
 
 function getScoreColor(score) {
@@ -178,7 +177,6 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
       )}
 
       <div className="mt-3 flex justify-end gap-2 flex-wrap">
-        <TowerPlacementButton parcel={result} />
         <SkipTraceButton
           candidate={result}
           searchId={searchId}

@@ -53,7 +53,6 @@ import MailOrders from './pages/MailOrders';
 import CRM from './pages/CRM';
 import RefundPolicy from './pages/RefundPolicy';
 import MailAnalytics from './pages/MailAnalytics';
-import TowerPlacement from './pages/TowerPlacement';
 import SCIPPreview from './pages/SCIPPreview';
 import SCIPShareView from './pages/SCIPShareView';
 import PowerLinesDashboard from './pages/PowerLinesDashboard';
@@ -125,7 +124,6 @@ const AuthenticatedApp = () => {
         <Route path="/subscriber-crm" element={<SubscriberCRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/mail-analytics" element={<MailAnalytics />} />
-        <Route path="/tower-placement" element={<TowerPlacement />} />
         <Route path="/scip" element={<SCIPPreview />} />
         <Route path="/power-lines" element={<PowerLinesDashboard />} />
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
