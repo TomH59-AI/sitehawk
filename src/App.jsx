@@ -61,7 +61,6 @@ import CoverageAnalysis from './pages/CoverageAnalysis';
 import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
 import HawkScip from './pages/HawkScip';
-import HawkLaw from './pages/HawkLaw';
 import HawkDocs from './pages/HawkDocs';
 import HawkCompliance from './pages/HawkCompliance';
 import HawkDocShareView from './pages/HawkDocShareView';
@@ -130,7 +129,6 @@ const AuthenticatedApp = () => {
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
-        <Route path="/hawklaw" element={<HawkLaw />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
         <Route path="/hawk-compliance" element={<HawkCompliance />} />
         <Route path="/hawk-compliance/:siteId" element={<HawkCompliance />} />
