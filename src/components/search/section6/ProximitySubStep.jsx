@@ -81,8 +81,8 @@ export default function ProximitySubStep({
         </div>
       )}
 
-      {/* Map canvas stays mounted once generated so the map persists. */}
-      <div style={{ display: done && !loading ? "block" : "none" }}>
+      {/* Map canvas is visible while loading so Mapbox can measure it before paint. */}
+      <div style={{ display: (loading || done) ? "block" : "none" }}>
         {banner}
         <div className="relative w-full bg-[#0C1B2E]" style={{ height: 540 }}>
           <div ref={mapRef} className="absolute inset-0" />

@@ -43,7 +43,7 @@ export default function SiteSearch() {
   const [zoningReady, setZoningReady] = useState(false);
   // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
   const [targetA, setTargetA] = useState(null);
-  // True once all six Section 4 maps are complete — unlocks Section 6 (viewsheds removed).
+  // True once all seven Section 4 maps are complete — unlocks Section 6 (viewsheds removed).
   const [mapsComplete, setMapsComplete] = useState(false);
   // True once all three Section 6 proximity maps are complete — unlocks Section 7.
   const [proximityComplete, setProximityComplete] = useState(false);
@@ -425,7 +425,7 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* SECTION 6 — HAWK PROXIMITY & ENVIRONMENT VISION. Locked until all six
+      {/* SECTION 6 — HAWK PROXIMITY & ENVIRONMENT VISION. Locked until all seven
           Section 4 maps are complete (viewsheds removed). Three maps (airport →
           cell tower → wind), each fired one-at-a-time by its own button. Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (

@@ -2,9 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { generateSarfMap } from "@/functions/generateSarfMap";
-import { Printer, Download, RefreshCw, Copy, Pencil, Loader2, ArrowLeft, FileText } from "lucide-react";
+import { Printer, Download, RefreshCw, Copy, Loader2, ArrowLeft, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
 import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
 import HawkZoningPermitting from "../components/skywave/HawkZoningPermitting";
@@ -14,7 +13,6 @@ import HawkParcelBoundaryMap from "../components/skywave/HawkParcelBoundaryMap";
 import HawkPowerAirport from "../components/skywave/HawkPowerAirport";
 import HawkRFCoverage from "../components/skywave/HawkRFCoverage";
 import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
-import HawkViewshed from "../components/skywave/HawkViewshed";
 import PostcardMailerSection from "../components/scip/postcard/PostcardMailerSection";
 import TargetScorecard from "../components/scip/TargetScorecard";
 import NotionSyncToggle from "../components/scip/NotionSyncToggle";
@@ -185,27 +183,22 @@ export default function ScipDetail() {
           <HawkMaps record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Section 3 — Viewshed Analysis for Target A (not printed) */}
-        <div className="mb-5">
-          <HawkViewshed record={record} onUpdate={setRecord} />
-        </div>
-
-        {/* Section 4 — RF Proximity (airport + cell tower) & CloudRF coverage for Target A (not printed) */}
+        {/* Section 3 — RF Proximity (airport + cell tower) & CloudRF coverage for Target A (not printed) */}
         <div className="mb-5">
           <HawkRFCoverage record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Section 5 — Hawk Zoning & Permitting (not printed) */}
+        {/* Section 4 — Hawk Zoning & Permitting (not printed) */}
         <div className="mb-5">
           <HawkZoningPermitting record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Section 6 — Power & Airport maps for Target A (not printed) */}
+        {/* Section 5 — Power & Airport maps for Target A (not printed) */}
         <div className="mb-5">
           <HawkPowerAirport record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Section 7 — Existing Conditions for Target A (not printed) */}
+        {/* Section 6 — Existing Conditions for Target A (not printed) */}
         <div className="mb-5">
           <HawkExistingConditions record={record} onUpdate={setRecord} />
         </div>

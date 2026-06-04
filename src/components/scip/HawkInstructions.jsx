@@ -16,7 +16,6 @@
  *   7  Tower Specifics   → "Generate tower specs"
  *   8  Building Permits  → "Generate permits"
  *   9  Infrastructure Map→ "Generate power + fiber overlays"
- *   10 Viewsheds         → "Generate N/E/S/W viewsheds"
  */
 
 import { useEffect, useLayoutEffect, useState, useCallback } from "react";
@@ -34,7 +33,6 @@ const STEPS = [
   { step: 7,  title: "Generate tower specifics", body: "Click GENERATE TOWER SPECIFICS — height limits, setbacks, fall zone, stealth requirements." },
   { step: 8,  title: "Generate building permits",body: "Click GENERATE PERMITS to extract permitting workflow, fees, and approval path." },
   { step: 9,  title: "Generate infrastructure",  body: "Click GENERATE INFRASTRUCTURE OVERLAYS — power (red) and fiber (orange) within 1 mile of Target A." },
-  { step: 10, title: "Generate viewsheds",       body: "Click GENERATE on each N / E / S / W tile to capture conical tree-line viewsheds." },
 ];
 
 function getAnchorRect(step) {

@@ -270,7 +270,7 @@ export default function Section3Targets({
       {/* Idle — armed, waiting for the Run click */}
       {!loading && !done && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Scan every parcel in the SARF ring, apply your Section 2 zoning rules, and pick the three best tower targets.
+          Scan every parcel in the SARF ring, apply your Section 2 zoning, CUP/special-exception, and PE-letter checks, then pick the three best tower targets.
           Click <span className="font-semibold text-foreground">Run Targets</span> to begin.
         </div>
       )}

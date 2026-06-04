@@ -5,7 +5,7 @@
 // re-choose a target — they all read Target A from here.
 //
 // Each flat-field section (hawk_maps, power_airport_maps, existing_conditions,
-// viewshed, etc.) is stamped with the active_target_index it was generated for,
+// etc.) is stamped with the active_target_index it was generated for,
 // stored on record.section_target_index[section_key]. When active_target_index
 // changes, any section whose stamp no longer matches is "stale" and should be
 // regenerated. (HawkRFCoverage already keys its enrichment by index directly.)
@@ -25,6 +25,7 @@ export const SECTION_KEYS = {
   hawk_maps: "hawk_maps",
   power_airport: "power_airport",
   existing_conditions: "existing_conditions",
+  // Legacy data key retained so old records can still be read without breaking.
   viewshed: "viewshed",
 };
 
@@ -37,7 +38,6 @@ export const SECTION_KEYS = {
 export const SCIP_SECTION_ORDER = [
   { key: "parcel_targets", title: "Hawk Parcel Data" },
   { key: SECTION_KEYS.hawk_maps, title: "HAWK MAPS" },
-  { key: SECTION_KEYS.viewshed, title: "Viewshed Analysis" },
   { key: SECTION_KEYS.coverage_viewshed, title: "RF Proximity & Coverage" },
   { key: SECTION_KEYS.zoning, title: "Hawk Zoning & Permitting" },
   { key: SECTION_KEYS.power_airport, title: "Power & Airport" },

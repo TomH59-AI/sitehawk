@@ -1,6 +1,6 @@
 /**
  * ProximityInfoPanel — glass-morphism overlay summarizing the proximity result
- * (airport or cell tower) for a Section 6 map. Mirrors the Section 5 stats card
+ * (airport or cell tower) for a Section 6 map. Mirrors the map-suite stats card
  * style: dark glass, brand-green accent, monospace metrics.
  *
  * `rows` = [{ label, value }]; `title` = destination headline; `distMi` is shown
