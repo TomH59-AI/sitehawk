@@ -33,6 +33,40 @@ function lineCoords(geometry) {
   return [];
 }
 
+// Haversine distance in miles between two [lat,lon] points.
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.7613;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Clip a line's vertex list to only the contiguous runs whose vertices fall
+// within keepMi of the center. A single HIFLD line can span 80+ miles, so we
+// keep ONLY the portion near Target A (plus one bridging vertex on each side so
+// the kept run still connects). Returns an array of coord runs (each ≥2 points).
+function clipLineNearCenter(cLat, cLon, coords, keepMi) {
+  const near = coords.map(([lon, lat]) => haversineMiles(cLat, cLon, lat, lon) <= keepMi);
+  const runs = [];
+  let cur = [];
+  for (let i = 0; i < coords.length; i++) {
+    if (near[i]) {
+      // bridge: include the previous vertex so the run enters from outside.
+      if (!cur.length && i > 0) cur.push(coords[i - 1]);
+      cur.push(coords[i]);
+    } else if (cur.length) {
+      cur.push(coords[i]); // bridge out
+      runs.push(cur);
+      cur = [];
+    }
+  }
+  if (cur.length) runs.push(cur);
+  return runs.filter((r) => r.length >= 2);
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -50,11 +84,16 @@ Deno.serve(async (req) => {
     // 1) POWER — HIFLD transmission lines within a bbox around Target A.
     // Called DIRECTLY (the ArcGIS service is public) — no sub-invoke, no OSM.
     let powerLines = [];
+    // Only keep transmission lines whose nearest vertex is within this radius of
+    // Target A (so the map shows POWER NEAR the target, not far-away lines).
+    const powerKeepMi = Math.max(radiusMi, 3);
     try {
-      const [w, s, e, n] = bboxAround(cLat, cLon, Math.max(radiusMi, 1.5)); // widen so we catch nearby lines
+      const [w, s, e, n] = bboxAround(cLat, cLon, powerKeepMi);
+      // ArcGIS envelope as a comma string "xmin,ymin,xmax,ymax" — the JSON-string
+      // form was being ignored by the GeoJSON query, returning unfiltered lines.
       const params = new URLSearchParams({
         where: "1=1",
-        geometry: JSON.stringify({ xmin: w, ymin: s, xmax: e, ymax: n, spatialReference: { wkid: 4326 } }),
+        geometry: `${w},${s},${e},${n}`,
         geometryType: "esriGeometryEnvelope",
         inSR: "4326", outSR: "4326",
         spatialRel: "esriSpatialRelIntersects",
@@ -66,22 +105,31 @@ Deno.serve(async (req) => {
       const features = fc.features || [];
       powerLines = features.flatMap((f, fi) => {
         const props = f.properties || {};
-        return lineCoords(f.geometry).map((coords, li) => ({
-          id: `PWR-L-${fi + 1}-${li + 1}`,
-          coords,
-          voltage: props.VOLTAGE && props.VOLTAGE > 0 ? `${props.VOLTAGE} kV` : (props.VOLT_CLASS && props.VOLT_CLASS !== "NOT AVAILABLE" ? props.VOLT_CLASS : null),
-          operator: props.OWNER && props.OWNER !== "NOT AVAILABLE" ? props.OWNER : null,
-        }));
+        const voltage = props.VOLTAGE && props.VOLTAGE > 0 ? `${props.VOLTAGE} kV` : (props.VOLT_CLASS && props.VOLT_CLASS !== "NOT AVAILABLE" ? props.VOLT_CLASS : null);
+        const operator = props.OWNER && props.OWNER !== "NOT AVAILABLE" ? props.OWNER : null;
+        // Clip every part to only the run(s) near Target A.
+        return lineCoords(f.geometry).flatMap((coords, li) =>
+          clipLineNearCenter(cLat, cLon, coords, powerKeepMi).map((run, ri) => ({
+            id: `PWR-L-${fi + 1}-${li + 1}-${ri + 1}`,
+            coords: run,
+            voltage,
+            operator,
+          }))
+        );
       });
+      console.log(`[section7Infrastructure] HIFLD line runs within ${powerKeepMi}mi: ${powerLines.length}`);
     } catch (e) {
       console.log(`[section7Infrastructure] HIFLD power lines failed: ${e.message}`);
     }
 
     // 2) Resolve the utility company to contact (name + phone) for this area.
+    // base44.functions.invoke returns the parsed JSON body directly; some SDK
+    // versions wrap it in `.data`. Read both so the utility always resolves.
     let utility = null;
     try {
       const contactRes = await base44.functions.invoke('electricProviderContact', { lat: cLat, lon: cLon });
-      utility = contactRes?.data?.match || null;
+      const body = contactRes?.data ?? contactRes;
+      utility = body?.match || null;
     } catch (e) {
       console.log(`[section7Infrastructure] utility contact lookup failed: ${e.message}`);
     }
@@ -93,8 +141,9 @@ Deno.serve(async (req) => {
       const cfRes = await base44.functions.invoke('carrierFinderFiber', {
         lat: cLat, lon: cLon, radius_miles: radiusMi,
       });
-      litBuildings = cfRes?.data?.lit_buildings || [];
-      telco = cfRes?.data?.telco || null;
+      const body = cfRes?.data ?? cfRes;
+      litBuildings = body?.lit_buildings || [];
+      telco = body?.telco || null;
     } catch (e) {
       console.log(`[section7Infrastructure] CarrierFinder lookup failed: ${e.message}`);
     }
