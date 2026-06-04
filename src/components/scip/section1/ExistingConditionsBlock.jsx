@@ -1,7 +1,7 @@
 /**
  * ExistingConditionsBlock — Section 1.4.
  *
- * Single Generate button runs the diagnostics fan-out for Target One's lat/lon:
+ * Single Generate button runs the diagnostics fan-out for Target A's lat/lon:
  *   Flood Zone(s)          ← femaFloodLookup (NFHL)
  *   Wetland Concerns?      ← wetlandsLookup (USFWS NWI)
  *   Water Management Dist  ← state-based static map
@@ -64,7 +64,7 @@ export default function ExistingConditionsBlock({ targetOne }) {
     const state = (targetOne?.parcel_state || "").toUpperCase();
 
     if (!isFinite(lat) || !isFinite(lon)) {
-      setError("Generate Hawk Vision Targets first — Existing Conditions runs on Target One's coordinates.");
+      setError("Generate Hawk Vision Targets first - Existing Conditions runs on Target A's coordinates.");
       return;
     }
     setLoading(true);
@@ -116,7 +116,7 @@ export default function ExistingConditionsBlock({ targetOne }) {
   return (
     <Section1Shell
       step={4}
-      title="Target One · Existing Conditions"
+      title="Target A - Existing Conditions"
       subtitle="FEMA NFHL · USFWS NWI · State WMD"
       icon={Activity}
       generateLabel="GENERATE CONDITIONS"

@@ -3,7 +3,7 @@
  *
  * Single Generate button calls findBestParcelForTower (Realie API + Notion zoning
  * + Enformion skip-trace) and fills out THREE complete target blocks:
- *   Target One / Target Two / Target Three
+ *   Target A / Target B / Target C
  *
  * Each target gets every row from SectionOne.xlsx:
  *   Parcel County, Parcel ID Number, Owner Name (on Deed),
@@ -19,7 +19,7 @@ import Section1Shell from "./Section1Shell";
 import { Crosshair } from "lucide-react";
 import { findBestParcelForTower } from "@/functions/findBestParcelForTower";
 
-const LABELS = ["TARGET ONE", "TARGET TWO", "TARGET THREE"];
+const LABELS = ["TARGET A", "TARGET B", "TARGET C"];
 const COLORS = ["#00d4ff", "#10b981", "#f59e0b"];
 
 const EMPTY_TARGET = {
@@ -63,6 +63,11 @@ function mapApiTarget(t, towerHeight, compoundDims) {
     mailing_address: t.mailing_address || t.parcel_address || "",
     email_address: t.email || "",
     phone_number: t.phone || "",
+    zoning_fit: t.zoning_fit || "",
+    requires_cup: t.requires_cup ? "Yes" : "No",
+    cup_path_available: t.cup_path_available ? "Yes" : t.cup_assumed ? "Assumed - verify" : "No",
+    pe_letter_accepted: t.pe_letter_accepted ? "Yes" : "Not verified",
+    selection_criteria: Array.isArray(t.selection_criteria) ? t.selection_criteria.join(" ") : "",
   };
 }
 
@@ -190,6 +195,15 @@ export default function HawkVisionTargetsBlock({ acquisition, onTargetsReady }) 
           {reasoning.jurisdiction || "Jurisdiction"} · Allowable zones:{" "}
           <span className="font-bold">{reasoning.allowable_zones?.join(", ") || "—"}</span> ·{" "}
           {reasoning.non_residential_candidates}/{reasoning.total_parcels_in_ring} non-residential parcels in ring
+          <div className="mt-1 text-cyan-800">
+            Source: <span className="font-bold">{reasoning.zoning_source || "zoning screen"}</span> | CUP:{" "}
+            <span className="font-bold">
+              {reasoning.requires_cup
+                ? reasoning.cup_path_available ? "required / path found" : "assumed - verify"
+                : "not required"}
+            </span> | PE letter:{" "}
+            <span className="font-bold">{reasoning.pe_letter_accepted ? "accepted" : "not verified"}</span>
+          </div>
         </div>
       )}
 

@@ -1,16 +1,14 @@
 /**
- * Section1 — top-level orchestrator for SCIP Section One.
+ * Section1 - top-level orchestrator for SCIP Section One.
  *
- * Strict hierarchy (every block has its own Generate button on the top-right):
- *   1. Site Acquisition User      (manual)
- *   2. SARF Map                   (Mapbox · GENERATE SARF MAP)
- *   3. Hawk Vision Targets 1/2/3  (Realie API · GENERATE 3 TARGETS)
- *   4. Target One Existing Cond.  (FEMA + NWI · GENERATE CONDITIONS)
- *   5. Site Notes                 (manual)
+ * Strict hierarchy:
+ *   1. Site Acquisition User
+ *   2. SARF Map
+ *   3. Hawk Vision Targets A/B/C
+ *   4. Target A Existing Conditions
+ *   5. Site Notes
  *
- * Data flows downward: acquisition → SARF (uses lat/lon/radius) →
- * Hawk Vision (uses lat/lon/radius/height/compound) → Existing Conditions
- * (uses Target One lat/lon).
+ * Data flows downward: acquisition -> SARF -> Hawk Vision -> Existing Conditions.
  */
 
 import { useState } from "react";
@@ -49,9 +47,8 @@ export default function Section1({ initialAcquisition = {}, onChange }) {
 
   return (
     <div className="space-y-4 max-w-4xl mx-auto">
-      {/* Section banner */}
       <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500/15 via-transparent to-transparent border border-cyan-500/30">
-        <div className="text-[10px] font-mono text-cyan-600 tracking-[0.3em] mb-0.5">SCIP · SECTION ONE</div>
+        <div className="text-[10px] font-mono text-cyan-600 tracking-[0.3em] mb-0.5">SCIP | SECTION ONE</div>
         <div className="font-heading font-bold text-lg text-foreground">Site Acquisition, SARF, Hawk Vision & Conditions</div>
         <div className="text-xs text-muted-foreground mt-0.5">
           Fill Site Acquisition first, then run each section's Generate button top-down. Every row is fillable.

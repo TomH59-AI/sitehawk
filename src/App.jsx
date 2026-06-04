@@ -19,16 +19,9 @@ import SendUpdate from './pages/SendUpdate';
 import MailOrders from './pages/MailOrders';
 import CRM from './pages/CRM';
 import RefundPolicy from './pages/RefundPolicy';
-import ParcelScout from './pages/ParcelScout';
-import AIVisionAnalyzer from './pages/AIVisionAnalyzer';
-import MarketAnalytics from './pages/MarketAnalytics';
 import MailAnalytics from './pages/MailAnalytics';
-import TowerPlacement from './pages/TowerPlacement';
 import SCIPPreview from './pages/SCIPPreview';
 import SCIPShareView from './pages/SCIPShareView';
-import HawkVision from './pages/HawkVision';
-import HawkFrequency from './pages/HawkFrequency';
-import Infrastructure from './pages/Infrastructure';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -80,15 +73,8 @@ const AuthenticatedApp = () => {
         <Route path="/mail-orders" element={<MailOrders />} />
         <Route path="/crm" element={<CRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
-        <Route path="/parcel-scout" element={<ParcelScout />} />
-        <Route path="/ai-vision" element={<AIVisionAnalyzer />} />
-        <Route path="/market-analytics" element={<MarketAnalytics />} />
         <Route path="/mail-analytics" element={<MailAnalytics />} />
-        <Route path="/tower-placement" element={<TowerPlacement />} />
         <Route path="/scip" element={<SCIPPreview />} />
-        <Route path="/hawk-vision" element={<HawkVision />} />
-        <Route path="/hawk-frequency" element={<HawkFrequency />} />
-        <Route path="/infrastructure" element={<Infrastructure />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

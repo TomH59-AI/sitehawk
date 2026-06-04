@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Search,
   Eye,
-  MapPin,
   FileText,
   Send,
   Handshake,
@@ -41,14 +40,6 @@ const STEPS = [
     cta: "Pick Targets",
   },
   {
-    key: "place",
-    icon: MapPin,
-    title: "Place the Tower",
-    desc: "Drop the 100x100 compound on the parcel and validate setbacks with Flux 1.",
-    to: "/tower-placement",
-    cta: "Place Tower",
-  },
-  {
     key: "scip",
     icon: FileText,
     title: "Build the SCIP",
@@ -77,9 +68,6 @@ const STEPS = [
 function computeStepStates({ searches = [], results = [], deals = [] }) {
   const hasSearch = searches.length > 0;
   const hasIdentified = results.length >= 3;
-  // "Placed" is approximated by whether any deal exists (user moved into pipeline)
-  // or any result has been promoted. We keep it conservative: any deal exists.
-  const hasPlaced = deals.length > 0;
   const hasScip = deals.some((d) => d.notes && /scip/i.test(d.notes)) || deals.length > 0;
   const hasOutreach = deals.some((d) => ["contacted", "interested", "negotiating", "signed"].includes(d.stage));
   const hasClosed = deals.some((d) => d.stage === "signed");
@@ -87,7 +75,6 @@ function computeStepStates({ searches = [], results = [], deals = [] }) {
   return {
     scan: hasSearch,
     identify: hasIdentified,
-    place: hasPlaced,
     scip: hasScip,
     outreach: hasOutreach,
     close: hasClosed,

@@ -22,6 +22,12 @@ import SCIPPage1CandidatesSummary from "./SCIPPage1CandidatesSummary";
 import SCIPPage1RFPropagation from "./SCIPPage1RFPropagation";
 import SCIPPage1TowerPlacement from "./SCIPPage1TowerPlacement";
 
+const SARF_RADIUS_OPTIONS = [
+  { value: "0.25", label: "0.25 miles" },
+  { value: "0.50", label: "0.50 miles" },
+  { value: "1.0", label: "1.0 mile" },
+];
+
 function EditableRow({ label, value, placeholder, onChange }) {
   return (
     <div className="grid grid-cols-[260px_1fr] border-b border-border last:border-b-0">
@@ -35,6 +41,25 @@ function EditableRow({ label, value, placeholder, onChange }) {
         onChange={(e) => onChange(e.target.value)}
         className="px-3 py-2 text-sm bg-card focus:outline-none focus:bg-primary/5"
       />
+    </div>
+  );
+}
+
+function RadiusRow({ value, onChange }) {
+  return (
+    <div className="grid grid-cols-[260px_1fr] border-b border-border last:border-b-0">
+      <div className="px-3 py-2 text-sm text-foreground bg-muted/40 border-r border-border">
+        Search Radius
+      </div>
+      <select
+        value={value || "1.0"}
+        onChange={(e) => onChange(e.target.value)}
+        className="px-3 py-2 text-sm bg-card focus:outline-none focus:bg-primary/5"
+      >
+        {SARF_RADIUS_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -58,7 +83,7 @@ export default function SCIPPage1({ initialValues = {}, onChange, candidate = nu
     site_name: "",
     latitude: "",
     longitude: "",
-    search_radius: "",
+    search_radius: "1.0",
     sarf_height: "",
     tower_type: "",
     compound_size: "",
@@ -126,12 +151,7 @@ export default function SCIPPage1({ initialValues = {}, onChange, candidate = nu
         placeholder="-82.457200"
         onChange={(v) => update("longitude", v)}
       />
-      <EditableRow
-        label="Search Radius"
-        value={values.search_radius}
-        placeholder="e.g. 0.5 mi / 1.0 mi"
-        onChange={(v) => update("search_radius", v)}
-      />
+      <RadiusRow value={values.search_radius} onChange={(v) => update("search_radius", v)} />
       <EditableRow
         label="SARF Height"
         value={values.sarf_height}
@@ -169,7 +189,7 @@ export default function SCIPPage1({ initialValues = {}, onChange, candidate = nu
       {/* ZONING / TOWER SPECIFICS / SITE PLAN / BUILDING PERMIT — pulled from Notion ordinance DB */}
       <SCIPPage1ZoningBlock page1Values={values} siteOwner={values._siteOwner} />
 
-      {/* MAPS — Proposed Site + 4 directional viewsheds + 2 access maps */}
+      {/* MAPS - Proposed Site + access context */}
       <SCIPPage1MapsBlock page1Values={values} siteOwner={values._siteOwner} />
 
       {/* SCIP MAPS — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind / Airport */}

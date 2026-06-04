@@ -185,13 +185,13 @@ export default function SCIPPage1CandidatesSummary({ page1Values, siteOwner }) {
                 <span className="text-white text-base leading-none">★</span> SARF Center
               </div>
               <div className="text-[10px] flex items-center gap-2 mb-0.5">
-                <span className="inline-block w-3 h-3 rounded-full bg-red-500" /> Target 1 (A)
+                <span className="inline-block w-3 h-3 rounded-full bg-red-500" /> Target A
               </div>
               <div className="text-[10px] flex items-center gap-2 mb-0.5">
-                <span className="inline-block w-3 h-3 rounded-full bg-amber-500" /> Target 2 (B)
+                <span className="inline-block w-3 h-3 rounded-full bg-amber-500" /> Target B
               </div>
               <div className="text-[10px] flex items-center gap-2 mb-1">
-                <span className="inline-block w-3 h-3 rounded-full bg-emerald-500" /> Target 3 (C)
+                <span className="inline-block w-3 h-3 rounded-full bg-emerald-500" /> Target C
               </div>
               <div className="text-[10px] flex items-center gap-2">
                 <span className="inline-block w-3 h-0.5 bg-red-600" /> {radius.toFixed(1)} mi ring

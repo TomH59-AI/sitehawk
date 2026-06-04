@@ -364,6 +364,11 @@ function municodeToOrdinanceMetadata(municodeData, sourceTrace) {
   const specCount = towerSpecValueCount(towerSpecs);
   const height = parseFeetNumber(towerSpecs.maxHeightFt);
   const status = specCount >= 3 ? 'verified' : 'partial';
+  const specText = JSON.stringify({ towerSpecs, sections }).toLowerCase();
+  const cupMentioned = /conditional use|conditional-use|\bcup\b|special use|special-use|\bsup\b|special exception/.test(specText);
+  const byRightMentioned = /by right|by-right|permitted by right|administrative approval|ministerial approval/.test(specText);
+  const peLetterAccepted = /professional engineer|p\.e\.|pe letter|engineer'?s? letter|structural engineer|structural certification|signed and sealed|sealed plans|sealed drawings|fall[- ]zone letter|collapse letter/.test(specText);
+  const peLetterRequired = peLetterAccepted && /required|shall|must|certif/.test(specText);
 
   return {
     status,
@@ -377,6 +382,27 @@ function municodeToOrdinanceMetadata(municodeData, sourceTrace) {
     telecom_sections: sections,
     height_limit_ft: height,
     permit_type: towerSpecs.buildingPermit || '',
+    allowable_zones: [],
+    cup_eligible_zones: [],
+    requires_cup: cupMentioned || !byRightMentioned,
+    cup_path_available: cupMentioned,
+    cup_notes: cupMentioned
+      ? 'Municode extraction references a CUP/SUP, special use, or special exception path.'
+      : byRightMentioned
+        ? 'By-right or administrative approval language was detected; verify before relying on it.'
+        : 'No explicit CUP language was extracted, so SiteHawk should assume CUP review until verified.',
+    pe_letter_reviewed: true,
+    pe_letter_accepted: peLetterAccepted,
+    pe_letter_required: peLetterRequired,
+    pe_letter_notes: peLetterAccepted
+      ? 'Professional-engineering documentation, sealed drawings, or structural certification language was detected.'
+      : 'No PE-letter or sealed-engineering acceptance language was extracted.',
+    target_selection_criteria: [
+      'Use the selected SARF radius before ranking parcels.',
+      'Apply zoning facts before Realie parcel ranking.',
+      'Assume CUP/SUP review unless the ordinance clearly says by-right.',
+      'Check PE-letter acceptance and use it to improve fall-zone and size feasibility only when verified.',
+    ],
     collocation_required: /^required/i.test(cleanString(towerSpecs.collocationRequired)),
     stealth_required: /^required/i.test(cleanString(towerSpecs.stealthRequired)),
     setback_summary: buildSetbackSummary(towerSpecs),
@@ -577,12 +603,45 @@ function normalizeFallbackResult(result, sourceTrace, zoneomicsData, notionConte
     sourceUrls.some(url => !/^notion:/i.test(url));
   const selectedSource = pickFallbackSource(result, zoneomicsData, notionContext);
   const hasFallbackContext = Boolean(zoneomicsData || notionContext?.found);
+  const resultText = JSON.stringify(result || {}).toLowerCase();
+  const cupMentioned = /conditional use|conditional-use|\bcup\b|special use|special-use|\bsup\b|special exception/.test(resultText);
+  const byRightMentioned = /by right|by-right|permitted by right|administrative approval|ministerial approval/.test(resultText);
+  const peLetterAccepted = /professional engineer|p\.e\.|pe letter|engineer'?s? letter|structural engineer|structural certification|signed and sealed|sealed plans|sealed drawings|fall[- ]zone letter|collapse letter/.test(resultText);
+  const peLetterRequired = peLetterAccepted && /required|shall|must|certif/.test(resultText);
 
   return {
     ...result,
     status: hasOfficialUrl ? (result.status || 'partial') : hasFallbackContext ? (result.status || 'partial') : 'not_verified',
     telecom_sections: sections,
     compliance_summary: complianceSummary,
+    allowable_zones: asArray(result.allowable_zones),
+    cup_eligible_zones: asArray(result.cup_eligible_zones),
+    requires_cup: typeof result.requires_cup === 'boolean'
+      ? result.requires_cup
+      : cupMentioned || !byRightMentioned,
+    cup_path_available: typeof result.cup_path_available === 'boolean'
+      ? result.cup_path_available
+      : cupMentioned,
+    cup_notes: result.cup_notes || (
+      cupMentioned
+        ? 'CUP/SUP, special use, or special exception language was detected in the zoning source.'
+        : byRightMentioned
+          ? 'By-right or administrative approval language was detected; verify before target reliance.'
+          : 'No explicit CUP language was verified, so SiteHawk should assume CUP review until confirmed.'
+    ),
+    pe_letter_reviewed: true,
+    pe_letter_accepted: typeof result.pe_letter_accepted === 'boolean'
+      ? result.pe_letter_accepted
+      : peLetterAccepted,
+    pe_letter_required: typeof result.pe_letter_required === 'boolean'
+      ? result.pe_letter_required
+      : peLetterRequired,
+    pe_letter_notes: result.pe_letter_notes || (
+      peLetterAccepted
+        ? 'Professional-engineering documentation, sealed drawings, or structural certification language was detected.'
+        : 'No PE-letter or sealed-engineering acceptance language was verified.'
+    ),
+    target_selection_criteria: asArray(result.target_selection_criteria),
     source_urls: sourceUrls,
     selected_source: selectedSource,
     data_source: selectedSource,
@@ -651,6 +710,15 @@ Deno.serve(async (req) => {
 
 Task: identify the local municipal/county zoning ordinance sections that govern wireless telecommunications facilities, telecom towers, communication towers, antennas, small wireless facilities, wireless support structures, collocation, stealth/concealment, setbacks, height, special use permits, conditional use permits, and related approvals for the location below. Generate a simplified user-facing Compliance Summary table that highlights which tower types are permitted, prohibited, conditional, or not addressed.
 
+Target-selection rules for SiteHawk:
+- Always determine whether a Conditional Use Permit, Special Use Permit, Special Exception, SUP, CUP, or equivalent discretionary path is required or available for a new macro tower/monopole.
+- Unless the ordinance clearly says the tower is allowed by right or by administrative approval, set requires_cup=true.
+- Set cup_path_available=true when CUP/SUP/special exception language can support tower siting in additional zoning classifications.
+- Extract allowable_zones and cup_eligible_zones as short zoning district codes or names when the source supports them.
+- Always check whether a PE letter, structural certification, signed/sealed engineering drawings, fall-zone certification, or similar professional-engineering package can be submitted.
+- If PE documentation is accepted or required, set pe_letter_accepted=true and explain how it can improve the fall-zone, setback, or structural requirement screen in pe_letter_notes.
+- Write target_selection_criteria as concise instructions the parcel-ranking function can apply before fetching Target A, Target B, and Target C.
+
 Coordinates: ${lat}, ${lon}
 FCC coordinate context: ${JSON.stringify(geoContext)}
 Jurisdiction candidates already tried against Municode: ${JSON.stringify(jurisdictionCandidates)}
@@ -700,6 +768,28 @@ Source priority and attribution rules:
           },
           height_limit_ft: { type: 'number' },
           permit_type: { type: 'string' },
+          allowable_zones: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Zoning district codes or names where towers are permitted by right or clearly eligible.',
+          },
+          cup_eligible_zones: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Zoning district codes or names where towers may be possible through CUP/SUP/special exception.',
+          },
+          requires_cup: { type: 'boolean' },
+          cup_path_available: { type: 'boolean' },
+          cup_notes: { type: 'string' },
+          pe_letter_reviewed: { type: 'boolean' },
+          pe_letter_accepted: { type: 'boolean' },
+          pe_letter_required: { type: 'boolean' },
+          pe_letter_notes: { type: 'string' },
+          target_selection_criteria: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Short criteria for ranking Target A, Target B, and Target C after zoning is populated.',
+          },
           collocation_required: { type: 'boolean' },
           stealth_required: { type: 'boolean' },
           setback_summary: { type: 'string' },

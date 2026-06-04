@@ -92,7 +92,7 @@ export default function Section2({ targetOne }) {
     const lat = parseFloat(targetOne?.latitude);
     const lon = parseFloat(targetOne?.longitude);
     if (!isFinite(lat) || !isFinite(lon)) {
-      setError("Run Hawk Vision in Section 1 first — Section 2 uses Target One's coordinates.");
+      setError("Run Hawk Vision in Section 1 first - Section 2 uses Target A's coordinates.");
       return null;
     }
     setLoading(true);
@@ -184,7 +184,7 @@ export default function Section2({ targetOne }) {
       <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500/15 via-transparent to-transparent border border-amber-500/30">
         <div className="text-[10px] font-mono text-amber-700 tracking-[0.3em] mb-0.5">SCIP · SECTION TWO</div>
         <div className="font-heading font-bold text-lg text-foreground">
-          Zoning, Tower Specifics & Building Permits — Target One
+          Zoning, Tower Specifics & Building Permits - Target A
         </div>
         <div className="text-xs text-muted-foreground mt-0.5">
           Pulls from the Notion Master Zoning DB and falls back to Oxylabs for live Municode / eCode360 scraping.

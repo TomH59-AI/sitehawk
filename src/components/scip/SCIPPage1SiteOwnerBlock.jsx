@@ -180,6 +180,15 @@ export default function SCIPPage1SiteOwnerBlock({ page1Values, candidate, onChan
           <span className="font-mono">{reasoning.allowable_zones?.join(", ") || "n/a"}</span> ·{" "}
           {reasoning.non_residential_candidates}/{reasoning.total_parcels_in_ring} non-residential parcels ·{" "}
           chosen zoning: <span className="font-mono">{reasoning.chosen_parcel_zoning}</span>
+          <div className="mt-1">
+            Source: <span className="font-mono">{reasoning.zoning_source || "zoning screen"}</span> | CUP:{" "}
+            <span className="font-mono">
+              {reasoning.requires_cup
+                ? reasoning.cup_path_available ? "required / path found" : "assumed - verify"
+                : "not required"}
+            </span> | PE letter:{" "}
+            <span className="font-mono">{reasoning.pe_letter_accepted ? "accepted" : "not verified"}</span>
+          </div>
         </div>
       )}
 

@@ -1,33 +1,27 @@
-/**
- * SCIPWorkflowCoach — global floating step-by-step guide for the full
- * scan → SCIP pipeline. Mounts in Layout so it's available on every page.
- *
- * Behavior:
- *   • Detects current stage from URL pathname.
- *   • Auto-marks earlier stages as complete when you reach a later one.
- *   • Collapsible panel (header click toggles).
- *   • Fully dismissible (floating restore button reappears).
- *   • Persists open/closed + completed-step set in localStorage.
- *   • Click any step row → navigate to that stage.
- */
-
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  CheckCircle2, Circle, ChevronDown, ChevronUp, X, Sparkles,
-  Search, Eye, FileText, Layers, Send,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Circle,
+  FileText,
+  Layers,
+  Search,
+  Send,
+  Sparkles,
+  X,
 } from "lucide-react";
 
 const LS_OPEN = "scip_coach_open_v2";
 const LS_DONE = "scip_coach_completed_v2";
 const LS_HIDDEN = "scip_coach_hidden_v2";
 
-// Stage definitions — ordered. `match` is the route that activates this stage.
 const STAGES = [
   {
     id: "search",
     title: "Scan parcels",
-    blurb: "Enter coordinates, tower height & search radius. Run the parcel scan.",
+    blurb: "Enter coordinates, tower height, and search radius. Run the parcel scan.",
     icon: Search,
     path: "/search",
     match: ["/search"],
@@ -35,23 +29,15 @@ const STAGES = [
   {
     id: "results",
     title: "Review candidates",
-    blurb: "Inspect ranked parcels on the map. Pick the strongest target.",
+    blurb: "Inspect ranked parcels on the map and pick the strongest target.",
     icon: Layers,
     path: "/results",
     match: ["/results"],
   },
   {
-    id: "hawk-vision",
-    title: "Hawk Vision — 3 best targets",
-    blurb: "Optional deep recon: rank top-3 non-residential parcels with owner data.",
-    icon: Eye,
-    path: "/hawk-vision",
-    match: ["/hawk-vision"],
-  },
-  {
     id: "scip",
     title: "Generate SCIP report",
-    blurb: "Step through each section (Site Acq → SARF → Zoning → Infrastructure → Viewsheds).",
+    blurb: "Step through Site Acquisition, SARF, Zoning, Infrastructure, and Document Intelligence.",
     icon: FileText,
     path: "/scip",
     match: ["/scip"],
@@ -59,7 +45,7 @@ const STAGES = [
   {
     id: "send",
     title: "Send / share / mail",
-    blurb: "Print the PDF, share a link, or push to direct-mail.",
+    blurb: "Print the PDF, share a link, or push to direct mail.",
     icon: Send,
     path: "/mail-orders",
     match: ["/mail-orders", "/send-update"],
@@ -70,10 +56,17 @@ function loadDone() {
   try {
     const raw = localStorage.getItem(LS_DONE);
     return raw ? new Set(JSON.parse(raw)) : new Set();
-  } catch { return new Set(); }
+  } catch {
+    return new Set();
+  }
 }
+
 function saveDone(set) {
-  try { localStorage.setItem(LS_DONE, JSON.stringify([...set])); } catch { /* ignore */ }
+  try {
+    localStorage.setItem(LS_DONE, JSON.stringify([...set]));
+  } catch {
+    // ignore localStorage failures
+  }
 }
 
 export default function SCIPWorkflowCoach() {
@@ -81,55 +74,76 @@ export default function SCIPWorkflowCoach() {
   const navigate = useNavigate();
 
   const [hidden, setHidden] = useState(() => {
-    try { return localStorage.getItem(LS_HIDDEN) === "1"; } catch { return false; }
+    try {
+      return localStorage.getItem(LS_HIDDEN) === "1";
+    } catch {
+      return false;
+    }
   });
   const [open, setOpen] = useState(() => {
-    try { return localStorage.getItem(LS_OPEN) !== "0"; } catch { return true; }
+    try {
+      return localStorage.getItem(LS_OPEN) !== "0";
+    } catch {
+      return true;
+    }
   });
   const [done, setDone] = useState(loadDone);
 
-  // Detect active stage from URL
   const activeIdx = useMemo(() => {
-    const p = location.pathname;
-    const idx = STAGES.findIndex((s) => s.match.some((m) => p.startsWith(m)));
-    return idx; // -1 if not in a workflow stage
+    const pathname = location.pathname;
+    return STAGES.findIndex((stage) => stage.match.some((match) => pathname.startsWith(match)));
   }, [location.pathname]);
 
-  // Auto-mark earlier stages complete when user lands on a later one
   useEffect(() => {
     if (activeIdx <= 0) return;
     setDone((prev) => {
       const next = new Set(prev);
       let changed = false;
-      for (let i = 0; i < activeIdx; i++) {
-        if (!next.has(STAGES[i].id)) { next.add(STAGES[i].id); changed = true; }
+      for (let index = 0; index < activeIdx; index += 1) {
+        if (!next.has(STAGES[index].id)) {
+          next.add(STAGES[index].id);
+          changed = true;
+        }
       }
       if (changed) saveDone(next);
       return changed ? next : prev;
     });
   }, [activeIdx]);
 
-  function persistOpen(v) {
-    setOpen(v);
-    try { localStorage.setItem(LS_OPEN, v ? "1" : "0"); } catch { /* ignore */ }
-  }
+  const persistOpen = (value) => {
+    setOpen(value);
+    try {
+      localStorage.setItem(LS_OPEN, value ? "1" : "0");
+    } catch {
+      // ignore localStorage failures
+    }
+  };
 
-  function hidePanel() {
+  const hidePanel = () => {
     setHidden(true);
-    try { localStorage.setItem(LS_HIDDEN, "1"); } catch { /* ignore */ }
-  }
+    try {
+      localStorage.setItem(LS_HIDDEN, "1");
+    } catch {
+      // ignore localStorage failures
+    }
+  };
 
-  function showPanel() {
+  const showPanel = () => {
     setHidden(false);
-    try { localStorage.removeItem(LS_HIDDEN); } catch { /* ignore */ }
-  }
+    try {
+      localStorage.removeItem(LS_HIDDEN);
+    } catch {
+      // ignore localStorage failures
+    }
+  };
 
-  function resetProgress() {
-    setDone(new Set());
-    saveDone(new Set());
-  }
+  const resetProgress = () => {
+    const empty = new Set();
+    setDone(empty);
+    saveDone(empty);
+  };
 
-  function toggleStage(id) {
+  const toggleStage = (id) => {
     setDone((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -137,9 +151,8 @@ export default function SCIPWorkflowCoach() {
       saveDone(next);
       return next;
     });
-  }
+  };
 
-  // Don't show on the public landing or share view
   if (location.pathname === "/" || location.pathname.startsWith("/scip-share")) return null;
 
   if (hidden) {
@@ -154,7 +167,7 @@ export default function SCIPWorkflowCoach() {
     );
   }
 
-  const completedCount = STAGES.filter((s) => done.has(s.id)).length;
+  const completedCount = STAGES.filter((stage) => done.has(stage.id)).length;
   const pct = Math.round((completedCount / STAGES.length) * 100);
 
   return (
@@ -162,12 +175,8 @@ export default function SCIPWorkflowCoach() {
       className="fixed bottom-6 right-6 z-[55] w-[320px] rounded-xl bg-[#0C1B2E] border-2 border-cyan-400/60 shadow-2xl text-white overflow-hidden no-print"
       style={{ maxHeight: open ? "calc(100vh - 48px)" : undefined }}
     >
-      {/* Header */}
       <div className="px-3 py-2 bg-gradient-to-r from-cyan-500 to-cyan-400 flex items-center justify-between text-[#0C1B2E]">
-        <button
-          onClick={() => persistOpen(!open)}
-          className="flex items-center gap-2 flex-1 text-left"
-        >
+        <button onClick={() => persistOpen(!open)} className="flex items-center gap-2 flex-1 text-left">
           <Sparkles className="w-4 h-4" />
           <span className="font-mono font-bold text-[10px] tracking-[0.2em]">SCIP WORKFLOW GUIDE</span>
           <span className="ml-auto font-mono font-bold text-[10px]">{completedCount}/{STAGES.length}</span>
@@ -179,43 +188,35 @@ export default function SCIPWorkflowCoach() {
         >
           {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
-        <button
-          onClick={hidePanel}
-          className="text-[#0C1B2E] hover:bg-black/10 rounded p-1"
-          aria-label="Hide"
-        >
+        <button onClick={hidePanel} className="text-[#0C1B2E] hover:bg-black/10 rounded p-1" aria-label="Hide">
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Progress bar */}
       <div className="h-1 bg-cyan-900/40">
-        <div
-          className="h-full bg-cyan-300 transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-full bg-cyan-300 transition-all duration-500" style={{ width: `${pct}%` }} />
       </div>
 
       {open && (
         <>
           <div className="px-3 py-2 border-b border-cyan-400/20 text-[10px] text-slate-300 leading-relaxed">
-            Follow the steps to go from raw coordinates to a finished SCIP report. Tap a step to jump there. Tap the circle to mark it done.
+            Follow the real workflow from raw coordinates to a finished SCIP report. Tap a step to jump there.
           </div>
 
           <div className="overflow-y-auto" style={{ maxHeight: "calc(100vh - 220px)" }}>
-            {STAGES.map((s, i) => {
-              const isDone = done.has(s.id);
-              const isActive = i === activeIdx;
-              const Icon = s.icon;
+            {STAGES.map((stage, index) => {
+              const isDone = done.has(stage.id);
+              const isActive = index === activeIdx;
+              const Icon = stage.icon;
               return (
                 <div
-                  key={s.id}
+                  key={stage.id}
                   className={`flex items-start gap-2 px-3 py-2.5 border-b border-cyan-400/10 transition-colors ${
                     isActive ? "bg-cyan-400/10" : "hover:bg-white/5"
                   }`}
                 >
                   <button
-                    onClick={() => toggleStage(s.id)}
+                    onClick={() => toggleStage(stage.id)}
                     className="mt-0.5 shrink-0"
                     title={isDone ? "Mark incomplete" : "Mark complete"}
                   >
@@ -225,14 +226,11 @@ export default function SCIPWorkflowCoach() {
                       <Circle className={`w-4 h-4 ${isActive ? "text-cyan-300" : "text-slate-500"}`} />
                     )}
                   </button>
-                  <button
-                    onClick={() => navigate(s.path)}
-                    className="flex-1 text-left"
-                  >
+                  <button onClick={() => navigate(stage.path)} className="flex-1 text-left">
                     <div className="flex items-center gap-1.5">
                       <Icon className={`w-3 h-3 ${isActive ? "text-cyan-300" : "text-slate-400"}`} />
                       <span className={`font-heading font-bold text-xs ${isDone ? "text-slate-400 line-through" : isActive ? "text-cyan-300" : "text-white"}`}>
-                        {i + 1}. {s.title}
+                        {index + 1}. {stage.title}
                       </span>
                       {isActive && (
                         <span className="ml-auto font-mono font-bold text-[9px] tracking-[0.2em] text-cyan-300 bg-cyan-400/20 px-1.5 py-0.5 rounded">
@@ -241,7 +239,7 @@ export default function SCIPWorkflowCoach() {
                       )}
                     </div>
                     <div className="text-[10px] text-slate-300 leading-relaxed mt-0.5">
-                      {s.blurb}
+                      {stage.blurb}
                     </div>
                   </button>
                 </div>
@@ -258,8 +256,7 @@ export default function SCIPWorkflowCoach() {
             </button>
             <button
               onClick={() => {
-                // Jump to next not-done step (or first if all done)
-                const nextIdx = STAGES.findIndex((s) => !done.has(s.id));
+                const nextIdx = STAGES.findIndex((stage) => !done.has(stage.id));
                 navigate(STAGES[nextIdx >= 0 ? nextIdx : 0].path);
               }}
               className="inline-flex items-center gap-1 text-[10px] font-mono font-bold tracking-[0.15em] text-[#0C1B2E] bg-cyan-300 hover:bg-cyan-200 px-2 py-1 rounded transition-colors"

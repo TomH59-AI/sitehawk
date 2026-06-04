@@ -1,27 +1,66 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
 // Fetch parcels within the 1-mile ring of the entered coordinates via Realie API.
-// Returns normalized parcel records: APN, owner, mailing_address, acreage, land_use, assessed_value, last_sale.
+// Returns normalized parcel records: APN, owner, mailing_address, acreage,
+// zoning classification, land use, assessed value, last sale, and ring distance.
 
 // Realie Location Search endpoint: max radius 2 miles, max 100 results.
 // Docs: https://docs.realie.ai/api-reference/property/location-search.md
 const REALIE_URL = "https://app.realie.ai/api/public/property/location/";
 
-function normalize(p) {
+function num(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.7613;
+  const toRad = (degrees) => (degrees * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalize(p, centerLat, centerLon) {
+  const latitude = num(p.latitude ?? p.lat);
+  const longitude = num(p.longitude ?? p.lon ?? p.lng);
+  const acreage = num(p.acres ?? p.acreage ?? p.lotSizeAcres);
+  const zoningClassification =
+    p.zoning ||
+    p.zoningCode ||
+    p.zoning_code ||
+    p.zoning_classification ||
+    p.landUse ||
+    p.land_use ||
+    p.useDescription ||
+    null;
+
   return {
     apn: p.apn || p.parcelId || p.parcel_id || p.parcel_number || null,
+    parcel_id: p.parcelId || p.apn || p.parcel_id || p.parcel_number || null,
     owner_name: p.ownerName || p.owner_name || p.owner || null,
     mailing_address: p.ownerMailingAddress || [p.owner_mailing_address, p.owner_mailing_city, p.owner_mailing_state, p.owner_mailing_zip]
       .filter(Boolean)
       .join(", ") || null,
-    parcel_address: p.address || p.fullAddress || p.site_address || null,
-    acreage: p.acres || p.acreage || p.lotSizeAcres || null,
-    land_use: p.landUse || p.land_use || p.useDescription || p.zoning || null,
+    parcel_address: p.address || p.addressRaw || p.fullAddress || p.site_address || null,
+    acreage,
+    parcel_size_acres: acreage,
+    zoning_classification: zoningClassification,
+    land_use: p.landUse || p.land_use || p.useDescription || null,
+    use_code: p.useCode || p.use_code || null,
+    county: p.county || p.countyName || null,
+    state: p.state || null,
     assessed_value: p.totalAssessedValue || p.assessedValue || p.marketValue || null,
     last_sale_date: p.lastSaleDate || p.last_sale_date || p.saleDate || null,
     last_sale_price: p.lastSalePrice || p.last_sale_price || p.salePrice || null,
-    latitude: p.latitude || p.lat || null,
-    longitude: p.longitude || p.lon || p.lng || null,
+    latitude,
+    longitude,
+    distance_miles: latitude != null && longitude != null
+      ? Number(haversineMiles(Number(centerLat), Number(centerLon), latitude, longitude).toFixed(2))
+      : null,
   };
 }
 
@@ -49,7 +88,10 @@ Deno.serve(async (req) => {
     const data = await r.json();
     const items = data.properties || data.results || (Array.isArray(data) ? data : []);
 
-    const parcels = items.map(normalize).filter((p) => p.apn || p.owner_name || p.parcel_address);
+    const parcels = items
+      .map((item) => normalize(item, lat, lon))
+      .filter((p) => p.apn || p.owner_name || p.parcel_address)
+      .sort((a, b) => (a.distance_miles ?? 999) - (b.distance_miles ?? 999));
 
     return Response.json({
       count: parcels.length,

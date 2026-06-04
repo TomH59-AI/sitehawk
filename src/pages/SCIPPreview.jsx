@@ -1,23 +1,12 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
 import SCIPSection from "../components/scip/SCIPSection";
 import SCIPCoverPage from "../components/scip/SCIPCoverPage";
-import SCIPPage1 from "../components/scip/SCIPPage1";
 import Section1 from "../components/scip/section1/Section1";
 import Section2 from "../components/scip/section2/Section2";
 import Section3 from "../components/scip/section3/Section3";
-import SCIPMapsSection from "../components/scip/SCIPMapsSection";
-import SCIPBirdsEyeMaps from "../components/scip/SCIPBirdsEyeMaps";
-import SCIPSummaryTab from "../components/scip/SCIPSummaryTab";
-import SCIPInfrastructureTab from "../components/scip/SCIPInfrastructureTab";
-import SCIPPhotographsGrid from "../components/scip/SCIPPhotographsGrid";
-import SCIPThematicMaps from "../components/scip/SCIPThematicMaps";
-import SCIPViewshedSection from "../components/scip/SCIPViewshedSection";
-import SCIPGroundPhotosSection from "../components/scip/SCIPGroundPhotosSection";
-import SCIPRFCoverageSection from "../components/scip/SCIPRFCoverageSection";
-import SCIPSpectrumSection from "../components/scip/SCIPSpectrumSection";
 import SCIPExportButtons from "../components/scip/SCIPExportButtons";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
 import SCIPShareButton from "../components/scip/SCIPShareButton";
@@ -57,7 +46,6 @@ export default function SCIPPreview() {
       }
       setCandidate(c);
 
-      // Auto-fire HubSpot lead capture once per SCIP load (idempotent — keyed by APN)
       const autoSyncKey = `scip-hs-synced:${c.id || c.parcel_id}`;
       if (!sessionStorage.getItem(autoSyncKey)) {
         sessionStorage.setItem(autoSyncKey, "1");
@@ -66,7 +54,6 @@ export default function SCIPPreview() {
         });
       }
 
-      // First render with what we already have, then enrich with geocode + zoning + Realie neighbors.
       setScipData(buildScipData(c, ord, ctr, agentInfo, {}));
 
       const lat = c.latitude ?? ctr?.lat;
@@ -91,8 +78,8 @@ export default function SCIPPreview() {
     setScipData((prev) => {
       const next = { ...prev };
       const section = { ...next[sectionKey] };
-      section.fields = section.fields.map((f, i) =>
-        i === fieldIdx ? [f[0], newValue] : f
+      section.fields = section.fields.map((field, index) =>
+        index === fieldIdx ? [field[0], newValue] : field
       );
       next[sectionKey] = section;
       return next;
@@ -110,7 +97,7 @@ export default function SCIPPreview() {
   return (
     <div id="scip-print-root" className="space-y-6 max-w-5xl mx-auto pb-12 relative">
       <HawkInstructions />
-      {/* Header */}
+
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 no-print">
         <div>
           <button
@@ -123,7 +110,7 @@ export default function SCIPPreview() {
             Site Candidate Information Package
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Review and edit all fields below — then print, download PDF, or export to Excel.
+            Review and edit all fields below, then print, download PDF, or export to Excel.
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -139,15 +126,12 @@ export default function SCIPPreview() {
         </div>
       </div>
 
-      {/* Cinematic recon-style SCIP cover page */}
       <SCIPCoverPage
         candidate={candidate}
         searchCenter={state?.searchCenter}
         agent={agent}
       />
 
-      {/* SECTION 1 — new strict hierarchy: Site Acquisition → SARF → Hawk Vision Targets → Existing Conditions → Site Notes.
-          Each section has its own Generate button on the top-right. */}
       <Section1
         initialAcquisition={{
           agent_name: agent.name,
@@ -163,20 +147,27 @@ export default function SCIPPreview() {
         onChange={setSection1State}
       />
 
-      {/* SECTION 2 — Zoning Overview + Tower Specifics + Building Permits for Target One.
-          Pulls from Notion Master Zoning DB with Oxylabs fallback. */}
       <Section2 targetOne={section1State.targets?.[0]} />
 
-      {/* SECTION 3 — Infrastructure: Mapbox map (power + fiber toggles, zoom, Target A
-          tower icon, utility contact sidebar) + N/E/S/W conical viewsheds. */}
       <Section3
         centerLat={section1State.acquisition?.latitude}
         centerLon={section1State.acquisition?.longitude}
         targetOne={section1State.targets?.[0]}
       />
 
-      {/* Sections */}
-      <div className="space-y-3">
+      <section className="space-y-3">
+        <div className="rounded-xl border border-border bg-card px-4 py-3">
+          <div className="text-[10px] font-mono text-cyan-600 tracking-[0.3em] mb-0.5">
+            DOCUMENT INTELLIGENCE
+          </div>
+          <div className="font-heading font-bold text-lg text-foreground">
+            Editable SCIP Document Fields
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Source-backed SCIP fields remain available for review, edits, PDF, and Excel export.
+          </p>
+        </div>
+
         {SCIP_SECTION_ORDER.map((key) => (
           <SCIPSection
             key={key}
@@ -186,49 +177,11 @@ export default function SCIPPreview() {
             onFieldChange={handleFieldChange}
           />
         ))}
+      </section>
 
-        {/* Cell 14 + Cell 57 — Birds-eye SARF overview + Target A placement */}
-        <SCIPBirdsEyeMaps candidate={candidate} searchCenter={state?.searchCenter} />
-
-        {/* TAB 2 — Summary: Targets A/B/C with owner contact info from Enformion */}
-        <SCIPSummaryTab
-          candidate={candidate}
-          searchCenter={state?.searchCenter}
-          allResults={state?.allResults}
-        />
-
-        {/* TAB 3 — Infrastructure: Clean satellite + Electric (APWA red) + Fiber (APWA orange) */}
-        <SCIPInfrastructureTab
-          candidate={candidate}
-          searchCenter={state?.searchCenter}
-        />
-
-        {/* SCIP MAPS section — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind */}
-        <SCIPThematicMaps candidate={candidate} searchCenter={state?.searchCenter} />
-
-        {/* Maps section — NWI Wetlands + USGS Contours */}
-        <SCIPMapsSection candidate={candidate} />
-
-        {/* PHOTOGRAPHS — 8-row grid mimicking the official SCIP template (Riverlane reference) */}
-        <SCIPPhotographsGrid candidate={candidate} />
-
-        {/* PHOTOGRAPHS — N/S/E/W tree-line 2D viewsheds for Target A (saved for later) */}
-        <SCIPViewshedSection candidate={candidate} />
-
-        {/* GROUND LEVEL — Mapillary street-level photos of access drive, power, fiber */}
-        <SCIPGroundPhotosSection candidate={candidate} />
-
-        {/* RF Coverage — CloudRF propagation simulation */}
-        <SCIPRFCoverageSection candidate={candidate} />
-
-        {/* Spectrum survey — CloudRF interference/spectrum endpoint */}
-        <SCIPSpectrumSection candidate={candidate} />
-      </div>
-
-      {/* Bottom export bar */}
       <div className="sticky bottom-4 bg-card border border-border shadow-xl rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 no-print">
         <div className="text-sm text-muted-foreground">
-          ✓ All edits are reflected in the exported file.
+          All edits are reflected in the exported file.
         </div>
         <div className="flex gap-2 flex-wrap">
           <SCIPShareButton

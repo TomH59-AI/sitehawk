@@ -1,32 +1,37 @@
 /**
- * Hawk Vision — feasibility recon page.
+ * Hawk Vision - feasibility recon page.
  *
- * User enters a SARF center (lat/lon) + tower height, hits one button, and
- * SiteHawk identifies the THREE most feasible parcels to erect a cell tower
- * on within the search ring. Labels them Target One / Target Two / Target Three
- * and displays the full parcel + owner intel block for each.
- *
- * Powered by the existing findBestParcelForTower backend function, which:
- *   1. Pulls allowable zoning districts from the Notion master zoning DB
- *   2. Pulls parcels in the ring via the Realie API
- *   3. Filters out residential + scores by zoning + acreage + proximity
- *   4. Skip-traces the owner of each of the top 3 via Enformion
+ * User enters a SARF center, radius, and tower height. SiteHawk identifies the
+ * three most feasible parcels in the search ring and labels them Target A,
+ * Target B, and Target C.
  */
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Eye,
-  Crosshair,
-  Loader2,
-  Radar,
-  MapPin,
-  Target,
-  ArrowLeft,
   AlertTriangle,
+  ArrowLeft,
+  Crosshair,
+  Eye,
+  Loader2,
+  MapPin,
+  Radar,
+  Target,
 } from "lucide-react";
 import { findBestParcelForTower } from "@/functions/findBestParcelForTower";
 import HawkVisionTargetCard from "../components/hawkvision/HawkVisionTargetCard";
+
+const SARF_RADIUS_OPTIONS = [
+  { value: "0.25", label: "0.25 MI" },
+  { value: "0.50", label: "0.50 MI" },
+  { value: "1.0", label: "1.0 MI" },
+];
+
+function cupLabel(reasoning) {
+  if (!reasoning?.requires_cup) return "not required";
+  if (reasoning.cup_path_available) return "required / path found";
+  return "assumed - verify";
+}
 
 export default function HawkVision() {
   const navigate = useNavigate();
@@ -46,9 +51,12 @@ export default function HawkVision() {
       setError("Enter valid latitude and longitude.");
       return;
     }
+
     setLoading(true);
     setError(null);
     setTargets(null);
+    setReasoning(null);
+
     try {
       const res = await findBestParcelForTower({
         lat: latNum,
@@ -87,7 +95,6 @@ export default function HawkVision() {
       `}</style>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Back link */}
         <button
           onClick={() => navigate(-1)}
           className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-300 mb-6 hv-mono tracking-wider"
@@ -95,9 +102,7 @@ export default function HawkVision() {
           <ArrowLeft className="w-3.5 h-3.5" /> BACK
         </button>
 
-        {/* Header */}
         <div className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-[#0c1b2e] via-[#0a1428] to-[#0c1b2e] p-8 mb-8">
-          {/* Animated scanline backdrop */}
           <div
             className="absolute inset-0 opacity-20 pointer-events-none"
             style={{
@@ -115,26 +120,25 @@ export default function HawkVision() {
             </div>
             <div>
               <div className="hv-mono text-[10px] tracking-[0.3em] text-cyan-400 mb-1">
-                SITEHAWK · FEASIBILITY RECON
+                SITEHAWK | FEASIBILITY RECON
               </div>
               <h1 className="text-4xl font-bold text-white tracking-tight">
                 HAWK <span className="text-cyan-300">VISION</span>
               </h1>
               <p className="text-slate-400 mt-2 max-w-2xl">
-                Drop a SARF waypoint. We'll fly the ring, filter residential
-                noise, score zoning-fit and acreage, and lock onto the{" "}
+                Drop a SARF waypoint. SiteHawk flies the ring, filters residential noise,
+                checks CUP and PE-letter posture, then locks onto the{" "}
                 <span className="text-cyan-300 font-semibold">
                   three most-feasible cell tower parcels
                 </span>{" "}
-                — labeled <span className="hv-mono">Target One</span>,{" "}
-                <span className="hv-mono">Target Two</span>,{" "}
-                <span className="hv-mono">Target Three</span>.
+                labeled <span className="hv-mono">Target A</span>,{" "}
+                <span className="hv-mono">Target B</span>, and{" "}
+                <span className="hv-mono">Target C</span>.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Input panel */}
         <div className="rounded-2xl border border-[#1e293b] bg-[#0a0e17]/80 backdrop-blur p-6 mb-6">
           <div className="hv-mono text-[10px] tracking-[0.25em] text-cyan-400 mb-3 flex items-center gap-2">
             <Radar className="w-3.5 h-3.5" /> WAYPOINT PARAMETERS
@@ -142,7 +146,7 @@ export default function HawkVision() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Input label="LATITUDE" value={lat} onChange={setLat} placeholder="27.950600" />
             <Input label="LONGITUDE" value={lon} onChange={setLon} placeholder="-82.457200" />
-            <Input label="RADIUS (MI)" value={radius} onChange={setRadius} placeholder="1.0" />
+            <RadiusSelect value={radius} onChange={setRadius} />
             <Input label="TOWER HEIGHT (FT)" value={height} onChange={setHeight} placeholder="199" />
           </div>
 
@@ -153,11 +157,11 @@ export default function HawkVision() {
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" /> SCANNING RING…
+                <Loader2 className="w-4 h-4 animate-spin" /> SCANNING RING...
               </>
             ) : (
               <>
-                <Crosshair className="w-4 h-4" /> IDENTIFY 3 FEASIBLE TARGETS
+                <Crosshair className="w-4 h-4" /> IDENTIFY TARGET A/B/C
               </>
             )}
           </button>
@@ -170,27 +174,30 @@ export default function HawkVision() {
           )}
         </div>
 
-        {/* Reasoning bar */}
         {reasoning && (
           <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 mb-6 text-[11px] text-cyan-200 hv-mono flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="text-cyan-400 font-bold">{reasoning.jurisdiction || "Jurisdiction"}</span>
-            <span>·</span>
-            <span>
-              Allowable zones:{" "}
-              <span className="text-white">{reasoning.allowable_zones?.join(", ") || "—"}</span>
-            </span>
-            <span>·</span>
+            <span>|</span>
+            <span>Radius: <span className="text-white">{reasoning.radius_miles || radius} mi</span></span>
+            <span>|</span>
+            <span>Source: <span className="text-white">{reasoning.zoning_source || "zoning screen"}</span></span>
+            <span>|</span>
+            <span>Zones: <span className="text-white">{reasoning.allowable_zones?.join(", ") || "-"}</span></span>
+            <span>|</span>
+            <span>CUP: <span className="text-white">{cupLabel(reasoning)}</span></span>
+            <span>|</span>
+            <span>PE letter: <span className="text-white">{reasoning.pe_letter_accepted ? "accepted" : "not verified"}</span></span>
+            <span>|</span>
             <span>
               {reasoning.non_residential_candidates}/{reasoning.total_parcels_in_ring} non-residential parcels
             </span>
           </div>
         )}
 
-        {/* Targets */}
         {targets && targets.length > 0 && (
           <div className="space-y-4">
             <div className="hv-mono text-[10px] tracking-[0.25em] text-cyan-400 flex items-center gap-2">
-              <Target className="w-3.5 h-3.5" /> TARGETS LOCKED · {targets.length} OF 3
+              <Target className="w-3.5 h-3.5" /> TARGETS LOCKED | {targets.length} OF 3
             </div>
             {targets.slice(0, 3).map((t, i) => (
               <HawkVisionTargetCard
@@ -230,6 +237,25 @@ function Input({ label, value, onChange, placeholder }) {
         placeholder={placeholder}
         className="w-full px-3 py-2 rounded-lg bg-[#050a14] border border-[#1e293b] text-cyan-100 text-sm hv-mono focus:outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/30"
       />
+    </div>
+  );
+}
+
+function RadiusSelect({ value, onChange }) {
+  return (
+    <div>
+      <div className="hv-mono text-[9px] tracking-[0.2em] text-slate-400 mb-1.5">
+        SARF RADIUS
+      </div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg bg-[#050a14] border border-[#1e293b] text-cyan-100 text-sm hv-mono focus:outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/30"
+      >
+        {SARF_RADIUS_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
     </div>
   );
 }

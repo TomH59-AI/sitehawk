@@ -21,7 +21,7 @@ const SCIP_CONTEXT = `You are HawkBot, the SiteHawk AI consultant. The platform 
 5. EXISTING CONDITIONS — FEMA flood, NWI wetlands, HIFLD power utility, FCC broadband, OSM public-safety
 6. SITE NOTES — LLM-generated development concerns
 7. ZONING / TOWER SPECIFICS / SITE PLAN / BUILDING PERMIT — pulled from Notion ordinance DB
-8. MAPS — Proposed Site + 4 directional pitched viewsheds + 2 access maps
+8. MAPS - Proposed Site + access context maps
 9. SCIP MAPS — Aerial / Topo / Flood / Zoning / FLU / Wetlands / Parcel / Wind / Airport
 10. CANDIDATES SUMMARY — Targets A/B/C with skip-traced phones + SARF map with numbered waypoints
 11. RF PROPAGATION ANALYSIS — CloudRF composite footprint + N/E/S/W directional sectors + auto-calculated coverage metrics

@@ -8,7 +8,6 @@ import {
   Eye,
   FileText,
   Send,
-  Sparkles,
 } from "lucide-react";
 
 /**
@@ -44,13 +43,6 @@ const STEPS = [
     desc: "Push your top parcels into the CRM and fire off Lob direct-mail letters straight from /crm.",
     to: "/crm",
     cta: "Open CRM",
-  },
-  {
-    icon: Sparkles,
-    title: "Visualize with AI",
-    desc: "Drop an aerial photo into /tower-placement and AI renders the tower on the parcel for landowner presentations.",
-    to: "/tower-placement",
-    cta: "Open AI Vision",
   },
 ];
 

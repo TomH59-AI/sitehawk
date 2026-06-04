@@ -21,7 +21,19 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { lat, lon, radius_miles = 5 } = await req.json();
+    const payload = await req.json();
+    const {
+      lat,
+      lon,
+      radius_miles = 5,
+      heights_ft,
+      force_refresh,
+      utility_radius_miles,
+      frequency_mhz,
+      target_eirp_dbm,
+      antenna_gain_dbi,
+      receiver_height_ft,
+    } = payload;
     if (lat == null || lon == null) {
       return Response.json({ error: 'lat and lon are required' }, { status: 400 });
     }
@@ -45,6 +57,13 @@ Deno.serve(async (req) => {
         lat: Number(lat),
         lon: Number(lon),
         radius_miles: Number(radius_miles),
+        ...(Array.isArray(heights_ft) ? { heights_ft: heights_ft.map(Number).filter(Number.isFinite) } : {}),
+        ...(force_refresh !== undefined ? { force_refresh: Boolean(force_refresh) } : {}),
+        ...(utility_radius_miles !== undefined ? { utility_radius_miles: Number(utility_radius_miles) } : {}),
+        ...(frequency_mhz !== undefined ? { frequency_mhz: Number(frequency_mhz) } : {}),
+        ...(target_eirp_dbm !== undefined ? { target_eirp_dbm: Number(target_eirp_dbm) } : {}),
+        ...(antenna_gain_dbi !== undefined ? { antenna_gain_dbi: Number(antenna_gain_dbi) } : {}),
+        ...(receiver_height_ft !== undefined ? { receiver_height_ft: Number(receiver_height_ft) } : {}),
         base44_user_id: user.id,
       }),
     });
