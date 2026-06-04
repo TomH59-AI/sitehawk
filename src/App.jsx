@@ -52,7 +52,6 @@ import SendUpdate from './pages/SendUpdate';
 import MailOrders from './pages/MailOrders';
 import CRM from './pages/CRM';
 import RefundPolicy from './pages/RefundPolicy';
-import ParcelScout from './pages/ParcelScout';
 import MailAnalytics from './pages/MailAnalytics';
 import TowerPlacement from './pages/TowerPlacement';
 import SCIPPreview from './pages/SCIPPreview';
@@ -125,7 +124,6 @@ const AuthenticatedApp = () => {
         <Route path="/crm" element={<CRM />} />
         <Route path="/subscriber-crm" element={<SubscriberCRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
-        <Route path="/parcel-scout" element={<ParcelScout />} />
         <Route path="/mail-analytics" element={<MailAnalytics />} />
         <Route path="/tower-placement" element={<TowerPlacement />} />
         <Route path="/scip" element={<SCIPPreview />} />

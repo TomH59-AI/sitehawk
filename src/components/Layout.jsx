@@ -4,7 +4,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, ScanSearch, BarChart2, Compass, Network, Scale, ScanLine, Shield, Users } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, Compass, Network, Scale, ScanLine, Shield, Users } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import { useState, useEffect } from "react";
@@ -18,7 +18,6 @@ const BASE_NAV = [
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/crm", icon: Briefcase, label: "Deal Pipeline" },
-  { path: "/parcel-scout", icon: ScanSearch, label: "Parcel Scout" },
   { path: "/tower-placement", icon: Compass, label: "Tower Placement" },
   { path: "/infrastructure", icon: Network, label: "Infrastructure" },
   { path: "/hawklaw", icon: Scale, label: "HawkLaw" },
