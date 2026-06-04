@@ -57,7 +57,6 @@ import SCIPPreview from './pages/SCIPPreview';
 import SCIPShareView from './pages/SCIPShareView';
 import PowerLinesDashboard from './pages/PowerLinesDashboard';
 import HawkFrequency from './pages/HawkFrequency';
-import Infrastructure from './pages/Infrastructure';
 import CoverageAnalysis from './pages/CoverageAnalysis';
 import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
@@ -127,7 +126,6 @@ const AuthenticatedApp = () => {
         <Route path="/scip" element={<SCIPPreview />} />
         <Route path="/power-lines" element={<PowerLinesDashboard />} />
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
-        <Route path="/infrastructure" element={<Infrastructure />} />
         <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
