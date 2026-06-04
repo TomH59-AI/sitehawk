@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import TriggersPanel from "./TriggersPanel";
 import ShpoPanel from "./ShpoPanel";
 import ThpoPanel from "./ThpoPanel";
+import TribalScreening from "./TribalScreening";
 import AuditTimeline from "./AuditTimeline";
 import { computeDetermination, DISCLAIMER, HC } from "./complianceConst";
 
@@ -92,7 +93,17 @@ export default function SiteDashboard({ record, userEmail, onBack }) {
 
       <div className="grid lg:grid-cols-2 gap-5">
         <ShpoPanel records={state.shpoRecords || []} onChange={setShpo} />
-        <ThpoPanel records={state.thpoRecords || []} nacdTribes={state.nacdTribesIdentified || []} onChange={setThpo} />
+        <div className="space-y-5">
+          <ThpoPanel records={state.thpoRecords || []} nacdTribes={state.nacdTribesIdentified || []} onChange={setThpo} />
+          <TribalScreening
+            targetCoords={
+              Number.isFinite(state.targetLon) && Number.isFinite(state.targetLat)
+                ? [state.targetLon, state.targetLat]
+                : null
+            }
+            tribalGeoJSON={state.tribalGeoJSON || null}
+          />
+        </div>
       </div>
 
       <AuditTimeline log={[...(state.auditLog || []), ...pendingLog]} />
