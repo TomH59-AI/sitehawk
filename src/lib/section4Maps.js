@@ -504,6 +504,47 @@ export async function renderAirport(container, target, airport, token) {
   });
 }
 
+// ────────────── 8. NEAREST CELL TOWER ──────────────
+// Satellite map showing Target A (tower icon) and the nearest existing cellular
+// site from our imported CellularSite directory, with a connecting line +
+// distance label. `tower` is the match from nearestCellTowerFromDirectory:
+// { site_name, asr_number, market, city, state, latitude, longitude, distance_miles }.
+export async function renderCellTower(container, target, tower, token) {
+  const { latitude: lat, longitude: lon, owner } = target;
+  const tLat = Number(tower.latitude);
+  const tLon = Number(tower.longitude);
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 12);
+  map.on("error", (e) => console.error("[CELLTOWER MAP DIAG] Mapbox error event:", e?.error || e));
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      // Connecting line Target A → nearest cell tower.
+      map.addSource("s4-cell-line", {
+        type: "geojson",
+        data: { type: "Feature", geometry: { type: "LineString", coordinates: [[lon, lat], [tLon, tLat]] }, properties: {} },
+      });
+      map.addLayer({ id: "s4-cell-line-layer", type: "line", source: "s4-cell-line", paint: { "line-color": "#22d3ee", "line-width": 2.5, "line-dasharray": [2, 1.5] } });
+
+      // Cell tower marker (radio-tower pin).
+      const cel = document.createElement("div");
+      cel.style.cssText = "width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.92);border:2px solid #22d3ee;border-radius:50%;box-shadow:0 0 12px rgba(34,211,238,0.7);";
+      cel.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47"/><path d="M19.1 1.9a9.96 9.96 0 0 1 0 14.1"/><path d="M9.5 18h5"/><path d="m8 22 4-11 4 11"/></svg>';
+      const popHtml = `<div style="font-family:monospace;font-size:11px;"><strong>${tower.site_name || "Cell Site"}</strong><br/>${tower.asr_number && tower.asr_number !== 9999999 ? `ASR #${tower.asr_number}<br/>` : ""}${[tower.city, tower.state].filter(Boolean).join(", ")}${tower.market ? `<br/>${tower.market}` : ""}<br/>${Number(tower.distance_miles).toFixed(2)} mi from Target A</div>`;
+      new window.mapboxgl.Marker({ element: cel, anchor: "center" })
+        .setLngLat([tLon, tLat])
+        .setPopup(new window.mapboxgl.Popup({ offset: 18 }).setHTML(popHtml))
+        .addTo(map);
+
+      addTowerMarker(map, lat, lon, owner);
+
+      // Fit both points.
+      const b = new window.mapboxgl.LngLatBounds([lon, lat], [lon, lat]);
+      b.extend([tLon, tLat]);
+      map.fitBounds(b, { padding: 80, duration: 0, maxZoom: 13 });
+      resolve(map);
+    });
+  });
+}
+
 // ── Parcel popup Zoneomics zoning lookup (session cache + 300ms debounce) ──
 // Keyed by parcel ID for the whole session so repeated hovers don't re-query.
 const parcelZoneCache = new Map();

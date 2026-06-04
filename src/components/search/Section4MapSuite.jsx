@@ -52,16 +52,17 @@ import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
+import { nearestCellTowerFromDirectory } from "@/functions/nearestCellTowerFromDirectory";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderParcel, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "parcel"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel"];
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData, onClear,
@@ -73,6 +74,7 @@ export default function Section4MapSuite({
   const [zoneInfo, setZoneInfo] = useState(null);
   const [flumInfo, setFlumInfo] = useState(null);
   const [airportInfo, setAirportInfo] = useState(null);
+  const [cellTowerInfo, setCellTowerInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -89,7 +91,7 @@ export default function Section4MapSuite({
 
   const refs = {
     aerial: useRef(null), topo: useRef(null), fema: useRef(null),
-    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), parcel: useRef(null),
+    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null),
   };
   const maps = useRef({});
 
@@ -237,6 +239,13 @@ export default function Section4MapSuite({
         setAirportInfo(airport);
         onData?.({ airport: { name: airport.name || airport.callnumber || null, distance_miles: Number(airport.distance_miles), type: airport.type || null } });
         map = await renderAirport(refs.airport.current, targetA, airport, token);
+      } else if (step === "celltower") {
+        const cres = await nearestCellTowerFromDirectory({ lat: targetA.latitude, lon: targetA.longitude });
+        const tower = cres.data?.match;
+        if (!tower) throw new Error("No cell tower found near Target A.");
+        setCellTowerInfo(tower);
+        onData?.({ tower: { owner: tower.site_name || null, distance_miles: Number(tower.distance_miles), height_ft: null, source: "CellularSite directory" } });
+        map = await renderCellTower(refs.celltower.current, targetA, tower, token);
       } else if (step === "parcel") {
         // Pull every parcel inside the user-selected SARF ring (centered on the
         // SARF center, not Target A) so we can draw all boundaries in the ring.
@@ -334,6 +343,13 @@ export default function Section4MapSuite({
         {" "}— <span className="font-mono">{Number(airportInfo.distance_miles).toFixed(2)} mi</span>
       </div>
     ) : null,
+    celltower: cellTowerInfo ? (
+      <div className="px-4 py-2 bg-cyan-50 dark:bg-cyan-950/20 border-y border-cyan-300/50 text-sm font-semibold text-cyan-800 dark:text-cyan-200">
+        Nearest cell tower to Target A: <span className="font-mono">{cellTowerInfo.site_name || "Cell Site"}</span>
+        {cellTowerInfo.market ? <span className="font-normal opacity-80"> · {cellTowerInfo.market}</span> : null}
+        {" "}— <span className="font-mono">{Number(cellTowerInfo.distance_miles).toFixed(2)} mi</span>
+      </div>
+    ) : null,
     parcel: null,
   };
 
@@ -357,7 +373,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate eight Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Parcel.
+          Generate nine Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -424,7 +440,14 @@ export default function Section4MapSuite({
           onRun={() => runStep("airport")} mapRef={refs.airport} banner={banners.airport}
         />
         <MapSubStep
-          index={8} title="Parcel Map" runLabel="Run Parcel Map"
+          index={8} title="Nearest Cell Tower Map" runLabel="Run Nearest Cell Tower Map"
+          spinnerLabel="Finding nearest cell tower to Target A…"
+          unlocked={active && isUnlocked("celltower")}
+          loading={loadingStep === "celltower"} done={!!completed.celltower}
+          onRun={() => runStep("celltower")} mapRef={refs.celltower} banner={banners.celltower}
+        />
+        <MapSubStep
+          index={9} title="Parcel Map" runLabel="Run Parcel Map"
           spinnerLabel="Generating Target A parcel map…"
           unlocked={active && isUnlocked("parcel")}
           loading={loadingStep === "parcel"} done={!!completed.parcel}
