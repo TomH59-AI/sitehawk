@@ -1,7 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
-
-const SUPABASE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/sitehawk-chat";
-const SUPABASE_KEY = Deno.env.get("SUPABASE_ANON_KEY");
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 // Rate limiting: max 20 chat messages per minute per user
 const rateLimitMap = new Map();
@@ -47,19 +44,21 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+    const message = body?.message || "";
+    const scipFormat = body?.context?.scip_format || "";
 
-    const res = await fetch(SUPABASE_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify(body),
+    if (!message.trim()) {
+      return Response.json({ error: 'Empty message' }, { status: 400 });
+    }
+
+    // Answer with the latest Anthropic model via Base44's InvokeLLM.
+    const prompt = `${scipFormat}\n\nUser question: ${message}`;
+    const response = await base44.integrations.Core.InvokeLLM({
+      prompt,
+      model: "claude_opus_4_8",
     });
 
-    const data = await res.json();
-    return Response.json(data);
+    return Response.json({ response });
 
   } catch (error) {
     console.error('siteChat error:', error.message);
