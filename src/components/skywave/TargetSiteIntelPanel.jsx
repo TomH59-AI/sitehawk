@@ -1,12 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { zoneomicsTargetIntel } from "@/functions/zoneomicsTargetIntel";
-import { ensureMapboxLoaded } from "@/lib/section6Proximity";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { normalizeZoneType } from "@/lib/zoningPalette";
 import Section7Fiber from "./Section7Fiber";
 import { Building2, Hammer, MapPinned, ChevronDown, Loader2, PanelLeftClose, PanelLeftOpen, X, Sparkles, TrendingUp, CheckCircle2, AlertTriangle } from "lucide-react";
 
 const NEON = "#00FFCC";
+
+// Idempotent Mapbox GL JS loader (this panel renders a live interactive map).
+let mapboxLoadingPromise = null;
+function ensureMapboxLoaded() {
+  if (window.mapboxgl) return Promise.resolve();
+  if (!mapboxLoadingPromise) {
+    mapboxLoadingPromise = new Promise((resolve, reject) => {
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css";
+      document.head.appendChild(css);
+      const s = document.createElement("script");
+      s.src = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js";
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  return mapboxLoadingPromise;
+}
 
 // Zoneomics FLUM vector tile template (reused from section4Maps convention).
 const FLUM_TILES = (key) => `https://api.zoneomics.com/v2/flum/tiles/{z}/{x}/{y}.mvt?api_key=${key}`;

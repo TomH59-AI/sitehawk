@@ -18,7 +18,7 @@ import { BRAND_GREEN } from "@/lib/section6Proximity";
 
 export default function ProximitySubStep({
   index, title, runLabel, spinnerLabel, legend,
-  unlocked, loading, done, error, info, onRun, mapRef, banner,
+  unlocked, loading, done, error, info, onRun, imgUrl, banner,
 }) {
   if (!unlocked) {
     return (
@@ -81,11 +81,12 @@ export default function ProximitySubStep({
         </div>
       )}
 
-      {/* Map canvas is visible while loading so Mapbox can measure it before paint. */}
-      <div style={{ display: (loading || done) ? "block" : "none" }}>
-        {banner}
-        <div className="relative w-full bg-[#0C1B2E]" style={{ height: 540 }}>
-          <div ref={mapRef} className="absolute inset-0" />
+      {/* Static Mapbox image — drops straight into <img>, never paints black. */}
+      {done && imgUrl && (
+        <div>
+          {banner}
+          <div className="relative w-full bg-[#0C1B2E]" style={{ height: 540 }}>
+            <img src={imgUrl} alt={title} className="absolute inset-0 w-full h-full object-cover" />
           {info && (
             <div className="absolute top-3 left-3 z-10">
               <ProximityInfoPanel kicker={info.kicker} title={info.title} distMi={info.distMi} rows={info.rows} />
@@ -97,8 +98,9 @@ export default function ProximitySubStep({
               {legend}
             </div>
           )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

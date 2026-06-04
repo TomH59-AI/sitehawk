@@ -16,7 +16,7 @@
  *   - windSpeedLookup (ASCE 7-22, preserved as-is)
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Lock, Compass } from "lucide-react";
 import { toast } from "sonner";
 import ProximitySubStep from "./section6/ProximitySubStep";
@@ -26,7 +26,7 @@ import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirec
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import {
-  ensureMapboxLoaded, renderAirport, renderCellTower, renderWind, BRAND_GREEN,
+  buildAirportMap, buildCellTowerMap, buildWindMap, BRAND_GREEN,
 } from "@/lib/section6Proximity";
 
 const STEPS = ["airport", "celltower", "wind"];
@@ -40,24 +40,14 @@ export default function Section6Proximity({
   const [errors, setErrors] = useState({});
   // Per-step destination metadata for the glass info panel (airport / celltower).
   const [infoByStep, setInfoByStep] = useState({});
+  // Per-step Static Images API URL — dropped straight into an <img/>. No WebGL.
+  const [imgByStep, setImgByStep] = useState({});
 
   // Fire onComplete once all three maps are done — unlocks Section 7.
   useEffect(() => {
     if (STEPS.every((s) => completed[s])) onComplete?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed]);
-
-  const refs = {
-    airport: useRef(null), celltower: useRef(null), wind: useRef(null),
-  };
-  const maps = useRef({});
-
-  useEffect(() => {
-    return () => {
-      Object.values(maps.current).forEach((m) => m?.remove?.());
-      maps.current = {};
-    };
-  }, []);
 
   const runStep = useCallback(async (step) => {
     const tag = `[PROXIMITY DIAG ${step}]`;
@@ -94,34 +84,14 @@ export default function Section6Proximity({
         setErrors((p) => ({ ...p, [step]: "Mapbox token unavailable." }));
         clearTimeout(watchdog); setLoadingStep(null); return;
       }
-      await ensureMapboxLoaded();
 
-      // Dispose any prior instance for this step before re-rendering.
-      maps.current[step]?.remove?.();
-      maps.current[step] = null;
-
-      // The map panel is display:none until `loading` flips true. Wait until React
-      // has committed that change AND the browser has laid out the 540px container
-      // before creating the map — otherwise Mapbox initializes at 0×0 and paints a
-      // blank (black) canvas that never recovers. Poll the ref for real height.
-      const waitForContainer = async () => {
-        for (let i = 0; i < 30; i++) {
-          await new Promise((r) => requestAnimationFrame(r));
-          const el = refs[step].current;
-          if (el && el.offsetHeight > 0 && el.offsetWidth > 0) return true;
-        }
-        return false;
-      };
-      const sized = await waitForContainer();
-      if (!sized) throw new Error("Map container failed to size — try Regenerate.");
-
-      let map;
       if (step === "airport") {
         const res = await nearestAirportFromDirectory({ lat, lon });
         const airport = res.data?.match;
         console.log(`${tag} nearestAirportFromDirectory →`, airport ? `${airport.callnumber} ${airport.distance_miles}mi (${res.data?.candidates_scanned} scanned)` : "no match");
         if (!airport) throw new Error("No airport found near Target A.");
-        map = await renderAirport(refs.airport.current, targetA, airport, token);
+        const { url } = buildAirportMap(targetA, airport, token);
+        setImgByStep((p) => ({ ...p, airport: url }));
         // Emit airport factor to the bus.
         onData?.({ airport: { name: airport.name || airport.callnumber || null, distance_miles: Number(airport.distance_miles), type: airport.type || null } });
         setInfoByStep((p) => ({
@@ -142,7 +112,8 @@ export default function Section6Proximity({
         const tower = res.data?.nearest_tower;
         console.log(`${tag} cellTowerLookup →`, tower ? `${tower.licensee || "?"} ASR#${tower.tower_registration_number || "—"} ${tower.distance_miles}mi src=${tower.source || "FCC"}` : "no tower");
         if (!tower || tower.latitude_deg == null) throw new Error("No cell tower found near Target A.");
-        map = await renderCellTower(refs.celltower.current, targetA, tower, token);
+        const { url } = buildCellTowerMap(targetA, tower, token);
+        setImgByStep((p) => ({ ...p, celltower: url }));
         // Emit tower factor to the bus — source-labeled (ASR+OpenCellID @10mi, canonical).
         onData?.({ tower: { owner: tower.licensee || null, distance_miles: Number(tower.distance_miles), height_ft: tower.overall_height_ft != null ? Number(tower.overall_height_ft) : null, source: tower.tower_registration_number ? "FCC ASR" : (tower.source || "OpenCellID") } });
         const asrn = tower.tower_registration_number ? `ASR #${tower.tower_registration_number}` : (tower.source || "OpenCellID");
@@ -161,25 +132,16 @@ export default function Section6Proximity({
           },
         }));
       } else if (step === "wind") {
-        const [windRes, m] = await Promise.all([
-          windSpeedLookup({ lat, lon }).catch(() => null),
-          renderWind(refs.wind.current, targetA, token),
-        ]);
+        const windRes = await windSpeedLookup({ lat, lon }).catch(() => null);
         console.log(`${tag} windSpeedLookup →`, windRes?.data?.wind_speed_mph ?? "no value", "mph");
+        const { url } = buildWindMap(targetA, token);
+        setImgByStep((p) => ({ ...p, wind: url }));
         setWindInfo(windRes?.data || null);
         // Emit wind factor to the bus.
         onData?.({ wind: { wind_speed_mph: windRes?.data?.wind_speed_mph ?? null, risk_level: windRes?.data?.wind_risk_level ?? null } });
-        map = m;
       }
 
-      maps.current[step] = map;
       setCompleted((prev) => ({ ...prev, [step]: true }));
-      // The canvas wrapper is display:none while loading (zero size), so Mapbox
-      // initializes blank. Once the panel flips to visible, force a resize on the
-      // next frames so the canvas paints at its real 540px height.
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        try { map.resize(); } catch { /* map disposed */ }
-      }));
       console.log(`${tag} Map generated OK.`);
       toast.success(`${step === "celltower" ? "Cell tower" : step.charAt(0).toUpperCase() + step.slice(1)} map generated for Target A.`);
     } catch (err) {
@@ -190,7 +152,7 @@ export default function Section6Proximity({
       clearTimeout(watchdog);
       setLoadingStep(null);
     }
-  }, [targetA, refs]);
+  }, [targetA]);
 
   // The Airport button also arms the section (pipelineStep → "proximity").
   const beginAndRun = (step) => {
@@ -266,7 +228,7 @@ export default function Section6Proximity({
           unlocked={isUnlocked("airport")}
           loading={loadingStep === "airport"} done={!!completed.airport}
           error={errors.airport} info={infoByStep.airport}
-          onRun={() => beginAndRun("airport")} mapRef={refs.airport}
+          onRun={() => beginAndRun("airport")} imgUrl={imgByStep.airport}
         />
         <ProximitySubStep
           index={2} title="Closest Cell Tower Map" runLabel="Run Closest Cell Tower Map"
@@ -275,7 +237,7 @@ export default function Section6Proximity({
           unlocked={active && isUnlocked("celltower")}
           loading={loadingStep === "celltower"} done={!!completed.celltower}
           error={errors.celltower} info={infoByStep.celltower}
-          onRun={() => runStep("celltower")} mapRef={refs.celltower}
+          onRun={() => runStep("celltower")} imgUrl={imgByStep.celltower}
         />
         <ProximitySubStep
           index={3} title="Wind Speed Map" runLabel="Run Wind Speed Map"
@@ -284,7 +246,7 @@ export default function Section6Proximity({
           unlocked={active && isUnlocked("wind")}
           loading={loadingStep === "wind"} done={!!completed.wind}
           error={errors.wind}
-          onRun={() => runStep("wind")} mapRef={refs.wind} banner={windBanner}
+          onRun={() => runStep("wind")} imgUrl={imgByStep.wind} banner={windBanner}
         />
       </div>
     </div>
