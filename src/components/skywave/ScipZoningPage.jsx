@@ -62,17 +62,27 @@ const GROUPS = [
   },
 ];
 
+// Auto-populated only — a value is "blank" when null/undefined/empty after trim.
+const isBlank = (v) => v == null || String(v).trim() === "";
+
 function cell(report, section, key) {
   const c = report?.[section]?.[key];
   const v = c?.value;
-  if (v == null || v === "") return { value: "\u00A0", source: null };
+  if (isBlank(v)) return { value: null, source: null };
   return { value: String(v), source: c?.source || null };
 }
 
 export default function ScipZoningPage({ report = {} }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {GROUPS.map((g) => (
+      {GROUPS.map((g) => {
+        // Only the rows that actually carry an auto-populated value.
+        const filled = g.rows
+          .map(([key, label]) => ({ key, label, c: cell(report, g.section, key) }))
+          .filter((row) => !isBlank(row.c.value));
+        // Skip the entire group — header and table — when every row is blank.
+        if (filled.length === 0) return null;
+        return (
         <table key={g.section} className="w-full" style={{ borderCollapse: "collapse", fontSize: "9pt" }}>
           <thead>
             <tr>
@@ -90,8 +100,7 @@ export default function ScipZoningPage({ report = {} }) {
             </tr>
           </thead>
           <tbody>
-            {g.rows.map(([key, label]) => {
-              const c = cell(report, g.section, key);
+            {filled.map(({ key, label, c }) => {
               return (
                 <tr key={key}>
                   <td style={{ padding: "5px 8px", width: "34%", color: SKYWAVE.navy, fontWeight: 700, border: `1px solid ${SKYWAVE.line}`, verticalAlign: "top" }}>
@@ -108,7 +117,8 @@ export default function ScipZoningPage({ report = {} }) {
             })}
           </tbody>
         </table>
-      ))}
+        );
+      })}
     </div>
   );
 }

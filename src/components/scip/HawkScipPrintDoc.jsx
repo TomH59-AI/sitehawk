@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { format } from "date-fns";
 import { MapPin } from "lucide-react";
 import { HAWK, CONFIDENTIAL_NOTICE } from "./hawkScipBrand";
@@ -9,6 +10,15 @@ import ScipPowerAirportPage from "../skywave/ScipPowerAirportPage";
 import ScipExistingConditionsPage from "../skywave/ScipExistingConditionsPage";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
+
+// Deselected sections get .scip-section-hidden — visible on screen, hidden in print.
+// The selector control bar carries .no-print so it never reaches the printed page,
+// even though HawkScip's print CSS reveals everything inside #hawk-scip-doc.
+const SELECTOR_PRINT_CSS = `
+@media print {
+  #hawk-scip-doc .scip-section-hidden,
+  #hawk-scip-doc .no-print { display: none !important; }
+}`;
 
 function fmtDate(d) {
   try { return format(new Date(d + "T00:00:00"), "MMM d, yyyy"); } catch { return d || ""; }
@@ -34,6 +44,103 @@ export default function HawkScipPrintDoc({ record }) {
   let pageNo = 0;
   const next = () => (pageNo += 1);
 
+  // ── Build the toggleable data sections (SARF map is always included). ──
+  const sections = [];
+  if (r.zoning_report && Object.keys(r.zoning_report).length > 0) {
+    sections.push({
+      id: "zoning", label: "Zoning & Permitting",
+      node: (
+        <HawkScipSection
+          kicker="SCIP · Section 2"
+          title="ZONING & PERMITTING"
+          right={r.zoning_jurisdiction || "Jurisdiction"}
+          page={next()}
+          footerNote="Zoneomics-primary zoning district & land use · Municode tower specs · curated jurisdiction contacts, fees & timeframes. Field verification recommended before submittal."
+        >
+          <ScipZoningPage report={r.zoning_report} />
+        </HawkScipSection>
+      ),
+    });
+  }
+  if (Array.isArray(r.parcel_targets) && r.parcel_targets.length > 0) {
+    sections.push({
+      id: "parcel", label: "Hawk Parcel Data",
+      node: (
+        <HawkScipSection
+          kicker="SCIP · Section 3"
+          title="HAWK PARCEL DATA"
+          right="3 candidate targets · ★ = SCIP focus"
+          page={next()}
+          footerNote={`Targets ranked from all parcels in the ${radius}-mi ring against no-residential, lot size, zoning class and FEMA flood risk. The starred target is the focus; the other two are held in reserve.`}
+        >
+          <ScipParcelDataPage targets={r.parcel_targets} activeIdx={r.active_target_index || 0} />
+        </HawkScipSection>
+      ),
+    });
+  }
+  if (r.hawk_maps && (r.hawk_maps.aerial_url || r.hawk_maps.floodplain_url || r.hawk_maps.zoning_url || r.hawk_maps.topography_url)) {
+    sections.push({
+      id: "maps", label: "Hawk Maps",
+      node: (
+        <HawkScipSection
+          kicker="SCIP · Section 4"
+          title="HAWK MAPS"
+          right={targetLabel}
+          page={next()}
+          footerNote="Aerial & topography © Mapbox · Floodplain © FEMA NFHL · Zoning © Zoneomics. Context maps — field verification recommended."
+        >
+          <ScipHawkMapsPage hawkMaps={r.hawk_maps} />
+        </HawkScipSection>
+      ),
+    });
+  }
+  if (r.power_airport_maps && (r.power_airport_maps.power || r.power_airport_maps.airport)) {
+    sections.push({
+      id: "power", label: "Power & Airport",
+      node: (
+        <HawkScipSection
+          kicker="SCIP · Section 5"
+          title="POWER & AIRPORT"
+          right={targetLabel}
+          page={next()}
+          footerNote="Electric provider & transmission-line context from the SiteHawk power dataset · airport from the US airport directory · basemap © Mapbox. Distances as the hawk flies."
+        >
+          <ScipPowerAirportPage data={r.power_airport_maps} />
+        </HawkScipSection>
+      ),
+    });
+  }
+  if (r.existing_conditions && Object.keys(r.existing_conditions).length > 0) {
+    sections.push({
+      id: "conditions", label: "Existing Conditions",
+      node: (
+        <HawkScipSection
+          kicker="SCIP · Section 6"
+          title="EXISTING CONDITIONS"
+          right={targetLabel}
+          page={next()}
+          footerNote="FEMA NFHL flood zone · USFWS National Wetlands Inventory · nearest OSM police & fire · web-researched water management district, hazardous-waste status and access notes. Field verification recommended."
+        >
+          <ScipExistingConditionsPage conditions={r.existing_conditions} />
+        </HawkScipSection>
+      ),
+    });
+  }
+
+  // Per-section "Add to SCIP" selection — defaults all ON so the full package prints.
+  const [selected, setSelected] = useState(() => {
+    const m = {};
+    sections.forEach((s) => { m[s.id] = true; });
+    return m;
+  });
+  const toggle = (id) => setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+  const allOn = sections.every((s) => selected[s.id]);
+  const setAll = (val) => setSelected(() => {
+    const m = {};
+    sections.forEach((s) => { m[s.id] = val; });
+    return m;
+  });
+
   return (
     <div id="hawk-scip-doc" style={{ fontFamily: "Inter, Helvetica Neue, Arial, sans-serif" }}>
 
@@ -46,7 +153,8 @@ export default function HawkScipPrintDoc({ record }) {
             <img src={HAWK.logo} alt="SiteHawk" style={{ height: 96 }} crossOrigin="anonymous" />
             <div>
               <div className="text-[12pt] uppercase font-bold" style={{ color: HAWK.gold, letterSpacing: 4 }}>SiteHawk</div>
-              <div className="text-[26pt] font-bold text-white leading-tight">Site Candidate<br />Information Package</div>
+              <div className="text-[26pt] font-bold text-white leading-tight">Hawk Intelligence</div>
+              <div className="text-[11px] font-bold uppercase mt-1" style={{ color: HAWK.gold, letterSpacing: "0.35em" }}>SCIP</div>
               <div className="text-[10pt] mt-1" style={{ color: "#9FB0CC" }}>HAWK SCIP · Step 1 — Site Acquisition &amp; Search Ring</div>
             </div>
           </div>
@@ -112,70 +220,41 @@ export default function HawkScipPrintDoc({ record }) {
         </div>
       </HawkScipSection>
 
-      {/* ─────────── ZONING & PERMITTING ─────────── */}
-      {r.zoning_report && Object.keys(r.zoning_report).length > 0 && (
-        <HawkScipSection
-          kicker="SCIP · Section 2"
-          title="ZONING & PERMITTING"
-          right={r.zoning_jurisdiction || "Jurisdiction"}
-          page={next()}
-          footerNote="Zoneomics-primary zoning district & land use · Municode tower specs · curated jurisdiction contacts, fees & timeframes. Field verification recommended before submittal."
-        >
-          <ScipZoningPage report={r.zoning_report} />
-        </HawkScipSection>
+      {/* ─────────── PER-SECTION "ADD TO SCIP" SELECTOR (screen only) ─────────── */}
+      {sections.length > 0 && (
+        <div className="no-print" style={{ margin: "16px 0", padding: "12px 16px", borderRadius: 10, border: `1.5px solid ${HAWK.line}`, background: HAWK.bg }}>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="text-[11px] font-bold uppercase tracking-[2px]" style={{ color: HAWK.navy }}>
+              Build Your Package — Add to SCIP
+            </div>
+            <button
+              type="button"
+              onClick={() => setAll(!allOn)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-md"
+              style={{ border: `1.5px solid ${HAWK.blue}`, color: HAWK.blue, background: "#fff" }}
+            >
+              {allOn ? "Deselect all" : "Select all"} · Print selected
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 mt-3">
+            {sections.map((s) => (
+              <label key={s.id} className="inline-flex items-center gap-2 text-sm cursor-pointer" style={{ color: HAWK.ink }}>
+                <input type="checkbox" checked={!!selected[s.id]} onChange={() => toggle(s.id)} />
+                {s.label}
+              </label>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* ─────────── HAWK PARCEL DATA ─────────── */}
-      {Array.isArray(r.parcel_targets) && r.parcel_targets.length > 0 && (
-        <HawkScipSection
-          kicker="SCIP · Section 3"
-          title="HAWK PARCEL DATA"
-          right="3 candidate targets · ★ = SCIP focus"
-          page={next()}
-          footerNote={`Targets ranked from all parcels in the ${radius}-mi ring against no-residential, lot size, zoning class and FEMA flood risk. The starred target is the focus; the other two are held in reserve.`}
-        >
-          <ScipParcelDataPage targets={r.parcel_targets} activeIdx={r.active_target_index || 0} />
-        </HawkScipSection>
-      )}
+      {/* ─────────── TOGGLEABLE DATA SECTIONS ─────────── */}
+      {sections.map((s) => (
+        <div key={s.id} className={selected[s.id] ? "" : "scip-section-hidden"}>
+          {s.node}
+        </div>
+      ))}
 
-      {/* ─────────── HAWK MAPS ─────────── */}
-      {r.hawk_maps && (r.hawk_maps.aerial_url || r.hawk_maps.floodplain_url || r.hawk_maps.zoning_url || r.hawk_maps.topography_url) && (
-        <HawkScipSection
-          kicker="SCIP · Section 4"
-          title="HAWK MAPS"
-          right={targetLabel}
-          page={next()}
-          footerNote="Aerial & topography © Mapbox · Floodplain © FEMA NFHL · Zoning © Zoneomics. Context maps — field verification recommended."
-        >
-          <ScipHawkMapsPage hawkMaps={r.hawk_maps} />
-        </HawkScipSection>
-      )}
-
-      {/* ─────────── POWER & AIRPORT ─────────── */}
-      {r.power_airport_maps && (r.power_airport_maps.power || r.power_airport_maps.airport) && (
-        <HawkScipSection
-          kicker="SCIP · Section 5"
-          title="POWER & AIRPORT"
-          right={targetLabel}
-          page={next()}
-          footerNote="Electric provider & transmission-line context from the SiteHawk power dataset · airport from the US airport directory · basemap © Mapbox. Distances as the hawk flies."
-        >
-          <ScipPowerAirportPage data={r.power_airport_maps} />
-        </HawkScipSection>
-      )}
-
-      {/* ─────────── EXISTING CONDITIONS ─────────── */}
-      {r.existing_conditions && Object.keys(r.existing_conditions).length > 0 && (
-        <HawkScipSection
-          kicker="SCIP · Section 6"
-          title="EXISTING CONDITIONS"
-          right={targetLabel}
-          page={next()}
-          footerNote="FEMA NFHL flood zone · USFWS National Wetlands Inventory · nearest OSM police & fire · web-researched water management district, hazardous-waste status and access notes. Field verification recommended."
-        >
-          <ScipExistingConditionsPage conditions={r.existing_conditions} />
-        </HawkScipSection>
-      )}
+      <style>{SELECTOR_PRINT_CSS}</style>
     </div>
   );
 }

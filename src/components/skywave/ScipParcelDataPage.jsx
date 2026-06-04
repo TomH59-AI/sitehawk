@@ -12,13 +12,16 @@ const ROWS = [
   ["fema_risk_factor", "FEMA Risk Factor"],
 ];
 
+// Auto-populated only — a value is "blank" when null/undefined/empty after trim.
+const isBlank = (v) => v == null || String(v).trim() === "";
+
 function cellValue(t, key) {
   if (!t) return "";
   if (key === "coordinates") {
     return t.latitude != null && t.longitude != null ? `${Number(t.latitude).toFixed(5)}, ${Number(t.longitude).toFixed(5)}` : "";
   }
   const v = t[key];
-  if (v == null || v === "") return "";
+  if (isBlank(v)) return "";
   if (key === "acreage") return Number(v).toFixed(3);
   return String(v);
 }
@@ -55,12 +58,16 @@ export default function ScipParcelDataPage({ targets = [], activeIdx = 0 }) {
         </tr>
       </thead>
       <tbody>
-        {ROWS.map(([key, label]) => (
+        {ROWS.map(([key, label]) => {
+          const values = cols.map((t) => cellValue(t, key));
+          // Skip the row only when it is blank for ALL three targets A, B and C.
+          if (values.every((v) => isBlank(v))) return null;
+          return (
           <tr key={key}>
             <td style={{ padding: "7px 6px", color: SKYWAVE.blue, fontWeight: 600, border: `1px solid ${SKYWAVE.line}`, verticalAlign: "top" }}>
               {label}:
             </td>
-            {cols.map((t, i) => (
+            {values.map((v, i) => (
               <td
                 key={i}
                 style={{
@@ -69,11 +76,12 @@ export default function ScipParcelDataPage({ targets = [], activeIdx = 0 }) {
                   printColorAdjust: "exact", WebkitPrintColorAdjust: "exact",
                 }}
               >
-                {cellValue(t, key) || "\u00A0"}
+                {v}
               </td>
             ))}
           </tr>
-        ))}
+          );
+        })}
       </tbody>
     </table>
   );
