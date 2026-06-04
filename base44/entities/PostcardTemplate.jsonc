@@ -1,0 +1,77 @@
+{
+  "name": "PostcardTemplate",
+  "type": "object",
+  "description": "A reusable, standardized postcard/outreach template saved by a user in the CRM. The body uses merge fields like {{owner_name}} and {{parcel_address}} that are auto-filled per recipient when mailing. Lets users build and store on-brand outreach copy once and reuse it across postcard campaigns.",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "User label for the template (e.g. 'Vacant Land \u2014 Friendly Intro')."
+    },
+    "tone": {
+      "type": "string",
+      "enum": [
+        "professional",
+        "friendly",
+        "warm",
+        "direct",
+        "urgent"
+      ],
+      "default": "professional",
+      "description": "Tone descriptor for the template copy."
+    },
+    "body": {
+      "type": "string",
+      "description": "The postcard message body. May contain merge fields like {{owner_name}}, {{parcel_address}}, {{mailing_address}}, {{sender_name}}, {{sender_company}}, {{sender_phone}}, {{sender_email}} which are substituted per recipient at mail time."
+    },
+    "is_default": {
+      "type": "boolean",
+      "default": false,
+      "description": "If true, this template is preselected when opening the postcard mailer."
+    }
+  },
+  "required": [
+    "name",
+    "body"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
