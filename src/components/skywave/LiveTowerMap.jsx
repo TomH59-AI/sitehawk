@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RadioTower } from "lucide-react";
-import { ensureMapboxLoaded } from "@/lib/section6Proximity";
+import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { SKYWAVE } from "@/lib/skywave";
 

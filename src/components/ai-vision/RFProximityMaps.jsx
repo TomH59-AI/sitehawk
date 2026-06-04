@@ -10,7 +10,7 @@
 
 import { useEffect, useRef } from "react";
 import { Plane, RadioTower, AlertTriangle } from "lucide-react";
-import { ensureMapboxLoaded } from "@/lib/section6Proximity";
+import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 
 const BRAND = "#2563EB";
