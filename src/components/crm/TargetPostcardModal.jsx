@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { X, Send, Loader2, CheckCircle2, AlertTriangle, MapPin, Sparkles, Plus, Wand2, PenLine } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import { X, Send, Loader2, CheckCircle2, AlertTriangle, MapPin, Sparkles, Plus, Wand2, PenLine, LayoutTemplate } from "lucide-react";
 import { sendTargetPostcards } from "@/functions/sendTargetPostcards";
 import { findMoreTargets } from "@/functions/findMoreTargets";
 import { draftHawkBotLetter } from "@/functions/draftHawkBotLetter";
+import { renderTemplate, mergeDataFromDeal } from "@/lib/postcardMerge.js";
 
 const TONES = ["professional", "friendly", "warm", "direct", "urgent"];
 
@@ -24,6 +26,9 @@ export default function TargetPostcardModal({ deals, onClose }) {
   const [tone, setTone] = useState("professional");
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState(null);
+  // Saved standardized templates from the CRM Template Builder.
+  const [templates, setTemplates] = useState([]);
+  const [templateId, setTemplateId] = useState("");
 
   // Prefill sender from saved localStorage so they don't retype it.
   useEffect(() => {
@@ -31,6 +36,12 @@ export default function TargetPostcardModal({ deals, onClose }) {
       const saved = JSON.parse(localStorage.getItem("sitehawk_sender") || "{}");
       if (saved && Object.keys(saved).length) setSender((s) => ({ ...s, ...saved }));
     } catch { /* ignore */ }
+    // Load saved postcard templates; preselect the default if one exists.
+    base44.entities.PostcardTemplate.list("-updated_date", 100).then((list) => {
+      setTemplates(list);
+      const def = list.find((t) => t.is_default);
+      if (def) { setTemplateId(def.id); setMessage(def.body || ""); }
+    }).catch(() => {});
   }, []);
 
   const selected = deals.filter((d) => selectedIds.includes(d.id));
@@ -112,15 +123,19 @@ export default function TargetPostcardModal({ deals, onClose }) {
     setPhase("sending");
     try {
       localStorage.setItem("sitehawk_sender", JSON.stringify(sender));
+      // If the message contains merge fields, resolve them per recipient.
+      const hasMerge = /\{\{\s*\w+\s*\}\}/.test(message || "");
       const baseTargets = selected.map((d) => ({
         owner_name: d.owner_name,
         parcel_address: d.parcel_address,
         mailing_address: d.owner_mailing_address || d.parcel_address,
+        message: hasMerge ? renderTemplate(message, mergeDataFromDeal(d, sender)) : undefined,
       }));
       const extraTargets = (bonusOn ? bonusTargets : []).map((t) => ({
         owner_name: t.owner_name,
         parcel_address: t.parcel_address,
         mailing_address: t.mailing_address || t.parcel_address,
+        message: hasMerge ? renderTemplate(message, mergeDataFromDeal({ owner_name: t.owner_name, parcel_address: t.parcel_address, owner_mailing_address: t.mailing_address }, sender)) : undefined,
       }));
       const targets = [...baseTargets, ...extraTargets];
       // Pay first — fulfillment (Lob send) happens in the Stripe webhook.
@@ -258,6 +273,31 @@ export default function TargetPostcardModal({ deals, onClose }) {
                   </div>
                 </div>
               </div>
+
+              {/* Saved template picker */}
+              {templates.length > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <LayoutTemplate className="w-3.5 h-3.5" /> Apply Saved Template
+                  </p>
+                  <select
+                    value={templateId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setTemplateId(id);
+                      const t = templates.find((x) => x.id === id);
+                      if (t) { setMessage(t.body || ""); if (t.tone) setTone(t.tone); }
+                    }}
+                    className="w-full rounded-lg border border-border bg-secondary text-xs px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="">— None (write below) —</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}{t.is_default ? " ★" : ""}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-muted-foreground mt-1">Fields like {"{{owner_name}}"} and {"{{parcel_address}}"} auto-fill per recipient.</p>
+                </div>
+              )}
 
               {/* Postcard message — HawkBot draft or type your own */}
               <div>

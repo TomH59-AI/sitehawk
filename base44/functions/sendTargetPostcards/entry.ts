@@ -1,4 +1,4 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import Stripe from 'npm:stripe@14.21.0';
 
 // SiteHawk — Target Postcard Mailer.
@@ -118,6 +118,9 @@ Deno.serve(async (req) => {
         owner_name: t.owner_name,
         parcel_address: t.parcel_address,
         mailing_address: t.mailing_address || t.owner_mailing_address || t.parcel_address,
+        // Per-recipient message (template merge fields already resolved client-side).
+        // Falls back to the shared `message` when absent.
+        message: t.message,
         parsed,
         valid: !!(parsed && parsed.street && parsed.city && parsed.state),
       };
@@ -232,7 +235,7 @@ Deno.serve(async (req) => {
             form.set('from[address_zip]', sParsed.zip || '');
           }
           form.set('front', postcardFront(r));
-          form.set('back', postcardBack(r, sender, message));
+          form.set('back', postcardBack(r, sender, r.message || message));
           form.set('size', '6x9');
 
           const resp = await fetch(LOB_POSTCARDS_URL, {
