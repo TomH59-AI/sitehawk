@@ -115,17 +115,40 @@ export function buildCellTowerMap(target, tower, token) {
 }
 
 // ────────────── 3. WIND SPEED ──────────────
-// ASCE 7-22 wind speed zones raster, draped via the Static Images API by drawing
-// the ASCE export image is not possible in the static overlay path, so we render
-// a clean light basemap centered on Target A with the tower marker; the numeric
-// ASCE value is shown in the banner (windSpeedLookup), matching the prior UX.
+// ASCE 7-22 wind speed zones, centered on Target A. We composite the actual ASCE
+// 722 wind-speed raster (exported as a transparent PNG over the area) onto the
+// Mapbox static basemap using the Static Images API `url-...` overlay so the map
+// genuinely shows the wind-speed color zones — not just blank rings. The numeric
+// ASCE value still prints in the banner (windSpeedLookup).
+const ASCE_WIND_EXPORT =
+  "https://gis.asce.org/arcgis/rest/services/ASCE722/w2022_Tile_RC_II_new/MapServer/export";
+
 export function buildWindMap(target, token) {
   const lat = Number(target.latitude), lon = Number(target.longitude);
+  // ~0.5° box (~35 mi) so the wind-speed zone gradient is visible around the site.
+  const pad = 0.5;
+  const bbox = [lon - pad, lat - pad, lon + pad, lat + pad];
+
+  // Build the ASCE wind-speed raster export URL (transparent PNG, EPSG:4326).
+  const ascePng = `${ASCE_WIND_EXPORT}?` + new URLSearchParams({
+    bbox: `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`,
+    bboxSR: "4326",
+    imageSR: "4326",
+    size: `${IMG_W},${IMG_H}`,
+    format: "png32",
+    transparent: "true",
+    layers: "show:5",
+    f: "image",
+  });
+
   const features = [
     ringFeature(lat, lon, 1), ringFeature(lat, lon, 3), ringFeature(lat, lon, 5),
     pointFeature(lat, lon, BRAND_GREEN, "communications-tower"),
   ];
-  // ~0.15° padded box (~10 mi) so the rings are comfortably framed.
-  const bbox = [lon - 0.15, lat - 0.12, lon + 0.15, lat + 0.12];
-  return { url: staticUrl({ style: LIGHT_STYLE, features, bbox, token }), distLabel: null };
+  const geojson = encodeURIComponent(JSON.stringify({ type: "FeatureCollection", features }));
+  const region = `[${bbox.map((n) => n.toFixed(6)).join(",")}]`;
+  // Composite: ASCE wind raster (bottom) → GeoJSON rings + tower (top).
+  const overlay = `url-${encodeURIComponent(ascePng)}(${region}),geojson(${geojson})`;
+  const url = `${STATIC_BASE}/${LIGHT_STYLE}/static/${overlay}/${region}/${IMG_W}x${IMG_H}@2x?access_token=${token}&padding=0`;
+  return { url, distLabel: null };
 }
