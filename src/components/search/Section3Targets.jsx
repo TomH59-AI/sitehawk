@@ -81,7 +81,7 @@ function targetToColumn(t) {
 
 export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
-  towerHeightFt = 199, compoundSideFt = 100, onRun, onTargetAReady, onData, onClear,
+  towerHeightFt = 199, compoundSideFt = 100, zoningResult, onRun, onTargetAReady, onData, onClear,
 }) {
   const [grid, setGrid] = useState(emptyGrid);
   const [loading, setLoading] = useState(false);
@@ -135,10 +135,17 @@ export default function Section3Targets({
     setPhoneResults([null, null, null]);
     setPhoneLoading([false, false, false]);
     try {
-      // 1. Realie ring search + ranking + FEMA → best 3 targets
+      // 1. Realie ring search + ranking + FEMA → best 3 targets. Section 2's
+      //    zoning relief posture (CUP / PE-letter / fall-zone / setback) is passed
+      //    through so the selector can honor reduced fall-zone footprints.
+      const z = zoningResult?.zoning;
       const res = await scipBestParcels({
         lat, lon, radius_miles: radiusMiles,
         tower_height_ft: towerHeightFt, compound_side_ft: compoundSideFt,
+        cup_or_special_exception: z?.cup_or_special_exception ?? null,
+        pe_self_certification: z?.pe_self_certification ?? null,
+        fall_zone: z?.fall_zone ?? null,
+        setback: z?.setback ?? null,
       });
       const targets = res.data?.targets || [];
       setScanStats({
@@ -203,7 +210,7 @@ export default function Section3Targets({
     } finally {
       setLoading(false);
     }
-  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, onTargetAReady, runCascade]);
+  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, zoningResult, onTargetAReady, runCascade]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "targets").
   useEffect(() => {

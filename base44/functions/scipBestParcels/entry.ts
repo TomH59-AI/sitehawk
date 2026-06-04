@@ -96,6 +96,23 @@ function haversineMiles(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
+function indicatesYes(v) {
+  if (!v) return false;
+  const s = String(v).toLowerCase();
+  if (/\b(no|not|none|prohibited|silent|unknown|n\/a)\b/.test(s) && !/\byes\b/.test(s)) return false;
+  return /\b(yes|accept(ed|s)?|allow(ed|s)?|permit(ted|s)?|available|by special exception|conditional use)\b/.test(s);
+}
+
+function parseFeet(v, towerHeightFt) {
+  if (v == null) return 0;
+  if (typeof v === "number") return v > 0 ? v : 0;
+  const s = String(v);
+  const pct = s.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (pct) return (parseFloat(pct[1]) / 100) * towerHeightFt;
+  const ft = s.match(/(\d+(?:\.\d+)?)\s*(?:ft|feet|')/i) || s.match(/(\d+(?:\.\d+)?)/);
+  return ft ? parseFloat(ft[1]) : 0;
+}
+
 function pick(p, ...keys) {
   for (const k of keys) {
     if (p[k] !== undefined && p[k] !== null && p[k] !== "") return p[k];
@@ -197,6 +214,8 @@ Deno.serve(async (req) => {
       lat, lon, radius_miles = 1.0,
       tower_height_ft = 199, compound_side_ft = 100,
       setback_ft = 0, fall_zone_ft = 0, separation_ft = 0,
+      cup_or_special_exception = null, pe_self_certification = null,
+      fall_zone = null, setback = null,
     } = body;
     if (lat == null || lon == null) return Response.json({ error: "lat and lon required" }, { status: 400 });
 
@@ -226,11 +245,34 @@ Deno.serve(async (req) => {
       }
     }
 
-    const footprintFt = requiredFootprintFt({ tower_height_ft, compound_side_ft, setback_ft, fall_zone_ft, separation_ft });
+    // ── FALL ZONE: full vs. relief ──────────────────────────────────────────
+    // Full (base) fall zone — ordinance fall_zone string wins over the legacy
+    // fall_zone_ft number, else default to full tower height.
+    const ordFallFt = parseFeet(fall_zone, tower_height_ft);
+    const baseFall = fall_zone_ft > 0 ? fall_zone_ft : (ordFallFt > 0 ? ordFallFt : tower_height_ft);
+    const peOk = indicatesYes(pe_self_certification);
+    const cupOk = indicatesYes(cup_or_special_exception);
+    const setbackFt = parseFeet(setback, tower_height_ft);
+    let reliefFall = baseFall;
+    let reliefLabel = null;
+    if (peOk && setbackFt > 0) {
+      reliefFall = Math.min(baseFall, setbackFt);
+      reliefLabel = cupOk ? "PE letter + CUP" : "PE letter";
+    } else if (peOk || cupOk) {
+      reliefFall = Math.min(baseFall, 0.75 * tower_height_ft);
+      reliefLabel = peOk && cupOk ? "PE letter + CUP" : (cupOk ? "CUP/special exception" : "PE letter");
+    }
+
+    // Footprint + minimum buildable acres computed TWICE — full and relief.
+    const footprintFt = requiredFootprintFt({ tower_height_ft, compound_side_ft, setback_ft, fall_zone_ft: baseFall, separation_ft });
     const needAcres = requiredAcres(footprintFt);
-    // Absolute minimum buildable lot: must at least fit the compound + a half fall zone.
+    // Absolute minimum buildable lot: must at least fit the compound + a full fall zone.
     // Anything smaller can never host the tower, so it is disqualified outright.
-    const minBuildableAcres = requiredAcres(compound_side_ft + (fall_zone_ft > 0 ? fall_zone_ft : tower_height_ft));
+    const minBuildableAcres = requiredAcres(compound_side_ft + baseFall);
+    // Relief variants — used only when Section 2 grants PE-letter / CUP relief.
+    const reliefFootprintFt = requiredFootprintFt({ tower_height_ft, compound_side_ft, setback_ft, fall_zone_ft: reliefFall, separation_ft });
+    const reliefNeedAcres = requiredAcres(reliefFootprintFt);
+    const reliefMinBuildableAcres = requiredAcres(compound_side_ft + reliefFall);
 
     const scored = [];
     for (const p of seen.values()) {
@@ -295,6 +337,12 @@ Deno.serve(async (req) => {
         if (acreage >= needAcres * 2) { score += 25; reasons.push(`Large lot (${acreage.toFixed(2)} ac) — easily fits setbacks, fall zone & separation`); }
         else if (acreage >= needAcres) { score += 15; reasons.push(`Lot (${acreage.toFixed(2)} ac) meets required footprint (~${needAcres.toFixed(2)} ac)`); }
         else if (acreage >= minBuildableAcres) { score -= 20; reasons.push(`Lot (${acreage.toFixed(2)} ac) tight vs required ${needAcres.toFixed(2)} ac — verify setbacks/fall zone`); }
+        else if (reliefLabel && acreage >= reliefMinBuildableAcres) {
+          // Too small for the FULL fall zone, but Section 2 grants PE-letter / CUP
+          // relief and it fits the REDUCED fall-zone footprint — keep it buildable.
+          score -= 20;
+          reasons.push(`Fits with ${reliefLabel} (reduced fall zone ${Math.round(reliefFall)} ft vs ${Math.round(baseFall)} ft full)`);
+        }
         else {
           // Too small to physically host the compound + fall zone — cannot build.
           score -= 50;

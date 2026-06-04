@@ -41,6 +41,9 @@ export default function SiteSearch() {
   const [sarfReady, setSarfReady] = useState(false);
   // True once the Section 2 Zoning lookup is complete — unlocks Section 3.
   const [zoningReady, setZoningReady] = useState(false);
+  // Full Section 2 zoning result — carries CUP / PE-letter / fall-zone / setback
+  // relief posture down to Section 3's target selector.
+  const [zoningResult, setZoningResult] = useState(null);
   // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
   const [targetA, setTargetA] = useState(null);
   // True once all seven Section 4 maps are complete — unlocks Section 6 (viewsheds removed).
@@ -382,7 +385,7 @@ export default function SiteSearch() {
           candidate={{ latitude: Number(searchCenter.lat), longitude: Number(searchCenter.lon) }}
           onRun={() => setPipelineStep("zoning")}
           onComplete={() => setZoningReady(true)}
-          onData={mergeSectionData}
+          onData={(data) => { mergeSectionData(data); if (data?.zoning) setZoningResult(data); }}
         />
       )}
 
@@ -399,6 +402,7 @@ export default function SiteSearch() {
           radiusMiles={searchParams.radius_miles}
           towerHeightFt={searchParams.tower_height_ft || 199}
           compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
+          zoningResult={zoningResult}
           onRun={() => setPipelineStep("targets")}
           onTargetAReady={(t) => setTargetA(t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : t)}
           onData={mergeSectionData}
