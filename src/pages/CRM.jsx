@@ -28,6 +28,8 @@ export default function CRM() {
   const [stageFilter, setStageFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showPostcards, setShowPostcards] = useState(false);
+  // When set, opens the postcard modal scoped to a single deal (per-lead mailer).
+  const [postcardDeals, setPostcardDeals] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -100,6 +102,10 @@ export default function CRM() {
 
       {showPostcards && (
         <TargetPostcardModal deals={filteredDeals.length ? filteredDeals : deals} onClose={() => setShowPostcards(false)} />
+      )}
+
+      {postcardDeals && (
+        <TargetPostcardModal deals={postcardDeals} onClose={() => setPostcardDeals(null)} />
       )}
 
       {/* Pipeline summary bar */}
@@ -221,6 +227,15 @@ export default function CRM() {
                           </button>
                         ))}
                       </div>
+
+                      {/* Per-lead paid postcard mailer */}
+                      <button
+                        onClick={() => setPostcardDeals([deal])}
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all"
+                      >
+                        <MailPlus className="w-3.5 h-3.5" /> Mail Postcard
+                        <span className="ml-0.5 px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-bold">💵 Paid</span>
+                      </button>
 
                       {/* Activity timeline */}
                       {dealActivities.length > 0 ? (
