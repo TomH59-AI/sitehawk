@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft } from "lucide-react";
-import PrintSCIPButton from "../components/scip/PrintSCIPButton";
+import ScipPrintSelector from "../components/scip/ScipPrintSelector";
 import HawkInstructions from "../components/scip/HawkInstructions";
 import SCIPStageProgress from "../components/scip/SCIPStageProgress";
 import SARFMap from "../components/scip/SARFMap";
@@ -105,6 +105,15 @@ export default function SCIPPreview() {
     { key: "targets", label: "Targets A·B·C", status: stage === "done" ? "done" : stageStatus("targets") },
   ];
 
+  // Printable sections — all selected by default, user can deselect before printing.
+  const printSections = [
+    { id: "sarf", label: "SARF Map" },
+    { id: "zoning", label: "Zoning Overview" },
+    { id: "targets", label: "Targets A·B·C" },
+    { id: "electric", label: "Electric Service" },
+    { id: "coverage", label: "RF Coverage" },
+  ];
+
   return (
     <div id="scip-print-root" className="space-y-6 max-w-5xl mx-auto pb-12 relative">
       <HawkInstructions />
@@ -127,46 +136,56 @@ export default function SCIPPreview() {
                 : "SARF map ready · Search center waypoint with 0.50-mile (yellow) and 1.00-mile (red) radius rings."}
             </div>
           </div>
-          <SARFMap
-            lat={Number(lat)}
-            lon={Number(lon)}
-            label={candidate?.site_name}
-            onReady={() => setStage((s) => (s === "sarf" ? "zoning" : s))}
-          />
+          <div data-scip-section="sarf">
+            <SARFMap
+              lat={Number(lat)}
+              lon={Number(lon)}
+              label={candidate?.site_name}
+              onReady={() => setStage((s) => (s === "sarf" ? "zoning" : s))}
+            />
+          </div>
 
           {/* Stage 2 — Zoning fetch (auto-runs after SARF is ready) */}
           {order.indexOf(stage) >= order.indexOf("zoning") && (
-            <HawkZoningOverview
-              lat={Number(lat)}
-              lon={Number(lon)}
-              autoRun
-              onComplete={() => setStage((s) => (s === "zoning" ? "targets" : s))}
-            />
+            <div data-scip-section="zoning">
+              <HawkZoningOverview
+                lat={Number(lat)}
+                lon={Number(lon)}
+                autoRun
+                onComplete={() => setStage((s) => (s === "zoning" ? "targets" : s))}
+              />
+            </div>
           )}
 
           {/* Stage 3 — Targets fetch + select A·B·C (auto-runs after Zoning completes) */}
           {order.indexOf(stage) >= order.indexOf("targets") && (
-            <HawkParcelDetails
-              lat={Number(lat)}
-              lon={Number(lon)}
-              radiusMiles={radiusMiles}
-              onTargetsResolved={setTargets3}
-              autoRun
-              onComplete={() => setStage("done")}
-            />
+            <div data-scip-section="targets">
+              <HawkParcelDetails
+                lat={Number(lat)}
+                lon={Number(lon)}
+                radiusMiles={radiusMiles}
+                onTargetsResolved={setTargets3}
+                autoRun
+                onComplete={() => setStage("done")}
+              />
+            </div>
           )}
 
           {/* Power + fiber infrastructure now lives in the gated Section 7 pipeline
               on /search — removed from the SCIP auto-flow. */}
 
           {/* Electric Service Map — standalone Target A connection point + provider contact card */}
-          <HawkElectricServiceMap targetA={targets3?.[0] || null} />
+          <div data-scip-section="electric">
+            <HawkElectricServiceMap targetA={targets3?.[0] || null} />
+          </div>
 
           {/* Proximity & environment maps (nearest airport, nearest cell tower, ASCE 7-22 wind)
               now live in the gated Section 6 pipeline on /search — removed from the SCIP auto-flow. */}
 
           {/* Hawk RF Coverage — CloudRF omni /area coverage PNG draped on a Mapbox aerial of Target A + model-inputs exhibit table (print-ready SCIP deliverable) */}
-          <HawkSectorCoverage targetA={targets3?.[0] || null} siteName={candidate?.site_name} />
+          <div data-scip-section="coverage">
+            <HawkSectorCoverage targetA={targets3?.[0] || null} siteName={candidate?.site_name} />
+          </div>
         </div>
       )}
 
@@ -186,19 +205,14 @@ export default function SCIPPreview() {
             Review and edit all fields above — then print the dedicated Hawk Aerial Intelligence pages.
           </p>
         </div>
-        <div data-coach="scip-print" className="flex gap-2 flex-wrap">
-          <PrintSCIPButton />
+        <div data-coach="scip-print" className="flex gap-2 flex-wrap w-full md:w-auto">
+          <ScipPrintSelector sections={printSections} />
         </div>
       </div>
 
       {/* Bottom export bar */}
-      <div className="sticky bottom-4 bg-card border border-border shadow-xl rounded-xl p-4 flex items-center justify-between flex-wrap gap-3 no-print">
-        <div className="text-sm text-muted-foreground">
-          ✓ Hawk Aerial Intelligence renders 3 dedicated print pages.
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <PrintSCIPButton />
-        </div>
+      <div className="sticky bottom-4 bg-card border border-border shadow-xl rounded-xl p-4 no-print">
+        <ScipPrintSelector sections={printSections} />
       </div>
     </div>
   );
