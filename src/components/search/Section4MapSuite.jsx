@@ -1,11 +1,11 @@
 /**
  * Section4MapSuite — SiteHawk pipeline step 4 ("HAWK TARGET A MAP SUITE").
  *
- * Six maps, generated ONE AT A TIME, each by its own button. EVERY map renders
+ * Seven maps, generated ONE AT A TIME, each by its own button. EVERY map renders
  * for TARGET A ONLY (never Target B/C). Strict gating:
  *  - LOCKED until Section 3 (Targets) is complete AND Target A is resolved.
- *  - pipelineStep enters "maps"; six sub-steps fire in sequence, each ONLY on
- *    its own button click: aerial → topo → fema → zoning → wetlands → parcel.
+ *  - pipelineStep enters "maps"; seven sub-steps fire in sequence, each ONLY on
+ *    its own button click: aerial → topo → fema → zoning → flum → wetlands → parcel.
  *  - Each sub-step is locked until the prior one completes.
  *  - While in flight: hawk flying-in-place spinner only. No auto-advance.
  *  - Each panel has a Regenerate button.
@@ -79,7 +79,7 @@ export default function Section4MapSuite({
   // Per-step error message (currently surfaced for the aerial sub-step).
   const [errors, setErrors] = useState({});
 
-  // Fire onComplete once all six maps are done — unlocks Section 5.
+  // Fire onComplete once all seven maps are done — unlocks Section 6.
   useEffect(() => {
     if (STEPS.every((s) => completed[s])) onComplete?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps

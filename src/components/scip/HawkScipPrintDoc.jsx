@@ -7,7 +7,6 @@ import ScipParcelDataPage from "../skywave/ScipParcelDataPage";
 import ScipHawkMapsPage from "../skywave/ScipHawkMapsPage";
 import ScipPowerAirportPage from "../skywave/ScipPowerAirportPage";
 import ScipExistingConditionsPage from "../skywave/ScipExistingConditionsPage";
-import ScipViewshedPage from "../skywave/ScipViewshedPage";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
 
@@ -175,19 +174,6 @@ export default function HawkScipPrintDoc({ record }) {
           footerNote="FEMA NFHL flood zone · USFWS National Wetlands Inventory · nearest OSM police & fire · web-researched water management district, hazardous-waste status and access notes. Field verification recommended."
         >
           <ScipExistingConditionsPage conditions={r.existing_conditions} />
-        </HawkScipSection>
-      )}
-
-      {/* ─────────── VIEWSHED ANALYSIS ─────────── */}
-      {r.viewshed && Array.isArray(r.viewshed.directions) && r.viewshed.directions.length > 0 && (
-        <HawkScipSection
-          kicker="SCIP · Section 7"
-          title="VIEWSHED ANALYSIS"
-          right={`${targetLabel} · RF line-of-sight`}
-          page={next()}
-          footerNote={`Aerial ring centered on the ${targetLabel} tower waypoint. Each cardinal viewshed pairs a pitched 2D map with a USGS 3DEP elevation profile from the ${r.viewshed.tower_height_ft} ft antenna. Field verification recommended.`}
-        >
-          <ScipViewshedPage viewshed={r.viewshed} siteName={r.site_name} />
         </HawkScipSection>
       )}
     </div>

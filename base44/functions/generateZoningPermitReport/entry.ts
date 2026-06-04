@@ -212,6 +212,7 @@ async function getZoneomics(lat, lon) {
   put('property_zoning_district', districtLabel || zoneCode);
   put('zoning_jurisdiction', zoCleanVal(meta.city_name));
   put('zoning_process', zoPick(flat, ['special_use', 'conditional_use', 'approval_process']));
+  put('cup_or_special_exception', zoPick(flat, ['conditional_use', 'special_use', 'special_exception', 'use_permit', 'cup', 'variance', 'approval_process']));
   put('zoning_approval_timeframe', zoPick(flat, ['timeframe', 'approval_time']));
   put('zoning_contact_information', zoPick(flat, ['contact', 'department']));
   // Telecom-specific controls: conditionalControls FIRST, then generic controls.
@@ -260,6 +261,7 @@ SOURCE B — Zoneomics paid-tier zoning district + telecom controls already reso
 ${JSON.stringify(ctx.zoneomics || { miss: true }).slice(0, 4000)}
 
 TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
+- CUP / SPECIAL EXCEPTION PATH (cup_or_special_exception): Always check whether wireless/telecommunication towers may be approved by Conditional Use Permit (CUP), special exception, special use permit, administrative use permit, or variance. Assume a CUP/special-exception path is required unless the ordinance clearly says the proposed tower is by-right or prohibited. When a CUP/special-exception path exists, list the zoning classifications or zoning families where it can make a tower eligible. Set source to "AI" unless Zoneomics provided the value.
 - PE SELF-CERTIFICATION (pe_self_certification): Research whether this jurisdiction allows a licensed Professional Engineer (PE) to SELF-CERTIFY the tower's structural/site plans (engineer-of-record sealed certification accepted in lieu of full plan review / public hearing), which yields a FASTER, more administrative permit path and often more flexible setback/height treatment. Answer "Yes — PE self-certification accepted" if the ordinance/building dept allows PE-sealed self-certification or a building-official administrative approval relying on a PE seal; "No — full review required" if a public hearing / special-use / conditional-use process is mandatory with no PE self-cert path; or "NEEDS RESEARCH" if you cannot verify. Quote the basis (code section / dept policy) in the value when found. Set source to "AI".
 - TOWER SPECIFICS (LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): use the jurisdiction's Land Development Code / zoning ordinance found via web search. Set source to "AI".
 - Property zoning DISTRICT / land use: prefer Realie (SOURCE A) then Zoneomics (SOURCE B). Set source to "Realie".
@@ -278,6 +280,7 @@ TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
             zoning_jurisdiction:        { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
             zoning_contact_information: { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
             zoning_process:             { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
+            cup_or_special_exception:   { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
             zoning_fees:                { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
             zoning_approval_timeframe:  { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
             property_zoning_district:   { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
@@ -378,6 +381,7 @@ Deno.serve(async (req) => {
       property_zoning_district: 'zoning_overview',
       zoning_jurisdiction: 'zoning_overview',
       zoning_process: 'zoning_overview',
+      cup_or_special_exception: 'zoning_overview',
       zoning_approval_timeframe: 'zoning_overview',
       zoning_contact_information: 'zoning_overview',
       maximum_tower_height: 'tower_specifics',

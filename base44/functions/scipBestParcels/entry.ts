@@ -8,6 +8,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 //   - no residential land use,
 //   - lot large enough for setbacks + fall zone + tower separation + compound,
 //   - favorable zoning classification (industrial / agricultural / commercial preferred),
+//   - CUP/special-exception posture (unknown non-residential zones stay eligible for review),
+//   - PE letter/self-certification posture (checked in Section 2 and used by the scorecard),
 //   - FEMA flood risk (minimal preferred).
 //
 // Payload: { lat, lon, radius_miles=1.0, tower_height_ft=199, compound_side_ft=100,
@@ -37,7 +39,7 @@ function zoningScore(zoning, landUse) {
     return { pts: 18, reason: "Utility / public / vacant land — workable" };
   if (RESIDENTIAL_TOKENS.some((t) => z.includes(t)))
     return { pts: -40, reason: "Residential zoning — disfavored for towers" };
-  return { pts: 10, reason: "Mixed / other zoning" };
+  return { pts: 14, reason: "Other non-residential zoning — retained for CUP / special-exception review" };
 }
 
 function isResidential(useCode, zoning, landUse) {
@@ -481,6 +483,9 @@ Deno.serve(async (req) => {
         zoning_status: zStatus,
         zoning_unverified: zStatus === "unverified",
         zoning_note: zStatus === "unverified" ? "Zoning unverified — confirm before pursuing" : null,
+        cup_review_required: true,
+        pe_letter_review_required: true,
+        permitting_note: "Assume CUP/special exception is required unless Section 2 confirms by-right approval; always check whether a PE sealed letter/self-certification can reduce setbacks, fall-zone, or review burden.",
         distance_from_center_mi: dist_mi != null ? Number(dist_mi.toFixed(3)) : null,
         fema_risk_factor: fema.code === "—" ? "—" : `${fema.code} (${fema.level})`,
       };

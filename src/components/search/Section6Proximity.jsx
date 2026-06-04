@@ -2,7 +2,7 @@
  * Section6Proximity — SiteHawk pipeline step 6 ("HAWK PROXIMITY & ENVIRONMENT
  * VISION"). Three maps, generated ONE AT A TIME, each by its own button. EVERY
  * map renders for TARGET A ONLY. Strict gating:
- *  - LOCKED until Section 5 (all four viewsheds) is complete AND Target A is resolved.
+ *  - LOCKED until Section 4 (Target A map suite) is complete AND Target A is resolved.
  *  - pipelineStep enters "proximity"; three sub-steps fire in sequence, each ONLY
  *    on its own button click: airport → celltower → wind.
  *  - Each sub-step is locked until the prior one completes.
@@ -190,19 +190,19 @@ export default function Section6Proximity({
     return !!completed[STEPS[i - 1]];
   };
 
-  // ── LOCKED — Section 5 not complete / no Target A ──
+  // ── LOCKED — Section 4 not complete / no Target A ──
   if (!unlocked) {
     return (
       <div className="rounded-xl border border-border bg-muted/40 overflow-hidden opacity-60 pointer-events-none select-none">
         <div className="px-4 py-3 flex items-center gap-2 text-white/80" style={{ background: "#3f5a54" }}>
           <Lock className="w-4 h-4" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">SCIP · SECTION 5 · LOCKED</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">SCIP · SECTION 6 · LOCKED</div>
             <h2 className="font-heading font-bold text-lg leading-tight">Hawk Proximity & Environment Vision — Target A</h2>
           </div>
         </div>
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Complete all six maps in Section 4 to unlock the Target A proximity & environment maps.
+          Complete all seven maps in Section 4 to unlock the Target A proximity & environment maps.
         </div>
       </div>
     );
@@ -226,7 +226,7 @@ export default function Section6Proximity({
         <div className="flex items-center gap-2">
           <Compass className="w-5 h-5" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 5 · PROXIMITY & ENVIRONMENT</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 6 · PROXIMITY & ENVIRONMENT</div>
             <h2 className="font-heading font-bold text-lg leading-tight">HAWK PROXIMITY &amp; ENVIRONMENT VISION — TARGET A</h2>
             <div className="text-[11px] font-mono opacity-90 mt-0.5">
               Nearest airport · nearest tower · wind exposure{ownerLabel ? ` · ${ownerLabel}` : ""}
