@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import SearchForm from "../components/search/SearchForm";
@@ -231,6 +231,15 @@ export default function SiteSearch() {
     setPipelineStep("sarf");
   };
 
+  // Cancel the in-flight SARF generation and reset Section 1 back to idle.
+  const handleStopGenerating = () => {
+    setLoading(false);
+    setScanError(null);
+    setSarfReady(false);
+    setSearchCenter(null);
+    setPipelineStep("sarf");
+  };
+
   if (pageLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -345,7 +354,20 @@ export default function SiteSearch() {
       )}
 
       {/* Loading — hawk flying in place while the MapBox SARF render is in flight */}
-      {loading && <HawkFlightSpinner label="Generating SARF map…" />}
+      {loading && (
+        <div className="space-y-3">
+          <HawkFlightSpinner label="Generating SARF map…" />
+          <div className="flex justify-center">
+            <button
+              onClick={handleStopGenerating}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-destructive/10 text-destructive border border-destructive/30 hover:bg-destructive/20 transition-colors"
+            >
+              <Square className="w-4 h-4" />
+              Stop Generating
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* SECTION 2 — ZONING. Locked until Section 1 SARF is ready; fires only
           when the user clicks "Run Zoning" (advances pipelineStep → "zoning"). */}
