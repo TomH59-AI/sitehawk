@@ -214,19 +214,26 @@ export function buildCellTower(t, tower, token) {
 }
 
 // Wind — ASCE 7-22 wind speed raster composited over a light basemap.
+// The ASCE export is fetched server-side by Mapbox to composite as a url- overlay,
+// so the bbox MUST be scoped tight (like FEMA/NWI) and the requested image size
+// MUST match the bbox aspect ratio — a giant national-scale tile request returns
+// a low-res/errored image that renders blank. We size the ASCE request to a
+// square that matches the square bbox, then let Mapbox letterbox it into the map.
 const ASCE_WIND_EXPORT = "https://gis.asce.org/arcgis/rest/services/ASCE722/w2022_Tile_RC_II_new/MapServer/export";
 export function buildWind(t, token) {
   if (!ok(t) || !token) return null;
   const { lat, lon } = tgt(t);
-  const pad = 0.5;
+  // ~0.35° square around Target A — enough to show the local wind-speed band
+  // while staying within a reliable single ASCE export tile.
+  const pad = 0.35;
   const bbox = [lon - pad, lat - pad, lon + pad, lat + pad];
   const ascePng = `${ASCE_WIND_EXPORT}?` + new URLSearchParams({
     bbox: `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`,
-    bboxSR: "4326", imageSR: "4326", size: `${IMG_W},${IMG_H}`,
-    format: "png32", transparent: "true", layers: "show:5", f: "image",
+    // Square bbox → square image so the raster isn't stretched/dropped.
+    bboxSR: "4326", imageSR: "4326", size: "720,720",
+    format: "png32", transparent: "true", dpi: "96", layers: "show:5", f: "image",
   });
   const features = [
-    ringFeature(lat, lon, 1, "#ffffff", 1.2), ringFeature(lat, lon, 5, "#ffffff", 1.2),
     pointFeature(lat, lon, BRAND_GREEN, "communications-tower"),
   ];
   const geojson = encodeURIComponent(JSON.stringify({ type: "FeatureCollection", features }));
