@@ -41,6 +41,24 @@ export async function ensureMapboxLoaded() {
 
 const esc = (v) => (v == null ? "" : String(v));
 
+// Wait for the container to report real (non-zero) dimensions before building the
+// map. Mapbox GL cannot measure a 0×0 container — it never paints tiles and
+// `map.on("load")` never fires, leaving a blank map with no data layers. Poll on
+// animation frames (~3s cap), mirroring the Section 4 fix.
+function waitForContainerSize(container) {
+  return new Promise((resolve) => {
+    let frames = 0;
+    const check = () => {
+      const w = container?.clientWidth || 0;
+      const h = container?.clientHeight || 0;
+      if ((w > 0 && h > 0) || frames > 180) return resolve();
+      frames += 1;
+      requestAnimationFrame(check);
+    };
+    check();
+  });
+}
+
 // Build the GeoJSON sources for power markers, power lines, fiber lines + fiber markers.
 function buildSources(data) {
   const power = {
@@ -250,6 +268,7 @@ function addTowerMarker(map, lat, lon, label) {
  */
 export async function renderInfrastructure(container, target, data, token) {
   await ensureMapboxLoaded();
+  await waitForContainerSize(container);
   window.mapboxgl.accessToken = token;
   const lat = Number(target.latitude);
   const lon = Number(target.longitude);

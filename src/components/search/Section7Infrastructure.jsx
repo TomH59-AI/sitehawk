@@ -216,8 +216,11 @@ export default function Section7Infrastructure({
         </div>
       )}
 
-      {/* Map stays mounted once generated so interaction persists. */}
-      <div style={{ display: done && !loading ? "block" : "none" }}>
+      {/* Map stays mounted once generated so interaction persists. It must be
+          visible & sized BEFORE renderInfrastructure runs — Mapbox GL cannot
+          measure a display:none (0×0) container, so it would never paint tiles
+          or the power/fiber data layers. Keep it rendered whenever loading||done. */}
+      <div style={{ display: (loading || done) ? "block" : "none" }}>
         <div className="relative w-full bg-[#0C1B2E]" style={{ height: 600 }}>
           <div ref={mapRef} className="absolute inset-0" />
 
