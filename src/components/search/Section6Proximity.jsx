@@ -23,13 +23,12 @@ import ProximitySubStep from "./section6/ProximitySubStep";
 import StaticImageSanityCheck from "./section6/StaticImageSanityCheck";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
-import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import {
-  buildCellTowerMap, buildWindMap, BRAND_GREEN,
+  buildWindMap, BRAND_GREEN,
 } from "@/lib/section6Proximity";
 
-const STEPS = ["celltower", "wind"];
+const STEPS = ["wind"];
 
 export default function Section6Proximity({
   unlocked, active, targetA, onRun, onComplete, onData, onClear,
@@ -85,31 +84,7 @@ export default function Section6Proximity({
         clearTimeout(watchdog); setLoadingStep(null); return;
       }
 
-      if (step === "celltower") {
-        const res = await cellTowerLookup({ lat, lon, radius_miles: 10 });
-        const tower = res.data?.nearest_tower;
-        console.log(`${tag} cellTowerLookup →`, tower ? `${tower.licensee || "?"} ASR#${tower.tower_registration_number || "—"} ${tower.distance_miles}mi src=${tower.source || "FCC"}` : "no tower");
-        if (!tower || tower.latitude_deg == null) throw new Error("No cell tower found near Target A.");
-        const { url } = buildCellTowerMap(targetA, tower, token);
-        setImgByStep((p) => ({ ...p, celltower: url }));
-        // Emit tower factor to the bus — source-labeled (ASR+OpenCellID @10mi, canonical).
-        onData?.({ tower: { owner: tower.licensee || null, distance_miles: Number(tower.distance_miles), height_ft: tower.overall_height_ft != null ? Number(tower.overall_height_ft) : null, source: tower.tower_registration_number ? "FCC ASR" : (tower.source || "OpenCellID") } });
-        const asrn = tower.tower_registration_number ? `ASR #${tower.tower_registration_number}` : (tower.source || "OpenCellID");
-        setInfoByStep((p) => ({
-          ...p,
-          celltower: {
-            kicker: "NEAREST CELL TOWER",
-            title: tower.licensee || "Operator —",
-            distMi: Number(tower.distance_miles),
-            rows: [
-              { label: "Registration", value: asrn },
-              { label: "Structure", value: tower.structure_type },
-              { label: "Height", value: tower.overall_height_ft != null ? `${tower.overall_height_ft} ft` : null },
-              { label: "Coords", value: `${Number(tower.latitude_deg).toFixed(5)}, ${Number(tower.longitude_deg).toFixed(5)}` },
-            ],
-          },
-        }));
-      } else if (step === "wind") {
+      if (step === "wind") {
         const windRes = await windSpeedLookup({ lat, lon }).catch(() => null);
         console.log(`${tag} windSpeedLookup →`, windRes?.data?.wind_speed_mph ?? "no value", "mph");
         const { url } = buildWindMap(targetA, token);
@@ -121,7 +96,7 @@ export default function Section6Proximity({
 
       setCompleted((prev) => ({ ...prev, [step]: true }));
       console.log(`${tag} Map generated OK.`);
-      toast.success(`${step === "celltower" ? "Cell tower" : step.charAt(0).toUpperCase() + step.slice(1)} map generated for Target A.`);
+      toast.success(`${step.charAt(0).toUpperCase() + step.slice(1)} map generated for Target A.`);
     } catch (err) {
       console.error(`${tag} threw:`, err?.message);
       toast.error(err?.message || `${step} map failed.`);
@@ -132,9 +107,9 @@ export default function Section6Proximity({
     }
   }, [targetA]);
 
-  // The Cell Tower button also arms the section (pipelineStep → "proximity").
+  // The Wind button also arms the section (pipelineStep → "proximity").
   const beginAndRun = (step) => {
-    if (!active && step === "celltower") onRun?.();
+    if (!active && step === "wind") onRun?.();
     runStep(step);
   };
 
@@ -183,7 +158,7 @@ export default function Section6Proximity({
             <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 6 · PROXIMITY & ENVIRONMENT</div>
             <h2 className="font-heading font-bold text-lg leading-tight">HAWK PROXIMITY &amp; ENVIRONMENT VISION — TARGET A</h2>
             <div className="text-[11px] font-mono opacity-90 mt-0.5">
-              Nearest tower · wind exposure{ownerLabel ? ` · ${ownerLabel}` : ""}
+              Wind exposure{ownerLabel ? ` · ${ownerLabel}` : ""}
             </div>
           </div>
         </div>
@@ -193,30 +168,21 @@ export default function Section6Proximity({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate two Target A maps one at a time — Closest Cell Tower, Wind Speed.
-          Click <span className="font-semibold text-foreground">Run Closest Cell Tower Map</span> below to begin.
+          Generate the Target A Wind Speed map.
+          Click <span className="font-semibold text-foreground">Run Wind Speed Map</span> below to begin.
         </div>
       )}
 
       <div className="p-4 space-y-4">
         <StaticImageSanityCheck />
         <ProximitySubStep
-          index={1} title="Closest Cell Tower Map" runLabel="Run Closest Cell Tower Map"
-          spinnerLabel="Finding nearest existing tower to Target A…"
-          legend="Target A → Nearest Existing Tower"
-          unlocked={isUnlocked("celltower")}
-          loading={loadingStep === "celltower"} done={!!completed.celltower}
-          error={errors.celltower} info={infoByStep.celltower}
-          onRun={() => beginAndRun("celltower")} imgUrl={imgByStep.celltower}
-        />
-        <ProximitySubStep
-          index={2} title="Wind Speed Map" runLabel="Run Wind Speed Map"
+          index={1} title="Wind Speed Map" runLabel="Run Wind Speed Map"
           spinnerLabel="Generating Target A wind speed map…"
           legend="ASCE 7-22 Wind Speed Zones"
-          unlocked={active && isUnlocked("wind")}
+          unlocked={isUnlocked("wind")}
           loading={loadingStep === "wind"} done={!!completed.wind}
           error={errors.wind}
-          onRun={() => runStep("wind")} imgUrl={imgByStep.wind} banner={windBanner}
+          onRun={() => beginAndRun("wind")} imgUrl={imgByStep.wind} banner={windBanner}
         />
       </div>
     </div>
