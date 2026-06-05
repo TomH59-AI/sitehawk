@@ -53,16 +53,17 @@ import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
+import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind"];
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData, onClear,
@@ -75,6 +76,7 @@ export default function Section4MapSuite({
   const [flumInfo, setFlumInfo] = useState(null);
   const [airportInfo, setAirportInfo] = useState(null);
   const [cellTowerInfo, setCellTowerInfo] = useState(null);
+  const [windInfo, setWindInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -91,7 +93,7 @@ export default function Section4MapSuite({
 
   const refs = {
     aerial: useRef(null), topo: useRef(null), fema: useRef(null),
-    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null),
+    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null), wind: useRef(null),
   };
   const maps = useRef({});
 
@@ -262,6 +264,12 @@ export default function Section4MapSuite({
         }).catch(() => null);
         const parcels = pres?.data?.parcels || [];
         map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey, ringName, srcLat, srcLon, radiusMiles);
+      } else if (step === "wind") {
+        const wres = await windSpeedLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
+        const wind = wres?.data || null;
+        setWindInfo(wind);
+        onData?.({ wind: { wind_speed_mph: wind?.wind_speed_mph ?? null, risk_level: wind?.wind_risk_level ?? null } });
+        map = await renderWind(refs.wind.current, targetA, token);
       }
 
       maps.current[step] = map;
@@ -359,6 +367,13 @@ export default function Section4MapSuite({
       </div>
     ) : null,
     parcel: null,
+    wind: windInfo?.wind_speed_mph ? (
+      <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/20 border-y border-amber-300/50 text-sm font-semibold text-amber-800 dark:text-amber-200">
+        ASCE 7-22 design wind speed at Target A: <span className="font-mono">{windInfo.wind_speed_mph} mph</span>
+        {windInfo.wind_risk_level ? ` · ${windInfo.wind_risk_level} risk` : ""}
+        {windInfo.in_hurricane_prone_region ? " · Hurricane-Prone Region" : ""}
+      </div>
+    ) : null,
   };
 
   return (
@@ -381,7 +396,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate nine Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel.
+          Generate ten Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -460,6 +475,13 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("parcel")}
           loading={loadingStep === "parcel"} done={!!completed.parcel}
           onRun={() => runStep("parcel")} mapRef={refs.parcel} banner={banners.parcel}
+        />
+        <MapSubStep
+          index={10} title="Wind Speed Map" runLabel="Run Wind Speed Map"
+          spinnerLabel="Generating Target A wind speed map…"
+          unlocked={active && isUnlocked("wind")}
+          loading={loadingStep === "wind"} done={!!completed.wind}
+          onRun={() => runStep("wind")} mapRef={refs.wind} banner={banners.wind}
         />
       </div>
     </div>

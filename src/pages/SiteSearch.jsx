@@ -10,7 +10,6 @@ import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
-import Section6Proximity from "../components/search/Section6Proximity";
 import Section7Infrastructure from "../components/search/Section7Infrastructure";
 import Section8Propagation from "../components/search/Section8Propagation";
 import AIChatPanel from "../components/search/AIChatPanel";
@@ -46,16 +45,14 @@ export default function SiteSearch() {
   const [zoningResult, setZoningResult] = useState(null);
   // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
   const [targetA, setTargetA] = useState(null);
-  // True once all seven Section 4 maps are complete — unlocks Section 6 (viewsheds removed).
+  // True once all ten Section 4 maps are complete (Wind is now map #10) — unlocks Section 7.
   const [mapsComplete, setMapsComplete] = useState(false);
-  // True once all three Section 6 proximity maps are complete — unlocks Section 7.
-  const [proximityComplete, setProximityComplete] = useState(false);
   // ── PER-SECTION CLEAR / REMOUNT ───────────────────────────────────────────
   // Each pipeline section is remounted (state wiped) by bumping its key here.
   // Clearing a section also rolls back the parent readiness flags for it AND
   // every section downstream, so the pipeline correctly re-locks after it.
   const [clearKeys, setClearKeys] = useState({
-    sarf: 0, zoning: 0, targets: 0, maps: 0, proximity: 0, infrastructure: 0, propagation: 0,
+    sarf: 0, zoning: 0, targets: 0, maps: 0, infrastructure: 0, propagation: 0,
   });
   const bumpKeys = (steps) =>
     setClearKeys((prev) => {
@@ -77,7 +74,7 @@ export default function SiteSearch() {
   // Ordered pipeline steps (sarf is Section 1, always present). Section 8
   // (propagation) is standalone — it gates nothing, so clearing it only remounts
   // itself and does not roll back any other section.
-  const PIPELINE_ORDER = ["zoning", "targets", "maps", "proximity", "infrastructure"];
+  const PIPELINE_ORDER = ["zoning", "targets", "maps", "infrastructure"];
 
   // Clear ONE section and everything downstream of it: remount those sections
   // (wipes their internal state) and roll back the parent readiness flags so the
@@ -97,7 +94,6 @@ export default function SiteSearch() {
     if (affected.includes("zoning")) setZoningReady(false);
     if (affected.includes("targets")) setTargetA(null);
     if (affected.includes("maps")) setMapsComplete(false);
-    if (affected.includes("proximity")) setProximityComplete(false);
 
     // Drop bus data emitted by the cleared sections so the scorecard can't read stale values.
     setSectionData({});
@@ -111,11 +107,10 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setMapsComplete(false);
-    setProximityComplete(false);
     setSectionData({});
     setSearchCenter(null);
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps", "proximity", "infrastructure", "propagation"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "infrastructure", "propagation"]);
   };
 
   // ── TEMP RUNTIME PROBE ──────────────────────────────────────────────────
@@ -137,9 +132,8 @@ export default function SiteSearch() {
     if (zoningReady) done.push("zoning");
     if (targetA) done.push("targets");
     if (mapsComplete) done.push("maps");
-    if (proximityComplete) done.push("proximity");
     setCompletedSteps(done);
-  }, [sarfReady, zoningReady, targetA, mapsComplete, proximityComplete, setCompletedSteps]);
+  }, [sarfReady, zoningReady, targetA, mapsComplete, setCompletedSteps]);
 
   // Clear the sidebar pipeline when leaving Site Search.
   useEffect(() => {
@@ -226,7 +220,6 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setMapsComplete(false);
-    setProximityComplete(false);
     setSectionData({});
     // Normalize the SARF center to 4 decimals (~11 m) at the single entry point.
     // Every downstream fetch / cache key / emit reads off this rounded center.
@@ -429,29 +422,13 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* SECTION 6 — HAWK PROXIMITY & ENVIRONMENT VISION. Locked until all seven
-          Section 4 maps are complete (viewsheds removed). Three maps (airport →
-          cell tower → wind), each fired one-at-a-time by its own button. Target A ONLY. */}
-      {coordsReady && sarfReady && zoningReady && (
-        <Section6Proximity
-          key={`proximity-${clearKeys.proximity}`}
-          unlocked={mapsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
-          active={pipelineStep === "proximity"}
-          onClear={() => clearFrom("proximity")}
-          targetA={targetA}
-          onRun={() => setPipelineStep("proximity")}
-          onComplete={() => setProximityComplete(true)}
-          onData={mergeSectionData}
-        />
-      )}
-
-      {/* SECTION 7 — HAWK INFRASTRUCTURE VISION. Locked until all three Section 6
-          maps are complete. ONE interactive power + fiber map the user drives
-          with toggles. Single Run button. Target A ONLY. */}
+      {/* SECTION 7 — HAWK INFRASTRUCTURE VISION. Locked until all ten Section 4
+          maps are complete (Wind is now Section 4 map #10). ONE interactive power
+          + fiber map the user drives with toggles. Single Run button. Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section7Infrastructure
           key={`infrastructure-${clearKeys.infrastructure}`}
-          unlocked={proximityComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          unlocked={mapsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           active={pipelineStep === "infrastructure"}
           onClear={() => clearFrom("infrastructure")}
           targetA={targetA}

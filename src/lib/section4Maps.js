@@ -545,6 +545,32 @@ export async function renderCellTower(container, target, tower, token) {
   });
 }
 
+// ────────────── 10. WIND SPEED (ASCE 7-22) ──────────────
+// Light basemap centered on Target A with the ASCE 7-22 design-wind-speed raster
+// (Risk Category II) overlaid as color zones, plus the Target A tower marker. The
+// numeric ASCE value prints in the section banner (windSpeedLookup). Follows the
+// same live-Mapbox-GL chain-of-command format as every other Section 4 map.
+const ASCE_WIND_EXPORT =
+  "https://gis.asce.org/arcgis/rest/services/ASCE722/w2022_Tile_RC_II_new/MapServer/export";
+
+export async function renderWind(container, target, token) {
+  const { latitude: lat, longitude: lon, owner } = target;
+  const map = await makeMap(container, LIGHT_STYLE, [lon, lat], token, 9);
+  map.on("error", (e) => console.error("[WIND MAP DIAG] Mapbox error event:", e?.error || e));
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      const tileUrl =
+        `${ASCE_WIND_EXPORT}?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857` +
+        `&size=512,512&dpi=96&format=png32&transparent=true&layers=show:5&f=image`;
+      map.addSource("s4-wind", { type: "raster", tiles: [tileUrl], tileSize: 512 });
+      map.addLayer({ id: "s4-wind-layer", type: "raster", source: "s4-wind", paint: { "raster-opacity": 0.55 } });
+      addTowerMarker(map, lat, lon, owner);
+      fitToRing(map, lat, lon, 5);
+      resolve(map);
+    });
+  });
+}
+
 // ── Parcel popup Zoneomics zoning lookup (session cache + 300ms debounce) ──
 // Keyed by parcel ID for the whole session so repeated hovers don't re-query.
 const parcelZoneCache = new Map();
