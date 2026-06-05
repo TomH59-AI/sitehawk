@@ -17,6 +17,7 @@ import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import BusProbePanel from "../components/search/BusProbePanel";
+import GenerateScipButton from "../components/search/GenerateScipButton";
 import { round4 } from "@/lib/coords";
 
 const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
@@ -293,6 +294,15 @@ export default function SiteSearch() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {coordsReady && (
+            <GenerateScipButton
+              searchCenter={searchCenter}
+              searchParams={searchParams}
+              targetA={targetA}
+              zoningResult={zoningResult}
+              sectionData={sectionData}
+            />
+          )}
           {coordsReady && (
             <button
               onClick={clearAll}
