@@ -10,8 +10,6 @@ export const PIPELINE_STEPS = [
   { key: "zoning", label: "Zoning" },
   { key: "targets", label: "Targets A·B·C" },
   { key: "maps", label: "Target A Maps" },
-  { key: "proximity", label: "Proximity & Env" },
-  { key: "infrastructure", label: "Infrastructure" },
 ];
 
 export function PipelineProvider({ children }) {
