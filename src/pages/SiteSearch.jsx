@@ -10,7 +10,6 @@ import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
-import Section7Infrastructure from "../components/search/Section7Infrastructure";
 import Section8Propagation from "../components/search/Section8Propagation";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
@@ -53,7 +52,7 @@ export default function SiteSearch() {
   // Clearing a section also rolls back the parent readiness flags for it AND
   // every section downstream, so the pipeline correctly re-locks after it.
   const [clearKeys, setClearKeys] = useState({
-    sarf: 0, zoning: 0, targets: 0, maps: 0, infrastructure: 0, propagation: 0,
+    sarf: 0, zoning: 0, targets: 0, maps: 0, propagation: 0,
   });
   const bumpKeys = (steps) =>
     setClearKeys((prev) => {
@@ -75,7 +74,7 @@ export default function SiteSearch() {
   // Ordered pipeline steps (sarf is Section 1, always present). Section 8
   // (propagation) is standalone — it gates nothing, so clearing it only remounts
   // itself and does not roll back any other section.
-  const PIPELINE_ORDER = ["zoning", "targets", "maps", "infrastructure"];
+  const PIPELINE_ORDER = ["zoning", "targets", "maps"];
 
   // Clear ONE section and everything downstream of it: remount those sections
   // (wipes their internal state) and roll back the parent readiness flags so the
@@ -111,7 +110,7 @@ export default function SiteSearch() {
     setSectionData({});
     setSearchCenter(null);
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps", "infrastructure", "propagation"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "propagation"]);
   };
 
   // ── TEMP RUNTIME PROBE ──────────────────────────────────────────────────
@@ -446,22 +445,6 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* SECTION 11 — HAWK INFRASTRUCTURE VISION. Now positioned LAST in the pipeline.
-          Unlocks as soon as Target A is resolved (it does not need every Section 4 map).
-          ONE interactive power + fiber map the user drives with toggles. Single Run
-          button. Target A ONLY — data + map both center on Target A. */}
-      {coordsReady && sarfReady && zoningReady && (
-        <Section7Infrastructure
-          key={`infrastructure-${clearKeys.infrastructure}`}
-          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
-          active={pipelineStep === "infrastructure"}
-          onClear={() => clearFrom("infrastructure")}
-          targetA={targetA}
-          radiusMiles={searchParams.radius_miles}
-          onRun={() => setPipelineStep("infrastructure")}
-          onData={mergeSectionData}
-        />
-      )}
     </div>
   );
 }
