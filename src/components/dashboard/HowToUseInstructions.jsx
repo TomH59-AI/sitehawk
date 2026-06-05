@@ -1,71 +1,53 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import {
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  HelpCircle,
   Search,
   Eye,
   FileText,
   Send,
   Sparkles,
+  ArrowRight,
 } from "lucide-react";
 
 /**
- * HowToUseInstructions — a step-by-step "how to use this bad boy" guide that
- * lives on the Dashboard. Users can expand/collapse the panel and tick off
- * steps as they go. Local progress persists in localStorage.
+ * HowToUseInstructions — a collapsible "how to use this bad boy" guide that
+ * lives at the top of the Dashboard. Shows the workflow steps connected by
+ * arrows. Read-only: no action buttons/links (the WorkflowIndex handles
+ * navigation). Expanded/collapsed state persists in localStorage.
  */
 const STEPS = [
   {
     icon: Search,
     title: "Run a Site Scan",
-    desc: "Drop a pin or address on /search and SiteHawk pulls every parcel within your ring — zoning, owner, acreage, fiber, power.",
-    to: "/search",
-    cta: "Start Scan",
+    desc: "Drop a pin or address and SiteHawk pulls every parcel within your ring — zoning, owner, acreage, fiber, power.",
   },
   {
     icon: Eye,
     title: "Pick Your Targets with Hawk Vision",
-    desc: "Review match-scored candidates on /results. The top 3 (Targets A/B/C) become your Hawk Vision picks for the SCIP.",
-    to: "/results",
-    cta: "View Results",
+    desc: "Review match-scored candidates. The top 3 (Targets A/B/C) become your Hawk Vision picks for the SCIP.",
   },
   {
     icon: FileText,
     title: "Generate the SCIP",
-    desc: "Click any candidate → Build SCIP. Generate each section (Zoning, Infrastructure, Maps) — accuracy over speed.",
-    to: "/results",
-    cta: "Build SCIP",
+    desc: "Build the SCIP section by section (Zoning, Infrastructure, Maps) — accuracy over speed.",
   },
   {
     icon: Send,
     title: "Send Landowner Mailers",
-    desc: "Push your top parcels into the CRM and fire off Lob direct-mail letters straight from /crm.",
-    to: "/crm",
-    cta: "Open CRM",
+    desc: "Push your top parcels into the CRM and fire off direct-mail letters to landowners.",
   },
   {
     icon: Sparkles,
     title: "Visualize with AI",
-    desc: "Drop an aerial photo into /tower-placement and AI renders the tower on the parcel for landowner presentations.",
-    to: "/tower-placement",
-    cta: "Open AI Vision",
+    desc: "Drop in an aerial photo and AI renders the tower on the parcel for landowner presentations.",
   },
 ];
-
-const STORAGE_KEY = "sitehawk_howto_progress";
 
 export default function HowToUseInstructions() {
   const [expanded, setExpanded] = useState(() => {
     return localStorage.getItem("sitehawk_howto_expanded") !== "0";
-  });
-  const [done, setDone] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    } catch {
-      return {};
-    }
   });
 
   const toggleExpanded = () => {
@@ -73,14 +55,6 @@ export default function HowToUseInstructions() {
     setExpanded(next);
     localStorage.setItem("sitehawk_howto_expanded", next ? "1" : "0");
   };
-
-  const toggleStep = (idx) => {
-    const next = { ...done, [idx]: !done[idx] };
-    setDone(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  };
-
-  const completedCount = STEPS.filter((_, i) => done[i]).length;
 
   return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -91,14 +65,14 @@ export default function HowToUseInstructions() {
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5 text-primary" />
+            <HelpCircle className="w-5 h-5 text-primary" />
           </div>
           <div>
             <h2 className="font-heading font-semibold text-base text-foreground">
               How to Use SiteHawk
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {completedCount} of {STEPS.length} steps complete · click to {expanded ? "hide" : "show"}
+              The {STEPS.length}-step workflow · click to {expanded ? "hide" : "show"}
             </p>
           </div>
         </div>
@@ -109,56 +83,39 @@ export default function HowToUseInstructions() {
         )}
       </button>
 
-      {/* Steps */}
+      {/* Steps connected by arrows — read-only, no action buttons */}
       {expanded && (
-        <div className="px-5 pb-5 pt-1 space-y-2 border-t border-border">
-          {STEPS.map((step, idx) => {
-            const Icon = step.icon;
-            const isDone = !!done[idx];
-            return (
-              <div
-                key={idx}
-                className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
-                  isDone
-                    ? "bg-emerald-500/5 border-emerald-500/30"
-                    : "bg-background border-border hover:border-primary/40"
-                }`}
-              >
-                <button
-                  onClick={() => toggleStep(idx)}
-                  className="mt-0.5 flex-shrink-0"
-                  aria-label={isDone ? "Mark step as incomplete" : "Mark step as complete"}
-                >
-                  <CheckCircle2
-                    className={`w-6 h-6 transition-colors ${
-                      isDone ? "text-emerald-500 fill-emerald-500/20" : "text-muted-foreground/40 hover:text-primary"
-                    }`}
-                  />
-                </button>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon className="w-4 h-4 text-primary" />
-                    <span
-                      className={`font-heading font-semibold text-sm ${
-                        isDone ? "text-emerald-700 line-through" : "text-foreground"
-                      }`}
-                    >
-                      Step {idx + 1}: {step.title}
-                    </span>
+        <div className="px-5 pb-5 pt-4 border-t border-border">
+          <div className="flex flex-col gap-2">
+            {STEPS.map((step, idx) => {
+              const Icon = step.icon;
+              return (
+                <div key={idx}>
+                  <div className="flex items-start gap-3 p-3 rounded-xl border border-border bg-background">
+                    <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center relative">
+                      <Icon className="w-4 h-4 text-primary" />
+                      <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center border-2 border-card">
+                        {idx + 1}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-heading font-semibold text-sm text-foreground">
+                        {step.title}
+                      </span>
+                      <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
+                        {step.desc}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+                  {idx < STEPS.length - 1 && (
+                    <div className="flex justify-center py-1">
+                      <ArrowRight className="w-4 h-4 text-muted-foreground/50 rotate-90" />
+                    </div>
+                  )}
                 </div>
-
-                <Link
-                  to={step.to}
-                  className="flex-shrink-0 text-xs font-medium text-primary hover:text-primary/80 px-3 py-1.5 rounded-md border border-primary/30 hover:bg-primary/5 transition-colors whitespace-nowrap"
-                >
-                  {step.cta} →
-                </Link>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

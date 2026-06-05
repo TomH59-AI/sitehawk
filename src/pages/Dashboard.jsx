@@ -122,6 +122,10 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
+
+      {/* How to Use — collapsible workflow guide, sits above everything */}
+      <HowToUseInstructions />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -152,9 +156,6 @@ export default function Dashboard() {
         <h2 className="font-heading font-semibold text-lg text-foreground mb-4">Active Target A Sites</h2>
         <TargetASummaryTable rows={targetRows} />
       </div>
-
-      {/* How to Use — step-by-step instructions */}
-      <HowToUseInstructions />
 
       {/* Onboarding Checklist */}
       <OnboardingChecklist searches={searches.length} hasSkipTrace={hasSkipTrace} tier={tier} />
