@@ -18,7 +18,6 @@ const BASE_NAV = [
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/crm", icon: Briefcase, label: "Deal Pipeline" },
-  { path: "/hawk-compliance", icon: Shield, label: "Hawk Compliance" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
   { path: "/about", icon: Radio, label: "About" },

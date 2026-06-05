@@ -47,6 +47,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Lock, Layers } from "lucide-react";
 import { toast } from "sonner";
 import MapSubStep from "./section4/MapSubStep";
+import ComplianceStep from "./section4/ComplianceStep";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -64,10 +65,10 @@ import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "compliance"];
 
 export default function Section4MapSuite({
-  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData, onClear,
+  unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, towerHeightFt = 0, sectionData = {}, onRun, onComplete, onData, onClear,
 }) {
   // Which sub-steps have completed. Aerial is the only one initially unlocked.
   const [completed, setCompleted] = useState({});
@@ -305,6 +306,16 @@ export default function Section4MapSuite({
     runStep(step);
   };
 
+  // Compliance (Map 12) is NOT a Mapbox render — its pre-screen runs inside
+  // ComplianceStep. Run handler just shows a brief spinner then marks it done.
+  const runCompliance = useCallback(() => {
+    setLoadingStep("compliance");
+    setTimeout(() => {
+      setCompleted((prev) => ({ ...prev, compliance: true }));
+      setLoadingStep(null);
+    }, 600);
+  }, []);
+
   // A sub-step is unlocked once the previous one is complete (aerial = first).
   const isUnlocked = (step) => {
     const i = STEPS.indexOf(step);
@@ -431,7 +442,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate eleven Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics.
+          Generate eleven Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics — then the Section 106 / NEPA compliance report.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -524,6 +535,16 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("fiber")}
           loading={loadingStep === "fiber"} done={!!completed.fiber}
           onRun={() => runStep("fiber")} mapRef={refs.fiber} banner={banners.fiber}
+        />
+        <ComplianceStep
+          unlocked={active && isUnlocked("compliance")}
+          loading={loadingStep === "compliance"}
+          done={!!completed.compliance}
+          targetA={targetA}
+          sectionData={sectionData}
+          towerHeightFt={towerHeightFt}
+          ringName={ringName}
+          onRun={runCompliance}
         />
       </div>
     </div>

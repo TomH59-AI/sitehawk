@@ -62,7 +62,6 @@ import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
 import HawkScip from './pages/HawkScip';
 import HawkDocs from './pages/HawkDocs';
-import HawkCompliance from './pages/HawkCompliance';
 import HawkDocShareView from './pages/HawkDocShareView';
 import SubscriberCRM from './pages/SubscriberCRM';
 
@@ -130,8 +129,6 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id" element={<ScipDetail />} />
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
-        <Route path="/hawk-compliance" element={<HawkCompliance />} />
-        <Route path="/hawk-compliance/:siteId" element={<HawkCompliance />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

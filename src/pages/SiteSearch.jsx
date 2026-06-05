@@ -425,6 +425,8 @@ export default function SiteSearch() {
           srcLon={Number(searchCenter.lon)}
           radiusMiles={searchParams.radius_miles}
           ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
+          towerHeightFt={searchParams.tower_height_ft || 199}
+          sectionData={sectionData}
           onRun={() => setPipelineStep("maps")}
           onComplete={() => setMapsComplete(true)}
           onData={mergeSectionData}
