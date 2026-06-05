@@ -74,6 +74,14 @@ export default function HawkBotWidget() {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, open]);
 
+  // Clear the conversation back to the welcome state whenever HawkBot is closed.
+  const closeWidget = () => {
+    setOpen(false);
+    setMessages([{ role: "assistant", text: WELCOME }]);
+    setInput("");
+    setLoading(false);
+  };
+
   // Detect "build/generate a SCIP" intent and route the user to /scip with whatever
   // candidate context is already available (from ScanResults state, if present).
   const handleScipIntent = () => {
@@ -90,7 +98,7 @@ export default function HawkBotWidget() {
     } else {
       navigate("/search");
     }
-    setOpen(false);
+    closeWidget();
   };
 
   const sendMessage = async (text) => {
@@ -167,7 +175,7 @@ export default function HawkBotWidget() {
               >
                 <FileText className="w-3 h-3" /> Build SCIP →
               </button>
-              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" aria-label="Close HawkBot">
+              <button onClick={closeWidget} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" aria-label="Close HawkBot">
                 <X className="w-4 h-4" />
               </button>
             </div>
