@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Save, Loader2, Shield, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Shield, AlertTriangle, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import ComplianceReport from "./ComplianceReport";
 import TriggersPanel from "./TriggersPanel";
 import ShpoPanel from "./ShpoPanel";
 import ThpoPanel from "./ThpoPanel";
@@ -15,6 +16,7 @@ export default function SiteDashboard({ record, userEmail, onBack }) {
   const [state, setState] = useState(record);
   const [saving, setSaving] = useState(false);
   const [pendingLog, setPendingLog] = useState([]);
+  const [showReport, setShowReport] = useState(false);
 
   const determination = useMemo(
     () => computeDetermination(state.nepaTriggerFlags, state.groundDisturbanceArea, state.projectType),
@@ -70,11 +72,23 @@ export default function SiteDashboard({ record, userEmail, onBack }) {
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">Hawk Compliance &gt; {state.siteName} · Owner: {state.ownerName}</p>
         </div>
-        <Button onClick={save} disabled={saving} className="text-white" style={{ background: HC.green }}>
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Save
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setShowReport(true)} variant="outline" style={{ borderColor: HC.green, color: HC.green }}>
+            <FileText className="w-4 h-4 mr-2" /> Generate Compliance Report
+          </Button>
+          <Button onClick={save} disabled={saving} className="text-white" style={{ background: HC.green }}>
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Save
+          </Button>
+        </div>
       </div>
+
+      {showReport && (
+        <ComplianceReport
+          record={{ ...state, nepaDetermination: determination, auditLog: [...(state.auditLog || []), ...pendingLog] }}
+          onClose={() => setShowReport(false)}
+        />
+      )}
 
       <div className="flex gap-2 p-3 rounded-lg text-xs" style={{ border: `1.5px solid ${HC.amber}`, background: "rgba(255,184,0,0.08)" }}>
         <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: HC.amber }} />
