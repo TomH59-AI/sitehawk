@@ -60,7 +60,12 @@ function waitForContainerSize(container) {
 }
 
 // Build the GeoJSON sources for power markers, power lines, fiber lines + fiber markers.
-function buildSources(data) {
+function buildSources(data, target) {
+  // Target A parcel boundary (when geometry is available on the target record).
+  const geom = target?.parcel_geometry;
+  const parcel = geom && (geom.type === "Polygon" || geom.type === "MultiPolygon")
+    ? { type: "Feature", geometry: geom, properties: {} }
+    : null;
   const power = {
     type: "FeatureCollection",
     features: (data.power?.points || []).map((p) => ({
@@ -119,16 +124,30 @@ function buildSources(data) {
         },
       })),
   };
-  return { power, powerLines, fiberLines, fiberPoints, carriers };
+  return { parcel, power, powerLines, fiberLines, fiberPoints, carriers };
 }
 
 // Add all infrastructure layers (idempotent — call after each style load).
 function addInfraLayers(map, sources) {
+  if (sources.parcel) map.addSource("s7-parcel", { type: "geojson", data: sources.parcel });
   map.addSource("s7-power", { type: "geojson", data: sources.power });
   map.addSource("s7-power-lines", { type: "geojson", data: sources.powerLines });
   map.addSource("s7-fiber-lines", { type: "geojson", data: sources.fiberLines });
   map.addSource("s7-fiber-points", { type: "geojson", data: sources.fiberPoints });
   map.addSource("s7-carriers", { type: "geojson", data: sources.carriers });
+
+  // Target A parcel boundary — drawn FIRST (under all assets) as a reference
+  // outline so transformers & splice points read clearly on top of the parcel.
+  if (sources.parcel) {
+    map.addLayer({
+      id: "s7-parcel-fill", type: "fill", source: "s7-parcel",
+      paint: { "fill-color": BRAND_GREEN, "fill-opacity": 0.12 },
+    });
+    map.addLayer({
+      id: "s7-parcel-line", type: "line", source: "s7-parcel",
+      paint: { "line-color": BRAND_GREEN, "line-width": 2.5, "line-dasharray": [2, 1.5] },
+    });
+  }
 
   // Power transmission lines — red lines (HIFLD).
   map.addLayer({
@@ -143,27 +162,48 @@ function addInfraLayers(map, sources) {
     layout: { "line-cap": "round", "line-join": "round" },
     paint: { "line-color": FIBER_ORANGE, "line-width": 3 },
   });
-  // Fiber splice points / handholes — small orange diamonds.
+  // Fiber splice points / handholes — bold orange dots with a heavy white halo so
+  // they pop clearly over the parcel + basemap.
   map.addLayer({
     id: "s7-fiber-pt", type: "circle", source: "s7-fiber-points",
     paint: {
-      "circle-radius": 5, "circle-color": FIBER_ORANGE,
-      "circle-stroke-color": "#fff", "circle-stroke-width": 1.5,
+      "circle-radius": 7, "circle-color": FIBER_ORANGE,
+      "circle-stroke-color": "#fff", "circle-stroke-width": 2.5,
     },
   });
-  // Power poles / transformers — red markers. Transformers/substations render as
-  // larger squares; poles/towers as smaller circles (data-driven by 'kind').
+  // Splice / handhole marker glyph (◆) so each splice point is unmistakable.
+  map.addLayer({
+    id: "s7-fiber-pt-glyph", type: "symbol", source: "s7-fiber-points",
+    layout: {
+      "text-field": "◆", "text-size": 10, "text-allow-overlap": true, "text-ignore-placement": true,
+    },
+    paint: { "text-color": "#fff" },
+  });
+  // Power poles / transformers — red markers. Transformers/substations render
+  // noticeably larger with a heavy white halo so they stand out over the parcel;
+  // poles/towers stay smaller (data-driven by 'kind').
   map.addLayer({
     id: "s7-power-pt", type: "circle", source: "s7-power",
     paint: {
       "circle-radius": [
         "match", ["get", "kind"],
-        "transformer", 8, "substation", 9,
+        "transformer", 11, "substation", 12,
         6,
       ],
       "circle-color": POWER_RED,
-      "circle-stroke-color": "#fff", "circle-stroke-width": 1.5,
+      "circle-stroke-color": "#fff",
+      "circle-stroke-width": ["match", ["get", "kind"], "transformer", 3, "substation", 3, 1.5],
     },
+  });
+  // Transformer / substation glyph (T) so these critical assets are obvious.
+  map.addLayer({
+    id: "s7-power-pt-glyph", type: "symbol", source: "s7-power",
+    filter: ["any", ["==", ["get", "kind"], "transformer"], ["==", ["get", "kind"], "substation"]],
+    layout: {
+      "text-field": "T", "text-size": 11, "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-allow-overlap": true, "text-ignore-placement": true,
+    },
+    paint: { "text-color": "#fff" },
   });
   // CarrierFinder lit buildings — OnNet = solid green, NearNet = hollow yellow.
   map.addLayer({
@@ -280,7 +320,7 @@ export async function renderInfrastructure(container, target, data, token) {
   });
   map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
 
-  const sources = buildSources(data);
+  const sources = buildSources(data, target);
   let towerMarker = null;
 
   return await new Promise((resolve) => {
@@ -304,10 +344,10 @@ export async function renderInfrastructure(container, target, data, token) {
         toggleLayer: (which, visible) => {
           const vis = visible ? "visible" : "none";
           const ids = which === "power"
-            ? ["s7-power-pt", "s7-power-line"]
+            ? ["s7-power-pt", "s7-power-pt-glyph", "s7-power-line"]
             : which === "carriers"
             ? ["s7-carrier-pt", "s7-carrier-label"]
-            : ["s7-fiber-line", "s7-fiber-pt"];
+            : ["s7-fiber-line", "s7-fiber-pt", "s7-fiber-pt-glyph"];
           ids.forEach((id) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis); });
         },
         resetView: () => map.flyTo({ center: [lon, lat], zoom: 14.5, duration: 600 }),
