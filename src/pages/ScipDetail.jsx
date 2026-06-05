@@ -17,6 +17,7 @@ import PostcardMailerSection from "../components/scip/postcard/PostcardMailerSec
 import TargetScorecard from "../components/scip/TargetScorecard";
 import NotionSyncToggle from "../components/scip/NotionSyncToggle";
 import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
+import PrintSiteHawkScipButton from "../components/scip/PrintSiteHawkScipButton";
 
 const STATUS = {
   draft: { label: "Draft", bg: SKYWAVE.muted },
@@ -136,7 +137,8 @@ export default function ScipDetail() {
             <span className="px-3 py-1 rounded-full text-white text-xs font-semibold" style={{ background: st.bg }}>{st.label}</span>
             <ToolbarBtn icon={RefreshCw} label="Regenerate Map" onClick={handleRegenerate} busy={busy} />
             <ToolbarBtn icon={FileText} label="Hawk SCIP" onClick={() => navigate(`/scip/${record.id}/hawk`)} />
-            <ToolbarBtn icon={Printer} label="Print SCIP" onClick={handlePrint} />
+            <PrintSiteHawkScipButton scip={record} variant="toolbar" />
+            <ToolbarBtn icon={Printer} label="Print SCIP (Classic)" onClick={handlePrint} />
             <ToolbarBtn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />
             <ToolbarBtn icon={Copy} label="Duplicate" onClick={handleDuplicate} busy={busy} />
           </div>

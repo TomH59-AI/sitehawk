@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Target, ArrowRight } from "lucide-react";
 import { daysSince, shotClock, SHPO_RUNNING, THPO_RUNNING } from "@/components/compliance/complianceConst";
+import PrintSiteHawkScipButton from "@/components/scip/PrintSiteHawkScipButton";
 
 // Human labels for ScipCRMDeal stages.
 const STAGE_LABELS = {
@@ -103,9 +104,12 @@ export default function TargetASummaryTable({ rows }) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link to={`/scip/${row.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                      Open <ArrowRight className="w-3 h-3" />
-                    </Link>
+                    <div className="inline-flex items-center gap-3">
+                      <PrintSiteHawkScipButton scipId={row.id} variant="link" />
+                      <Link to={`/scip/${row.id}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                        Open <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               );
