@@ -93,7 +93,7 @@ export default function ComplianceStep({
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 4 · MAP 12 · COMPLIANCE</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · MAP 12 · COMPLIANCE</div>
             <h2 className="font-heading font-bold text-base leading-tight">Compliance Report — Section 106 / NEPA</h2>
             <div className="text-[11px] font-mono opacity-90 mt-0.5">30-day FCC NPA shot clocks · 47 CFR 1.1307 pre-screen</div>
           </div>
