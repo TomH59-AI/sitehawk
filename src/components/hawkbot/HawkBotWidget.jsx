@@ -5,6 +5,7 @@ import HawkIcon from "../HawkIcon";
 import { siteChat } from "@/functions/siteChat";
 
 const QUICK_ACTIONS = [
+  "How do I use SiteHawk?",
   "Build a SCIP for my top candidate",
   "Which candidate has the best fiber + zoning combo?",
   "What's the FAA risk for the top candidate?",
@@ -29,6 +30,36 @@ const SCIP_CONTEXT = `You are HawkBot, the SiteHawk AI consultant. The platform 
 If the user asks to "build a SCIP" or "generate a SCIP", tell them to click the "Generate SCIP" button on the Scan Results page, or use the "Build SCIP →" shortcut at the top of this chat. Answer technical questions about each section using real industry knowledge (ITM/Longley-Rice, ASCE 7-22, FAA Part 77, FCC ASR, etc.).`;
 
 const WELCOME = "👋 I'm HawkBot, your SiteHawk AI consultant. I know the new SCIP format inside-out — Page 1 (Site Acquisition → SARF → Site/Owner → Zoning → Maps → Candidates A/B/C → CloudRF propagation). Ask me anything, or click \"Build SCIP →\" to jump to your top candidate.";
+
+// Curated, instant answer for "How do I use SiteHawk?" — served locally so the
+// first-question experience is always this polished walkthrough.
+const HOW_TO_QUESTION = "How do I use SiteHawk?";
+const HOW_TO_ANSWER = `Welcome to SiteHawk! I'm HawkBot, your AI consultant.
+
+SiteHawk is designed to streamline your site acquisition process by generating comprehensive Site Candidate Information Packages (SCIPs).
+
+Here's the general workflow:
+
+1.  **Input your search criteria:** Define your search ring information, including site name, latitude/longitude, search radius, SARF height, tower type, and desired compound size.
+2.  **Run a scan:** SiteHawk will analyze various data sources (Notion, Realie, Enformion, etc.) to identify potential parcels and gather critical information.
+3.  **Review Scan Results:** Once the scan is complete, you'll see a summary of potential candidates.
+4.  **Generate a SCIP:** To compile all the detailed information into a comprehensive report, simply click the **"Generate SCIP" button** on the Scan Results page, or use the **"Build SCIP →" shortcut** at the top of this chat.
+
+The SCIP will then be assembled with the following sections, providing you with a complete picture for each candidate:
+
+1.  SITE ACQUISITION
+2.  SEARCH RING INFORMATION
+3.  SARF MAP
+4.  SITE INFORMATION + OWNER INFORMATION
+5.  EXISTING CONDITIONS
+6.  SITE NOTES
+7.  ZONING / TOWER SPECIFICS / SITE PLAN / BUILDING PERMIT
+8.  MAPS (various types)
+9.  SCIP MAPS (various types)
+10. CANDIDATES SUMMARY
+11. RF PROPAGATION ANALYSIS
+
+Feel free to ask me any technical questions about the platform or specific sections of the SCIP!`;
 
 export default function HawkBotWidget() {
   const navigate = useNavigate();
@@ -65,6 +96,13 @@ export default function HawkBotWidget() {
   const sendMessage = async (text) => {
     const msg = text || input.trim();
     if (!msg || loading) return;
+
+    // "How do I use SiteHawk?" — serve the curated walkthrough instantly.
+    if (msg === HOW_TO_QUESTION) {
+      setMessages((prev) => [...prev, { role: "user", text: msg }, { role: "assistant", text: HOW_TO_ANSWER }]);
+      setInput("");
+      return;
+    }
 
     // SCIP shortcut — if the user explicitly asks to build/generate one
     if (/\b(build|generate|create|make|run)\b.*\bscip\b/i.test(msg)) {
