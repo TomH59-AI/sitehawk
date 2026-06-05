@@ -58,14 +58,14 @@ import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "compliance"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "power", "compliance"];
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, towerHeightFt = 0, sectionData = {}, onRun, onComplete, onData, onClear,
@@ -80,6 +80,7 @@ export default function Section4MapSuite({
   const [cellTowerInfo, setCellTowerInfo] = useState(null);
   const [windInfo, setWindInfo] = useState(null);
   const [fiberInfo, setFiberInfo] = useState(null);
+  const [powerInfo, setPowerInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -96,7 +97,7 @@ export default function Section4MapSuite({
 
   const refs = {
     aerial: useRef(null), topo: useRef(null), fema: useRef(null),
-    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null), wind: useRef(null), fiber: useRef(null),
+    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null), wind: useRef(null), fiber: useRef(null), power: useRef(null),
   };
   const maps = useRef({});
 
@@ -285,6 +286,11 @@ export default function Section4MapSuite({
         setFiberInfo({ telco, count: litBuildings.length, nearestLit });
         onData?.({ fiber: { count: litBuildings.length }, carriers: { telco, count: litBuildings.length, lit_buildings: litBuildings } });
         map = await renderFiber(refs.fiber.current, targetA, litBuildings, token, 1.0);
+      } else if (step === "power") {
+        const power = await fetchPowerInfrastructure(targetA.latitude, targetA.longitude);
+        setPowerInfo(power);
+        onData?.({ power_grid: { nearest_substation_mi: power?.closestSubstation?.distanceMiles ?? null, substation_voltage_kv: power?.closestSubstation?.voltage ?? null, transmission_lines: power?.transmissionLines ?? 0 } });
+        map = await renderPower(refs.power.current, targetA, power, token);
       }
 
       maps.current[step] = map;
@@ -420,6 +426,21 @@ export default function Section4MapSuite({
         <div className="opacity-80 text-xs">{fiberInfo.count} fiber-lit / near-net building{fiberInfo.count !== 1 ? "s" : ""} within 1 mi · green = On-Net (lit), yellow = Near-Net</div>
       </div>
     ) : null,
+    power: powerInfo ? (
+      <div className="px-4 py-2 bg-yellow-50 dark:bg-yellow-950/20 border-y border-yellow-300/50 text-sm text-yellow-800 dark:text-yellow-200 space-y-0.5">
+        {powerInfo.closestSubstation ? (
+          <div>
+            <span className="font-semibold">Nearest substation / tie-in:</span>{" "}
+            <span className="font-mono">{powerInfo.closestSubstation.name}</span>
+            {" "}— <span className="font-mono">{powerInfo.closestSubstation.distanceMiles} mi</span>
+            {powerInfo.closestSubstation.voltage ? <span className="opacity-80"> · {powerInfo.closestSubstation.voltage} kV</span> : null}
+          </div>
+        ) : (
+          <div className="font-semibold">No HIFLD substation found within ~5 mi of Target A.</div>
+        )}
+        <div className="opacity-80 text-xs">{powerInfo.transmissionLines} transmission line{powerInfo.transmissionLines !== 1 ? "s" : ""} in vicinity · orange = corridors, yellow = substations</div>
+      </div>
+    ) : null,
   };
 
   return (
@@ -442,7 +463,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate eleven Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics — then the Section 106 / NEPA compliance report.
+          Generate twelve Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics, Power Grid — then the Section 106 / NEPA compliance report.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -535,6 +556,13 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("fiber")}
           loading={loadingStep === "fiber"} done={!!completed.fiber}
           onRun={() => runStep("fiber")} mapRef={refs.fiber} banner={banners.fiber}
+        />
+        <MapSubStep
+          index={12} title="Power Map" runLabel="Run Power Map"
+          spinnerLabel="Mapping power grid, substations & transmission lines near Target A…"
+          unlocked={active && isUnlocked("power")}
+          loading={loadingStep === "power"} done={!!completed.power}
+          onRun={() => runStep("power")} mapRef={refs.power} banner={banners.power}
         />
         <ComplianceStep
           unlocked={active && isUnlocked("compliance")}

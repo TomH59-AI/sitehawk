@@ -76,12 +76,12 @@ export default function ComplianceStep({
         <div className="px-4 py-3 flex items-center gap-2 text-white/80" style={{ background: "#3f5a54" }}>
           <Lock className="w-4 h-4" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">SCIP · SECTION 4 · MAP 12 · LOCKED</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">SCIP · SECTION 4 · MAP 13 · LOCKED</div>
             <h2 className="font-heading font-bold text-base leading-tight">Compliance Report — Section 106 / NEPA</h2>
           </div>
         </div>
         <div className="px-4 py-5 text-sm text-muted-foreground">
-          Complete Map 11 (Fiber Optics) to unlock the Target A compliance report.
+          Complete Map 12 (Power) to unlock the Target A compliance report.
         </div>
       </div>
     );
@@ -93,7 +93,7 @@ export default function ComplianceStep({
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · MAP 12 · COMPLIANCE</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · MAP 13 · COMPLIANCE</div>
             <h2 className="font-heading font-bold text-base leading-tight">Compliance Report — Section 106 / NEPA</h2>
             <div className="text-[11px] font-mono opacity-90 mt-0.5">30-day FCC NPA shot clocks · 47 CFR 1.1307 pre-screen</div>
           </div>

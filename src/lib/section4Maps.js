@@ -663,6 +663,137 @@ export async function renderFiber(container, target, litBuildings, token, radius
   });
 }
 
+// ────────────── 12. POWER GRID (HIFLD) ──────────────
+// Satellite map centered on Target A showing the surrounding electric grid from
+// HIFLD: transmission lines (corridors), substations (transformers/connection
+// points), and a dashed connector line to the nearest substation with a distance
+// label. Returns { map, info } where info = { closestSubstation, transmissionLines }.
+const HIFLD_SUBSTATIONS_URL =
+  "https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Substations_1/FeatureServer/0/query";
+const HIFLD_POWERLINES_URL =
+  "https://services1.arcgis.com/Hp6G80Pky0om7QvQ/arcgis/rest/services/Electric_Power_Transmission_Lines/FeatureServer/0/query";
+
+function haversineMiles(lat1, lon1, lat2, lon2) {
+  const R = 3958.7613;
+  const p1 = (lat1 * Math.PI) / 180;
+  const p2 = (lat2 * Math.PI) / 180;
+  const dP = ((lat2 - lat1) * Math.PI) / 180;
+  const dL = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dP / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dL / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Fetch HIFLD substations + transmission lines inside a ~5mi envelope of Target A.
+export async function fetchPowerInfrastructure(lat, lon) {
+  const offset = 0.07; // ~5 miles in degrees
+  const envelope = `${lon - offset},${lat - offset},${lon + offset},${lat + offset}`;
+  const common = `geometry=${envelope}&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&returnGeometry=true&f=geojson`;
+  const [subRes, lineRes] = await Promise.all([
+    fetch(`${HIFLD_SUBSTATIONS_URL}?where=1=1&outFields=NAME,STATUS,LINES,MAX_VOLT,VOLTAGE&${common}`).then((r) => r.json()).catch(() => null),
+    fetch(`${HIFLD_POWERLINES_URL}?where=1=1&outFields=ID,TYPE,STATUS,VOLTAGE,OWNER&${common}`).then((r) => r.json()).catch(() => null),
+  ]);
+  const subs = subRes?.features || [];
+  const lines = lineRes?.features || [];
+
+  let closest = null;
+  let min = Infinity;
+  for (const s of subs) {
+    const c = s.geometry?.coordinates;
+    if (!c || c.length < 2) continue;
+    const d = haversineMiles(lat, lon, c[1], c[0]);
+    if (d < min) {
+      min = d;
+      const v = s.properties?.MAX_VOLT ?? s.properties?.VOLTAGE;
+      closest = {
+        name: s.properties?.NAME || "Unknown Substation",
+        voltage: v != null && v > 0 ? v : null,
+        status: s.properties?.STATUS || null,
+        distanceMiles: Number(d.toFixed(2)),
+        lat: c[1],
+        lon: c[0],
+      };
+    }
+  }
+
+  return {
+    closestSubstation: closest,
+    transmissionLines: lines.length,
+    geo: { substations: { type: "FeatureCollection", features: subs }, lines: { type: "FeatureCollection", features: lines } },
+  };
+}
+
+const POWER_YELLOW = "#FACC15";
+const POWER_ORANGE = "#FB923C";
+
+export async function renderPower(container, target, power, token) {
+  const { latitude: lat, longitude: lon, owner } = target;
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 12);
+  map.on("error", (e) => console.error("[POWER MAP DIAG] Mapbox error event:", e?.error || e));
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      // Transmission lines (corridors) — orange.
+      if (power?.geo?.lines?.features?.length) {
+        map.addSource("s4-power-lines", { type: "geojson", data: power.geo.lines });
+        map.addLayer({ id: "s4-power-lines-layer", type: "line", source: "s4-power-lines", paint: { "line-color": POWER_ORANGE, "line-width": 2.5, "line-opacity": 0.9 } });
+      }
+
+      // Substations (transformers / connection points) — yellow dots.
+      if (power?.geo?.substations?.features?.length) {
+        map.addSource("s4-power-subs", { type: "geojson", data: power.geo.substations });
+        map.addLayer({
+          id: "s4-power-subs-pt", type: "circle", source: "s4-power-subs",
+          paint: { "circle-radius": 6, "circle-color": POWER_YELLOW, "circle-stroke-color": "#0f172a", "circle-stroke-width": 1.5 },
+        });
+        const popup = new window.mapboxgl.Popup({ closeButton: false, offset: 10 });
+        const show = (e) => {
+          const p = e.features[0].properties || {};
+          map.getCanvas().style.cursor = "pointer";
+          const v = p.MAX_VOLT ?? p.VOLTAGE;
+          popup.setLngLat(e.lngLat).setHTML(
+            `<div style="font-family:monospace;font-size:11px;line-height:1.4;"><strong>⚡ ${p.NAME || "Substation"}</strong><br/>${v && v > 0 ? `Voltage: ${v} kV<br/>` : ""}${p.STATUS ? `Status: ${p.STATUS}` : ""}</div>`
+          ).addTo(map);
+        };
+        map.on("mouseenter", "s4-power-subs-pt", show);
+        map.on("click", "s4-power-subs-pt", show);
+        map.on("mouseleave", "s4-power-subs-pt", () => { map.getCanvas().style.cursor = ""; popup.remove(); });
+      }
+
+      // Dashed connector to the nearest substation + distance label.
+      const cs = power?.closestSubstation;
+      if (cs) {
+        map.addSource("s4-power-tie", {
+          type: "geojson",
+          data: { type: "Feature", geometry: { type: "LineString", coordinates: [[lon, lat], [cs.lon, cs.lat]] }, properties: {} },
+        });
+        map.addLayer({ id: "s4-power-tie-layer", type: "line", source: "s4-power-tie", paint: { "line-color": POWER_YELLOW, "line-width": 2.5, "line-dasharray": [2, 1.5] } });
+
+        // Nearest-substation pin with bigger marker.
+        const el = document.createElement("div");
+        el.style.cssText = "width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,0.92);border:2px solid " + POWER_YELLOW + ";border-radius:50%;box-shadow:0 0 12px rgba(250,204,21,0.7);";
+        el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="' + POWER_YELLOW + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>';
+        new window.mapboxgl.Marker({ element: el, anchor: "center" })
+          .setLngLat([cs.lon, cs.lat])
+          .setPopup(new window.mapboxgl.Popup({ offset: 18 }).setHTML(
+            `<div style="font-family:monospace;font-size:11px;"><strong>${cs.name}</strong><br/>${cs.voltage ? `${cs.voltage} kV<br/>` : ""}${cs.distanceMiles} mi from Target A</div>`
+          ))
+          .addTo(map);
+      }
+
+      addTowerMarker(map, lat, lon, owner);
+
+      // Fit Target A + nearest substation (fallback to a 3mi ring).
+      if (cs) {
+        const b = new window.mapboxgl.LngLatBounds([lon, lat], [lon, lat]);
+        b.extend([cs.lon, cs.lat]);
+        map.fitBounds(b, { padding: 80, duration: 0, maxZoom: 13 });
+      } else {
+        fitToRing(map, lat, lon, 3);
+      }
+      resolve(map);
+    });
+  });
+}
+
 // ── Parcel popup Zoneomics zoning lookup (session cache + 300ms debounce) ──
 // Keyed by parcel ID for the whole session so repeated hovers don't re-query.
 const parcelZoneCache = new Map();
