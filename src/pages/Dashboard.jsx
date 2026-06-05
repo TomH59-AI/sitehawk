@@ -14,6 +14,7 @@ import ReferralPanel from "../components/referral/ReferralPanel";
 import FieldConnectCard from "../components/dashboard/FieldConnectCard";
 import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
 import ParcelEvaluationSummary from "../components/dashboard/ParcelEvaluationSummary";
+import TargetASummaryTable from "../components/dashboard/TargetASummaryTable";
 import { getEffectiveTier } from "@/lib/testAccess";
 
 const TIER_LIMITS = {
@@ -36,11 +37,32 @@ const TIER_LABELS = {
   hawkeye_apex: "Hawkeye Apex",
 };
 
+// Build one summary row per SCIP record (its active Target A), joining the
+// pipeline stage from ScipCRMDeal and the compliance shot clock from ComplianceCheck.
+function buildTargetRows(scips, scipDeals, compliance) {
+  const dealByScip = new Map(scipDeals.map((d) => [d.scip_record_id, d]));
+  const complianceByScip = new Map(compliance.map((c) => [c.scipRecordId, c]));
+  return scips.map((s) => {
+    const idx = s.active_target_index || 0;
+    const targetA = (s.parcel_targets || [])[idx] || null;
+    const enrichment = s.rf_enrichment?.[String(idx)] || s.rf_enrichment?.[idx] || null;
+    return {
+      id: s.id,
+      siteName: s.site_name || "Untitled SCIP",
+      owner: targetA?.owner_name || "",
+      stage: dealByScip.get(s.id)?.stage || "scip_generated",
+      compliance: complianceByScip.get(s.id) || null,
+      hasCoverage: !!enrichment?.coverage?.png_url,
+    };
+  });
+}
+
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [searches, setSearches] = useState([]);
   const [results, setResults] = useState([]);
   const [deals, setDeals] = useState([]);
+  const [targetRows, setTargetRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -48,14 +70,18 @@ export default function Dashboard() {
     async function load() {
       const me = await base44.auth.me();
       setUser(me);
-      const [searchData, resultData, dealData] = await Promise.all([
+      const [searchData, resultData, dealData, scipData, scipDeals, complianceData] = await Promise.all([
         base44.entities.SearchHistory.filter({ created_by: me.email }, "-created_date", 50),
         base44.entities.SearchResult.filter({ created_by: me.email }, "-match_score", 100),
         base44.entities.CRMDeal.filter({ created_by: me.email }, "-created_date", 100).catch(() => []),
+        base44.entities.ScipRecord.filter({ created_by: me.email }, "-created_date", 100).catch(() => []),
+        base44.entities.ScipCRMDeal.filter({ created_by: me.email }, "-created_date", 200).catch(() => []),
+        base44.entities.ComplianceCheck.filter({ created_by: me.email }, "-created_date", 200).catch(() => []),
       ]);
       setSearches(searchData);
       setResults(resultData);
       setDeals(dealData);
+      setTargetRows(buildTargetRows(scipData, scipDeals, complianceData));
       setLoading(false);
       // Show welcome modal on first visit
       const seen = localStorage.getItem("sitehawk_welcome_seen");
@@ -110,6 +136,12 @@ export default function Dashboard() {
 
       {/* Tower Prospecting Workflow — what to do next, with hawk flying across the bar */}
       <ProspectingWorkflow searches={searches} results={results} deals={deals} />
+
+      {/* Active Target A summary — stage · shot clock · coverage */}
+      <div>
+        <h2 className="font-heading font-semibold text-lg text-foreground mb-4">Active Target A Sites</h2>
+        <TargetASummaryTable rows={targetRows} />
+      </div>
 
       {/* How to Use — step-by-step instructions */}
       <HowToUseInstructions />
