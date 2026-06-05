@@ -10,12 +10,16 @@ export default function ReferralPanel() {
 
   useEffect(() => {
     async function load() {
-      const [codeRes, statsRes] = await Promise.all([
-        referral({ action: "get_my_code" }),
-        referral({ action: "get_stats" }),
-      ]);
-      setCode(codeRes.data?.referral_code || null);
-      setStats(statsRes.data || {});
+      // Sequential (not parallel) + tolerant — this is a non-critical panel, so a
+      // transient 500/rate-limit must never crash the dashboard.
+      try {
+        const codeRes = await referral({ action: "get_my_code" });
+        setCode(codeRes.data?.referral_code || null);
+      } catch { /* leave code null */ }
+      try {
+        const statsRes = await referral({ action: "get_stats" });
+        setStats(statsRes.data || {});
+      } catch { setStats({}); }
       setLoading(false);
     }
     load();

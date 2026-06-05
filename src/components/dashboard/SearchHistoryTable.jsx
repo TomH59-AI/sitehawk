@@ -1,7 +1,6 @@
 import { MapPin, Clock, CheckCircle, XCircle, Loader2, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
-import { base44 } from "@/api/base44Client";
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import moment from "moment";
 
 const statusConfig = {
@@ -10,27 +9,23 @@ const statusConfig = {
   failed: { icon: XCircle, color: "text-red-400", bg: "bg-red-500/10" },
 };
 
-export default function SearchHistoryTable({ searches }) {
-  const [fiberStats, setFiberStats] = useState({}); // searchId -> { hasFiber, count }
-
-  useEffect(() => {
-    if (!searches?.length) return;
-    // Load fiber stats for completed searches
-    const completedIds = searches.filter(s => s.status === "completed").map(s => s.id);
-    if (!completedIds.length) return;
-    Promise.all(
-      completedIds.map(async (id) => {
-        const results = await base44.entities.SearchResult.filter({ search_id: id });
-        const hasFiber = results.some(r => r.has_fiber === true);
-        const fiberCount = results.filter(r => r.has_fiber === true).length;
-        return { id, hasFiber, fiberCount, total: results.length };
-      })
-    ).then(stats => {
-      const map = {};
-      stats.forEach(s => { map[s.id] = s; });
-      setFiberStats(map);
+export default function SearchHistoryTable({ searches, results = [] }) {
+  // Derive fiber stats from the already-loaded SearchResult records — no extra
+  // per-search API calls (those were causing rate-limit errors on dashboard load).
+  const fiberStats = useMemo(() => {
+    const map = {};
+    results.forEach((r) => {
+      const id = r.search_id;
+      if (!id) return;
+      if (!map[id]) map[id] = { id, hasFiber: false, fiberCount: 0, total: 0 };
+      map[id].total += 1;
+      if (r.has_fiber === true) {
+        map[id].hasFiber = true;
+        map[id].fiberCount += 1;
+      }
     });
-  }, [searches]);
+    return map;
+  }, [results]);
 
   if (!searches || searches.length === 0) {
     return (

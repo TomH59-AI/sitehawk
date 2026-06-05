@@ -171,7 +171,7 @@ export default function Dashboard() {
       {/* History */}
       <div>
         <h2 className="font-heading font-semibold text-lg text-foreground mb-4">Recent Searches</h2>
-        <SearchHistoryTable searches={searches.slice(0, 10)} />
+        <SearchHistoryTable searches={searches.slice(0, 10)} results={results} />
       </div>
 
       {/* Referral */}
