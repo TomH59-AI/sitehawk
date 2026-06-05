@@ -16,6 +16,7 @@ import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
 import ParcelEvaluationSummary from "../components/dashboard/ParcelEvaluationSummary";
 import TargetASummaryTable from "../components/dashboard/TargetASummaryTable";
 import { getEffectiveTier } from "@/lib/testAccess";
+import { deriveWorkflowSteps } from "@/lib/workflowProgress";
 
 const TIER_LIMITS = {
   blind: 0,
@@ -63,6 +64,7 @@ export default function Dashboard() {
   const [results, setResults] = useState([]);
   const [deals, setDeals] = useState([]);
   const [targetRows, setTargetRows] = useState([]);
+  const [workflowStatus, setWorkflowStatus] = useState({});
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -70,18 +72,26 @@ export default function Dashboard() {
     async function load() {
       const me = await base44.auth.me();
       setUser(me);
-      const [searchData, resultData, dealData, scipData, scipDeals, complianceData] = await Promise.all([
+      const [searchData, resultData, dealData, scipData, scipDeals, complianceData, mailerData] = await Promise.all([
         base44.entities.SearchHistory.filter({ created_by: me.email }, "-created_date", 50),
         base44.entities.SearchResult.filter({ created_by: me.email }, "-match_score", 100),
         base44.entities.CRMDeal.filter({ created_by: me.email }, "-created_date", 100).catch(() => []),
         base44.entities.ScipRecord.filter({ created_by: me.email }, "-created_date", 100).catch(() => []),
         base44.entities.ScipCRMDeal.filter({ created_by: me.email }, "-created_date", 200).catch(() => []),
         base44.entities.ComplianceCheck.filter({ created_by: me.email }, "-created_date", 200).catch(() => []),
+        base44.entities.PostcardMailerOrder.filter({ created_by: me.email }, "-created_date", 200).catch(() => []),
       ]);
       setSearches(searchData);
       setResults(resultData);
       setDeals(dealData);
       setTargetRows(buildTargetRows(scipData, scipDeals, complianceData));
+
+      // Workflow progress tracks the most recent SCIP record (already sorted by -created_date).
+      const latestScip = scipData[0] || null;
+      const latestDeal = latestScip ? scipDeals.find((d) => d.scip_record_id === latestScip.id) || null : null;
+      const hasCompliance = latestScip ? complianceData.some((c) => c.scipRecordId === latestScip.id) : false;
+      const hasMailer = latestScip ? mailerData.some((m) => m.scip_record_id === latestScip.id) : false;
+      setWorkflowStatus(deriveWorkflowSteps({ scip: latestScip, deal: latestDeal, hasCompliance, hasMailer }));
       setLoading(false);
       // Show welcome modal on first visit
       const seen = localStorage.getItem("sitehawk_welcome_seen");
@@ -134,8 +144,8 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* SiteHawk index — the full 11-step workflow */}
-      <WorkflowIndex />
+      {/* SiteHawk index — the full 11-step workflow, gated by SCIP progress */}
+      <WorkflowIndex status={workflowStatus} />
 
       {/* Active Target A summary — stage · shot clock · coverage */}
       <div>
