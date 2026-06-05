@@ -432,23 +432,6 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* SECTION 7 — HAWK INFRASTRUCTURE VISION. Sits directly beneath the Section 4
-          Wind Speed Map. Unlocks as soon as Target A is resolved (it does not need
-          every Section 4 map). ONE interactive power + fiber map the user drives
-          with toggles. Single Run button. Target A ONLY — data + map both center on Target A. */}
-      {coordsReady && sarfReady && zoningReady && (
-        <Section7Infrastructure
-          key={`infrastructure-${clearKeys.infrastructure}`}
-          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
-          active={pipelineStep === "infrastructure"}
-          onClear={() => clearFrom("infrastructure")}
-          targetA={targetA}
-          radiusMiles={searchParams.radius_miles}
-          onRun={() => setPipelineStep("infrastructure")}
-          onData={mergeSectionData}
-        />
-      )}
-
       {/* SECTION 8 — HAWK RF PROPAGATION VISION. STANDALONE — unlocked as soon as
           Target A exists; does NOT gate or block any other section. One Generate
           button → UnwiredLabs carrier scan + per-carrier CloudRF → map. */}
@@ -459,6 +442,23 @@ export default function SiteSearch() {
           onClear={() => clearFrom("propagation")}
           targetA={targetA}
           towerHeightFt={searchParams.tower_height_ft || 150}
+          onData={mergeSectionData}
+        />
+      )}
+
+      {/* SECTION 11 — HAWK INFRASTRUCTURE VISION. Now positioned LAST in the pipeline.
+          Unlocks as soon as Target A is resolved (it does not need every Section 4 map).
+          ONE interactive power + fiber map the user drives with toggles. Single Run
+          button. Target A ONLY — data + map both center on Target A. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section7Infrastructure
+          key={`infrastructure-${clearKeys.infrastructure}`}
+          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          active={pipelineStep === "infrastructure"}
+          onClear={() => clearFrom("infrastructure")}
+          targetA={targetA}
+          radiusMiles={searchParams.radius_miles}
+          onRun={() => setPipelineStep("infrastructure")}
           onData={mergeSectionData}
         />
       )}
