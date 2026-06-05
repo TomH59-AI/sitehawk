@@ -52,7 +52,7 @@ import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
-import { nearestCellTowerFromDirectory } from "@/functions/nearestCellTowerFromDirectory";
+import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, BRAND_GREEN, buildCircle,
@@ -240,11 +240,19 @@ export default function Section4MapSuite({
         onData?.({ airport: { name: airport.name || airport.callnumber || null, distance_miles: Number(airport.distance_miles), type: airport.type || null } });
         map = await renderAirport(refs.airport.current, targetA, airport, token);
       } else if (step === "celltower") {
-        const cres = await nearestCellTowerFromDirectory({ lat: targetA.latitude, lon: targetA.longitude });
-        const tower = cres.data?.match;
-        if (!tower) throw new Error("No cell tower found near Target A.");
+        const cres = await cellTowerLookup({ lat: targetA.latitude, lon: targetA.longitude });
+        const nt = cres.data?.nearest_tower;
+        if (!nt || nt.latitude_deg == null || nt.longitude_deg == null) throw new Error("No cell tower found near Target A.");
+        // Normalize to the shape renderCellTower + the banner expect.
+        const tower = {
+          site_name: nt.licensee || nt.call_letters || "Cell Site",
+          market: nt.structure_type || null,
+          latitude: nt.latitude_deg,
+          longitude: nt.longitude_deg,
+          distance_miles: nt.distance_miles,
+        };
         setCellTowerInfo(tower);
-        onData?.({ tower: { owner: tower.site_name || null, distance_miles: Number(tower.distance_miles), height_ft: null, source: "CellularSite directory" } });
+        onData?.({ tower: { owner: nt.licensee || null, distance_miles: Number(nt.distance_miles), height_ft: nt.overall_height_ft ?? null, source: cres.data?.source || "FCC ASR / OpenCellID" } });
         map = await renderCellTower(refs.celltower.current, targetA, tower, token);
       } else if (step === "parcel") {
         // Pull every parcel inside the user-selected SARF ring (centered on the
