@@ -135,7 +135,7 @@ export default function Section7Infrastructure({
           </div>
         </div>
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Complete all three maps in Section 6 to unlock the Target A infrastructure map.
+          Select Target A in Section 3 to unlock the Target A infrastructure map.
         </div>
       </div>
     );

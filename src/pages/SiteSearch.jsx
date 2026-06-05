@@ -432,13 +432,14 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* SECTION 7 — HAWK INFRASTRUCTURE VISION. Locked until all ten Section 4
-          maps are complete (Wind is now Section 4 map #10). ONE interactive power
-          + fiber map the user drives with toggles. Single Run button. Target A ONLY. */}
+      {/* SECTION 7 — HAWK INFRASTRUCTURE VISION. Sits directly beneath the Section 4
+          Wind Speed Map. Unlocks as soon as Target A is resolved (it does not need
+          every Section 4 map). ONE interactive power + fiber map the user drives
+          with toggles. Single Run button. Target A ONLY — data + map both center on Target A. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section7Infrastructure
           key={`infrastructure-${clearKeys.infrastructure}`}
-          unlocked={mapsComplete && !!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           active={pipelineStep === "infrastructure"}
           onClear={() => clearFrom("infrastructure")}
           targetA={targetA}
