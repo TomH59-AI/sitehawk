@@ -65,6 +65,12 @@ export default function ComplianceReport({ record, onClose }) {
                 <tr><th style={{ width: "30%" }}>Site Name</th><td>{record.siteName || "—"}</td></tr>
                 <tr><th>Target A Owner</th><td>{record.ownerName || "—"}</td></tr>
                 <tr><th>Project Type</th><td>{record.projectType === "collocation" ? "Collocation (Form 621)" : "New Tower (Form 620)"}</td></tr>
+                {(Number.isFinite(record.targetLat) && Number.isFinite(record.targetLon)) && (
+                  <tr><th>Coordinates</th><td>{Number(record.targetLat).toFixed(6)}, {Number(record.targetLon).toFixed(6)}</td></tr>
+                )}
+                {(record.county || record.state) && (
+                  <tr><th>County / State</th><td>{[record.county, record.state].filter(Boolean).join(", ")}</td></tr>
+                )}
                 <tr><th>Ground Disturbance</th><td>{record.groundDisturbanceArea ? `${record.groundDisturbanceArea} sq ft` : "—"}{record.groundDisturbanceDepth ? ` · ${record.groundDisturbanceDepth} in deep` : ""}</td></tr>
                 <tr><th>Generated</th><td>{new Date().toLocaleString()}</td></tr>
               </tbody>

@@ -15,6 +15,22 @@
       "type": "string",
       "description": "Cached Target A parcel owner name from the linked ScipRecord."
     },
+    "targetLat": {
+      "type": "number",
+      "description": "Target A latitude (decimal degrees), cached from the linked ScipRecord for the compliance report header and tribal screening."
+    },
+    "targetLon": {
+      "type": "number",
+      "description": "Target A longitude (decimal degrees), cached from the linked ScipRecord for the compliance report header and tribal screening."
+    },
+    "county": {
+      "type": "string",
+      "description": "Site county, cached from the linked ScipRecord (used for the report header and NACD tribal lookup)."
+    },
+    "state": {
+      "type": "string",
+      "description": "Site two-letter state code, cached from the linked ScipRecord."
+    },
     "projectType": {
       "type": "string",
       "enum": [
