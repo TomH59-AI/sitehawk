@@ -10,6 +10,7 @@ import WelcomeModal from "../components/onboarding/WelcomeModal";
 import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import HowToUseInstructions from "../components/dashboard/HowToUseInstructions";
 import ProspectingWorkflow from "../components/dashboard/ProspectingWorkflow";
+import WorkflowIndex from "../components/dashboard/WorkflowIndex";
 import ReferralPanel from "../components/referral/ReferralPanel";
 import FieldConnectCard from "../components/dashboard/FieldConnectCard";
 import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
@@ -133,6 +134,9 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* SiteHawk index — the full 11-step workflow */}
+      <WorkflowIndex />
 
       {/* Tower Prospecting Workflow — what to do next, with hawk flying across the bar */}
       <ProspectingWorkflow searches={searches} results={results} deals={deals} />
