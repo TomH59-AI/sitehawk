@@ -571,6 +571,98 @@ export async function renderWind(container, target, token) {
   });
 }
 
+// ────────────── 11. FIBER OPTICS (CarrierFinder) ──────────────
+// Satellite map centered on Target A showing fiber-lit / near-net buildings from
+// CarrierFinder, each marker color-coded (green = On-Net / lit fiber present,
+// yellow = Near-Net / fiber nearby) and labeled with its carrier name. Click a
+// marker for the carrier + address + distance. The incumbent fiber telco and the
+// nearest lit carrier are reported in the section banner (rendered by the suite).
+//   litBuildings: array from carrierFinderFiber.lit_buildings
+//   radiusMiles:  search radius (for the fiber-search ring + map fit)
+const FIBER_GREEN = "#16A34A";   // On-Net (lit fiber)
+const FIBER_YELLOW = "#EAB308";  // Near-Net (fiber nearby)
+
+export async function renderFiber(container, target, litBuildings, token, radiusMiles = 0.5) {
+  const { latitude: lat, longitude: lon, owner } = target;
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 14);
+  map.on("error", (e) => console.error("[FIBER MAP DIAG] Mapbox error event:", e?.error || e));
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      // Fiber-search ring (the radius CarrierFinder searched).
+      const ring = buildCircle(lat, lon, radiusMiles);
+      map.addSource("s4-fiber-ring", { type: "geojson", data: ring });
+      map.addLayer({ id: "s4-fiber-ring-line", type: "line", source: "s4-fiber-ring", paint: { "line-color": "#FF8C00", "line-width": 2.5, "line-dasharray": [3, 2] } });
+
+      // Lit / near-net building markers (only those with coordinates).
+      const pts = (litBuildings || []).filter((b) => Number.isFinite(b.lon) && Number.isFinite(b.lat));
+      const fc = {
+        type: "FeatureCollection",
+        features: pts.map((b) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [b.lon, b.lat] },
+          properties: {
+            carrier: b.carrier || "Carrier",
+            carriertype: b.carriertype || "",
+            onnet: b.xnet_code === "O",
+            street: b.street || "",
+            city: b.city || "",
+            state: b.state || "",
+            distance: b.distance != null ? String(b.distance) : "",
+            carrier_count: b.carrier_count != null ? String(b.carrier_count) : "",
+            datacenter: b.datacenter ? "1" : "",
+          },
+        })),
+      };
+      if (fc.features.length) {
+        map.addSource("s4-fiber", { type: "geojson", data: fc });
+        map.addLayer({
+          id: "s4-fiber-pt", type: "circle", source: "s4-fiber",
+          paint: {
+            "circle-radius": 7,
+            "circle-color": ["case", ["get", "onnet"], FIBER_GREEN, FIBER_YELLOW],
+            "circle-stroke-color": "#fff", "circle-stroke-width": 2,
+          },
+        });
+        map.addLayer({
+          id: "s4-fiber-label", type: "symbol", source: "s4-fiber",
+          layout: {
+            "text-field": ["get", "carrier"], "text-size": 11, "text-offset": [0, 1.3],
+            "text-anchor": "top", "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"], "text-allow-overlap": false,
+          },
+          paint: { "text-color": "#fff", "text-halo-color": "#0f172a", "text-halo-width": 2 },
+        });
+
+        // Click/hover popup with carrier + address + distance.
+        const popup = new window.mapboxgl.Popup({ closeButton: false, offset: 12 });
+        const show = (e) => {
+          const p = e.features[0].properties;
+          map.getCanvas().style.cursor = "pointer";
+          const net = p.onnet === true || p.onnet === "true" ? "On-Net (fiber lit)" : "Near-Net";
+          const color = p.onnet === true || p.onnet === "true" ? FIBER_GREEN : FIBER_YELLOW;
+          const addr = [p.street, p.city, p.state].filter(Boolean).join(", ");
+          popup.setLngLat(e.lngLat).setHTML(
+            `<div style="font-family:monospace;font-size:11px;line-height:1.45;">` +
+            `<strong style="color:${color};">🔌 ${p.carrier}${p.carriertype ? ` · ${p.carriertype}` : ""}</strong><br/>` +
+            `<b>Status:</b> ${net}<br/>` +
+            `${p.datacenter ? `<b>Data Center</b><br/>` : ""}` +
+            `${addr ? `${addr}<br/>` : ""}` +
+            `${p.distance ? `<b>Distance:</b> ${p.distance} ft<br/>` : ""}` +
+            `${p.carrier_count ? `<b>Carriers at site:</b> ${p.carrier_count}` : ""}</div>`
+          ).addTo(map);
+        };
+        const clear = () => { map.getCanvas().style.cursor = ""; popup.remove(); };
+        map.on("mouseenter", "s4-fiber-pt", show);
+        map.on("click", "s4-fiber-pt", show);
+        map.on("mouseleave", "s4-fiber-pt", clear);
+      }
+
+      addTowerMarker(map, lat, lon, owner);
+      fitToRing(map, lat, lon, radiusMiles);
+      resolve(map);
+    });
+  });
+}
+
 // ── Parcel popup Zoneomics zoning lookup (session cache + 300ms debounce) ──
 // Keyed by parcel ID for the whole session so repeated hovers don't re-query.
 const parcelZoneCache = new Map();

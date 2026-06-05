@@ -54,16 +54,17 @@ import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
+import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber"];
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, onRun, onComplete, onData, onClear,
@@ -77,6 +78,7 @@ export default function Section4MapSuite({
   const [airportInfo, setAirportInfo] = useState(null);
   const [cellTowerInfo, setCellTowerInfo] = useState(null);
   const [windInfo, setWindInfo] = useState(null);
+  const [fiberInfo, setFiberInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -93,7 +95,7 @@ export default function Section4MapSuite({
 
   const refs = {
     aerial: useRef(null), topo: useRef(null), fema: useRef(null),
-    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null), wind: useRef(null),
+    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null), wind: useRef(null), fiber: useRef(null),
   };
   const maps = useRef({});
 
@@ -270,6 +272,18 @@ export default function Section4MapSuite({
         setWindInfo(wind);
         onData?.({ wind: { wind_speed_mph: wind?.wind_speed_mph ?? null, risk_level: wind?.wind_risk_level ?? null } });
         map = await renderWind(refs.wind.current, targetA, token);
+      } else if (step === "fiber") {
+        const fres = await carrierFinderFiber({ lat: targetA.latitude, lon: targetA.longitude, radius_miles: 1.0 });
+        const body = fres?.data ?? fres;
+        const litBuildings = body?.lit_buildings || [];
+        const telco = body?.telco || null;
+        // Nearest lit carrier (smallest distance) for the banner.
+        const nearestLit = litBuildings
+          .filter((b) => b.carrier)
+          .sort((a, b) => (a.distance_int ?? Infinity) - (b.distance_int ?? Infinity))[0] || null;
+        setFiberInfo({ telco, count: litBuildings.length, nearestLit });
+        onData?.({ fiber: { count: litBuildings.length }, carriers: { telco, count: litBuildings.length, lit_buildings: litBuildings } });
+        map = await renderFiber(refs.fiber.current, targetA, litBuildings, token, 1.0);
       }
 
       maps.current[step] = map;
@@ -374,6 +388,27 @@ export default function Section4MapSuite({
         {windInfo.in_hurricane_prone_region ? " · Hurricane-Prone Region" : ""}
       </div>
     ) : null,
+    fiber: fiberInfo ? (
+      <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm text-emerald-800 dark:text-emerald-200 space-y-0.5">
+        {fiberInfo.telco ? (
+          <div>
+            <span className="font-semibold">Local fiber telco:</span>{" "}
+            <span className="font-mono">{fiberInfo.telco.name}</span>
+            {fiberInfo.telco.parent && fiberInfo.telco.parent !== fiberInfo.telco.name ? <span className="opacity-80"> ({fiberInfo.telco.parent})</span> : null}
+            {fiberInfo.telco.phone ? <span className="opacity-80"> · 📞 {fiberInfo.telco.phone}</span> : null}
+            {fiberInfo.telco.co_distance ? <span className="opacity-80"> · CO {fiberInfo.telco.co_distance} away · {fiberInfo.telco.co_city}, {fiberInfo.telco.co_state}</span> : null}
+          </div>
+        ) : null}
+        {fiberInfo.nearestLit ? (
+          <div>
+            <span className="font-semibold">Nearest lit carrier:</span>{" "}
+            <span className="font-mono">{fiberInfo.nearestLit.carrier}</span>
+            {fiberInfo.nearestLit.distance ? <span className="opacity-80"> · {fiberInfo.nearestLit.distance} ft</span> : null}
+          </div>
+        ) : null}
+        <div className="opacity-80 text-xs">{fiberInfo.count} fiber-lit / near-net building{fiberInfo.count !== 1 ? "s" : ""} within 1 mi · green = On-Net (lit), yellow = Near-Net</div>
+      </div>
+    ) : null,
   };
 
   return (
@@ -396,7 +431,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate ten Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed.
+          Generate eleven Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -482,6 +517,13 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("wind")}
           loading={loadingStep === "wind"} done={!!completed.wind}
           onRun={() => runStep("wind")} mapRef={refs.wind} banner={banners.wind}
+        />
+        <MapSubStep
+          index={11} title="Fiber Optics Map" runLabel="Run Fiber Optics Map"
+          spinnerLabel="Finding fiber optics infrastructure near Target A…"
+          unlocked={active && isUnlocked("fiber")}
+          loading={loadingStep === "fiber"} done={!!completed.fiber}
+          onRun={() => runStep("fiber")} mapRef={refs.fiber} banner={banners.fiber}
         />
       </div>
     </div>
