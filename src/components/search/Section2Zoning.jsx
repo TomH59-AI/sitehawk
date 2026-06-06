@@ -31,6 +31,8 @@ import HawkFlightSpinner from "./HawkFlightSpinner";
 import SourceBadge, { normalizeSource } from "./section2/SourceBadge";
 import SectionClearButton from "./SectionClearButton";
 import { generateZoningPermitReport } from "@/functions/generateZoningPermitReport";
+import { useScipPaywall } from "@/lib/scipPaywall";
+import ScipUpgradeModal from "@/components/billing/ScipUpgradeModal";
 
 const PANELS = [
   {
@@ -147,6 +149,9 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   const [editingJur, setEditingJur] = useState(false);
   const [jurLabel, setJurLabel] = useState("");
   const ranRef = useRef(false);
+  // HawkSCIP quota gate — Run Zoning is the billing trigger. If the backend
+  // returns 402 / upgrade_required, the upgrade modal appears and routes to plans.
+  const { generate, quota, clearQuota } = useScipPaywall();
 
   const handleChange = (section, key, val) => {
     setCells((prev) => ({
@@ -158,7 +163,14 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   const runLookup = useCallback(async (preserveEdits = false) => {
     setLoading(true);
     try {
-      const res = await generateZoningPermitReport({ lat, lon, candidate });
+      // HawkSCIP quota gate lives in generateZoningPermitReport. The paywall
+      // helper detects a 402 / upgrade_required and shows the upgrade modal.
+      const gateResult = await generate(() => generateZoningPermitReport({ lat, lon, candidate }));
+      if (!gateResult.ok) {
+        setLoading(false);
+        return; // blocked by quota — modal is shown, do not process a report
+      }
+      const res = gateResult.data;
       const report = res.data?.report || null;
       const jur = res.data?.jurisdiction || null;
       setJurisdiction(jur);
@@ -194,7 +206,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       setLoading(false);
       onComplete?.();
     }
-  }, [lat, lon, candidate, onComplete]);
+  }, [lat, lon, candidate, onComplete, generate]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "zoning").
   useEffect(() => {
@@ -226,6 +238,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <ScipUpgradeModal quota={quota} onClose={clearQuota} />
       {/* Banner */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">

@@ -17,6 +17,30 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
+// ─── HawkSCIP quota gate ─────────────────────────────────────────────────────
+// A HawkSCIP is spent when a user runs Zoning on a site for the FIRST time.
+// SARF is free. Tier is read from User.tier (the field the Supabase payment
+// webhook stamps). Counting HawkScipSpend rows IS the quota.
+//   free          → 2 HawkSCIPs lifetime
+//   hawk_site     → 15 / calendar month
+//   hawkeyes      → 30 / calendar month
+//   hawkeye_apex  → unlimited
+const QUOTA = {
+  free:         { limit: 2,  window: 'lifetime' },
+  hawk_site:    { limit: 15, window: 'month' },
+  hawkeyes:     { limit: 30, window: 'month' },
+  hawkeye_apex: { limit: Infinity, window: 'unlimited' },
+};
+
+function siteKeyFor(lat, lon) {
+  return `${Number(lat).toFixed(5)},${Number(lon).toFixed(5)}`;
+}
+
+function monthStartISO() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
 // ─── helpers ────────────────────────────────────────────────────────────────
 async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController();
@@ -342,6 +366,56 @@ Deno.serve(async (req) => {
     const { lat, lon, candidate } = await req.json();
     if (lat == null || lon == null) {
       return Response.json({ error: 'lat and lon required' }, { status: 400 });
+    }
+
+    // ── HAWKSCIP QUOTA GATE — runs BEFORE any paid Zoneomics/Realie call ──────
+    // Admins bypass entirely. Everyone else is gated by their User.tier quota.
+    if (user.role !== 'admin') {
+      const tier = QUOTA[user.tier] ? user.tier : 'free';
+      const { limit, window } = QUOTA[tier];
+      const siteKey = siteKeyFor(lat, lon);
+
+      // Idempotent per site — if this user already spent a HawkSCIP on this
+      // exact site, let them re-run Zoning for free (no double-charge).
+      const existing = await base44.asServiceRole.entities.HawkScipSpend.filter({
+        user_email: user.email,
+        site_key: siteKey,
+      });
+      const alreadySpentHere = existing.length > 0;
+
+      if (!alreadySpentHere && limit !== Infinity) {
+        // Count spends in the quota window: lifetime (free) or since month start (paid).
+        const query = { user_email: user.email };
+        let spends = await base44.asServiceRole.entities.HawkScipSpend.filter(query);
+        if (window === 'month') {
+          const start = monthStartISO();
+          spends = spends.filter((s) => (s.created_date || '') >= start);
+        }
+        const used = spends.length;
+
+        if (used >= limit) {
+          console.log(`[HAWKSCIP GATE] BLOCKED user=${user.email} tier=${tier} used=${used}/${limit} window=${window}`);
+          return Response.json(
+            { upgrade_required: true, tier, used, limit, window },
+            { status: 402 }
+          );
+        }
+      }
+
+      // Under limit (or unlimited) and not already charged for this site →
+      // record ONE HawkSCIP spend, then proceed with the (paid) report.
+      if (!alreadySpentHere) {
+        await base44.asServiceRole.entities.HawkScipSpend.create({
+          user_email: user.email,
+          site_key: siteKey,
+          tier_at_time: tier,
+          lat: Number(lat),
+          lon: Number(lon),
+        });
+        console.log(`[HAWKSCIP GATE] SPENT user=${user.email} tier=${tier} site=${siteKey} window=${window}`);
+      } else {
+        console.log(`[HAWKSCIP GATE] REUSE user=${user.email} site=${siteKey} (already spent — free re-run)`);
+      }
     }
 
     // STEP 1 — MapBox reverse-geocode (FCC fallback for any gaps).

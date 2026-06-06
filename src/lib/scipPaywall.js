@@ -28,17 +28,18 @@ export function useScipPaywall() {
         setQuota(normalizeQuota(body));
         return { ok: false, paywall: true };
       }
-      // Plain object carrying a 402
-      if (result && (result.status === 402 || result.paywall)) {
-        setQuota(normalizeQuota(result.paywall || result));
+      // Plain object / axios response carrying a 402 or upgrade_required
+      const data = result?.data ?? result;
+      if (result && (result.status === 402 || data?.upgrade_required || result.paywall)) {
+        setQuota(normalizeQuota(result.paywall || data || result));
         return { ok: false, paywall: true };
       }
 
       return { ok: true, data: result };
     } catch (err) {
       const status = err?.status || err?.response?.status;
-      if (status === 402) {
-        const body = err?.response?.data || err?.data || err;
+      const body = err?.response?.data || err?.data || err;
+      if (status === 402 || body?.upgrade_required) {
         setQuota(normalizeQuota(body));
         return { ok: false, paywall: true };
       }
@@ -53,11 +54,16 @@ export function useScipPaywall() {
 
 function normalizeQuota(body) {
   const q = body || {};
+  const window = q.window ?? null;
+  const defaultMsg = window === "lifetime"
+    ? "You've used your free HawkSCIPs."
+    : "You've reached your monthly HawkSCIP limit.";
   return {
-    error: q.error || "You've reached your monthly SCIP limit.",
+    error: q.error || defaultMsg,
     tier: q.tier ?? null,
     used: q.used ?? null,
     limit: q.limit ?? null,
+    window,
   };
 }
 
