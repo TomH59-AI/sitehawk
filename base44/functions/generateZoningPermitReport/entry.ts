@@ -181,6 +181,14 @@ function zoPick(flat, needles, valueRx = null) {
   return '';
 }
 async function getZoneomics(lat, lon) {
+  // ⛔ BANNED: the Zoneomics paid Point API (api.zoneomics.com/v2/zoneDetail) is
+  // disabled in this stack after a billing incident (burned 2,850 calls vs a 655
+  // quota). This function MUST NOT call the paid API. It is short-circuited to a
+  // no-op so the cascade falls to sanctioned sources: telecom_ordinances Supabase
+  // table → free site:zoneomics.com web search (LLM step) → Realie paid cross-check.
+  return { ok: false, http_status: 0, error: 'Zoneomics paid API disabled (banned)', disabled: true, fields: {} };
+
+  // eslint-disable-next-line no-unreachable
   const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
   if (!apiKey) return { ok: false, http_status: 500, error: 'ZONEOMICS_API_KEY not set', fields: {} };
 
