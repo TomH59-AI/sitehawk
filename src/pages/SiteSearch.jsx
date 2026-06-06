@@ -12,14 +12,11 @@ import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section8Propagation from "../components/search/Section8Propagation";
 import AIChatPanel from "../components/search/AIChatPanel";
-import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import BusProbePanel from "../components/search/BusProbePanel";
 import GenerateScipButton from "../components/search/GenerateScipButton";
 import { round4 } from "@/lib/coords";
-
-const TIER_LIMITS = { blind: 0, free: 0, hawk_site: 1, hawkeyes: 5, hawkeye_apex: Infinity };
 
 export default function SiteSearch() {
   const { toast } = useToast();
@@ -30,7 +27,6 @@ export default function SiteSearch() {
   const [scanError, setScanError] = useState(null);
   const [searchCenter, setSearchCenter] = useState(null);
   const [searchParams, setSearchParams] = useState({ radius_miles: 0.5, tower_height_ft: 199, agent_name: "", ring_name: "", compound_size: "100x100" });
-  const [searchesThisMonth, setSearchesThisMonth] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
   // Pipeline state machine. Steps: "sarf" → "zoning" → ... Each downstream
   // section stays locked until the prior one completes AND the user clicks its
@@ -163,14 +159,6 @@ export default function SiteSearch() {
     async function init() {
       const me = await base44.auth.me();
       setUser(me);
-
-      // Count monthly searches (used only for tier-limit gating, not a scan)
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const allSearches = await base44.entities.SearchHistory.filter({ created_by: me.email }, "-created_date", 100);
-      const monthly = allSearches.filter(s => new Date(s.created_date) >= monthStart);
-      setSearchesThisMonth(monthly.length);
-
       setPageLoading(false);
     }
     init();
@@ -189,29 +177,7 @@ export default function SiteSearch() {
       return;
     }
 
-    const tier = getEffectiveTier(user);
-    const isAdmin = hasUnlimitedAccess(user);
-    const limit = isAdmin ? Infinity : (TIER_LIMITS[tier] ?? 0);
-    const isFreeTrialEligible = (tier === "blind" || tier === "free") && !user.free_trial_used;
-
-    if (!isAdmin && (!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible) {
-      toast({
-        title: "Upgrade required",
-        description: "Subscribe to Hawk Site or higher to start scanning.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!isAdmin && !isFreeTrialEligible && limit !== Infinity && searchesThisMonth >= limit) {
-      toast({
-        title: "Daily search limit reached",
-        description: `Your ${tier === "hawk_site" ? "Hawk Site" : "Hawkeyes"} plan allows ${limit} Target Search${limit !== 1 ? "es" : ""}/day. Upgrade to continue.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
+    // Scanning is free and unlimited — only SCIP generation is gated (server-side).
     // Brief in-flight state so the hawk spinner shows while MapBox renders.
     // New search → reset the whole pipeline back to Section 1.
     setScanError(null);
@@ -244,13 +210,7 @@ export default function SiteSearch() {
     );
   }
 
-  const tier = getEffectiveTier(user);
-  const isAdmin = hasUnlimitedAccess(user);
-  const limit = isAdmin ? Infinity : (TIER_LIMITS[tier] ?? 0);
-  const isFreeTrialEligible = (tier === "blind" || tier === "free") && !user?.free_trial_used;
-  const isBlind = !isAdmin && (!tier || tier === "blind" || tier === "free") && !isFreeTrialEligible;
-  const atLimit = !isAdmin && (isBlind || (limit !== Infinity && !isFreeTrialEligible && searchesThisMonth >= limit));
-
+  const isAdmin = user?.role === "admin";
   const coordsReady = searchCenter && Number.isFinite(searchCenter.lat) && Number.isFinite(searchCenter.lon);
 
   // Stable primitive SARF inputs — the memoized map component only redraws when
@@ -265,16 +225,14 @@ export default function SiteSearch() {
       {/* TEMP — live bus probe (admin only). Remove before launch. */}
       {isAdmin && coordsReady && <BusProbePanel sectionData={sectionData} />}
 
-      {/* SiteHawk Vision chat toggle — paid subscribers only (not a scan) */}
-      {!isBlind && (
-        <button
+      {/* SiteHawk Vision chat toggle (not a scan) */}
+      <button
           onClick={() => setChatOpen((o) => !o)}
           className="fixed right-6 bottom-8 z-40 w-14 h-14 rounded-full bg-[#0C1B2E] shadow-xl flex items-center justify-center hover:scale-105 transition-transform border border-[#2563A0]"
           title="SiteHawk Vision"
         >
           <HawkIcon size={36} />
         </button>
-      )}
 
       <AIChatPanel
         open={chatOpen}
@@ -317,22 +275,11 @@ export default function SiteSearch() {
       </div>
 
       {/* Section One intake form */}
-      <SearchForm onSearch={handleSearch} isLoading={loading} disabled={atLimit} />
+      <SearchForm onSearch={handleSearch} isLoading={loading} />
 
       {scanError && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 flex items-start gap-3">
           <span className="text-destructive text-sm font-medium">Error: {scanError}</span>
-        </div>
-      )}
-
-      {atLimit && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center">
-          <p className="text-destructive text-sm font-medium">
-            {isBlind
-              ? "Your free trial scan has been used. Subscribe to Hawk Site or higher to continue scanning."
-              : `You've reached your daily limit of ${limit} Target Search${limit !== 1 ? "es" : ""}. Upgrade your plan to continue.`}
-          </p>
-          <a href="/pricing" className="text-xs text-primary underline mt-1 inline-block">View upgrade options →</a>
         </div>
       )}
 

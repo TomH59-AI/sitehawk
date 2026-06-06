@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { FileText, X, Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useScipPaywall } from "@/lib/scipPaywall";
+import ScipUpgradeModal from "@/components/billing/ScipUpgradeModal";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
@@ -36,10 +38,16 @@ export default function GenerateScipButton({
   const [open, setOpen] = useState(false);
   const [building, setBuilding] = useState(false);
   const [record, setRecord] = useState(null);
+  const { generate, quota, clearQuota } = useScipPaywall();
 
   const ready = !!(searchCenter && targetA && Number.isFinite(Number(targetA.latitude)));
 
-  const build = async () => {
+  // Wrap the build in the paywall helper. If the SCIP generation path ever
+  // returns HTTP 402 (over monthly SCIP limit), the upgrade modal appears and
+  // routes the user to /plans-selection. Scanning stays free/unlimited.
+  const build = () => generate(buildScip);
+
+  const buildScip = async () => {
     setBuilding(true);
     try {
       const cfg = await loadPublicConfig();
@@ -129,6 +137,7 @@ export default function GenerateScipButton({
 
   return (
     <>
+      <ScipUpgradeModal quota={quota} onClose={clearQuota} />
       <button
         onClick={build}
         disabled={!ready || building}

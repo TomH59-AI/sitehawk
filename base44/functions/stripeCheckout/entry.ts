@@ -3,10 +3,11 @@ import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 
-// hawk_site = $69/mo | hawkeyes = $199/mo | hawkeye_apex = contact sales (no checkout)
+// HawkSite = $149/mo (15 SCIPs) | HawkVision (hawkeyes) = $399/mo (30 SCIPs)
+// HawkCommand = contact sales (no checkout) | hawk_compliance = add-on
 const PRICE_IDS = {
-  hawk_site: 'price_1TMUQXIE4fOP88RJjL3nPcbS',
-  hawkeyes: 'price_1TMUQXIE4fOP88RJZShRn1v0',
+  hawk_site: 'price_1TfJxkHqvEl6hcMmV2VdrbPk',
+  hawkeyes: 'price_1TfJxkHqvEl6hcMmYTbzGOyJ',
   hawk_compliance: 'price_1TdJlxIE4fOP88RJBeqKRVgw',
 };
 
@@ -31,24 +32,26 @@ Deno.serve(async (req) => {
 
       const origin = req.headers.get('origin') || 'https://app.base44.com';
 
+      // The webhook reads plan_key + user_id (and user_email) from subscription
+      // metadata to flip the tier after payment. Keep all three on BOTH the
+      // session and the subscription so renewals/cancellations can match too.
+      const meta = {
+        base44_app_id: Deno.env.get('BASE44_APP_ID'),
+        user_email: user.email,
+        user_id: user.id,
+        plan,
+        plan_key: plan,
+      };
+
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
         customer_email: user.email,
-        success_url: `${origin}/pricing?checkout=success&plan=${plan}`,
-        cancel_url: `${origin}/pricing`,
-        metadata: {
-          base44_app_id: Deno.env.get('BASE44_APP_ID'),
-          user_email: user.email,
-          plan,
-        },
-        subscription_data: {
-          metadata: {
-            base44_app_id: Deno.env.get('BASE44_APP_ID'),
-            user_email: user.email,
-            plan,
-          },
-        },
+        success_url: `${origin}/plans-selection?checkout=success&plan=${plan}`,
+        cancel_url: `${origin}/plans-selection`,
+        client_reference_id: user.id,
+        metadata: meta,
+        subscription_data: { metadata: meta },
       });
 
       return Response.json({ url: session.url });

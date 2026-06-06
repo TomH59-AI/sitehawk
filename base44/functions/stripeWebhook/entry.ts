@@ -304,15 +304,13 @@ Deno.serve(async (req) => {
 
         console.log(`Checkout completed for ${userEmail}, plan: ${plan}`);
 
-        const TRIAL_SCANS = { hawk_site: 1, hawkeyes: 5, hawkeye_apex: 10, monthly: 1, annual: 2 };
-        const trialScans = TRIAL_SCANS[plan] || 0;
-
+        // Scan trials are retired — SCIP limits are enforced server-side
+        // (free = 2 SCIPs total, paid = 15/30 per month). Just flip the tier.
         const users = await base44.asServiceRole.entities.User.filter({ email: userEmail });
         if (users.length) {
           const u = users[0];
           await base44.asServiceRole.entities.User.update(u.id, {
             tier: plan,
-            trial_scans_remaining: (u.trial_scans_remaining || 0) + trialScans,
             subscription_plan: plan,
             stripe_customer_id: session.customer,
           });

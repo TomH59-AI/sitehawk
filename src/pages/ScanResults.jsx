@@ -25,7 +25,6 @@ export default function ScanResults() {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [userTier, setUserTier] = useState(null);
-  const [freeTrialUsed, setFreeTrialUsed] = useState(false);
   const [contactCache, setContactCache] = useState({});
   const [sortKey, setSortKey] = useState("match_score_desc");
   const [displayedResults, setDisplayedResults] = useState(null);
@@ -34,7 +33,6 @@ export default function ScanResults() {
   useEffect(() => {
     base44.auth.me().then(u => {
       setUserTier(hasUnlimitedAccess(u) ? "hawkeye_apex" : getEffectiveTier(u));
-      setFreeTrialUsed(!!u?.free_trial_used);
     });
   }, []);
 
@@ -141,7 +139,6 @@ export default function ScanResults() {
             sortKey={sortKey}
             onSortChange={handleSortChange}
             onFiltered={handleFiltered}
-            freeTrialUsed={freeTrialUsed}
           />
         </div>
       </div>

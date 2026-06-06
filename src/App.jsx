@@ -64,6 +64,7 @@ import HawkScip from './pages/HawkScip';
 import HawkDocs from './pages/HawkDocs';
 import HawkDocShareView from './pages/HawkDocShareView';
 import SubscriberCRM from './pages/SubscriberCRM';
+import PlansSelection from './pages/PlansSelection';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -111,6 +112,7 @@ const AuthenticatedApp = () => {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />
         <Route path="/pricing" element={<Pricing />} />
+        <Route path="/plans-selection" element={<PlansSelection />} />
         <Route path="/about" element={<About />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />

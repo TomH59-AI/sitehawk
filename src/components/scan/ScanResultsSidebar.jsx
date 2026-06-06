@@ -7,7 +7,6 @@ import PDFReportButton from "../search/PDFReportButton";
 import SearchUsageBar from "./SearchUsageBar";
 import BatchSkipTrace from "../search/BatchSkipTrace";
 import ResultsFilterSort from "./ResultsFilterSort";
-import FreeTrialUpsellBanner from "./FreeTrialUpsellBanner";
 import TelecomOrdinanceSummary from "./TelecomOrdinanceSummary";
 import ZoningSummaryCard from "./ZoningSummaryCard";
 import HawkMailersEngagement from "./HawkMailersEngagement";
@@ -42,7 +41,6 @@ export default function ScanResultsSidebar({
   sortKey,
   onSortChange,
   onFiltered,
-  freeTrialUsed,
 }) {
   const navigate = useNavigate();
   const cardRefs = useRef([]);
@@ -160,7 +158,6 @@ export default function ScanResultsSidebar({
 
       {/* Candidate list */}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "10px 12px", scrollbarWidth: "thin", scrollbarColor: "#1e293b #0a0e17" }}>
-        <FreeTrialUpsellBanner userTier={userTier} freeTrialUsed={freeTrialUsed} />
         <HawkMailersEngagement />
         {/* Zoning + planning contact summary — pulled directly from notionZoningLookup */}
         <ZoningSummaryCard
