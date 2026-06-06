@@ -210,7 +210,6 @@ Deno.serve(async (req) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
         const userEmail = session.metadata?.user_email;
-        const plan = session.metadata?.plan;
         const type = session.metadata?.type;
 
         // ── Direct Mail Fulfillment via Lob ──
@@ -300,115 +299,16 @@ Deno.serve(async (req) => {
           break;
         }
 
-        if (!userEmail || !plan) break;
-
-        console.log(`Checkout completed for ${userEmail}, plan: ${plan}`);
-
-        // Scan trials are retired — SCIP limits are enforced server-side
-        // (free = 2 SCIPs total, paid = 15/30 per month). Just flip the tier.
-        const users = await base44.asServiceRole.entities.User.filter({ email: userEmail });
-        if (users.length) {
-          const u = users[0];
-          await base44.asServiceRole.entities.User.update(u.id, {
-            tier: plan,
-            subscription_plan: plan,
-            stripe_customer_id: session.customer,
-          });
-        }
-
-        // Credit referral if this user was referred
-        try {
-          const referrals = await base44.asServiceRole.entities.Referral.filter({ referred_email: userEmail, status: "signed_up" });
-          if (referrals.length) {
-            const referral = referrals[0];
-            const REFERRAL_CREDITS = 5;
-
-            // Credit referrer
-            const referrers = await base44.asServiceRole.entities.User.filter({ email: referral.referrer_email });
-            if (referrers.length) {
-              await base44.asServiceRole.entities.User.update(referrers[0].id, {
-                trial_scans_remaining: (referrers[0].trial_scans_remaining || 0) + REFERRAL_CREDITS,
-              });
-            }
-
-            // Credit referred user
-            if (users.length) {
-              await base44.asServiceRole.entities.User.update(users[0].id, {
-                trial_scans_remaining: (users[0].trial_scans_remaining || 0) + REFERRAL_CREDITS,
-              });
-            }
-
-            await base44.asServiceRole.entities.Referral.update(referral.id, {
-              status: "credited",
-              referrer_credited: true,
-              referred_credited: true,
-            });
-
-            console.log(`Referral credited: referrer=${referral.referrer_email} referred=${userEmail}`);
-          }
-        } catch (refErr) {
-          console.error("Referral credit error:", refErr.message);
-        }
-
-        break;
-      }
-
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object;
-        const customerId = sub.customer;
-        console.log(`Subscription cancelled for customer: ${customerId}`);
-
-        // If the cancelled subscription was Hawk Compliance, lock it back.
-        const isCompliance = sub.metadata?.type === 'hawk_compliance' || sub.metadata?.plan === 'hawk_compliance';
-        const users = await base44.asServiceRole.entities.User.filter({ stripe_customer_id: customerId });
-        if (users.length) {
-          if (isCompliance) {
-            await base44.asServiceRole.entities.User.update(users[0].id, { hawk_compliance_active: false });
-            console.log(`Hawk Compliance locked for customer ${customerId}`);
-          } else {
-            await base44.asServiceRole.entities.User.update(users[0].id, {
-              tier: 'blind',
-              subscription_plan: null,
-            });
-          }
-        }
-        break;
-      }
-
-      case 'customer.subscription.updated': {
-        const sub = event.data.object;
-        const customerId = sub.customer;
-        const status = sub.status;
-        console.log(`Subscription updated for customer: ${customerId}, status: ${status}`);
-
-        if (status === 'active') {
-          // Subscription renewed or reactivated — keep tier intact
-        } else if (status === 'past_due' || status === 'unpaid' || status === 'canceled') {
-          const users = await base44.asServiceRole.entities.User.filter({ stripe_customer_id: customerId });
-          if (users.length) {
-            await base44.asServiceRole.entities.User.update(users[0].id, {
-              tier: 'blind',
-              subscription_plan: null,
-            });
-          }
-        }
-        break;
-      }
-
-      case 'invoice.paid': {
-        const invoice = event.data.object;
-        console.log(`Invoice paid: ${invoice.id} for customer ${invoice.customer}`);
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        console.log(`Invoice payment FAILED: ${invoice.id} for customer ${invoice.customer}`);
+        // Subscription/tier sessions are NOT handled here — Supabase
+        // (sitehawk-mailer-webhook) is the single source of truth for all
+        // subscription tier changes and cancellations. Ignore cleanly (200).
+        console.log(`Ignoring non-mailer checkout session (type=${type || 'none'})`);
         break;
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        // All subscription/invoice events are owned by Supabase. Ignore cleanly.
+        console.log(`Ignored event type (owned elsewhere): ${event.type}`);
     }
   } catch (err) {
     console.error('Webhook handler error:', err.message);
