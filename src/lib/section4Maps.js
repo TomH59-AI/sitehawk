@@ -443,6 +443,54 @@ export async function renderFlum(container, target, token, zoneomicsKey, flumLab
   });
 }
 
+// ────────────── 4d. FLUM POLYGON (zoneResolve / FL GeoPlan) ──────────────
+// Draw the REAL Future Land Use polygon GeoJSON returned by zoneResolve
+// (FL GeoPlan ArcGIS) on a light base, centered on Target A. The polygon is
+// filled with a deterministic color from its FLU code/label + outlined, with the
+// Target A pill label on top. When no polygon is available (outside FL coverage)
+// the caller renders a label-only fallback instead.
+//   fluFeature: GeoJSON Feature (Polygon) from zoneResolve.flu.geojson
+//   flumLabel:  "CODE — LABEL" string for the pill + fill color
+export async function renderFlumPolygon(container, target, token, fluFeature, flumLabel) {
+  const { latitude: lat, longitude: lon, owner } = target;
+  const map = await makeMap(container, LIGHT_STYLE, [lon, lat], token, 14);
+  map.on("error", (e) => console.error("[FLUM MAP DIAG] Mapbox error event:", e?.error || e));
+  const color = flumColor(flumLabel);
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      if (fluFeature?.geometry) {
+        map.addSource("s4-flu", { type: "geojson", data: fluFeature });
+        map.addLayer({ id: "s4-flu-fill", type: "fill", source: "s4-flu", paint: { "fill-color": color, "fill-opacity": 0.35 } });
+        map.addLayer({ id: "s4-flu-line", type: "line", source: "s4-flu", paint: { "line-color": color, "line-width": 2, "line-opacity": 0.85 } });
+      }
+
+      // Target A pill label: "FLUM: <designation>".
+      const el = document.createElement("div");
+      el.textContent = `FLUM: ${flumLabel || "—"}`;
+      el.style.cssText = `
+        font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; color:#fff;
+        background:${BRAND_GREEN}; padding:6px 12px; border-radius:9999px;
+        white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.3);
+      `;
+      new window.mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat([lon, lat]).addTo(map);
+
+      addTowerMarker(map, lat, lon, owner);
+      // Fit the FLU polygon bounds when present, else a small ring around Target A.
+      if (fluFeature?.geometry) {
+        const coords = [];
+        const walk = (a) => Array.isArray(a) && typeof a[0] === "number" ? coords.push(a) : (a || []).forEach(walk);
+        walk(fluFeature.geometry.coordinates);
+        if (coords.length) {
+          const b = new window.mapboxgl.LngLatBounds(coords[0], coords[0]);
+          coords.forEach((c) => b.extend(c));
+          map.fitBounds(b, { padding: 50, duration: 0, maxZoom: 16 });
+        } else fitToRing(map, lat, lon, 0.45);
+      } else fitToRing(map, lat, lon, 0.45);
+      resolve(map);
+    });
+  });
+}
+
 // ────────────── 5. WETLANDS ──────────────
 export async function renderWetlands(container, target, token) {
   const { latitude: lat, longitude: lon, owner } = target;

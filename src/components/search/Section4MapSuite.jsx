@@ -58,11 +58,11 @@ import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlum, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlumPolygon, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
+import { zoneResolve } from "@/functions/zoneResolve";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
-import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
 const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "power", "compliance"];
@@ -230,12 +230,18 @@ export default function Section4MapSuite({
 
         map = await renderZoningGrid(refs.zoning.current, targetA, token, gridCells, cellLat, cellLng, zone, zParcels);
       } else if (step === "flum") {
-        // Future Land Use map — point details for the banner + FLUM tile overlay.
-        const fres = await zoneomicsFlumDetails({ lat: targetA.latitude, lng: targetA.longitude }).catch(() => null);
-        const flum = fres?.data?.flum || null;
+        // Future Land Use map — real FLU polygon from zoneResolve (FL GeoPlan).
+        const fres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
+        const flu = fres?.data?.flu || null;
+        const fluFeature = flu?.geojson || null;
+        // zoneResolve labels FLU as { code, label }.
+        const flum = flu ? { code: flu.code, name: flu.label } : null;
         const flumLabel = flum ? [flum.code, flum.name].filter(Boolean).join(" — ") : "";
         setFlumInfo(flum && (flum.code || flum.name) ? flum : null);
-        map = await renderFlum(refs.flum.current, targetA, token, cfg.zoneomicsApiKey, flumLabel);
+        if (!fluFeature) {
+          toast.message("No Future Land Use coverage at this location (currently Florida only).");
+        }
+        map = await renderFlumPolygon(refs.flum.current, targetA, token, fluFeature, flumLabel);
       } else if (step === "wetlands") {
         map = await renderWetlands(refs.wetlands.current, targetA, token);
       } else if (step === "airport") {

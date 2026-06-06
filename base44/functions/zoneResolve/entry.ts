@@ -56,44 +56,24 @@ Deno.serve(async (req) => {
       keys: data ? Object.keys(data) : [],
     }));
 
-    // Zoning polygon lives under one of several possible keys depending on the
-    // jurisdiction's ArcGIS source — probe the common ones.
-    const zoning_polygon =
-      data?.zoning_polygon ?? data?.zoning ?? data?.zone ?? data?.zoning_geojson ??
-      data?.zoning?.geojson ?? data?.zone?.geojson ?? null;
+    // Normalize the fields the maps consume. zone-resolve keys (verified for FL):
+    //   data.flu   → { code, label, field_used, geojson: <Polygon Feature> }  (live)
+    //   data.zoning→ zoning object/geojson when a zoning ArcGIS layer covers the
+    //                point; currently null even in FL (no zoning_source).
+    //   data.rules → telecom_ordinances registry match (null when registry_hit false)
+    const zoning = data?.zoning && Object.keys(data.zoning || {}).length ? data.zoning : null;
+    const zoning_polygon = zoning?.geojson ?? zoning?.polygon ?? zoning ?? null;
+    const flu = data?.flu && data.flu.geojson ? data.flu : null;
 
-    // Diagnostic-only mode: return just the structure (no big geometry) so we can
-    // see where the zoning polygon lives in the upstream payload.
-    if (req.headers.get('x-debug-keys') === '1' || true) {
-      const describe = (o) => {
-        if (!o || typeof o !== 'object') return typeof o;
-        const out = {};
-        for (const k of Object.keys(o)) {
-          const v = o[k];
-          out[k] = Array.isArray(v) ? `array[${v.length}]` : (v && typeof v === 'object' ? Object.keys(v) : typeof v);
-        }
-        return out;
-      };
-      const trunc = (o) => {
-        const s = JSON.stringify(o);
-        return s && s.length > 1200 ? s.slice(0, 1200) + '…' : s;
-      };
-      return Response.json({
-        jurisdiction: data?.jurisdiction ?? null,
-        county: data?.county ?? null,
-        state: data?.state ?? null,
-        zoning_raw: trunc(data?.zoning),
-        rules_raw: trunc(data?.rules),
-        flu_raw: trunc(data?.flu),
-        meta: data?.meta ?? null,
-      });
-    }
-
-    // Pass the upstream payload through, normalizing the three fields the maps need.
     return Response.json({
+      jurisdiction: data?.jurisdiction ?? null,
+      county: data?.county ?? null,
+      state: data?.state ?? null,
       zoning_polygon,
-      flu: data?.flu ?? null,
-      telecom_ordinances: data?.telecom_ordinances ?? null,
+      flu,
+      flu_polygon: flu?.geojson ?? null,
+      telecom_ordinances: data?.rules ?? null,
+      meta: data?.meta ?? null,
     });
   } catch (error) {
     console.error('zoneResolve error:', error?.message || error);
