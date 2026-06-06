@@ -72,6 +72,11 @@ export default Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // ⛔ BANNED: Zoneomics paid Point API (api.zoneomics.com) disabled after a
+    // billing incident. Target intel zoning/controls/plu no longer pull from it.
+    return Response.json({ ok: false, disabled: true, zoning: null, controls: [], plu: [], geometry: null, error: 'Zoneomics paid API disabled (banned)' }, { status: 200 });
+
+    // eslint-disable-next-line no-unreachable
     const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
     if (!apiKey) return Response.json({ ok: false, error: 'ZONEOMICS_API_KEY not set' }, { status: 200 });
 

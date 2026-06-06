@@ -165,8 +165,16 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'lat and lon are required' }, { status: 400 });
     }
 
-    // Realie Location Search caps at 2 miles, max 100 results
-    const radiusMiles = Math.min(parseFloat(radius_miles) || 0.5, 2);
+    // Radius clamp — ONLY 0.25 / 0.50 / 1.0 miles allowed (default 0.50). Any
+    // other/malformed value snaps to the nearest allowed option so a bad request
+    // can't balloon the parcel pull.
+    const ALLOWED_RADII = [0.25, 0.5, 1.0];
+    const reqRadius = parseFloat(radius_miles);
+    const radiusMiles = ALLOWED_RADII.includes(reqRadius)
+      ? reqRadius
+      : (Number.isFinite(reqRadius)
+          ? ALLOWED_RADII.reduce((a, b) => (Math.abs(b - reqRadius) < Math.abs(a - reqRadius) ? b : a))
+          : 0.5);
     const pageOffset = Math.max(0, parseInt(offset) || 0);
     const PAGE_SIZE = 3;
 

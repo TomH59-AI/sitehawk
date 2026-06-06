@@ -22,6 +22,12 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // ⛔ BANNED: Zoneomics paid Point API (api.zoneomics.com) disabled after a
+    // billing incident. The grid sampler made up to 81 paid calls per render —
+    // it is fully disabled. The zoning map paints from county ArcGIS / zone-resolve.
+    return Response.json({ ok: false, disabled: true, cells: [], districts: [], count: 0, error: 'Zoneomics paid API disabled (banned)' }, { status: 200 });
+
+    // eslint-disable-next-line no-unreachable
     const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
     if (!apiKey) return Response.json({ error: 'ZONEOMICS_API_KEY not set' }, { status: 500 });
 

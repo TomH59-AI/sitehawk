@@ -21,6 +21,11 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // ⛔ BANNED: Zoneomics paid Point API (api.zoneomics.com / flumDetails) disabled
+    // after a billing incident. FLUM is sourced from UF GeoPlan via zone-resolve.
+    return Response.json({ ok: false, http_status: 0, disabled: true, flum: null, error: 'Zoneomics paid API disabled (banned)' }, { status: 200 });
+
+    // eslint-disable-next-line no-unreachable
     const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
     if (!apiKey) return Response.json({ ok: false, http_status: 500, error: 'ZONEOMICS_API_KEY not set' }, { status: 200 });
 

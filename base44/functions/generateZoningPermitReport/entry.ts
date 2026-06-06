@@ -36,6 +36,53 @@ function siteKeyFor(lat, lon) {
   return `${Number(lat).toFixed(5)},${Number(lon).toFixed(5)}`;
 }
 
+// ─── Sanctioned zoning sources ───────────────────────────────────────────────
+// telecom_ordinances Supabase table (project skpxeouvikzgsaurkohf) is the FIRST
+// source for zoning text. Query by state + jurisdiction. Reachable via
+// HAWK_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (service role, read-only here).
+async function getTelecomOrdinance(stateCode, jurisdiction) {
+  const base = Deno.env.get('HAWK_SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!base || !key || !stateCode) return null;
+  const url = new URL(`${base.replace(/\/$/, '')}/rest/v1/telecom_ordinances`);
+  url.searchParams.set('state', `eq.${String(stateCode).toUpperCase()}`);
+  if (jurisdiction) url.searchParams.set('jurisdiction', `ilike.*${jurisdiction}*`);
+  url.searchParams.set('limit', '1');
+  const res = await fetchJsonWithTimeout(url.toString(), {
+    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
+  }, 9000);
+  if (!res.ok || !Array.isArray(res.data) || !res.data.length) return null;
+  return res.data[0];
+}
+
+// ─── Zoning cache guard (per site_key) ───────────────────────────────────────
+// Caches the assembled zoning report per {lat},{lon} so "Run Zoning" /
+// "Re-query Sources" REUSE it instead of re-firing the paid sources — this is
+// what caused the 2,850-call spike. TTL 30 days. Stored in JurisdictionZoningCache.
+const ZONING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+async function getCachedZoning(base44, siteKey) {
+  const rows = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: `sitekey:${siteKey}` });
+  const hit = rows?.[0];
+  if (!hit?.report || !hit.fetched_at) return null;
+  if (Date.now() - new Date(hit.fetched_at).getTime() > ZONING_CACHE_TTL_MS) return null;
+  return hit;
+}
+async function putCachedZoning(base44, siteKey, stateCode, payload) {
+  const key = `sitekey:${siteKey}`;
+  const existing = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: key });
+  const data = {
+    state_code: stateCode || 'NA',
+    jurisdiction_name_normalized: key,
+    jurisdiction_name: `Site ${siteKey}`,
+    report: payload,
+    fetched_at: new Date().toISOString(),
+    status: 'published',
+    source_name: 'telecom_ordinances + web + Realie',
+  };
+  if (existing?.[0]) await base44.asServiceRole.entities.JurisdictionZoningCache.update(existing[0].id, data);
+  else await base44.asServiceRole.entities.JurisdictionZoningCache.create(data);
+}
+
 function monthStartISO() {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
@@ -289,8 +336,10 @@ CONTEXT (all based on the SARF search coordinates):
 SOURCE A — Realie parcel (authoritative for zoning district / parcel facts at the SARF point):
 ${JSON.stringify(ctx.realie || { miss: true }).slice(0, 4000)}
 
-SOURCE B — Zoneomics paid-tier zoning district + telecom controls already resolved for this point:
-${JSON.stringify(ctx.zoneomics || { miss: true }).slice(0, 4000)}
+SOURCE B — telecom_ordinances record (SANCTIONED PRIMARY; structured telecom/tower zoning columns for this state + jurisdiction). Prefer these values for tower specifics when present:
+${JSON.stringify(ctx.ordinance || { miss: true }).slice(0, 4000)}
+
+Free web search (site:zoneomics.com and the jurisdiction's Land Development Code) is your secondary source — use it to fill anything the telecom_ordinances record does not cover.
 
 TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
 - CUP / SPECIAL EXCEPTION PATH (cup_or_special_exception): Always check whether wireless/telecommunication towers may be approved by Conditional Use Permit (CUP), special exception, special use permit, administrative use permit, or variance. Assume a CUP/special-exception path is required unless the ordinance clearly says the proposed tower is by-right or prohibited. When a CUP/special-exception path exists, list the zoning classifications or zoning families where it can make a tower eligible. Set source to "AI" unless Zoneomics provided the value.
@@ -426,8 +475,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── CACHE GUARD — reuse the assembled report for this exact site_key ──────
+    // Stops "Run Zoning" / "Re-query Sources" from re-firing sources (the cause
+    // of the 2,850-call spike). Returns the cached report verbatim if fresh.
+    const siteKey = siteKeyFor(lat, lon);
+    const cached = await getCachedZoning(base44, siteKey).catch(() => null);
+    if (cached?.report) {
+      console.log(`[ZONING CACHE] HIT site=${siteKey} — reused, no source calls`);
+      return Response.json({ ...cached.report, cached: true });
+    }
+
     // STEP 1 — MapBox reverse-geocode (FCC fallback for any gaps).
-    // STEP 2 — Zoneomics paid zoneDetail (PRIMARY). STEP 3 — Realie cross-check.
+    // Zoneomics paid API is DISABLED (banned). zoneomics resolves to a no-op.
+    // STEP 2 — telecom_ordinances Supabase. STEP 3 — Realie cross-check.
     const candidateAddress = candidate?.parcel_address || candidate?.address || null;
     const [mb, fcc, zoneomics, realie] = await Promise.all([
       mapboxReverseGeocode(lat, lon).catch(() => null),
@@ -443,7 +503,14 @@ Deno.serve(async (req) => {
 
     const city = zoneomics?.city_name || mb?.city_name || realie?.city || null;
 
-    // STEP 4 — LLM web-grounded gap-fill, seeded with Zoneomics + Realie facts.
+    // STEP 2 (SANCTIONED PRIMARY) — telecom_ordinances Supabase table, queried by
+    // state + jurisdiction. This is the first zoning-text source now that the
+    // Zoneomics paid API is banned.
+    const ordinance = await getTelecomOrdinance(geo.state_code, city || geo.county_name).catch(() => null);
+
+    // STEP 4 — LLM web-grounded gap-fill (free site:zoneomics.com web search +
+    // jurisdiction ordinance research), seeded with the telecom_ordinances row
+    // and Realie facts. Zoneomics paid input is gone.
     const llmReport = await llmExtractReport(base44, {
       lat, lon,
       state: geo.state_name || geo.state_code,
@@ -452,6 +519,7 @@ Deno.serve(async (req) => {
       address: candidateAddress || realie?.address,
       realie,
       zoneomics,
+      ordinance,
     });
 
     const report = llmReport || {};
@@ -516,9 +584,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} zoneomics=${zoneomics?.ok ? Object.keys(zoFields).length : 'fail'} realie=${!!realie}`);
+    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} ordinance=${!!ordinance} realie=${!!realie}`);
 
-    return Response.json({
+    const responsePayload = {
       status: 'ok',
       coordinates: { lat, lon },
       geo,
@@ -546,12 +614,18 @@ Deno.serve(async (req) => {
         geometry: realie.geometry,
       } : null,
       sources_used: {
-        zoneomics: !!zoneomics?.ok,
-        zoneomics_zone: zoneomics?.zone_code || null,
+        telecom_ordinance: !!ordinance,
         realie: !!realie,
         realie_zoning: realie?.zoning || null,
       },
-    });
+    };
+
+    // Cache the assembled report per site_key so Run/Re-query reuse it.
+    await putCachedZoning(base44, siteKey, geo.state_code, responsePayload).catch((e) =>
+      console.log(`[ZONING CACHE] write failed site=${siteKey}: ${e?.message}`)
+    );
+
+    return Response.json(responsePayload);
   } catch (error) {
     console.error('generateZoningPermitReport error:', error?.message || error);
     return Response.json({ error: error?.message || String(error) }, { status: 500 });
