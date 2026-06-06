@@ -74,15 +74,19 @@ Deno.serve(async (req) => {
         }
         return out;
       };
-      const zoningKeys = data?.zoning && typeof data.zoning === 'object' ? Object.keys(data.zoning) : null;
-      const rulesKeys = data?.rules && typeof data.rules === 'object' ? Object.keys(data.rules) : null;
-      const zoningSample = {};
-      if (zoningKeys) for (const k of zoningKeys) {
-        const v = data.zoning[k];
-        zoningSample[k] = Array.isArray(v) ? `array[${v.length}]`
-          : (v && typeof v === 'object' ? `object{${Object.keys(v).join(',')}}` : String(v).slice(0, 60));
-      }
-      return Response.json({ zoningKeys, zoningSample, rulesKeys });
+      const trunc = (o) => {
+        const s = JSON.stringify(o);
+        return s && s.length > 1200 ? s.slice(0, 1200) + '…' : s;
+      };
+      return Response.json({
+        jurisdiction: data?.jurisdiction ?? null,
+        county: data?.county ?? null,
+        state: data?.state ?? null,
+        zoning_raw: trunc(data?.zoning),
+        rules_raw: trunc(data?.rules),
+        flu_raw: trunc(data?.flu),
+        meta: data?.meta ?? null,
+      });
     }
 
     // Pass the upstream payload through, normalizing the three fields the maps need.
