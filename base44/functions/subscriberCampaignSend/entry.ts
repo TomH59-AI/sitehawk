@@ -13,6 +13,27 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const days = (d) => (d ? (Date.now() - new Date(d).getTime()) / 86400000 : Infinity);
 
+// Resend sender — uses the verified site-hawk-pro.com domain.
+const CAMPAIGN_FROM = 'SiteHawk <hello@site-hawk-pro.com>';
+const HAWK_LOGO = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/skywave-hawk.png';
+
+// Send one email via Resend (our verified domain) instead of the shared Base44 sender.
+async function sendViaResend({ to, subject, html }) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from: CAMPAIGN_FROM, to: [to], subject, html }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Resend ${res.status}: ${errText}`);
+  }
+  return res.json();
+}
+
 // Mirror of lib/subscriberCrm SEGMENTS (kept inline — backend can't import app libs).
 function inSegment(c, key) {
   switch (key) {
@@ -60,7 +81,7 @@ Deno.serve(async (req) => {
     // ---- Test send: just to the admin, no gating ----
     if (test_email) {
       const html = renderBody(camp, { name: me.full_name || 'there', email: test_email, id: 'test' }, isMarketing);
-      await base44.integrations.Core.SendEmail({ to: test_email, subject: `[TEST] ${camp.subject}`, body: html, from_name: 'SiteHawk' });
+      await sendViaResend({ to: test_email, subject: `[TEST] ${camp.subject}`, html });
       return Response.json({ test: true, sent_to: test_email });
     }
 
@@ -98,7 +119,7 @@ Deno.serve(async (req) => {
 
       try {
         const html = renderBody(camp, c, isMarketing);
-        await base44.integrations.Core.SendEmail({ to: c.email, subject: camp.subject, body: html, from_name: 'SiteHawk' });
+        await sendViaResend({ to: c.email, subject: camp.subject, html });
         stats.sent++;
         const now = new Date().toISOString();
         await svc.entities.SubscriberCRMContact.update(c.id, { last_email_sent_at: now });
@@ -126,16 +147,35 @@ Deno.serve(async (req) => {
 });
 
 function renderBody(camp, contact, isMarketing) {
-  let body = (camp.body || '').replace(/\{\{\s*name\s*\}\}/g, contact.name || 'there');
-  if (isMarketing) {
-    const appId = Deno.env.get('BASE44_APP_ID') || '';
-    // Lightweight unsubscribe handling via mailto so it works without extra routes.
-    const unsub = `<hr style="margin-top:24px;border:none;border-top:1px solid #e2e8f0"/>
-<p style="font-size:11px;color:#94a3b8;margin-top:12px">
+  // Substitute merge fields, then wrap in the SiteHawk branded shell.
+  const inner = (camp.body || '').replace(/\{\{\s*name\s*\}\}/g, contact.name || 'there');
+  const bodyHtml = inner
+    .split(/\n{1,}/)
+    .map((p) => `<p style="margin:0 0 14px 0;font-size:15px;line-height:1.65;color:#cbd5e1;">${p.trim()}</p>`)
+    .join('');
+
+  const unsub = isMarketing
+    ? `<p style="font-size:11px;color:#475569;margin-top:14px;">
 You're receiving this because you opted in to SiteHawk updates.
-<a href="mailto:support@sitehawk.app?subject=Unsubscribe%20${encodeURIComponent(contact.email || '')}">Unsubscribe</a>.
-</p>`;
-    body += unsub;
-  }
-  return body;
+<a href="mailto:hello@site-hawk-pro.com?subject=Unsubscribe%20${encodeURIComponent(contact.email || '')}" style="color:#00d4ff;">Unsubscribe</a>.
+</p>`
+    : '';
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head>
+  <body style="margin:0;padding:0;background:#0a0e17;font-family:'Helvetica Neue',Arial,sans-serif;">
+    <div style="max-width:600px;margin:0 auto;background:#0a0e17;">
+      <div style="background:#111827;padding:28px 24px;text-align:center;border-bottom:1px solid #1e293b;">
+        <img src="${HAWK_LOGO}" alt="SiteHawk" width="52" height="52" style="border-radius:10px;display:inline-block;margin-bottom:10px;"/>
+        <div style="font-weight:700;font-size:20px;color:#f8fafc;letter-spacing:0.22em;">SITEHAWK</div>
+        <div style="font-size:10px;color:#00d4ff;letter-spacing:0.22em;margin-top:4px;">WHEN YOU NEED AI HAWK VISION</div>
+      </div>
+      <div style="padding:30px 28px;">
+        ${bodyHtml}
+      </div>
+      <div style="background:#111827;border-top:1px solid #1e293b;padding:18px 24px;text-align:center;">
+        <div style="font-size:10px;color:#475569;letter-spacing:0.14em;text-transform:uppercase;">SiteHawk · A SkyWave AI Product</div>
+        ${unsub}
+      </div>
+    </div>
+  </body></html>`;
 }
