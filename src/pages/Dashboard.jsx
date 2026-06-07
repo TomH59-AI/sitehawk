@@ -3,17 +3,12 @@ import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
 import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import UsageBar from "../components/dashboard/UsageBar";
 import StatsCards from "../components/dashboard/StatsCards";
 import SearchHistoryTable from "../components/dashboard/SearchHistoryTable";
 import WelcomeModal from "../components/onboarding/WelcomeModal";
 import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import HowToUseInstructions from "../components/dashboard/HowToUseInstructions";
 import WorkflowIndex from "../components/dashboard/WorkflowIndex";
-import ReferralPanel from "../components/referral/ReferralPanel";
-import FieldConnectCard from "../components/dashboard/FieldConnectCard";
-import RecentParcelsMap from "../components/dashboard/RecentParcelsMap";
-import ParcelEvaluationSummary from "../components/dashboard/ParcelEvaluationSummary";
 import TargetASummaryTable from "../components/dashboard/TargetASummaryTable";
 import { getEffectiveTier } from "@/lib/testAccess";
 import { deriveWorkflowSteps } from "@/lib/workflowProgress";
@@ -112,19 +107,19 @@ export default function Dashboard() {
   }
 
   const tier = getEffectiveTier(user);
-  const limit = TIER_LIMITS[tier] || 1;
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthlySearches = searches.filter(s => new Date(s.created_date) >= monthStart).length;
 
   const hasSkipTrace = results.some(r => r.phone || r.email);
+  const isNewUser = searches.length === 0;
 
   return (
     <div className="space-y-8">
       {showWelcome && <WelcomeModal onClose={() => setShowWelcome(false)} />}
 
-      {/* How to Use — collapsible workflow guide, sits above everything */}
-      <HowToUseInstructions />
+      {/* How to Use — only for brand-new users */}
+      {isNewUser && <HowToUseInstructions />}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -157,33 +152,18 @@ export default function Dashboard() {
         <TargetASummaryTable rows={targetRows} />
       </div>
 
-      {/* Onboarding Checklist */}
-      <OnboardingChecklist searches={searches.length} hasSkipTrace={hasSkipTrace} tier={tier} />
-
-      {/* Usage */}
-      <UsageBar used={monthlySearches} limit={limit} tier={tier} />
+      {/* Onboarding Checklist — only for brand-new users */}
+      {isNewUser && (
+        <OnboardingChecklist searches={searches.length} hasSkipTrace={hasSkipTrace} tier={tier} />
+      )}
 
       {/* Stats */}
       <StatsCards searches={searches} results={results} />
-
-      {/* Parcel Evaluation Summary — zoning + feasibility breakdown */}
-      <ParcelEvaluationSummary results={results} />
-
-      {/* Top Parcels Map */}
-      <RecentParcelsMap results={results} />
-
-      {/* Field Connect — WhatsApp */}
-      <FieldConnectCard tier={tier} />
 
       {/* History */}
       <div>
         <h2 className="font-heading font-semibold text-lg text-foreground mb-4">Recent Searches</h2>
         <SearchHistoryTable searches={searches.slice(0, 10)} results={results} />
-      </div>
-
-      {/* Referral */}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <ReferralPanel />
       </div>
     </div>
   );
