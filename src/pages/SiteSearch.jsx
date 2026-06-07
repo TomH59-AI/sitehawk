@@ -14,7 +14,6 @@ import Section8Propagation from "../components/search/Section8Propagation";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
-import BusProbePanel from "../components/search/BusProbePanel";
 import GenerateScipButton from "../components/search/GenerateScipButton";
 import { round4 } from "@/lib/coords";
 
@@ -108,14 +107,6 @@ export default function SiteSearch() {
     setPipelineStep("sarf");
     bumpKeys(["sarf", "zoning", "targets", "maps", "propagation"]);
   };
-
-  // ── TEMP RUNTIME PROBE ──────────────────────────────────────────────────
-  // Dumps the live bus to console on every emit so a real Target A run can be
-  // verified key-by-key. Remove (with BusProbePanel) once the scorecard lands.
-  useEffect(() => {
-    if (Object.keys(sectionData).length === 0) return;
-    console.log("🔬 BUS sectionData →", JSON.stringify(sectionData, null, 2));
-  }, [sectionData]);
 
   // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
   useEffect(() => {
@@ -222,9 +213,6 @@ export default function SiteSearch() {
 
   return (
     <div className="space-y-6">
-      {/* TEMP — live bus probe (admin only). Remove before launch. */}
-      {isAdmin && coordsReady && <BusProbePanel sectionData={sectionData} />}
-
       {/* SiteHawk Vision chat toggle (not a scan) */}
       <button
           onClick={() => setChatOpen((o) => !o)}
