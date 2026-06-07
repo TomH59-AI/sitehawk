@@ -63,6 +63,7 @@ import {
 import { zoneResolve } from "@/functions/zoneResolve";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
+import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
 const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "power", "compliance"];
@@ -230,16 +231,29 @@ export default function Section4MapSuite({
 
         map = await renderZoningGrid(refs.zoning.current, targetA, token, gridCells, cellLat, cellLng, zone, zParcels);
       } else if (step === "flum") {
-        // Future Land Use map — real FLU polygon from zoneResolve (FL GeoPlan).
-        const fres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
-        const flu = fres?.data?.flu || null;
-        const fluFeature = flu?.geojson || null;
-        // zoneResolve labels FLU as { code, label }.
-        const flum = flu ? { code: flu.code, name: flu.label } : null;
+        // Future Land Use map — Zoneomics FLUM first, zoneResolve polygon fallback.
+        let flum = null;
+        let fluFeature = null;
+
+        const zres = await zoneomicsFlumDetails({ lat: targetA.latitude, lng: targetA.longitude }).catch(() => null);
+        const zflum = zres?.data?.flum || null;
+        if (zflum && (zflum.code || zflum.name)) {
+          flum = { code: zflum.code, name: zflum.name, description: zflum.description };
+        }
+
+        // zoneResolve fallback (FL GeoPlan) — gives the actual polygon + a label
+        // when Zoneomics returned nothing for this point.
+        if (!flum || !fluFeature) {
+          const fres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
+          const flu = fres?.data?.flu || null;
+          fluFeature = flu?.geojson || null;
+          if (!flum && flu) flum = { code: flu.code, name: flu.label };
+        }
+
         const flumLabel = flum ? [flum.code, flum.name].filter(Boolean).join(" — ") : "";
         setFlumInfo(flum && (flum.code || flum.name) ? flum : null);
-        if (!fluFeature) {
-          toast.message("No Future Land Use coverage at this location (currently Florida only).");
+        if (!flum && !fluFeature) {
+          toast.message("No Future Land Use designation found for this location.");
         }
         map = await renderFlumPolygon(refs.flum.current, targetA, token, fluFeature, flumLabel);
       } else if (step === "wetlands") {

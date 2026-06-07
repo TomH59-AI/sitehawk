@@ -21,11 +21,6 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // ⛔ BANNED: Zoneomics paid Point API (api.zoneomics.com / flumDetails) disabled
-    // after a billing incident. FLUM is sourced from UF GeoPlan via zone-resolve.
-    return Response.json({ ok: false, http_status: 0, disabled: true, flum: null, error: 'Zoneomics paid API disabled (banned)' }, { status: 200 });
-
-    // eslint-disable-next-line no-unreachable
     const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
     if (!apiKey) return Response.json({ ok: false, http_status: 500, error: 'ZONEOMICS_API_KEY not set' }, { status: 200 });
 
@@ -33,6 +28,18 @@ Deno.serve(async (req) => {
     const lat = body.lat;
     const lng = body.lng ?? body.lon;
     if (lat == null || lng == null) return Response.json({ error: 'lat and lng required' }, { status: 400 });
+
+    // ── Per-coordinate cache (30 days) — one Zoneomics FLUM call per Target A ──
+    const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+    const cacheKey = `zflum:${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+    try {
+      const rows = await base44.asServiceRole.entities.SCIPLayerCache.filter({ jurisdiction: cacheKey, layer_type: 'flu' });
+      const hit = rows?.[0];
+      if (hit?.geojson?.flum && hit.fetched_at && Date.now() - new Date(hit.fetched_at).getTime() < CACHE_TTL_MS) {
+        console.log(`[FLUM DIAG] CACHE HIT ${cacheKey} — no Zoneomics call`);
+        return Response.json({ ...hit.geojson, cached: true });
+      }
+    } catch (_) { /* cache miss → fall through to live fetch */ }
 
     const url = new URL('https://api.zoneomics.com/v2/flumDetails');
     url.searchParams.set('api_key', apiKey);
@@ -74,7 +81,17 @@ Deno.serve(async (req) => {
     };
 
     console.log(`[FLUM DIAG] url=${redacted} status=${r.status} code=${flum.code || '—'} name=${flum.name || '—'}`);
-    return Response.json({ ok: true, http_status: r.status, flum });
+
+    const payload = { ok: true, http_status: r.status, flum };
+    if (flum.code || flum.name) {
+      try {
+        const existing = await base44.asServiceRole.entities.SCIPLayerCache.filter({ jurisdiction: cacheKey, layer_type: 'flu' });
+        const data = { jurisdiction: cacheKey, layer_type: 'flu', geojson: payload, data_source: 'zoneomics', fetched_at: new Date().toISOString() };
+        if (existing?.[0]) await base44.asServiceRole.entities.SCIPLayerCache.update(existing[0].id, data);
+        else await base44.asServiceRole.entities.SCIPLayerCache.create(data);
+      } catch (e) { console.log(`[FLUM DIAG] cache write failed ${cacheKey}: ${e?.message}`); }
+    }
+    return Response.json(payload);
   } catch (error) {
     console.error('zoneomicsFlumDetails error:', error?.message || error);
     return Response.json({ ok: false, http_status: 500, error: error?.message || String(error) }, { status: 200 });

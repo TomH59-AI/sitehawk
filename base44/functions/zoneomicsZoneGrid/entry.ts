@@ -22,12 +22,6 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // ⛔ BANNED: Zoneomics paid Point API (api.zoneomics.com) disabled after a
-    // billing incident. The grid sampler made up to 81 paid calls per render —
-    // it is fully disabled. The zoning map paints from county ArcGIS / zone-resolve.
-    return Response.json({ ok: false, disabled: true, cells: [], districts: [], count: 0, error: 'Zoneomics paid API disabled (banned)' }, { status: 200 });
-
-    // eslint-disable-next-line no-unreachable
     const apiKey = Deno.env.get('ZONEOMICS_API_KEY');
     if (!apiKey) return Response.json({ error: 'ZONEOMICS_API_KEY not set' }, { status: 500 });
 
@@ -42,6 +36,21 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(grid) || grid < 3) grid = 7;
     if (grid > 9) grid = 9;            // cap call volume (9x9 = 81 max)
     if (grid % 2 === 0) grid += 1;     // keep it odd so the center is Target A
+
+    // ── Per-coordinate cache (30 days) — one Zoneomics grid per Target A site ──
+    // Keyed by rounded lat/lon so re-clicking the same Target A reuses the cached
+    // grid instead of re-firing up to 81 paid point calls. Stored in SCIPLayerCache
+    // (layer_type=zoneomics_zoning, jurisdiction='zgrid:{lat},{lng}').
+    const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+    const cacheKey = `zgrid:${lat.toFixed(5)},${lng.toFixed(5)}`;
+    try {
+      const rows = await base44.asServiceRole.entities.SCIPLayerCache.filter({ jurisdiction: cacheKey, layer_type: 'zoneomics_zoning' });
+      const hit = rows?.[0];
+      if (hit?.geojson?.cells && hit.fetched_at && Date.now() - new Date(hit.fetched_at).getTime() < CACHE_TTL_MS) {
+        console.log(`[ZONE GRID] CACHE HIT ${cacheKey} — ${hit.geojson.count} cells, no Zoneomics calls`);
+        return Response.json({ ...hit.geojson, cached: true });
+      }
+    } catch (_) { /* cache miss → fall through to live fetch */ }
 
     // Convert the radius to a degree half-span. 1 deg lat ≈ 69 miles;
     // longitude shrinks by cos(lat).
@@ -109,7 +118,7 @@ Deno.serve(async (req) => {
     const hits = cells.filter((c) => c.zone_code).length;
     console.log(`[ZONE GRID] ${grid}x${grid} samples · ${hits}/${cells.length} resolved · ${seen.size} districts`);
 
-    return Response.json({
+    const payload = {
       ok: true,
       cells: cells.filter((c) => c.zone_code),   // only colored cells matter to the map
       districts: Array.from(seen.values()),
@@ -117,7 +126,19 @@ Deno.serve(async (req) => {
       cell_lng_deg: cellLngDeg,
       grid,
       count: hits,
-    });
+    };
+
+    // Cache the assembled grid for this coordinate (30-day TTL).
+    if (hits > 0) {
+      try {
+        const existing = await base44.asServiceRole.entities.SCIPLayerCache.filter({ jurisdiction: cacheKey, layer_type: 'zoneomics_zoning' });
+        const data = { jurisdiction: cacheKey, layer_type: 'zoneomics_zoning', geojson: payload, data_source: 'zoneomics', fetched_at: new Date().toISOString() };
+        if (existing?.[0]) await base44.asServiceRole.entities.SCIPLayerCache.update(existing[0].id, data);
+        else await base44.asServiceRole.entities.SCIPLayerCache.create(data);
+      } catch (e) { console.log(`[ZONE GRID] cache write failed ${cacheKey}: ${e?.message}`); }
+    }
+
+    return Response.json(payload);
   } catch (error) {
     console.error('zoneomicsZoneGrid error:', error);
     return Response.json({ error: error.message }, { status: 500 });
