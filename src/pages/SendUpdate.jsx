@@ -2,14 +2,19 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { sendUpdateNotify } from "@/functions/sendUpdateNotify";
+import { notifyAdmin } from "@/functions/notifyAdmin";
 import HawkIcon from "../components/HawkIcon";
 
-const ADMIN_EMAIL = "hodgesthomas@outlook.com";
+const ADMIN_EMAIL = "hodges.thomas@gmail.com";
+const SITEHAWK_INBOX = "tomhodges@onairs.org";
+
+const PAID_TIERS = ["hawk_site", "hawkeyes", "hawkeye_apex"];
 
 const TIER_OPTIONS = [
   { label: "All paid subscribers", value: null },
-  { label: "Hawk 20/20 Vision only", value: "monthly" },
-  { label: "Hawk 20-4 AI Vision only", value: "annual" },
+  { label: "Hawk Site only", value: "hawk_site" },
+  { label: "Hawkeyes only", value: "hawkeyes" },
+  { label: "Hawkeye Apex only", value: "hawkeye_apex" },
 ];
 
 export default function SendUpdate() {
@@ -27,12 +32,12 @@ export default function SendUpdate() {
   useEffect(() => {
     async function init() {
       const me = await base44.auth.me();
-      if (!me || me.email !== ADMIN_EMAIL) { navigate("/dashboard"); return; }
+      if (!me || (me.email !== ADMIN_EMAIL && me.role !== "admin")) { navigate("/dashboard"); return; }
       setUser(me);
 
       // Count paid subscribers
       const allUsers = await base44.entities.User.list();
-      const paid = allUsers.filter(u => u.tier === "monthly" || u.tier === "annual");
+      const paid = allUsers.filter(u => PAID_TIERS.includes(u.tier));
       setSubscriberCount(paid.length);
     }
     init();
@@ -53,8 +58,9 @@ export default function SendUpdate() {
     if (!subject.trim() || !body.trim()) return;
     setTestSending(true);
     setResult(null);
-    const data = await callNotify(true);
-    setResult({ ...data, isTest: true });
+    // Send a branded SiteHawk test email straight to the SiteHawk inbox.
+    const res = await notifyAdmin({ subject, body, from_label: "SiteHawk" });
+    setResult({ ...(res.data || {}), isTest: true });
     setTestSending(false);
   };
 
@@ -193,7 +199,7 @@ export default function SendUpdate() {
               ) : (
                 <>
                   <p style={{ color: "#22c55e", fontFamily: "'Space Mono', monospace", fontSize: 11, margin: "0 0 6px 0", fontWeight: 700 }}>
-                    {result.isTest ? "✓ Test email sent to hodgesthomas@outlook.com" : "✓ Broadcast complete"}
+                    {result.isTest ? `✓ Branded test email sent to ${SITEHAWK_INBOX}` : "✓ Broadcast complete"}
                   </p>
                   {!result.isTest && (
                     <div style={{ display: "flex", gap: 20 }}>
