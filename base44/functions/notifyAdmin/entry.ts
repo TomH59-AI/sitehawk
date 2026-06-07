@@ -61,12 +61,26 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'subject and body are required' }, { status: 400 });
     }
 
-    await base44.asServiceRole.integrations.Core.SendEmail({
-      from_name: from_label || 'SiteHawk',
-      to: SITEHAWK_INBOX,
-      subject: `[SiteHawk] ${subject}`,
-      body: brandedEmail(subject, body),
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: from_label ? `${from_label} <info@site-hawk-pro.com>` : SITEHAWK_FROM,
+        to: [SITEHAWK_INBOX],
+        subject: `[SiteHawk] ${subject}`,
+        html: brandedEmail(subject, body),
+        ...(reply_to ? { reply_to } : {}),
+      }),
     });
+
+    if (!resendRes.ok) {
+      const errText = await resendRes.text();
+      console.error('notifyAdmin Resend error:', resendRes.status, errText);
+      return Response.json({ error: `Resend failed: ${errText}` }, { status: 502 });
+    }
 
     console.log(`notifyAdmin: sent "${subject}" to ${SITEHAWK_INBOX} (triggered by ${user.email}${reply_to ? `, reply_to ${reply_to}` : ''})`);
     return Response.json({ ok: true, delivered_to: SITEHAWK_INBOX });
