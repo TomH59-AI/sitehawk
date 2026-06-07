@@ -19,6 +19,17 @@ import NotionSyncToggle from "../components/scip/NotionSyncToggle";
 import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
 import PrintSiteHawkScipButton from "../components/scip/PrintSiteHawkScipButton";
 
+// Thin, self-contained print row placed above each on-screen SCIP panel. Lets a
+// user print the ENTIRE branded SCIP from wherever they're reviewing — without
+// touching any panel's internals. Pure presentational wrapper.
+function PanelPrintRow({ record }) {
+  return (
+    <div className="flex items-center justify-end mb-2 no-print">
+      <PrintSiteHawkScipButton scip={record} variant="link" />
+    </div>
+  );
+}
+
 const STATUS = {
   draft: { label: "Draft", bg: SKYWAVE.muted },
   map_generated: { label: "Map Generated", bg: SKYWAVE.blue },
@@ -156,6 +167,7 @@ export default function ScipDetail() {
 
         {/* Section 1 — interactive parcel targeting (Target A/B/C) (not printed) */}
         <div className="mb-5">
+          <PanelPrintRow record={record} />
           <HawkParcelTargets record={record} onUpdate={setRecord} />
         </div>
 
@@ -182,27 +194,45 @@ export default function ScipDetail() {
 
         {/* Section 2 — HAWK MAPS for Target A (not printed) */}
         <div className="mb-5">
+          <PanelPrintRow record={record} />
           <HawkMaps record={record} onUpdate={setRecord} />
         </div>
 
         {/* Section 3 — RF Proximity (airport + cell tower) & CloudRF coverage for Target A (not printed) */}
         <div className="mb-5">
+          <PanelPrintRow record={record} />
           <HawkRFCoverage record={record} onUpdate={setRecord} />
         </div>
 
         {/* Section 4 — Hawk Zoning & Permitting (not printed) */}
         <div className="mb-5">
+          <PanelPrintRow record={record} />
           <HawkZoningPermitting record={record} onUpdate={setRecord} />
         </div>
 
         {/* Section 5 — Power & Airport maps for Target A (not printed) */}
         <div className="mb-5">
+          <PanelPrintRow record={record} />
           <HawkPowerAirport record={record} onUpdate={setRecord} />
         </div>
 
         {/* Section 6 — Existing Conditions for Target A (not printed) */}
         <div className="mb-5">
+          <PanelPrintRow record={record} />
           <HawkExistingConditions record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Print Full SCIP — prominent end-of-page call to action */}
+        <div className="mb-5 no-print">
+          <div className="rounded-xl border bg-white p-5 flex flex-col sm:flex-row items-center justify-between gap-3" style={{ borderColor: SKYWAVE.blue }}>
+            <div>
+              <h3 className="font-bold text-lg" style={{ color: SKYWAVE.navy }}>Print the complete SCIP</h3>
+              <p className="text-xs mt-0.5" style={{ color: SKYWAVE.muted }}>
+                Generates the full SiteHawk-branded SCIP package (every map and section) ready to print or save as PDF.
+              </p>
+            </div>
+            <PrintSiteHawkScipButton scip={record} variant="toolbar" />
+          </div>
         </div>
 
         {/* The printable document (also the on-screen preview) */}
