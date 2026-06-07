@@ -6,8 +6,8 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
 // HawkSite = $149/mo (15 SCIPs) | HawkVision (hawkeyes) = $399/mo (30 SCIPs)
 // HawkCommand = contact sales (no checkout) | hawk_compliance = add-on
 const PRICE_IDS = {
-  hawk_site: 'price_1TfJxkHqvEl6hcMmV2VdrbPk',
-  hawkeyes: 'price_1TfJxkHqvEl6hcMmYTbzGOyJ',
+  hawk_site: 'price_1Tfhq7IE4fOP88RJceutMTVT',   // $149/mo
+  hawkeyes: 'price_1Tfhq7IE4fOP88RJoqfSmz51',    // $399/mo
   hawk_compliance: 'price_1TdJlxIE4fOP88RJBeqKRVgw',
 };
 
