@@ -7,11 +7,11 @@ import BrandFooter from "../components/BrandFooter";
 
 const CONTACT_EMAIL = "info@sitehawk.com";
 
-// hawk_site = Hawk Site ($69/mo, 15 SCIPs) | hawkeyes = Hawkeyes ($199/mo, 30 SCIPs)
+// hawk_site = Hawk Site ($149/mo, 1 trial + 15 SCIPs) | hawkeyes = Hawkeyes ($399/mo, 1 trial + 30 SCIPs)
 const PLAN_CARDS = [
-  { key: "hawk_site", name: "Hawk Site", price: "$69", period: "/month", scips: "15 SCIPs per month", cta: "Start Hawk Site", paid: true },
-  { key: "hawkeyes", name: "Hawkeyes", price: "$199", period: "/month", scips: "30 SCIPs per month", cta: "Start Hawkeyes", paid: true, highlight: true },
-  { key: "hawkeye_apex", name: "Hawkeye Apex", price: "$2,499", period: "/month", scips: "Unlimited SCIPs", cta: "Start Hawkeye Apex", paid: true },
+  { key: "hawk_site", name: "Hawk Site", price: "$149", period: "/month", scips: "1 trial SCIP + 15 SCIPs per month", cta: "Start Hawk Site", paid: true },
+  { key: "hawkeyes", name: "Hawkeyes", price: "$399", period: "/month", scips: "1 free trial + 30 SCIPs per month", cta: "Start Hawkeyes", paid: true, highlight: true },
+  { key: "hawkeye_apex", name: "Hawkeye Apex", price: "Contact us", period: "", scips: "Custom quote — call or email HawkSite customer service", cta: "Contact sales", paid: false },
 ];
 
 export default function PlansSelection() {

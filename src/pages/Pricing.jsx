@@ -11,15 +11,15 @@ const tiers = [
   {
     id: "hawk_site",
     name: "Hawk Site",
-    price: "$69",
+    price: "$149",
     period: "/month",
     description: "Entry-level plan for individual site acquisition specialists.",
     Icon: Zap,
     iconColor: "text-primary",
     iconBg: "bg-primary/10 border-primary/20",
     features: [
-      "1 Target Search per day",
-      "1 seat",
+      "1 trial SCIP",
+      "15 SCIPs per month",
       "Satellite map view",
       "Scored & ranked candidate parcels",
       "SiteHawk AI Consultant",
@@ -29,21 +29,22 @@ const tiers = [
       "No mailer",
       "No skip trace",
     ],
-    cta: "Get Started — $69/mo",
+    cta: "Get Started — $149/mo",
     highlight: false,
     badge: null,
   },
   {
     id: "hawkeyes",
     name: "Hawkeyes",
-    price: "$199",
+    price: "$399",
     period: "/month",
     description: "The team plan for small site acquisition firms.",
     Icon: Star,
     iconColor: "text-accent",
     iconBg: "bg-accent/10 border-accent/20",
     features: [
-      "5 Target Searches per day",
+      "1 free trial",
+      "30 SCIPs per month",
       "3 team seats",
       "PDF & CSV exports",
       "Full S.A.I.R. Generation",
@@ -55,14 +56,14 @@ const tiers = [
       "No mailer",
       "No skip trace",
     ],
-    cta: "Subscribe — $199/mo",
+    cta: "Subscribe — $399/mo",
     highlight: true,
     badge: "Most Popular",
   },
   {
     id: "hawkeye_apex",
     name: "Hawkeye Apex",
-    price: "Licensed",
+    price: "Contact us",
     period: "",
     description: "Enterprise-scale deployment for serious acquisition teams.",
     Icon: Crown,
@@ -215,7 +216,7 @@ export default function Pricing() {
                   {tier.period && <span className="text-muted-foreground text-sm">{tier.period}</span>}
                 </div>
                 {tier.contactOnly && (
-                  <p className="text-xs text-yellow-400 font-semibold mt-1">Contact us for enterprise pricing</p>
+                  <p className="text-xs text-yellow-400 font-semibold mt-1">Call or email HawkSite customer service for a quote</p>
                 )}
               </div>
 
