@@ -7,6 +7,7 @@ import { useTheme } from "../hooks/useTheme";
 import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Shield, Users } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
+import UsageBadge from "./billing/UsageBadge";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { stripeCheckout } from "@/functions/stripeCheckout";
@@ -59,6 +60,9 @@ export default function Layout() {
               <p className="text-[10px] text-muted-foreground font-medium italic">"When you need the AI Vision"™</p>
             </div>
           </Link>
+          <div className="mt-4">
+            <UsageBadge />
+          </div>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
@@ -121,6 +125,7 @@ export default function Layout() {
           <span className="font-heading font-bold text-foreground">SiteHawk</span>
         </Link>
         <div className="flex items-center gap-1">
+          <UsageBadge className="mr-1" />
           <RestartTourButton />
           <Button variant="ghost" size="icon" onClick={toggle}>
             {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
