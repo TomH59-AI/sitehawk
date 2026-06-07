@@ -12,13 +12,14 @@
     },
     "tier": {
       "type": "string",
-      "description": "Subscription tier",
+      "description": "Subscription tier matching the billing quota tiers. free = 1 lifetime trial SCIP; hawk_site = 15/mo; hawkeyes = 30/mo; hawkeye_apex = unlimited.",
       "enum": [
-        "blind",
-        "monthly",
-        "annual"
+        "free",
+        "hawk_site",
+        "hawkeyes",
+        "hawkeye_apex"
       ],
-      "default": "blind"
+      "default": "free"
     },
     "subscription_plan": {
       "type": "string",
