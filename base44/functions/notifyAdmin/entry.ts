@@ -12,8 +12,10 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  * destination is always the SiteHawk inbox — it's never user-controlled.
  */
 
-const SITEHAWK_INBOX = 'hodges.thomas@outlook.com';
-const SITEHAWK_FROM = 'SiteHawk <info@site-hawk-pro.com>';
+const SITEHAWK_INBOX = 'tomhodges@onairs.org';
+// TEMP: using Resend's unverified test sender until site-hawk-pro.com is verified at resend.com/domains.
+// NOTE: onboarding@resend.dev can ONLY deliver to the email that owns the Resend account.
+const SITEHAWK_FROM = 'SiteHawk <onboarding@resend.dev>';
 const HAWK_LOGO = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/skywave-hawk.png';
 
 function esc(s) {
@@ -68,7 +70,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: from_label ? `${from_label} <info@site-hawk-pro.com>` : SITEHAWK_FROM,
+        from: from_label ? `${from_label} <onboarding@resend.dev>` : SITEHAWK_FROM,
         to: [SITEHAWK_INBOX],
         subject: `[SiteHawk] ${subject}`,
         html: brandedEmail(subject, body),
