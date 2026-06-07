@@ -34,5 +34,15 @@
   "required": [
     "jurisdiction",
     "layer_type"
-  ]
+  ],
+  "rls": {
+    "create": {},
+    "read": {},
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
 }
