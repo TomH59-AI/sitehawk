@@ -119,13 +119,22 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
           </div>
           <div data-coach="sarf-compound">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Compound Dimensions</label>
-            <Input
-              type="text"
-              placeholder="e.g. 100x100 or 10,000 SF"
-              value={compound}
-              onChange={(e) => setCompound(e.target.value)}
-              className="bg-secondary border-border"
-            />
+            <div className="inline-flex rounded-lg overflow-hidden border border-border w-full">
+              {["50x50", "75x75", "100x100"].map((opt) => (
+                <button
+                  type="button"
+                  key={opt}
+                  onClick={() => setCompound(opt)}
+                  className={`flex-1 px-3 py-2 text-xs font-semibold transition-all ${
+                    compound === opt
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:bg-secondary/70"
+                  }`}
+                >
+                  {opt.replace("x", "'×")}'
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
