@@ -3,22 +3,50 @@
  * Injects the GL JS script + CSS once and resolves when window.mapboxgl exists.
  * Static-image components do NOT need this — they just build a URL for <img>.
  */
+// Primary + fallback CDNs — api.mapbox.com can be blocked inside the editor
+// iframe, so we fall back to jsDelivr then unpkg.
+const MAPBOX_SOURCES = [
+  { js: "https://cdn.jsdelivr.net/npm/mapbox-gl@3.6.0/dist/mapbox-gl.js", css: "https://cdn.jsdelivr.net/npm/mapbox-gl@3.6.0/dist/mapbox-gl.css" },
+  { js: "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js", css: "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" },
+  { js: "https://unpkg.com/mapbox-gl@3.6.0/dist/mapbox-gl.js", css: "https://unpkg.com/mapbox-gl@3.6.0/dist/mapbox-gl.css" },
+];
+
 let mapboxLoadingPromise = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.crossOrigin = "anonymous";
+    s.onload = () => resolve();
+    s.onerror = () => { s.remove(); reject(new Error(`Failed to load ${src}`)); };
+    document.head.appendChild(s);
+  });
+}
 
 export function ensureMapboxLoaded() {
   if (window.mapboxgl) return Promise.resolve();
   if (!mapboxLoadingPromise) {
-    mapboxLoadingPromise = new Promise((resolve, reject) => {
-      const css = document.createElement("link");
-      css.rel = "stylesheet";
-      css.href = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css";
-      document.head.appendChild(css);
-      const s = document.createElement("script");
-      s.src = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js";
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
-    });
+    mapboxLoadingPromise = (async () => {
+      if (!document.querySelector(`link[data-mapbox-css="1"]`)) {
+        const css = document.createElement("link");
+        css.rel = "stylesheet";
+        css.href = MAPBOX_SOURCES[0].css;
+        css.setAttribute("data-mapbox-css", "1");
+        document.head.appendChild(css);
+      }
+      let lastErr;
+      for (const src of MAPBOX_SOURCES) {
+        try {
+          await loadScript(src.js);
+          if (window.mapboxgl) return;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      mapboxLoadingPromise = null;
+      throw lastErr || new Error("Failed to load Mapbox GL JS");
+    })();
   }
   return mapboxLoadingPromise;
 }
