@@ -779,10 +779,23 @@ export async function renderPower(container, target, power, token) {
   map.on("error", (e) => console.error("[POWER MAP DIAG] Mapbox error event:", e?.error || e));
   return new Promise((resolve) => {
     map.on("load", () => {
-      // Transmission lines (corridors) — orange.
+      // Transmission lines (corridors) — orange. Click/hover shows the operating
+      // company (OWNER), voltage and line type already fetched from HIFLD.
       if (power?.geo?.lines?.features?.length) {
         map.addSource("s4-power-lines", { type: "geojson", data: power.geo.lines });
         map.addLayer({ id: "s4-power-lines-layer", type: "line", source: "s4-power-lines", paint: { "line-color": POWER_ORANGE, "line-width": 2.5, "line-opacity": 0.9 } });
+        const linePopup = new window.mapboxgl.Popup({ closeButton: false, offset: 8 });
+        const showLine = (e) => {
+          const p = e.features[0].properties || {};
+          map.getCanvas().style.cursor = "pointer";
+          const v = p.VOLTAGE;
+          linePopup.setLngLat(e.lngLat).setHTML(
+            `<div style="font-family:monospace;font-size:11px;line-height:1.4;"><strong style="color:${POWER_ORANGE};">⚡ ${p.OWNER || "Transmission Line"}</strong><br/>${v && v > 0 ? `Voltage: ${v} kV<br/>` : ""}${p.TYPE ? `Type: ${p.TYPE}` : ""}</div>`
+          ).addTo(map);
+        };
+        map.on("mouseenter", "s4-power-lines-layer", showLine);
+        map.on("click", "s4-power-lines-layer", showLine);
+        map.on("mouseleave", "s4-power-lines-layer", () => { map.getCanvas().style.cursor = ""; linePopup.remove(); });
       }
 
       // Substations (transformers / connection points) — yellow dots.

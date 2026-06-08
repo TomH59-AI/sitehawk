@@ -56,6 +56,7 @@ import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirec
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
+import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoningGrid, renderFlumPolygon, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
@@ -307,9 +308,13 @@ export default function Section4MapSuite({
         onData?.({ fiber: { count: litBuildings.length }, carriers: { telco, count: litBuildings.length, lit_buildings: litBuildings } });
         map = await renderFiber(refs.fiber.current, targetA, litBuildings, token, 1.0);
       } else if (step === "power") {
-        const power = await fetchPowerInfrastructure(targetA.latitude, targetA.longitude);
-        setPowerInfo(power);
-        onData?.({ power_grid: { nearest_substation_mi: power?.closestSubstation?.distanceMiles ?? null, substation_voltage_kv: power?.closestSubstation?.voltage ?? null, transmission_lines: power?.transmissionLines ?? 0 } });
+        const [power, ures] = await Promise.all([
+          fetchPowerInfrastructure(targetA.latitude, targetA.longitude),
+          electricUtilityLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        ]);
+        const serving = ures?.data?.utility_name ? ures.data : null;
+        setPowerInfo({ ...power, serving });
+        onData?.({ power_grid: { nearest_substation_mi: power?.closestSubstation?.distanceMiles ?? null, substation_voltage_kv: power?.closestSubstation?.voltage ?? null, transmission_lines: power?.transmissionLines ?? 0, serving_utility: serving?.utility_name ?? null } });
         map = await renderPower(refs.power.current, targetA, power, token);
       }
 
@@ -448,6 +453,15 @@ export default function Section4MapSuite({
     ) : null,
     power: powerInfo ? (
       <div className="px-4 py-2 bg-yellow-50 dark:bg-yellow-950/20 border-y border-yellow-300/50 text-sm text-yellow-800 dark:text-yellow-200 space-y-0.5">
+        {powerInfo.serving ? (
+          <div>
+            <span className="font-semibold">Utility to contact:</span>{" "}
+            <span className="font-mono">{powerInfo.serving.utility_name}</span>
+            {powerInfo.serving.utility_type ? <span className="opacity-80"> · {powerInfo.serving.utility_type}</span> : null}
+            {powerInfo.serving.telephone ? <span className="opacity-80"> · 📞 {powerInfo.serving.telephone}</span> : null}
+            {powerInfo.serving.website ? <span className="opacity-80"> · 🌐 {powerInfo.serving.website}</span> : null}
+          </div>
+        ) : null}
         {powerInfo.closestSubstation ? (
           <div>
             <span className="font-semibold">Nearest substation / tie-in:</span>{" "}
