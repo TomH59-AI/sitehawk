@@ -37,9 +37,9 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "Hawk Site", price: "$149/mo", desc: "1 trial SCIP · 15 SCIPs/month · Core parcel intelligence", cta: "Get Started", highlight: false },
-  { name: "Hawkeyes", price: "$399/mo", desc: "1 free trial · 30 SCIPs/month · 3 seats · PDF & CSV exports", cta: "Most Popular", highlight: true },
-  { name: "Hawkeye Apex", price: "Contact us", desc: "Unlimited SCIPs · Unlimited seats · Mailer + skip trace", cta: "Contact Sales", highlight: false },
+  { name: "Hawk Site", price: "$249/mo", desc: "1 trial ring · 15 Search Rings/month · Targets A, B & C included", cta: "Get Started", highlight: false },
+  { name: "Hawkeyes", price: "$599/mo", desc: "1 free trial · 40 Search Rings/month · 3 seats · PDF & CSV exports", cta: "Most Popular", highlight: true },
+  { name: "Hawkeye Apex", price: "Contact us", desc: "Unlimited Search Rings · Unlimited seats · Mailer + skip trace", cta: "Contact Sales", highlight: false },
 ];
 
 const TESTIMONIALS = [
@@ -143,7 +143,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">1 free scan for every new account · Paid plans from $149/mo · No credit card to try</p>
+          <p className="text-xs text-white/30 mt-6">1 free scan for every new account · Paid plans from $249/mo · No credit card to try</p>
 
           <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-[11px] text-white/50">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
@@ -315,7 +315,7 @@ export default function Landing() {
                 View Paid Plans →
               </Link>
             </div>
-            <p className="text-xs text-white/30 mt-5">No credit card required to try · Plans from $149/mo after your free scan</p>
+            <p className="text-xs text-white/30 mt-5">No credit card required to try · Plans from $249/mo after your free scan</p>
           </div>
         </div>
       </section>

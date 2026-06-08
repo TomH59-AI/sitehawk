@@ -21,14 +21,14 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // A HawkSCIP is spent when a user runs Zoning on a site for the FIRST time.
 // SARF is free. Tier is read from User.tier (the field the Supabase payment
 // webhook stamps). Counting HawkScipSpend rows IS the quota.
-//   free          → 1 HawkSCIP lifetime (one free trial SCIP to prove quality)
+//   free          → 1 Search Ring lifetime (one free trial ring to prove quality)
 //   hawk_site     → 15 / calendar month
-//   hawkeyes      → 30 / calendar month
+//   hawkeyes      → 40 / calendar month
 //   hawkeye_apex  → unlimited
 const QUOTA = {
   free:         { limit: 1,  window: 'lifetime' },
   hawk_site:    { limit: 15, window: 'month' },
-  hawkeyes:     { limit: 30, window: 'month' },
+  hawkeyes:     { limit: 40, window: 'month' },
   hawkeye_apex: { limit: Infinity, window: 'unlimited' },
 };
 

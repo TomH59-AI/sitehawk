@@ -9,7 +9,7 @@ import { base44 } from "@/api/base44Client";
 export const TIER_CONFIG = {
   free: { label: "Free", limit: 1, window: "lifetime" },
   hawk_site: { label: "HawkSite", limit: 15, window: "month" },
-  hawkeyes: { label: "Hawkeyes", limit: 30, window: "month" },
+  hawkeyes: { label: "Hawkeyes", limit: 40, window: "month" },
   hawkeye_apex: { label: "Apex", limit: Infinity, window: "month" },
 };
 

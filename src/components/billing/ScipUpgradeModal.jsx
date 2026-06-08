@@ -6,9 +6,9 @@ import { Zap, Check } from "lucide-react";
 // { error, tier, used, limit } and routes the user to /plans-selection.
 // Scanning is never gated — only SCIP generation.
 const PLAN_OPTIONS = [
-  { name: "Hawk Site", price: "$69/mo", detail: "15 Search Rings / month" },
-  { name: "Hawkeyes", price: "$199/mo", detail: "30 Search Rings / month" },
-  { name: "Hawkeye Apex", price: "$2,499/mo", detail: "Unlimited Search Rings" },
+  { name: "Hawk Site", price: "$249/mo", detail: "15 Search Rings / month" },
+  { name: "Hawkeyes", price: "$599/mo", detail: "40 Search Rings / month" },
+  { name: "Hawkeye Apex", price: "Contact us", detail: "Unlimited Search Rings" },
 ];
 
 export default function ScipUpgradeModal({ quota, onClose }) {

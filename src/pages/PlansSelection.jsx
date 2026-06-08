@@ -7,11 +7,12 @@ import BrandFooter from "../components/BrandFooter";
 
 const CONTACT_EMAIL = "info@sitehawk.com";
 
-// hawk_site = Hawk Site ($149/mo, 1 trial + 15 SCIPs) | hawkeyes = Hawkeyes ($399/mo, 1 trial + 30 SCIPs)
+// hawk_site = Hawk Site ($249/mo, 1 trial + 15 rings) | hawkeyes = Hawkeyes ($599/mo, 1 trial + 40 rings)
+// 1 Search Ring = 1 SCIP bundle including all 3 AI targets (A, B & C).
 const PLAN_CARDS = [
-  { key: "hawk_site", name: "Hawk Site", price: "$149", period: "/month", scips: "1 trial SCIP + 15 SCIPs per month", cta: "Start Hawk Site", paid: true },
-  { key: "hawkeyes", name: "Hawkeyes", price: "$399", period: "/month", scips: "1 free trial + 30 SCIPs per month", cta: "Start Hawkeyes", paid: true, highlight: true },
-  { key: "hawkeye_apex", name: "Hawkeye Apex", price: "Contact us", period: "", scips: "Custom quote — call or email HawkSite customer service", cta: "Contact sales", paid: false },
+  { key: "hawk_site", name: "Hawk Site", price: "$249", period: "/month", scips: "1 trial Search Ring + 15 Search Rings per month — each includes Targets A, B & C", cta: "Start Hawk Site", paid: true },
+  { key: "hawkeyes", name: "Hawkeyes", price: "$599", period: "/month", scips: "1 free trial + 40 Search Rings per month — each includes Targets A, B & C", cta: "Start Hawkeyes", paid: true, highlight: true },
+  { key: "hawkeye_apex", name: "Hawkeye Apex", price: "Contact us", period: "", scips: "Unlimited Search Rings — call or email HawkSite customer service for a quote", cta: "Contact sales", paid: false },
 ];
 
 export default function PlansSelection() {
@@ -67,8 +68,8 @@ export default function PlansSelection() {
     <div className="space-y-10">
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">SiteHawk plans</p>
-        <h1 className="font-heading font-bold text-3xl md:text-4xl text-foreground">Choose your SCIP capacity</h1>
-        <p className="text-muted-foreground text-sm">Scanning is always free. SCIP generation is what each plan covers.</p>
+        <h1 className="font-heading font-bold text-3xl md:text-4xl text-foreground">Choose your Search Ring capacity</h1>
+        <p className="text-muted-foreground text-sm">Scanning is always free. Each Search Ring delivers a full SCIP with all three AI-selected targets (A, B & C).</p>
         {currentTier && (
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
             <span className="text-muted-foreground/70">Current tier:</span>
