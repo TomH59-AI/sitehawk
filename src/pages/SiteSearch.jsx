@@ -280,7 +280,7 @@ export default function SiteSearch() {
               SARF Map — {searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"} · {Number(searchCenter.lat).toFixed(6)}, {Number(searchCenter.lon).toFixed(6)}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              {searchParams.radius_miles}-mile search ring. Advance to the next pipeline step manually when ready.
+              {searchParams.radius_miles}-mile search ring · {String(searchParams.compound_size || "100x100").replace("x", "'×")}' compound · {searchParams.tower_height_ft || 199}' AGL. Advance to the next pipeline step manually when ready.
             </div>
           </div>
           <Section1SarfMap
