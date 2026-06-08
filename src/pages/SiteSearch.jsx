@@ -403,6 +403,24 @@ export default function SiteSearch() {
         />
       )}
 
+      {/* END-OF-PIPELINE — Generate SCIP. Same button as the header, placed after
+          Section 8 so users who finish at the propagation map can print the full
+          SCIP (and pick pages from their printer) without scrolling back up. */}
+      {coordsReady && (
+        <div className="flex flex-col items-center gap-2 pt-2 pb-6 border-t border-border">
+          <p className="text-sm text-muted-foreground text-center">
+            Finished the pipeline? Generate the full SiteHawk SCIP — then Print / Save PDF and choose which pages to print.
+          </p>
+          <GenerateScipButton
+            searchCenter={searchCenter}
+            searchParams={searchParams}
+            targetA={targetA}
+            zoningResult={zoningResult}
+            sectionData={sectionData}
+          />
+        </div>
+      )}
+
     </div>
   );
 }
