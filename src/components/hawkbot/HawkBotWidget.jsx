@@ -6,7 +6,6 @@ import { siteChat } from "@/functions/siteChat";
 
 const QUICK_ACTIONS = [
   "How do I use SiteHawk?",
-  "Build a SCIP for my top candidate",
   "Which candidate has the best fiber + zoning combo?",
   "What's the FAA risk for the top candidate?",
   "Run a 199-ft tower compliance check",
