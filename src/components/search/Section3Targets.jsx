@@ -119,6 +119,8 @@ export default function Section3Targets({
       land_use: a.land_use || "",
       fema_risk_factor: a.fema_risk_factor || "",
       zoning_classification: a.zoning_classification || "",
+      county: a.county || "",
+      state: a.state || "",
       // Owner phone resolved by the skip-trace cascade (Enformion → Apify actors).
       // Skip-trace returns a phone only for individual owners; entity owners
       // (LLC/trust) short-circuit with no phone. There is no contact-person
@@ -258,6 +260,8 @@ export default function Section3Targets({
             land_use: a.land_use || "",
             fema_risk_factor: a.fema_risk_factor || "",
             zoning_classification: a.zoning_classification || "",
+            county: a.county || "",
+            state: a.state || "",
             owner_phone: "",
             label: "Target A",
           });

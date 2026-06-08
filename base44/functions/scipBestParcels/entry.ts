@@ -381,6 +381,11 @@ Deno.serve(async (req) => {
         ].filter(Boolean).join(", ") || null,
         latitude: plat || null,
         longitude: plon || null,
+        // County + State pulled straight from the Realie parcel record so they
+        // flow into the SCIP once a Target is selected. Realie uses several key
+        // spellings depending on the source assessor; pick the first present.
+        county: pick(p, "county", "countyName", "county_name", "situsCounty", "fipsCounty") || null,
+        state: (pick(p, "state", "stateCode", "state_code", "situsState", "mailingState", "ownerState") || "").toString().toUpperCase().slice(0, 2) || null,
       });
     }
 
