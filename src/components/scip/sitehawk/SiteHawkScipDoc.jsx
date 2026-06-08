@@ -1,7 +1,6 @@
 import { format } from "date-fns";
 import { HAWK, CONFIDENTIAL_NOTICE } from "../hawkScipBrand";
 import HawkScipSection, { HawkWatermark } from "../HawkScipSection";
-import SiteHawkMapTile from "./SiteHawkMapTile";
 import SiteHawkInfoTable from "./SiteHawkInfoTable";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
@@ -193,22 +192,25 @@ export default function SiteHawkScipDoc({ record }) {
         </HawkScipSection>
       )}
 
-      {/* ─────────── MAPS GRID ─────────── */}
-      {hasMaps && (
+      {/* ─────────── MAP SUITE — ONE MAP PER PAGE ─────────── */}
+      {MAP_TILES.map(([title, url], i) => (
         <HawkScipSection
-          kicker="SCIP · Section 4"
-          title="HAWK MAP SUITE"
+          key={title}
+          kicker={`SCIP · Section 4 · Map ${i + 1} of ${MAP_TILES.length}`}
+          title={title.toUpperCase()}
           right={a.label || "Target A"}
           page={next()}
           footerNote="Aerial/topo/parcel © Mapbox · Floodplain © FEMA NFHL · Wetlands © USFWS NWI · Wind © ASCE 7-22 · Airport (FAA) & cell tower (FCC ASR/OpenCellID) shown crow-flies. Field verification recommended."
         >
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {MAP_TILES.map(([title, url]) => (
-              <SiteHawkMapTile key={title} title={title} url={url} />
-            ))}
+          <div className="rounded-lg overflow-hidden h-full" style={{ height: "8.1in", border: `2px solid ${HAWK.blue}` }}>
+            {urlOf(url) ? (
+              <img src={urlOf(url)} alt={title} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[10pt]" style={{ background: HAWK.bg, color: HAWK.muted }}>Not generated</div>
+            )}
           </div>
         </HawkScipSection>
-      )}
+      ))}
 
       {/* ─────────── ZONING & PERMITTING ─────────── */}
       {hasZoning && (

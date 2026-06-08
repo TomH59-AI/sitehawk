@@ -22,7 +22,18 @@ function ensurePrintStyles() {
       body * { visibility: hidden !important; }
       #sitehawk-scip-doc, #sitehawk-scip-doc * { visibility: visible !important; }
       #sitehawk-scip-doc { position: absolute; inset: 0; }
-      #sitehawk-scip-doc .page { page-break-after: always; }
+      #sitehawk-scip-doc .page {
+        page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        height: 11in;
+        overflow: hidden;
+      }
+      #sitehawk-scip-doc .page:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
       @page { size: letter; margin: 0; }
     }
   `;
