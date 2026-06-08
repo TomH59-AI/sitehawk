@@ -220,9 +220,17 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
             <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
             <div className="flex-1">
               <div className="text-sm font-medium text-destructive">{error}</div>
-              <button onClick={handleGenerate} className="mt-2 px-3 py-1.5 rounded-md text-xs font-semibold text-white" style={{ background: BRAND_GREEN }}>
-                Retry
-              </button>
+              {/cloudrf\.com\/plans|out of credits/i.test(error || "") && (
+                <a href="https://cloudrf.com/plans" target="_blank" rel="noopener noreferrer"
+                  className="inline-block mt-1 text-xs font-semibold underline" style={{ color: BRAND_GREEN }}>
+                  Renew CloudRF plan →
+                </a>
+              )}
+              <div>
+                <button onClick={handleGenerate} className="mt-2 px-3 py-1.5 rounded-md text-xs font-semibold text-white" style={{ background: BRAND_GREEN }}>
+                  Retry
+                </button>
+              </div>
             </div>
           </div>
         )}

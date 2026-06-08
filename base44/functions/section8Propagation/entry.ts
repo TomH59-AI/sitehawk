@@ -185,6 +185,14 @@ Deno.serve(async (req) => {
 
     const usable = coverages.filter((c) => c.png_url);
     if (usable.length === 0) {
+      // Surface a credit/billing failure clearly so the UI can explain itself.
+      const creditIssue = coverages.some((c) => c.error && /credit|plan|403/i.test(c.error));
+      if (creditIssue) {
+        return Response.json({
+          error: "RF propagation is temporarily unavailable — the CloudRF account is out of credits. Renew a plan at https://cloudrf.com/plans to restore propagation maps.",
+          code: "cloudrf_no_credit",
+        }, { status: 402 });
+      }
       return Response.json({ error: "CloudRF returned no coverage for any carrier" }, { status: 502 });
     }
 
