@@ -18,11 +18,31 @@ function ensurePrintStyles() {
   style.id = PRINT_STYLE_ID;
   style.textContent = `
     @media print {
+      html, body { width: 8.5in; margin: 0 !important; padding: 0 !important; }
       body * { visibility: hidden !important; }
       #sitehawk-scip-doc, #sitehawk-scip-doc * { visibility: visible !important; }
-      #sitehawk-scip-doc { position: absolute; inset: 0; }
-      #sitehawk-scip-doc .page { page-break-after: always; }
-      @page { size: letter; margin: 0; }
+      #sitehawk-scip-doc {
+        position: absolute;
+        top: 0; left: 0;
+        width: 8.5in;
+        margin: 0;
+      }
+      #sitehawk-scip-doc .page {
+        page-break-after: always;
+        break-after: page;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        width: 8.5in !important;
+        height: 11in;
+        overflow: hidden;
+        box-sizing: border-box;
+        transform: none !important;
+      }
+      #sitehawk-scip-doc .page:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+      @page { size: 8.5in 11in; margin: 0; }
     }
   `;
   document.head.appendChild(style);
