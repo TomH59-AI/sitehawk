@@ -16,7 +16,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Lock, MapPinned, Sparkles } from "lucide-react";
+import { Lock, MapPinned, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
@@ -92,7 +92,43 @@ export default function Section3Targets({
   const [phoneResults, setPhoneResults] = useState([null, null, null]);
   const [phoneLoading, setPhoneLoading] = useState([false, false, false]);
   const [targetMeta, setTargetMeta] = useState([null, null, null]); // {owner, addr} per col for retry
+  // Full target objects (A/B/C) kept so the user can choose any one as the lead
+  // site that the whole downstream pipeline runs on.
+  const [targets, setTargets] = useState([null, null, null]);
+  const [selectedCol, setSelectedCol] = useState(0); // which column is the lead (0 = Target A)
   const ranRef = useRef(false);
+
+  // Emit a chosen target column up to the pipeline as the lead site. Reuses the
+  // already-computed target record — no new lookups, no business-logic change.
+  const emitLead = useCallback((colIdx) => {
+    const a = targets[colIdx];
+    if (!a) return;
+    onTargetAReady?.({
+      latitude: a.latitude != null ? Number(a.latitude) : null,
+      longitude: a.longitude != null ? Number(a.longitude) : null,
+      owner: a.owner_name || "",
+      parcel_address: a.parcel_address || "",
+      apn: a.apn || "",
+      zoning_classification: a.zoning_classification || "",
+    });
+    onData?.({
+      parcelFit: {
+        acreage: a?.acreage != null ? Number(a.acreage) : null,
+        zoning_classification: a?.zoning_classification || null,
+        dimensions: a?.boundaries || null,
+        apn: a?.apn || null,
+        fema_risk_factor: a?.fema_risk_factor || null,
+      },
+    });
+  }, [targets, onTargetAReady, onData]);
+
+  // User picks a different lead target — switch the selection and re-emit.
+  const selectLead = (colIdx) => {
+    if (!targets[colIdx]) return;
+    setSelectedCol(colIdx);
+    emitLead(colIdx);
+    toast.success(`${COLS[colIdx]} is now the lead site for the pipeline.`);
+  };
 
   const setCell = (rowKey, colIdx, val) => {
     setGrid((prev) => {
@@ -147,38 +183,44 @@ export default function Section3Targets({
         fall_zone: z?.fall_zone ?? null,
         setback: z?.setback ?? null,
       });
-      const targets = res.data?.targets || [];
+      const found = res.data?.targets || [];
       setScanStats({
         scanned: res.data?.count_in_ring ?? res.data?.count_scanned ?? 0,
         required_acres: res.data?.required_acres ?? null,
       });
 
       const fresh = emptyGrid();
-      targets.slice(0, 3).forEach((t, colIdx) => {
+      found.slice(0, 3).forEach((t, colIdx) => {
         const col = targetToColumn(t);
         for (const [, key] of ROWS) fresh[key][colIdx] = col[key] ?? "";
       });
 
       setGrid(fresh);
+      // Keep the full target objects so the user can pick any one as the lead.
+      const slots = [null, null, null];
+      found.slice(0, 3).forEach((t, i) => { slots[i] = t; });
+      setTargets(slots);
+      setSelectedCol(0); // default lead = Target A
 
       // 2. Multi-source skip-trace cascade per target owner (Enformion → Apify
       //    actors in parallel). Records meta for retry + fires the lookups.
       const metas = [null, null, null];
-      for (let colIdx = 0; colIdx < targets.length && colIdx < 3; colIdx++) {
-        const t = targets[colIdx];
+      for (let colIdx = 0; colIdx < found.length && colIdx < 3; colIdx++) {
+        const t = found[colIdx];
         if (t?.owner_name) metas[colIdx] = { owner: t.owner_name, addr: t.mailing_address || t.parcel_address || "" };
       }
       setTargetMeta(metas);
       // Fire all target cascades in parallel — each cascade internally runs its
       // own sources (Enformion first, then the two Apify actors together).
       metas.forEach((m, colIdx) => { if (m) runCascade(colIdx, m.owner, m.addr, COLS[colIdx]); });
-      if (targets.length === 0) {
+      if (found.length === 0) {
         setNoData(true);
         toast.warning("No buildable target parcels found in the ring.");
       } else {
-        toast.success(`Selected ${Math.min(targets.length, 3)} best target${targets.length > 1 ? "s" : ""}.`);
-        // Emit Target A (column 0) up to the pipeline — unlocks Section 4 (Map Suite).
-        const a = targets[0];
+        toast.success(`Selected ${Math.min(found.length, 3)} best target${found.length > 1 ? "s" : ""}.`);
+        // Emit Target A (column 0) up to the pipeline as the default lead site —
+        // unlocks Section 4 (Map Suite). The user can switch the lead afterward.
+        const a = found[0];
         if (a && onTargetAReady) {
           onTargetAReady({
             latitude: a.latitude != null ? Number(a.latitude) : null,
@@ -305,15 +347,35 @@ export default function Section3Targets({
                   <th className="text-left px-4 py-2.5 font-bold text-white border border-white/20" style={{ background: HEADER_GREEN, minWidth: 200 }}>
                     &nbsp;
                   </th>
-                  {COLS.map((c) => (
-                    <th
-                      key={c}
-                      className="text-left px-4 py-2.5 font-bold text-white border border-white/20 uppercase tracking-wide"
-                      style={{ background: HEADER_GREEN, minWidth: 220 }}
-                    >
-                      {c}
-                    </th>
-                  ))}
+                  {COLS.map((c, colIdx) => {
+                    const isLead = selectedCol === colIdx;
+                    const hasTarget = !!targets[colIdx];
+                    return (
+                      <th
+                        key={c}
+                        className="text-left px-4 py-2.5 font-bold text-white border border-white/20 uppercase tracking-wide"
+                        style={{ background: isLead ? "#2f6b5b" : HEADER_GREEN, minWidth: 220 }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span>{c}</span>
+                          {hasTarget && (
+                            isLead ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold normal-case bg-white/20 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-3 h-3" /> Lead Site
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => selectLead(colIdx)}
+                                className="text-[10px] font-semibold normal-case bg-white/15 hover:bg-white/30 px-2 py-0.5 rounded-full transition-colors"
+                              >
+                                Use as lead site
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
