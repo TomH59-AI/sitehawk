@@ -88,7 +88,7 @@ export default function GenerateScipButton({
         county: targetA.county || z.county || "",
         state: targetA.state || z.state || "",
         sarf_map: buildSarfMap(srcLat, srcLon, radius, token, targetA),
-        targetA: { label: "Target A", ...targetA },
+        targetA: { ...targetA, label: targetA.label || "Target A" },
         maps,
         zoning: {
           jurisdiction: z.jurisdiction || zoningResult?.zoning_jurisdiction,

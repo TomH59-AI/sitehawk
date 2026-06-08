@@ -108,9 +108,16 @@ export default function Section3Targets({
       latitude: a.latitude != null ? Number(a.latitude) : null,
       longitude: a.longitude != null ? Number(a.longitude) : null,
       owner: a.owner_name || "",
+      owner_name: a.owner_name || "",
       parcel_address: a.parcel_address || "",
       apn: a.apn || "",
+      acreage: a.acreage ?? null,
+      boundaries: a.boundaries || "",
+      mailing_address: a.mailing_address || "",
+      land_use: a.land_use || "",
+      fema_risk_factor: a.fema_risk_factor || "",
       zoning_classification: a.zoning_classification || "",
+      label: COLS[colIdx],
     });
     onData?.({
       parcelFit: {
@@ -227,9 +234,16 @@ export default function Section3Targets({
             latitude: a.latitude != null ? Number(a.latitude) : null,
             longitude: a.longitude != null ? Number(a.longitude) : null,
             owner: a.owner_name || "",
+            owner_name: a.owner_name || "",
             parcel_address: a.parcel_address || "",
             apn: a.apn || "",
+            acreage: a.acreage ?? null,
+            boundaries: a.boundaries || "",
+            mailing_address: a.mailing_address || "",
+            land_use: a.land_use || "",
+            fema_risk_factor: a.fema_risk_factor || "",
             zoning_classification: a.zoning_classification || "",
+            label: "Target A",
           });
         }
         // Emit parcel-fit factor to the shared bus — REUSES Target A's already-
