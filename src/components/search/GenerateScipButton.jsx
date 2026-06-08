@@ -14,6 +14,32 @@ import {
   buildWetlands, buildParcel, buildWind, buildAirport, buildCellTower, buildFlum,
 } from "@/lib/sitehawkScipStatic";
 
+// Pull City / State / Zip out of a US parcel address string. Handles the common
+// "street, city, ST 12345" shape; falls back gracefully when a piece is missing.
+function parseParcelAddress(addr) {
+  const out = { parcel_city: "", parcel_zip: "" };
+  if (!addr || typeof addr !== "string") return out;
+  const zipMatch = addr.match(/\b(\d{5})(?:-\d{4})?\b/);
+  if (zipMatch) out.parcel_zip = zipMatch[1];
+  const parts = addr.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    // Second-to-last comma chunk is typically the city.
+    const cityIdx = parts.length >= 3 ? parts.length - 2 : 1;
+    out.parcel_city = (parts[cityIdx] || "").replace(/\b[A-Z]{2}\b.*$/, "").trim();
+  }
+  return out;
+}
+
+// "Meets minimum lot requirements?" → Conforming Size answer. A "yes" means the
+// parcel conforms with a PE letter (per the standard SiteHawk zoning posture).
+function conformingSizeFromZoning(meetsMinLot) {
+  if (!meetsMinLot) return "";
+  const v = String(meetsMinLot).toLowerCase();
+  if (v.startsWith("y") || v.includes("meets") || v.includes("conform")) return "Yes (with a PE letter)";
+  if (v.startsWith("n")) return "No";
+  return meetsMinLot;
+}
+
 const PRINT_STYLE_ID = "sitehawk-scip-print-styles";
 function ensurePrintStyles() {
   if (document.getElementById(PRINT_STYLE_ID)) return;
@@ -21,22 +47,31 @@ function ensurePrintStyles() {
   style.id = PRINT_STYLE_ID;
   style.textContent = `
     @media print {
+      html, body { width: 8.5in; margin: 0 !important; padding: 0 !important; }
       body * { visibility: hidden !important; }
       #sitehawk-scip-doc, #sitehawk-scip-doc * { visibility: visible !important; }
-      #sitehawk-scip-doc { position: absolute; inset: 0; }
+      #sitehawk-scip-doc {
+        position: absolute;
+        top: 0; left: 0;
+        width: 8.5in;
+        margin: 0;
+      }
       #sitehawk-scip-doc .page {
         page-break-after: always;
         break-after: page;
         page-break-inside: avoid;
         break-inside: avoid;
+        width: 8.5in !important;
         height: 11in;
         overflow: hidden;
+        box-sizing: border-box;
+        transform: none !important;
       }
       #sitehawk-scip-doc .page:last-child {
         page-break-after: auto;
         break-after: auto;
       }
-      @page { size: letter; margin: 0; }
+      @page { size: 8.5in 11in; margin: 0; }
     }
   `;
   document.head.appendChild(style);
@@ -125,6 +160,13 @@ export default function GenerateScipButton({
           ...targetA,
           label: targetA.label || "Target A",
           ground_elevation_ft: targetA.ground_elevation_ft ?? groundElevationFt,
+          // Parse Parcel City / State / Zip out of the single parcel_address string
+          // (e.g. "123 Main St, Karnes City, TX 78118"). County comes from the
+          // resolved zoning/target county. Conforming size is derived from the
+          // zoning "meets minimum lot" research — Yes (with a PE letter).
+          ...parseParcelAddress(targetA.parcel_address),
+          parcel_county: targetA.county || targetA.parcel_county || z.county || "",
+          conforming_size: conformingSizeFromZoning(z.meets_min_lot),
         },
         maps,
         zoning: {
