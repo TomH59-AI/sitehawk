@@ -197,7 +197,11 @@ export default function GenerateScipButton({
         },
         conditions: {
           flood_zone: bus.fema?.flood_zone || targetA.fema_risk_factor,
-          wetlands: bus.wetlands?.present ? (bus.wetlands.type || "Wetlands present") : (bus.wetlands ? "None mapped" : ""),
+          // Wetland Concerns? — explicit Yes/No from the compliance/wetlands lookup
+          // on the bus. Append the NWI type when present for field usefulness.
+          wetlands: bus.wetlands
+            ? (bus.wetlands.present ? `Yes${bus.wetlands.type ? ` — ${bus.wetlands.type}` : ""}` : "No")
+            : "",
           hazardous_waste: bus.hazwaste?.present
             ? `${bus.hazwaste.count} EPA cleanup site${bus.hazwaste.count !== 1 ? "s" : ""}${bus.hazwaste.npl_count ? ` (${bus.hazwaste.npl_count} Superfund/NPL)` : ""} within 0.5 mi`
             : (bus.hazwaste ? "None within 0.5 mi" : ""),
