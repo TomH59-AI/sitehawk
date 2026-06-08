@@ -36,7 +36,6 @@ export default function Section7Infrastructure({
   const [telco, setTelco] = useState(null);
   const [counts, setCounts] = useState({ power: 0, fiber: 0, carriers: 0 });
   const [powerOn, setPowerOn] = useState(true);
-  const [fiberOn, setFiberOn] = useState(true);
   const [carriersOn, setCarriersOn] = useState(true);
   const [base, setBase] = useState("streets");
 
@@ -92,7 +91,7 @@ export default function Section7Infrastructure({
         },
       });
       // Reset interactive controls to defaults: all layers ON, Streets view.
-      setPowerOn(true); setFiberOn(true); setCarriersOn(true); setBase("streets");
+      setPowerOn(true); setCarriersOn(true); setBase("streets");
       setDone(true);
       toast.success(`Infrastructure map generated for Target A — ${data.power?.count || 0} power · ${data.fiber?.count || 0} fiber · ${data.carriers?.count || 0} carriers.`);
     } catch (err) {
@@ -110,7 +109,6 @@ export default function Section7Infrastructure({
 
   // ── interactive toolbar handlers ──
   const togglePower = () => { const v = !powerOn; setPowerOn(v); ctrl.current?.toggleLayer("power", v); };
-  const toggleFiber = () => { const v = !fiberOn; setFiberOn(v); ctrl.current?.toggleLayer("fiber", v); };
   const toggleCarriers = () => { const v = !carriersOn; setCarriersOn(v); ctrl.current?.toggleLayer("carriers", v); };
   const switchBase = (b) => {
     setBase(b);
@@ -118,7 +116,6 @@ export default function Section7Infrastructure({
     // Re-apply current visibility after the style swap settles.
     setTimeout(() => {
       ctrl.current?.toggleLayer("power", powerOn);
-      ctrl.current?.toggleLayer("fiber", fiberOn);
       ctrl.current?.toggleLayer("carriers", carriersOn);
     }, 400);
   };
@@ -153,7 +150,7 @@ export default function Section7Infrastructure({
             <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 11 · INFRASTRUCTURE</div>
             <h2 className="font-heading font-bold text-lg leading-tight">HAWK INFRASTRUCTURE VISION — TARGET A</h2>
             <div className="text-[11px] font-mono opacity-90 mt-0.5">
-              Power poles &amp; transformers · fiber runs &amp; splice points{ownerLabel ? ` · ${ownerLabel}` : ""}
+              Power poles &amp; transformers · fiber carriers &amp; backhaul{ownerLabel ? ` · ${ownerLabel}` : ""}
             </div>
           </div>
         </div>
@@ -178,7 +175,7 @@ export default function Section7Infrastructure({
           <span className="font-mono">{utility.name}</span>
           {utility.phone && <span className="font-mono text-muted-foreground">· 📞 {utility.phone}</span>}
           <span className="ml-auto text-[11px] font-mono text-muted-foreground">
-            {counts.power} power · {counts.fiber} fiber · {counts.carriers} carriers
+            {counts.power} power · {counts.carriers} fiber carriers
           </span>
         </div>
       )}
@@ -211,7 +208,7 @@ export default function Section7Infrastructure({
 
       {!loading && !done && !error && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          One interactive map for Target A — power poles &amp; transformers and fiber runs within the search radius.
+          One interactive map for Target A — power poles &amp; transformers and fiber-lit carrier connection points within the search radius.
           Click <span className="font-semibold text-foreground">Run Infrastructure Map</span> to load, then drive it with the toolbar.
         </div>
       )}
@@ -226,8 +223,8 @@ export default function Section7Infrastructure({
 
           {/* Floating interactive toolbar */}
           <InfraToolbar
-            powerOn={powerOn} fiberOn={fiberOn} carriersOn={carriersOn} base={base}
-            onTogglePower={togglePower} onToggleFiber={toggleFiber} onToggleCarriers={toggleCarriers}
+            powerOn={powerOn} carriersOn={carriersOn} base={base}
+            onTogglePower={togglePower} onToggleCarriers={toggleCarriers}
             onSwitchBase={switchBase}
             onZoomIn={() => ctrl.current?.zoomIn?.()}
             onZoomOut={() => ctrl.current?.zoomOut?.()}
@@ -238,8 +235,6 @@ export default function Section7Infrastructure({
           <div className="absolute bottom-3 left-3 z-10 px-2.5 py-2 rounded-lg bg-black/60 backdrop-blur text-white text-[11px] font-mono leading-tight space-y-1">
             <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: "#E60000" }} /> power pole / tower</div>
             <div className="flex items-center gap-1.5"><span className="inline-block w-3.5 h-3.5 rounded-full" style={{ background: "#E60000" }} /> transformer / substation</div>
-            <div className="flex items-center gap-1.5"><span className="inline-block w-4 h-0.5" style={{ background: "#FF8C00" }} /> fiber run</div>
-            <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full border border-white" style={{ background: "#FF8C00" }} /> fiber splice / handhole</div>
             <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full border border-white" style={{ background: "#16A34A" }} /> carrier — on-net (lit)</div>
             <div className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full border border-white" style={{ background: "#EAB308" }} /> carrier — near-net</div>
           </div>
