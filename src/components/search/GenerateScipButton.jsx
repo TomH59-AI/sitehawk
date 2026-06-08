@@ -184,6 +184,7 @@ export default function GenerateScipButton({
           timeframe: z.timeframe,
           district: bus.zoneomicsDistrict?.zone_code || z.district || targetA.zoning_classification,
           future_land_use: z.future_land_use,
+          current_usage: z.current_usage,
           meets_min_lot: z.meets_min_lot,
           ldc_reference: z.ldc_reference,
           max_height: z.max_height,
