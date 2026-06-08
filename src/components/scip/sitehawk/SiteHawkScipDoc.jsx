@@ -45,19 +45,23 @@ export default function SiteHawkScipDoc({ record }) {
   let pageNo = 0;
   const next = () => (pageNo += 1);
 
-  // Every map the pipeline can produce, in SCIP order.
-  const MAP_TILES = [
+  // Official SCIP map order (matches the SiteHawk fillable template's MAPS list).
+  // We ONLY render tiles that actually generated a URL — no blank "Not generated"
+  // slots — so the printed maps section is always clean and full.
+  const ALL_MAP_TILES = [
     ["Aerial", maps.aerial],
     ["Topography", maps.topo],
-    ["Floodplain (FEMA)", maps.fema],
-    ["Zoning", maps.zoning],
-    ["Wetlands", maps.wetlands],
-    ["Parcel", maps.parcel],
-    ["Wind Speed", maps.wind],
-    ["Nearest Airport", maps.airport],
-    ["Nearest Cell Tower", maps.celltower],
+    ["Floodplain Map", maps.fema],
+    ["Zoning Map", maps.zoning],
+    ["Wetlands Map", maps.wetlands],
+    ["Parcel Map", maps.parcel],
+    ["Wind Speed Map", maps.wind],
+    ["Airport Map", maps.airport],
+    ["Cell Tower Map", maps.celltower],
   ];
-  const hasMaps = MAP_TILES.some(([, u]) => (typeof u === "string" ? u : u?.url));
+  const urlOf = (u) => (typeof u === "string" ? u : u?.url);
+  const MAP_TILES = ALL_MAP_TILES.filter(([, u]) => urlOf(u));
+  const hasMaps = MAP_TILES.length > 0;
   const hasZoning = z && (z.jurisdiction || z.district || z.future_land_use || z.process || z.fees || z.max_height);
   const hasConditions = Object.values(cond).some((v) => v);
 
@@ -175,7 +179,8 @@ export default function SiteHawkScipDoc({ record }) {
           <SiteHawkInfoTable
             rows={[
               ["Flood Zone(s)", cond.flood_zone],
-              ["Wetland Concerns", cond.wetlands],
+              ["Wetland Concerns?", cond.wetlands],
+              ["Hazardous Waste Concerns?", cond.hazardous_waste],
               ["Power Provider", cond.power_provider],
               ["Fiber Available?", cond.fiber],
               ["Telco Provider", cond.telco_provider],
