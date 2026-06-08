@@ -23,6 +23,7 @@ import HawkFlightSpinner from "./HawkFlightSpinner";
 import { scipBestParcels } from "@/functions/scipBestParcels";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import PhoneCascadeCell from "./section3/PhoneCascadeCell";
+import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import SectionClearButton from "./SectionClearButton";
 
 const COLS = ["Target A", "Target B", "Target C"];
@@ -81,7 +82,7 @@ function targetToColumn(t) {
 
 export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
-  towerHeightFt = 199, compoundSideFt = 100, zoningResult, onRun, onTargetAReady, onData, onClear,
+  towerHeightFt = 199, compoundSideFt = 100, ringName = "Search Ring", zoningResult, onRun, onTargetAReady, onData, onClear,
 }) {
   const [grid, setGrid] = useState(emptyGrid);
   const [loading, setLoading] = useState(false);
@@ -411,6 +412,26 @@ export default function Section3Targets({
               </tbody>
             </table>
           </div>
+          {/* Per-target actions — push this owner to the CRM as a contact */}
+          {!noData && (
+            <div className="grid border-t border-border" style={{ gridTemplateColumns: "200px repeat(3, minmax(220px, 1fr))" }}>
+              <div className="px-4 py-3 font-bold text-foreground bg-muted/40 border-r border-border text-sm">Actions</div>
+              {[0, 1, 2].map((colIdx) => (
+                <div key={colIdx} className="px-3 py-3 border-r border-border last:border-r-0">
+                  {targets[colIdx] ? (
+                    <PushTargetCrmButton
+                      ringName={ringName}
+                      targetLabel={COLS[colIdx]}
+                      targetIndex={colIdx}
+                      target={targets[colIdx]}
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

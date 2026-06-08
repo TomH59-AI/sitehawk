@@ -339,6 +339,7 @@ export default function SiteSearch() {
           radiusMiles={searchParams.radius_miles}
           towerHeightFt={searchParams.tower_height_ft || 199}
           compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
+          ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
           zoningResult={zoningResult}
           onRun={() => setPipelineStep("targets")}
           onTargetAReady={(t) => setTargetA(t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : t)}
