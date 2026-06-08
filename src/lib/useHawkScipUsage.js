@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 
-// Tier limits for HawkSCIP generation. Free = 1 lifetime trial; paid tiers reset
-// monthly. hawkeye_apex is unlimited. Mirrors the server-side quota rules — this
-// is display-only (the real enforcement lives in the backend 402).
+// Tier limits for Search Rings. 1 Search Ring = 1 SCIP bundle that INCLUDES all
+// three AI-selected targets (A, B & C) — spent once per ring (SARF center
+// site_key) at Run Zoning. Free = 1 lifetime trial; paid tiers reset monthly;
+// hawkeye_apex is unlimited. Mirrors the server-side quota rules — this is
+// display-only (real enforcement lives in the backend 402).
 export const TIER_CONFIG = {
   free: { label: "Free", limit: 1, window: "lifetime" },
   hawk_site: { label: "HawkSite", limit: 15, window: "month" },

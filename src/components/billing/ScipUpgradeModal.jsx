@@ -6,9 +6,9 @@ import { Zap, Check } from "lucide-react";
 // { error, tier, used, limit } and routes the user to /plans-selection.
 // Scanning is never gated — only SCIP generation.
 const PLAN_OPTIONS = [
-  { name: "Hawk Site", price: "$69/mo", detail: "15 SCIPs / month" },
-  { name: "Hawkeyes", price: "$199/mo", detail: "30 SCIPs / month" },
-  { name: "Hawkeye Apex", price: "$2,499/mo", detail: "Unlimited SCIPs" },
+  { name: "Hawk Site", price: "$69/mo", detail: "15 Search Rings / month" },
+  { name: "Hawkeyes", price: "$199/mo", detail: "30 Search Rings / month" },
+  { name: "Hawkeye Apex", price: "$2,499/mo", detail: "Unlimited Search Rings" },
 ];
 
 export default function ScipUpgradeModal({ quota, onClose }) {
@@ -25,15 +25,16 @@ export default function ScipUpgradeModal({ quota, onClose }) {
       <div className="w-full max-w-lg rounded-2xl border border-cyan-700/40 bg-slate-950 p-7 shadow-2xl shadow-cyan-950/40">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.25em] text-cyan-400">
           <Zap className="w-4 h-4" />
-          You're out of HawkSCIPs
+          You're out of Search Rings
         </div>
 
         <h2 className="mt-3 text-2xl font-bold leading-tight text-slate-50">
           Upgrade to keep generating
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-300">
-          {quota.error || "You've reached your HawkSCIP limit."} Pick a plan to keep
-          turning sites into full SCIP packages — your scans and SARF maps stay free.
+          {quota.error || "You've reached your Search Ring limit."} Each Search Ring
+          delivers all three AI-selected targets (A, B & C) in one SCIP bundle. Pick a
+          plan to keep working rings — your scans and SARF maps stay free.
         </p>
 
         {quota.limit != null && quota.used != null && (
@@ -42,7 +43,7 @@ export default function ScipUpgradeModal({ quota, onClose }) {
             <span className="font-mono text-cyan-300">{quota.used}</span>
             <span className="text-slate-500"> / </span>
             <span className="font-mono text-cyan-300">{quota.limit}</span>
-            <span className="text-slate-500"> SCIPs{quota.tier ? ` · ${quota.tier}` : ""}</span>
+            <span className="text-slate-500"> Search Rings{quota.tier ? ` · ${quota.tier}` : ""}</span>
           </div>
         )}
 

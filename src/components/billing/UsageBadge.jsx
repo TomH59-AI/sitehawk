@@ -16,9 +16,9 @@ export default function UsageBadge({ className = "" }) {
   const attention = isFree && depleted;
 
   let text;
-  if (unlimited) text = `${label} · Unlimited`;
-  else if (window === "lifetime") text = `${label} · ${remaining} SCIP${remaining === 1 ? "" : "s"} left`;
-  else text = `${label} · ${used} of ${limit} this month`;
+  if (unlimited) text = `${label} · Unlimited Rings`;
+  else if (window === "lifetime") text = `${label} · ${remaining} Ring${remaining === 1 ? "" : "s"} left`;
+  else text = `${label} · ${used} of ${limit} Rings this month`;
 
   const tone = attention
     ? "border-amber-400/60 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25"

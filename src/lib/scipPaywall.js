@@ -56,8 +56,8 @@ function normalizeQuota(body) {
   const q = body || {};
   const window = q.window ?? null;
   const defaultMsg = window === "lifetime"
-    ? "You've used your free HawkSCIPs."
-    : "You've reached your monthly HawkSCIP limit.";
+    ? "You've used your free Search Ring."
+    : "You've reached your monthly Search Ring limit.";
   return {
     error: q.error || defaultMsg,
     tier: q.tier ?? null,
