@@ -66,7 +66,9 @@ export default function GenerateScipButton({
       const srcLat = Number(searchCenter.lat), srcLon = Number(searchCenter.lon);
       const radius = searchParams.radius_miles;
       const bus = sectionData || {};
-      const z = zoningResult?.zoning || {};
+      // Prefer the full zoning set emitted onto the bus (carries every SCIP field);
+      // fall back to the legacy zoningResult prop for older flows.
+      const z = bus.zoning || zoningResult?.zoning || {};
 
       // Nearest airport + cell tower for the two proximity maps (best-effort).
       // FLUM is optional — only some jurisdictions have a Future Land Use layer.

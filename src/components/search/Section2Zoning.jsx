@@ -47,6 +47,9 @@ const PANELS = [
       ["Zoning Fees", "zoning_fees"],
       ["Zoning Approval Timeframe", "zoning_approval_timeframe"],
       ["Property Zoning District", "property_zoning_district"],
+      ["Property Future Land Use", "property_future_land_use"],
+      ["Property Current Usage", "property_current_usage"],
+      ["Meets Minimum Lot Requirements?", "meets_minimum_lot_requirements"],
     ],
   },
   {
@@ -181,17 +184,35 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       // Emit zoning factor to the shared bus — Zoneomics canonical, Realie fallback.
       const zo = report?.zoning_overview || {};
       const tw = report?.tower_specifics || {};
+      const val = (cell) => (cell?.value && !EMPTY_SENTINELS.includes(cell.value) ? cell.value : null);
       onData?.({
         zoning: {
-          district: zo.property_zoning_district?.value || jur?.zone_code || null,
-          height_limit: tw.maximum_tower_height?.value || null,
-          setback: tw.residential_separation?.value || null,
-          fall_zone: tw.fall_zone_requirements?.value || null,
-          permit_path: zo.zoning_process?.value || null,
-          cup_or_special_exception: zo.cup_or_special_exception?.value || null,
-          pe_self_certification: zo.pe_self_certification?.value || null,
+          // Scorecard / downstream factors (unchanged)
+          district: val(zo.property_zoning_district) || jur?.zone_code || null,
+          height_limit: val(tw.maximum_tower_height),
+          setback: val(tw.residential_separation),
+          fall_zone: val(tw.fall_zone_requirements),
+          permit_path: val(zo.zoning_process),
+          cup_or_special_exception: val(zo.cup_or_special_exception),
+          pe_self_certification: val(zo.pe_self_certification),
           source: res.data?.zoneomics?.ok ? "zoneomics" : "realie_or_ai",
           conflict: res.data?.zoning_district_conflict || null,
+          // Full SCIP document fields (Zoning Overview + Tower Specifics)
+          jurisdiction: jur?.label || val(zo.zoning_jurisdiction) || null,
+          contact: val(zo.zoning_contact_information),
+          process: val(zo.zoning_process),
+          fees: val(zo.zoning_fees),
+          timeframe: val(zo.zoning_approval_timeframe),
+          future_land_use: val(zo.property_future_land_use),
+          current_usage: val(zo.property_current_usage),
+          meets_min_lot: val(zo.meets_minimum_lot_requirements),
+          ldc_reference: val(tw.ldc_section_references),
+          max_height: val(tw.maximum_tower_height),
+          stealth: val(tw.stealth_required),
+          collocations: val(tw.required_collocations),
+          residential_separation: val(tw.residential_separation),
+          tower_separation: val(tw.tower_separation),
+          notes: val(tw.fall_zone_requirements),
         },
       });
       if (report) toast.success("Zoning ordinance provisions loaded.");
