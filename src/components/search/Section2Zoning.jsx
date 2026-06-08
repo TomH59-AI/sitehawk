@@ -46,10 +46,6 @@ const PANELS = [
       ["PE Self-Certification", "pe_self_certification"],
       ["Zoning Fees", "zoning_fees"],
       ["Zoning Approval Timeframe", "zoning_approval_timeframe"],
-      ["Property Zoning District", "property_zoning_district"],
-      ["Property Future Land Use", "property_future_land_use"],
-      ["Property Current Usage", "property_current_usage"],
-      ["Meets Minimum Lot Requirements?", "meets_minimum_lot_requirements"],
     ],
   },
   {
