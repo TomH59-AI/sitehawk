@@ -1,9 +1,10 @@
 import { useState, useCallback } from "react";
 
 // Shared paywall helper for SCIP generation. The SCIP orchestrator returns
-// HTTP 402 when the user is over their monthly SCIP limit (free users get 2
-// SCIPs total; paid tiers 15/30 per month). The 402 body is { error, tier,
-// used, limit }. Scanning is NOT gated — only SCIP generation.
+// HTTP 402 when the user is over their Search Ring limit (free users get 1
+// lifetime Search Ring; paid tiers 15/40 per month). The 402 body is
+// { error, tier, used, limit, window }. Scanning is NOT gated — only SCIP
+// generation (the HawkSCIP is spent at Run Zoning).
 //
 // runScipGeneration: an async fn that performs the actual SCIP-generation
 // request and is expected to either resolve normally, or throw/return an object
