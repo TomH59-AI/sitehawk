@@ -98,12 +98,14 @@ export default function Section3Targets({
   const [targets, setTargets] = useState([null, null, null]);
   const [selectedCol, setSelectedCol] = useState(0); // which column is the lead (0 = Target A)
   const ranRef = useRef(false);
+  const emitLeadRef = useRef(null); // latest emitLead, so applyCascade can re-emit without circular deps
 
   // Emit a chosen target column up to the pipeline as the lead site. Reuses the
   // already-computed target record — no new lookups, no business-logic change.
   const emitLead = useCallback((colIdx) => {
     const a = targets[colIdx];
     if (!a) return;
+    const pr = phoneResults[colIdx];
     onTargetAReady?.({
       latitude: a.latitude != null ? Number(a.latitude) : null,
       longitude: a.longitude != null ? Number(a.longitude) : null,
@@ -117,6 +119,11 @@ export default function Section3Targets({
       land_use: a.land_use || "",
       fema_risk_factor: a.fema_risk_factor || "",
       zoning_classification: a.zoning_classification || "",
+      // Owner phone resolved by the skip-trace cascade (Enformion → Apify actors).
+      // Skip-trace returns a phone only for individual owners; entity owners
+      // (LLC/trust) short-circuit with no phone. There is no contact-person
+      // name available from Realie or skip-trace, so contact_person stays blank.
+      owner_phone: grid.phone[colIdx] || pr?.display || pr?.phone || "",
       label: COLS[colIdx],
     });
     onData?.({
@@ -128,7 +135,10 @@ export default function Section3Targets({
         fema_risk_factor: a?.fema_risk_factor || null,
       },
     });
-  }, [targets, onTargetAReady, onData]);
+  }, [targets, phoneResults, onTargetAReady, onData]);
+
+  // Keep the ref pointed at the latest emitLead for applyCascade to use.
+  useEffect(() => { emitLeadRef.current = emitLead; }, [emitLead]);
 
   // User picks a different lead target — switch the selection and re-emit.
   const selectLead = (colIdx) => {
@@ -171,6 +181,11 @@ export default function Section3Targets({
   function applyCascade(colIdx, data) {
     setPhoneResults((p) => { const n = [...p]; n[colIdx] = data; return n; });
     if (data?.display) setCell("phone", colIdx, data.display);
+    // If this column is the current lead, re-emit Target A so the freshly
+    // resolved owner phone / contact person flow down to the SCIP.
+    if (colIdx === selectedCol) {
+      setTimeout(() => emitLeadRef.current?.(colIdx), 0);
+    }
   }
 
   const runPipeline = useCallback(async () => {
@@ -243,6 +258,7 @@ export default function Section3Targets({
             land_use: a.land_use || "",
             fema_risk_factor: a.fema_risk_factor || "",
             zoning_classification: a.zoning_classification || "",
+            owner_phone: "",
             label: "Target A",
           });
         }

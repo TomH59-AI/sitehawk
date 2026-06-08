@@ -165,9 +165,7 @@ export default function SiteHawkScipDoc({ record }) {
           heading="Owner Information"
           rows={[
             ["Name(s)", a.owner_name],
-            ["Contact Person", a.contact_person],
             ["Mailing Address", a.mailing_address],
-            ["E-mail Address", a.owner_email],
             ["Phone Number", a.owner_phone],
             ["Land Use", a.land_use],
             ["FEMA Risk Factor", a.fema_risk_factor],
