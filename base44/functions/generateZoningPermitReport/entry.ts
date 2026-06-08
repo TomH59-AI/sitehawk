@@ -346,6 +346,9 @@ TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
 - PE SELF-CERTIFICATION (pe_self_certification): Research whether this jurisdiction allows a licensed Professional Engineer (PE) to SELF-CERTIFY the tower's structural/site plans (engineer-of-record sealed certification accepted in lieu of full plan review / public hearing), which yields a FASTER, more administrative permit path and often more flexible setback/height treatment. Answer "Yes — PE self-certification accepted" if the ordinance/building dept allows PE-sealed self-certification or a building-official administrative approval relying on a PE seal; "No — full review required" if a public hearing / special-use / conditional-use process is mandatory with no PE self-cert path; or "NEEDS RESEARCH" if you cannot verify. Quote the basis (code section / dept policy) in the value when found. Set source to "AI".
 - TOWER SPECIFICS (LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): use the jurisdiction's Land Development Code / zoning ordinance found via web search. Set source to "AI".
 - Property zoning DISTRICT / land use: prefer Realie (SOURCE A) then Zoneomics (SOURCE B). Set source to "Realie".
+- PROPERTY FUTURE LAND USE (property_future_land_use): the parcel's Future Land Use designation from the jurisdiction's Comprehensive Plan / Future Land Use Map (e.g. "Low Density Residential", "Agricultural/Rural"). Prefer Realie land_use, then jurisdiction Comp Plan research. Set source to "Realie" or "AI".
+- PROPERTY CURRENT USAGE (property_current_usage): how the parcel is actually used today (e.g. "Vacant", "Single-Family Residential", "Agricultural", "School"). Prefer Realie land_use. Set source to "Realie" or "AI".
+- MEETS MINIMUM LOT REQUIREMENTS (meets_minimum_lot_requirements): does the parcel meet the minimum lot size/dimensions for a tower in its zoning district? Answer "Yes", "Yes (with a PE letter)", "No", or "NEEDS RESEARCH". Set source to "AI".
 - Fees / contacts / process / timeframes (site plan + building permit panels): research the actual jurisdiction's building & planning department online. Set source to "AI".
 - Set "source" to one of: "Realie" | "AI" | "none".
 - If you cannot find a value in ANY source, set value to "NEEDS RESEARCH" and source to "none".
@@ -365,6 +368,9 @@ TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
             zoning_fees:                { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
             zoning_approval_timeframe:  { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
             property_zoning_district:   { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
+            property_future_land_use:   { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
+            property_current_usage:     { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
+            meets_minimum_lot_requirements: { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
             pe_self_certification:      { type: 'object', properties: { value: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'string' } } },
           },
         },
@@ -573,6 +579,18 @@ Deno.serve(async (req) => {
       } else if (!zoFields.property_zoning_district) {
         // Zoneomics left it blank → Realie fills it.
         report.zoning_overview.property_zoning_district = row(realieDistrict, 'Realie', 'high');
+      }
+    }
+
+    // Realie land_use fills Current Usage (and Future Land Use as a fallback)
+    // when the LLM left them blank, so these rows aren't perpetually empty.
+    const isEmpty = (cell) => !clean(cell?.value) || clean(cell?.value) === 'NEEDS RESEARCH';
+    if (realie?.land_use) {
+      if (isEmpty(report.zoning_overview?.property_current_usage)) {
+        report.zoning_overview.property_current_usage = row(realie.land_use, 'Realie', 'medium');
+      }
+      if (isEmpty(report.zoning_overview?.property_future_land_use)) {
+        report.zoning_overview.property_future_land_use = row(realie.land_use, 'Realie', 'low');
       }
     }
 
