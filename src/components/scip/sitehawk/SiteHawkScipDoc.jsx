@@ -136,23 +136,28 @@ export default function SiteHawkScipDoc({ record }) {
           heading="Project Information"
           rows={[
             ["Tower Height", r.tower_height_ft ? `${r.tower_height_ft} ft AGL` : ""],
-            ["Compound Size", r.compound_size],
+            ["Centerlines Available", a.centerlines_available],
             ["Ground Elevation", dash(a.ground_elevation_ft) ? `${a.ground_elevation_ft} ft AMSL` : ""],
+            ["Compound Size (S.F. & dimensions)", r.compound_size],
             ["Latitude", aLat],
             ["Longitude", aLon],
-            ["Distance from Ring Center", dash(a.distance_from_center_mi) ? `${a.distance_from_center_mi} mi` : ""],
+            ["Distance from Search Ring Center", dash(a.distance_from_center_mi) ? `${a.distance_from_center_mi} mi` : ""],
           ]}
         />
         <SiteHawkInfoTable
-          heading="Site Information (Property Appraiser)"
+          heading="Site Information (from Property Appraiser's Office)"
           rows={[
             ["Parcel County", r.county],
-            ["Parcel ID / APN", a.apn],
+            ["Parcel ID Number", a.apn],
             ["Owner Name (on Deed)", a.owner_name],
             ["Parcel Street Address", a.parcel_address],
+            ["Parcel City", a.parcel_city],
             ["Parcel State", (r.state || "").toUpperCase()],
-            ["Parcel Size (acres)", dash(a.acreage)],
-            ["Parcel Dimensions", a.boundaries],
+            ["Parcel Zip", a.parcel_zip],
+            ["Parcel Size (acres, MOL)", dash(a.acreage)],
+            ["Parcel Dimensions (feet)", a.boundaries],
+            ["Conforming Size?", a.conforming_size],
+            ["Taxes Paid-to-Date?", a.taxes_paid],
             ["Zoning Classification", a.zoning_classification],
           ]}
         />
@@ -160,7 +165,10 @@ export default function SiteHawkScipDoc({ record }) {
           heading="Owner Information"
           rows={[
             ["Name(s)", a.owner_name],
+            ["Contact Person", a.contact_person],
             ["Mailing Address", a.mailing_address],
+            ["E-mail Address", a.owner_email],
+            ["Phone Number", a.owner_phone],
             ["Land Use", a.land_use],
             ["FEMA Risk Factor", a.fema_risk_factor],
           ]}
@@ -180,13 +188,17 @@ export default function SiteHawkScipDoc({ record }) {
             rows={[
               ["Flood Zone(s)", cond.flood_zone],
               ["Wetland Concerns?", cond.wetlands],
+              ["Water Management District", cond.water_management_district],
               ["Hazardous Waste Concerns?", cond.hazardous_waste],
-              ["Power Provider", cond.power_provider],
+              ["Access Notes (ROW, driveway, code)", cond.access_notes],
+              ["Power Provider (name & phone)", cond.power_provider],
               ["Fiber Available?", cond.fiber],
-              ["Telco Provider", cond.telco_provider],
-              ["Nearest Airport", cond.airport],
+              ["Telco Provider (name & phone)", cond.telco_provider],
+              ["Nearest Airport (name & distance)", cond.airport],
               ["Nearest Cell Tower", cond.cell_tower],
               ["Wind Speed (ASCE 7-22)", cond.wind],
+              ["Local Police (municipality & phone)", cond.local_police],
+              ["Local Fire Dept (municipality & phone)", cond.local_fire],
             ]}
           />
         </HawkScipSection>
@@ -230,8 +242,9 @@ export default function SiteHawkScipDoc({ record }) {
               ["Zoning Fees", z.fees],
               ["Approval Timeframe", z.timeframe],
               ["Property Zoning District", z.district],
-              ["Future Land Use", z.future_land_use],
-              ["Meets Min. Lot Requirements?", z.meets_min_lot],
+              ["Property Future Land Use", z.future_land_use],
+              ["Property Current Usage", z.current_usage || a.land_use],
+              ["Meets Minimum Lot Requirements?", z.meets_min_lot],
             ]}
           />
           <SiteHawkInfoTable

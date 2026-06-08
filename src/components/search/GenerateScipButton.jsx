@@ -6,6 +6,8 @@ import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirec
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import { zoneResolve } from "@/functions/zoneResolve";
+import { pointElevation } from "@/functions/pointElevation";
+import { publicSafetyLookup } from "@/functions/publicSafetyLookup";
 import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
 import {
   buildSarfMap, buildAerial, buildTopo, buildFema, buildZoning,
@@ -68,13 +70,20 @@ export default function GenerateScipButton({
 
       // Nearest airport + cell tower for the two proximity maps (best-effort).
       // FLUM is optional — only some jurisdictions have a Future Land Use layer.
-      const [airportRes, towerRes, flumRes, fluResolveRes] = await Promise.all([
+      // Ground elevation (USGS 3DEP) + nearest police/fire (OSM) fill the
+      // Project Information + Existing Conditions template fields.
+      const [airportRes, towerRes, flumRes, fluResolveRes, elevRes, safetyRes] = await Promise.all([
         nearestAirportFromDirectory({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         cellTowerLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         zoneomicsFlumDetails({ lat: targetA.latitude, lng: targetA.longitude }).catch(() => null),
         zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        pointElevation({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        publicSafetyLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
       ]);
       const airport = airportRes?.data?.match || null;
+      const groundElevationFt = elevRes?.data?.elevation_ft ?? null;
+      const police = safetyRes?.data?.police || null;
+      const fire = safetyRes?.data?.fire || null;
       // Resolve a FLUM label + polygon (Zoneomics first, FL GeoPlan fallback).
       const zflum = flumRes?.data?.flum || null;
       const flu = fluResolveRes?.data?.flu || null;
@@ -110,7 +119,11 @@ export default function GenerateScipButton({
         county: targetA.county || z.county || "",
         state: targetA.state || z.state || "",
         sarf_map: buildSarfMap(srcLat, srcLon, radius, token, targetA),
-        targetA: { ...targetA, label: targetA.label || "Target A" },
+        targetA: {
+          ...targetA,
+          label: targetA.label || "Target A",
+          ground_elevation_ft: targetA.ground_elevation_ft ?? groundElevationFt,
+        },
         maps,
         zoning: {
           jurisdiction: z.jurisdiction || zoningResult?.zoning_jurisdiction,
@@ -142,6 +155,9 @@ export default function GenerateScipButton({
           airport: airport ? `${airport.name || airport.callnumber} — ${Number(airport.distance_miles).toFixed(2)} mi` : (bus.airport ? `${bus.airport.name} — ${Number(bus.airport.distance_miles).toFixed(2)} mi` : ""),
           cell_tower: bus.tower ? `${bus.tower.owner || "Cell site"} — ${Number(bus.tower.distance_miles).toFixed(2)} mi` : (towerForMap ? `${Number(towerForMap.distance_miles).toFixed(2)} mi` : ""),
           wind: bus.wind?.wind_speed_mph ? `${bus.wind.wind_speed_mph} mph${bus.wind.risk_level ? ` · ${bus.wind.risk_level}` : ""}` : "",
+          water_management_district: bus.wetlands?.water_district || "",
+          local_police: police ? `${police.name}${police.phone ? ` — ${police.phone}` : ""} (${Number(police.distance_miles).toFixed(1)} mi)` : "",
+          local_fire: fire ? `${fire.name}${fire.phone ? ` — ${fire.phone}` : ""} (${Number(fire.distance_miles).toFixed(1)} mi)` : "",
         },
       };
       setRecord(rec);
