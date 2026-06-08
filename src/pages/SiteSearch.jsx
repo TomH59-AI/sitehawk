@@ -14,6 +14,7 @@ import Section8Propagation from "../components/search/Section8Propagation";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
+import { historicSitesLookup } from "@/functions/historicSitesLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
 import { round4 } from "@/lib/coords";
 
@@ -143,6 +144,25 @@ export default function SiteSearch() {
         mergeSectionData({ wetlands: { present: !!d.wetlands_present, type: d.wetland_type || (d.wetland_types?.[0] ?? null) } });
       })
       .catch(() => {}); // score-only; silent failure → scorecard shows "no data"
+    return () => { cancelled = true; };
+  }, [targetA?.latitude, targetA?.longitude]);
+
+  // ── HISTORIC SITES (compliance) ───────────────────────────────────────────
+  // Quiet NPS National Register lookup fired once when Target A resolves. Emits a
+  // historic-sites-within-0.5-mi count into the bus so the Section 4 compliance
+  // pre-screen can auto-flag the Section 106 historic trigger. Score/compliance
+  // only — silent failure → trigger stays manual.
+  useEffect(() => {
+    const lat = targetA?.latitude, lon = targetA?.longitude;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    let cancelled = false;
+    historicSitesLookup({ lat, lon })
+      .then((res) => {
+        if (cancelled) return;
+        const d = res?.data || {};
+        mergeSectionData({ historic: { present: !!d.historic_present, count: d.historic_count || 0, site_names: d.site_names || [] } });
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [targetA?.latitude, targetA?.longitude]);
 

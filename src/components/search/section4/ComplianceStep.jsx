@@ -36,7 +36,7 @@ export default function ComplianceStep({
     const { flags: f, notes: n } = preScreenFromBus(targetA, sectionData, towerHeightFt);
     setFlags(f);
     setNotes(n);
-  }, [targetA, sectionData?.fema?.flood_zone, sectionData?.wetlands?.present, sectionData?.zoneomicsDistrict?.zone_code, towerHeightFt]);
+  }, [targetA, sectionData?.fema?.flood_zone, sectionData?.wetlands?.present, sectionData?.historic?.present, sectionData?.historic?.count, sectionData?.zoneomicsDistrict?.zone_code, towerHeightFt]);
 
   const determination = useMemo(
     () => computeDetermination(flags, disturbanceArea, projectType),

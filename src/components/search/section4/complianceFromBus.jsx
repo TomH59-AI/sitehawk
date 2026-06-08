@@ -37,6 +37,14 @@ export function preScreenFromBus(targetA, sectionData = {}, towerHeightFt = 0) {
     notes.push(`Wetlands present on/adjacent to parcel${sectionData.wetlands.type ? ` (${sectionData.wetlands.type})` : " (NWI)"}.`);
   }
 
+  // 4. Historic sites — from the quiet NPS National Register lookup (bus). Counts
+  //    listed historic properties within 0.5 mi of the target (47 CFR 1.1307 historic trigger).
+  if (sectionData?.historic?.present === true && (sectionData.historic.count || 0) > 0) {
+    flags.historicDistrict = true;
+    const c = sectionData.historic.count;
+    notes.push(`Historic: ${c} National Register site${c !== 1 ? "s" : ""} within 0.5 mi${sectionData.historic.site_names?.[0] ? ` (e.g. ${sectionData.historic.site_names[0]})` : ""}.`);
+  }
+
   // 6. Residential zoning — from Zoneomics district (bus) or Target A classification.
   const zoning =
     sectionData?.zoneomicsDistrict?.zone_code ||
