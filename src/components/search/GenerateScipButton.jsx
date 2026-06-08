@@ -4,10 +4,12 @@ import { toast } from "sonner";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
+import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
+import { zoneResolve } from "@/functions/zoneResolve";
 import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
 import {
   buildSarfMap, buildAerial, buildTopo, buildFema, buildZoning,
-  buildWetlands, buildParcel, buildWind, buildAirport, buildCellTower,
+  buildWetlands, buildParcel, buildWind, buildAirport, buildCellTower, buildFlum,
 } from "@/lib/sitehawkScipStatic";
 
 const PRINT_STYLE_ID = "sitehawk-scip-print-styles";
@@ -54,11 +56,19 @@ export default function GenerateScipButton({
       const z = zoningResult?.zoning || {};
 
       // Nearest airport + cell tower for the two proximity maps (best-effort).
-      const [airportRes, towerRes] = await Promise.all([
+      // FLUM is optional — only some jurisdictions have a Future Land Use layer.
+      const [airportRes, towerRes, flumRes, fluResolveRes] = await Promise.all([
         nearestAirportFromDirectory({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         cellTowerLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        zoneomicsFlumDetails({ lat: targetA.latitude, lng: targetA.longitude }).catch(() => null),
+        zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
       ]);
       const airport = airportRes?.data?.match || null;
+      // Resolve a FLUM label + polygon (Zoneomics first, FL GeoPlan fallback).
+      const zflum = flumRes?.data?.flum || null;
+      const flu = fluResolveRes?.data?.flu || null;
+      const flumLabel = [zflum?.code || flu?.code, zflum?.name || flu?.label].filter(Boolean).join(" — ");
+      const fluFeature = flu?.geojson || null;
       const nt = towerRes?.data?.nearest_tower || null;
       const towerForMap = nt && nt.latitude_deg != null
         ? { latitude: nt.latitude_deg, longitude: nt.longitude_deg, distance_miles: nt.distance_miles }
@@ -69,6 +79,7 @@ export default function GenerateScipButton({
         topo: buildTopo(targetA, token),
         fema: buildFema(targetA, token),
         zoning: buildZoning(targetA, token, cfg.zoneomicsApiKey),
+        flum: (flumLabel || fluFeature) ? buildFlum(targetA, token, fluFeature) : null,
         wetlands: buildWetlands(targetA, token),
         parcel: buildParcel(targetA, token),
         wind: buildWind(targetA, token),

@@ -53,6 +53,7 @@ export default function SiteHawkScipDoc({ record }) {
     ["Topography", maps.topo],
     ["Floodplain Map", maps.fema],
     ["Zoning Map", maps.zoning],
+    ["Future Land Use (FLUM) Map", maps.flum],
     ["Wetlands Map", maps.wetlands],
     ["Parcel Map", maps.parcel],
     ["Wind Speed Map", maps.wind],

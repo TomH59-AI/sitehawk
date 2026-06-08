@@ -177,6 +177,24 @@ export function buildParcel(t, token) {
   return overlayUrl({ style: SAT_STYLE, features: targetMarkers(lat, lon), center: [lon, lat], zoom: 17, token });
 }
 
+// Future Land Use (FLUM) — optional, only built when the pipeline resolved a
+// FLUM designation/polygon for the jurisdiction. Draws the polygon (when present)
+// over a light basemap; returns null when no FLUM data so the SCIP simply omits it.
+export function buildFlum(t, token, fluFeature) {
+  if (!ok(t) || !token) return null;
+  const { lat, lon } = tgt(t);
+  const features = [];
+  if (fluFeature?.geometry) {
+    features.push({
+      type: "Feature",
+      properties: { stroke: "#7C3AED", "stroke-width": 3, "stroke-opacity": 0.95, fill: "#7C3AED", "fill-opacity": 0.18 },
+      geometry: fluFeature.geometry,
+    });
+  }
+  features.push(pointFeature(lat, lon, BRAND_GREEN, "communications-tower"));
+  return overlayUrl({ style: LIGHT_STYLE, features, center: [lon, lat], zoom: 15, token });
+}
+
 // ── proximity maps (crow-flies line to nearest asset, with distance) ──
 function milesFeetLabel(mi) {
   if (!Number.isFinite(mi)) return null;
