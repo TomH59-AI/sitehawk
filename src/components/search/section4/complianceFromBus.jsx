@@ -37,12 +37,26 @@ export function preScreenFromBus(targetA, sectionData = {}, towerHeightFt = 0) {
     notes.push(`Wetlands present on/adjacent to parcel${sectionData.wetlands.type ? ` (${sectionData.wetlands.type})` : " (NWI)"}.`);
   }
 
+  // 3. Listed species habitat — from the quiet USFWS critical-habitat lookup (bus).
+  if (sectionData?.species?.present === true && (sectionData.species.count || 0) > 0) {
+    flags.listedSpeciesHabitat = true;
+    notes.push(`Listed species: ${sectionData.species.count} USFWS critical-habitat designation${sectionData.species.count !== 1 ? "s" : ""} within 0.5 mi${sectionData.species.names?.[0] ? ` (e.g. ${sectionData.species.names[0]})` : ""}.`);
+  }
+
   // 4. Historic sites — from the quiet NPS National Register lookup (bus). Counts
   //    listed historic properties within 0.5 mi of the target (47 CFR 1.1307 historic trigger).
   if (sectionData?.historic?.present === true && (sectionData.historic.count || 0) > 0) {
     flags.historicDistrict = true;
     const c = sectionData.historic.count;
     notes.push(`Historic: ${c} National Register site${c !== 1 ? "s" : ""} within 0.5 mi${sectionData.historic.site_names?.[0] ? ` (e.g. ${sectionData.historic.site_names[0]})` : ""}.`);
+  }
+
+  // 7. Hazardous waste — from the quiet EPA Cleanups-in-my-Community lookup (bus).
+  if (sectionData?.hazwaste?.present === true && (sectionData.hazwaste.count || 0) > 0) {
+    flags.hazardousWasteSite = true;
+    const c = sectionData.hazwaste.count;
+    const npl = sectionData.hazwaste.npl_count || 0;
+    notes.push(`Hazardous waste: ${c} EPA cleanup site${c !== 1 ? "s" : ""}${npl > 0 ? ` (${npl} Superfund/NPL)` : ""} within 0.5 mi${sectionData.hazwaste.site_names?.[0] ? ` (e.g. ${sectionData.hazwaste.site_names[0]})` : ""}.`);
   }
 
   // 6. Residential zoning — from Zoneomics district (bus) or Target A classification.

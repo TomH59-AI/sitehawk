@@ -15,6 +15,8 @@ import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { historicSitesLookup } from "@/functions/historicSitesLookup";
+import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
+import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
 import { round4 } from "@/lib/coords";
 
@@ -161,6 +163,42 @@ export default function SiteSearch() {
         if (cancelled) return;
         const d = res?.data || {};
         mergeSectionData({ historic: { present: !!d.historic_present, count: d.historic_count || 0, site_names: d.site_names || [] } });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [targetA?.latitude, targetA?.longitude]);
+
+  // ── LISTED SPECIES HABITAT (compliance) ──────────────────────────────────
+  // Quiet USFWS critical-habitat lookup fired once when Target A resolves. Emits
+  // a present/count value into the bus so the compliance pre-screen can auto-flag
+  // the 47 CFR 1.1307 listed-species trigger. Score/compliance only.
+  useEffect(() => {
+    const lat = targetA?.latitude, lon = targetA?.longitude;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    let cancelled = false;
+    usfwsSpeciesLookup({ lat, lon })
+      .then((res) => {
+        if (cancelled) return;
+        const d = res?.data || {};
+        mergeSectionData({ species: { present: !!d.species_present, count: d.species_count || 0, names: d.species_names || [] } });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [targetA?.latitude, targetA?.longitude]);
+
+  // ── HAZARDOUS WASTE / SUPERFUND (compliance) ─────────────────────────────
+  // Quiet EPA "Cleanups in my Community" lookup fired once when Target A resolves.
+  // Emits a present/count value into the bus so the compliance pre-screen can
+  // auto-flag the 47 CFR 1.1307 hazardous-waste trigger. Score/compliance only.
+  useEffect(() => {
+    const lat = targetA?.latitude, lon = targetA?.longitude;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    let cancelled = false;
+    epaHazWasteLookup({ lat, lon })
+      .then((res) => {
+        if (cancelled) return;
+        const d = res?.data || {};
+        mergeSectionData({ hazwaste: { present: !!d.hazwaste_present, count: d.hazwaste_count || 0, npl_count: d.npl_count || 0, site_names: d.site_names || [] } });
       })
       .catch(() => {});
     return () => { cancelled = true; };

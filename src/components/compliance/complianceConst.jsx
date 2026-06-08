@@ -15,11 +15,11 @@ export const COMPLIANCE_PRICE_ID = "price_1TdJlxIE4fOP88RJBeqKRVgw";
 export const TRIGGERS = [
   { key: "floodplain", label: "Floodplain", source: "FEMA (Section 4)" },
   { key: "wetlands", label: "Wetlands", source: "NWI (Section 4)" },
-  { key: "listedSpeciesHabitat", label: "Listed Species Habitat", source: "USFWS (data source pending)" },
-  { key: "historicDistrict", label: "Historic District", source: "NPS (data source pending)" },
+  { key: "listedSpeciesHabitat", label: "Listed Species Habitat", source: "USFWS Critical Habitat" },
+  { key: "historicDistrict", label: "Historic District", source: "NPS National Register" },
   { key: "indianReligiousSite", label: "Indian Religious Site", source: "Manual entry" },
   { key: "residentialArea", label: "Residential Area", source: "Zoning (Section 2)" },
-  { key: "hazardousWasteSite", label: "Hazardous Waste Site", source: "EPA (data source pending)" },
+  { key: "hazardousWasteSite", label: "Hazardous Waste Site", source: "EPA Cleanups" },
   { key: "lightingMigratoryBirdImpact", label: "Lighting / Migratory Bird Impact", source: "Tower height (Section 1)" },
 ];
 
