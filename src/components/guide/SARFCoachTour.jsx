@@ -28,22 +28,40 @@ const LS_SEARCH_DONE = "sarf_coach_search_done_v1"; // marks /search portion fin
 // Step definitions — split by route. `anchor` is a data-coach attribute on the target.
 const SEARCH_STEPS = [
   {
-    id: "fields",
-    anchor: "sarf-fields",
-    title: "1 · Site parameters",
-    body: "Enter the coordinates, tower height, compound size, and search radius from your RF engineer.",
+    id: "name",
+    anchor: "sarf-name",
+    title: "1 · Add your name",
+    body: "Start here — drop your name so this SARF is tagged to you, the hawk on the hunt.",
+  },
+  {
+    id: "ring",
+    anchor: "sarf-ring",
+    title: "2 · Name your search ring",
+    body: "Give this ring a name you'll recognize later — like \"Site A — Tampa I-75\".",
+  },
+  {
+    id: "radius",
+    anchor: "sarf-radius",
+    title: "3 · Set your search radius",
+    body: "Pick how wide the hawk's eye sweeps — your search radius around the SARF center.",
+  },
+  {
+    id: "compound",
+    anchor: "sarf-compound",
+    title: "4 · Add the compound dimensions",
+    body: "Enter your compound size (e.g. 100x100) so we size the buildable footprint right.",
+  },
+  {
+    id: "coords",
+    anchor: "sarf-coords",
+    title: "5 · Drop your coordinates",
+    body: "Add the latitude and longitude — this is the exact center the hawk locks onto.",
   },
   {
     id: "scan",
     anchor: "sarf-scan",
-    title: "2 · Scan the area",
-    body: "Click Scan to generate the SARF map and identify buildable parcels in your radius.",
-  },
-  {
-    id: "map",
-    anchor: "sarf-map",
-    title: "3 · Review the SARF",
-    body: "Inspect your search area and radius ring. After scanning, we'll auto-pick your best target and take you to SCIP.",
+    title: "6 · Start your scan",
+    body: "Everything's loaded — hit Scan and let SiteHawk hunt your buildable parcels.",
   },
 ];
 

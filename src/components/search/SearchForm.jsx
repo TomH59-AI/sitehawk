@@ -58,7 +58,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Agent + Ring Name row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+          <div data-coach="sarf-name">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Your Name</label>
             <Input
               type="text"
@@ -68,7 +68,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               className="bg-secondary border-border"
             />
           </div>
-          <div>
+          <div data-coach="sarf-ring">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Ring Name <span className="text-destructive">*</span></label>
             <Input
               type="text"
@@ -98,7 +98,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
 
         {/* Radius + Compound row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+          <div data-coach="sarf-radius">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Search Radius</label>
             <div className="inline-flex rounded-lg overflow-hidden border border-border w-full">
               {RADIUS_OPTIONS.map((opt) => (
@@ -117,7 +117,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               ))}
             </div>
           </div>
-          <div>
+          <div data-coach="sarf-compound">
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Compound Dimensions</label>
             <Input
               type="text"
@@ -154,7 +154,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
         </div>
 
         {/* Coordinates row */}
-        <div data-coach="sarf-fields" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div data-coach="sarf-coords" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Latitude</label>
             <Input
