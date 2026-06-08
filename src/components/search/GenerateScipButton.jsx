@@ -8,6 +8,7 @@ import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import { zoneResolve } from "@/functions/zoneResolve";
 import { pointElevation } from "@/functions/pointElevation";
 import { publicSafetyLookup } from "@/functions/publicSafetyLookup";
+import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
 import {
   buildSarfMap, buildAerial, buildTopo, buildFema, buildZoning,
@@ -109,18 +110,24 @@ export default function GenerateScipButton({
       // FLUM is optional — only some jurisdictions have a Future Land Use layer.
       // Ground elevation (USGS 3DEP) + nearest police/fire (OSM) fill the
       // Project Information + Existing Conditions template fields.
-      const [airportRes, towerRes, flumRes, fluResolveRes, elevRes, safetyRes] = await Promise.all([
+      const [airportRes, towerRes, flumRes, fluResolveRes, elevRes, safetyRes, powerRes] = await Promise.all([
         nearestAirportFromDirectory({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         cellTowerLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         zoneomicsFlumDetails({ lat: targetA.latitude, lng: targetA.longitude }).catch(() => null),
         zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         pointElevation({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         publicSafetyLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        electricUtilityLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
       ]);
       const airport = airportRes?.data?.match || null;
       const groundElevationFt = elevRes?.data?.elevation_ft ?? null;
       const police = safetyRes?.data?.police || null;
       const fire = safetyRes?.data?.fire || null;
+      // HIFLD electric retail service territory → power provider name + phone.
+      const powerUtil = powerRes?.data || null;
+      const powerProvider = powerUtil?.utility_name
+        ? `${powerUtil.utility_name}${powerUtil.telephone ? ` — ${powerUtil.telephone}` : ""}`
+        : (bus.power?.name ? `${bus.power.name}${bus.power.phone ? ` — ${bus.power.phone}` : ""}` : "");
       // Resolve a FLUM label + polygon (Zoneomics first, FL GeoPlan fallback).
       const zflum = flumRes?.data?.flum || null;
       const flu = fluResolveRes?.data?.flu || null;
@@ -193,13 +200,14 @@ export default function GenerateScipButton({
           hazardous_waste: bus.hazwaste?.present
             ? `${bus.hazwaste.count} EPA cleanup site${bus.hazwaste.count !== 1 ? "s" : ""}${bus.hazwaste.npl_count ? ` (${bus.hazwaste.npl_count} Superfund/NPL)` : ""} within 0.5 mi`
             : (bus.hazwaste ? "None within 0.5 mi" : ""),
-          power_provider: bus.power?.name,
+          power_provider: powerProvider,
+          access_notes: bus.access_notes || targetA.access_notes || (targetA.boundaries ? `Parcel frontage/boundaries: ${targetA.boundaries}` : ""),
           fiber: bus.fiber?.count != null ? (bus.fiber.count > 0 ? "Yes" : "No") : "",
           telco_provider: bus.carriers?.telco?.name,
           airport: airport ? `${airport.name || airport.callnumber} — ${Number(airport.distance_miles).toFixed(2)} mi` : (bus.airport ? `${bus.airport.name} — ${Number(bus.airport.distance_miles).toFixed(2)} mi` : ""),
           cell_tower: bus.tower ? `${bus.tower.owner || "Cell site"} — ${Number(bus.tower.distance_miles).toFixed(2)} mi` : (towerForMap ? `${Number(towerForMap.distance_miles).toFixed(2)} mi` : ""),
           wind: bus.wind?.wind_speed_mph ? `${bus.wind.wind_speed_mph} mph${bus.wind.risk_level ? ` · ${bus.wind.risk_level}` : ""}` : "",
-          water_management_district: bus.wetlands?.water_district || "",
+          water_management_district: bus.wetlands?.water_district || targetA.water_management_district || "",
           local_police: police ? `${police.name}${police.phone ? ` — ${police.phone}` : ""} (${Number(police.distance_miles).toFixed(1)} mi)` : "",
           local_fire: fire ? `${fire.name}${fire.phone ? ` — ${fire.phone}` : ""} (${Number(fire.distance_miles).toFixed(1)} mi)` : "",
         },
