@@ -114,18 +114,19 @@ export default function Landing() {
         <div className="relative max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 text-xs font-semibold tracking-wide mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            🎁 New — Every user gets 1 FREE scan. No credit card required.
+            🎁 Run your first Search Ring FREE — no credit card required.
           </div>
 
           <h1 className="font-heading font-bold text-5xl md:text-7xl leading-tight text-white mb-6">
-            Find Your Next<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Tower Site</span><br />
+            From a Pin to a<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Carrier-Ready SCIP</span><br />
             in Minutes.
           </h1>
 
           <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
-            SiteHawk is the AI-powered site acquisition platform built for wireless infrastructure professionals.
-            Drop a pin. Get ranked parcels, zoning ordinances, airport proximity, cell tower density, and owner contact — instantly.
+            SiteHawk is the AI site acquisition platform for wireless infrastructure professionals.
+            Drop a pin and get ranked parcels, zoning ordinances, owner contact, RF & airport intelligence —
+            assembled into a full Site Candidate Information Package. Weeks of work, done in minutes.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
