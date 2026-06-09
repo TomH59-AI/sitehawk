@@ -57,6 +57,8 @@ import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
 import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
+import { scipViewshed } from "@/functions/scipViewshed";
+import ViewshedTiles from "./section4/ViewshedTiles";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoningGrid, renderFlumPolygon, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
@@ -67,7 +69,7 @@ import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "power", "compliance"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "power", "viewshed", "compliance"];
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, towerHeightFt = 0, sectionData = {}, onRun, onComplete, onData, onClear,
@@ -83,6 +85,8 @@ export default function Section4MapSuite({
   const [windInfo, setWindInfo] = useState(null);
   const [fiberInfo, setFiberInfo] = useState(null);
   const [powerInfo, setPowerInfo] = useState(null);
+  // 2D directional viewshed result ({ aerial_ring_url, tower_height_ft, directions }).
+  const [viewshedInfo, setViewshedInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -99,7 +103,7 @@ export default function Section4MapSuite({
 
   const refs = {
     aerial: useRef(null), topo: useRef(null), fema: useRef(null),
-    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null), wind: useRef(null), fiber: useRef(null), power: useRef(null),
+    zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null), wind: useRef(null), fiber: useRef(null), power: useRef(null), viewshed: useRef(null),
   };
   const maps = useRef({});
 
@@ -316,6 +320,20 @@ export default function Section4MapSuite({
         setPowerInfo({ ...power, serving });
         onData?.({ power_grid: { nearest_substation_mi: power?.closestSubstation?.distanceMiles ?? null, substation_voltage_kv: power?.closestSubstation?.voltage ?? null, transmission_lines: power?.transmissionLines ?? 0, serving_utility: serving?.utility_name ?? null } });
         map = await renderPower(refs.power.current, targetA, power, token);
+      } else if (step === "viewshed") {
+        // 2D directional viewshed — N/S/E/W tree-line maps + USGS line-of-sight
+        // profiles for Target A. Static images (no Mapbox instance to dispose).
+        const vres = await scipViewshed({
+          lat: targetA.latitude,
+          lon: targetA.longitude,
+          ring_miles: radiusMiles,
+          tower_height_ft: Number(towerHeightFt) > 0 ? Number(towerHeightFt) : 199,
+        });
+        const viewshed = vres?.data?.viewshed;
+        if (!viewshed) throw new Error("No viewshed returned for Target A.");
+        setViewshedInfo(viewshed);
+        onData?.({ viewshed });
+        map = null;
       }
 
       maps.current[step] = map;
@@ -475,6 +493,12 @@ export default function Section4MapSuite({
         <div className="opacity-80 text-xs">{powerInfo.transmissionLines} transmission line{powerInfo.transmissionLines !== 1 ? "s" : ""} in vicinity · orange = corridors, yellow = substations</div>
       </div>
     ) : null,
+    viewshed: viewshedInfo ? (
+      <div className="px-4 py-2 bg-indigo-50 dark:bg-indigo-950/20 border-y border-indigo-300/50 text-sm font-semibold text-indigo-800 dark:text-indigo-200">
+        2D viewshed at Target A · {viewshedInfo.tower_height_ft} ft tower —{" "}
+        {(viewshedInfo.directions || []).filter((d) => d.clear).length}/4 directions clear line-of-sight
+      </div>
+    ) : null,
   };
 
   return (
@@ -497,7 +521,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate twelve Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics, Power Grid — then the Section 106 / NEPA compliance report.
+          Generate thirteen Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics, Power Grid, 2D Viewshed — then the Section 106 / NEPA compliance report.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -597,6 +621,14 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("power")}
           loading={loadingStep === "power"} done={!!completed.power}
           onRun={() => runStep("power")} mapRef={refs.power} banner={banners.power}
+        />
+        <MapSubStep
+          index={13} title="2D Viewshed Map" runLabel="Run 2D Viewshed Map"
+          spinnerLabel="Generating Target A N/S/E/W viewshed maps & line-of-sight profiles…"
+          unlocked={active && isUnlocked("viewshed")}
+          loading={loadingStep === "viewshed"} done={!!completed.viewshed}
+          onRun={() => runStep("viewshed")} mapRef={refs.viewshed} banner={banners.viewshed}
+          fillContent={<ViewshedTiles viewshed={viewshedInfo} />}
         />
         <ComplianceStep
           unlocked={active && isUnlocked("compliance")}

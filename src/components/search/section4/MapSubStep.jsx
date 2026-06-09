@@ -18,7 +18,7 @@ const BRAND_GREEN = "#628C83";
 
 export default function MapSubStep({
   index, title, runLabel, spinnerLabel, banner,
-  unlocked, loading, done, onRun, mapRef, children, error,
+  unlocked, loading, done, onRun, mapRef, children, error, fillContent,
 }) {
   const localRef = useRef(null);
   const ref = mapRef || localRef;
@@ -93,6 +93,9 @@ export default function MapSubStep({
         {done && !loading && banner}
         <div className="relative w-full bg-card" style={{ minHeight: 500, height: 560, width: "100%" }}>
           <div ref={ref} className="absolute inset-0" style={{ width: "100%", height: "100%" }} />
+          {/* Static-image sub-steps (e.g. 2D Viewshed) render their tiles here,
+              filling the same canvas area instead of a live Mapbox instance. */}
+          {done && !loading && fillContent}
           {/* Legend / overlay menu — absolutely positioned in the top-left on
               desktop/tablet (below map controls), hidden here on mobile. */}
           {done && !loading && children && (
