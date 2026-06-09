@@ -10,6 +10,7 @@ import SCIPSection from "../components/scip/SCIPSection";
 import SCIPCoverPage from "../components/scip/SCIPCoverPage";
 import SCIPPhotographsGrid from "../components/scip/SCIPPhotographsGrid";
 import PrintSCIPButton from "../components/scip/PrintSCIPButton";
+import ShareToLinkedInButton from "../components/scip/ShareToLinkedInButton";
 import { buildScipData, SCIP_SECTION_ORDER } from "@/lib/scipFields";
 
 export default function SCIPShareView() {
@@ -54,7 +55,10 @@ export default function SCIPShareView() {
           <div className="text-[10px] text-cyan-500 tracking-[0.25em] font-bold font-mono">SHARED · READ-ONLY</div>
           <h1 className="font-heading font-bold text-2xl text-foreground">Site Candidate Information Package</h1>
         </div>
-        <PrintSCIPButton />
+        <div className="flex items-center gap-2">
+          <ShareToLinkedInButton />
+          <PrintSCIPButton />
+        </div>
       </div>
 
       <SCIPCoverPage candidate={candidate} searchCenter={searchCenter} agent={agent || {}} />
