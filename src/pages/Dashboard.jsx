@@ -10,6 +10,7 @@ import OnboardingChecklist from "../components/onboarding/OnboardingChecklist";
 import HowToUseInstructions from "../components/dashboard/HowToUseInstructions";
 import WorkflowIndex from "../components/dashboard/WorkflowIndex";
 import TargetASummaryTable from "../components/dashboard/TargetASummaryTable";
+import ReferralBanner from "../components/referral/ReferralBanner";
 import { getEffectiveTier } from "@/lib/testAccess";
 import { deriveWorkflowSteps } from "@/lib/workflowProgress";
 
@@ -142,6 +143,9 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* Refer & earn — give 5 / get 5 growth loop */}
+      <ReferralBanner />
 
       {/* SiteHawk index — the full 11-step workflow, gated by SCIP progress */}
       <WorkflowIndex status={workflowStatus} />
