@@ -121,8 +121,18 @@ function pushPhone(out, raw, source, type, lastReported) {
   out.push({ phone: e164, source, type: type || null, lastReported: lastReported || null });
 }
 
+const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+function isValidEmail(e) {
+  return typeof e === "string" && EMAIL_RX.test(e.trim());
+}
+// A "found email" record: { email (lowercased), source }
+function pushEmail(out, raw, source) {
+  if (!isValidEmail(raw)) return;
+  out.push({ email: String(raw).trim().toLowerCase(), source });
+}
+
 // ── SOURCE 1: Enformion ─────────────────────────────────────────────────────
-async function srcEnformion({ firstName, lastName, street, city, state, zip }, diag) {
+async function srcEnformion({ firstName, lastName, street, city, state, zip }, diag, emailsOut = []) {
   const apName = Deno.env.get("ENFORMION_AP_NAME");
   const apPwd = Deno.env.get("ENFORMION_AP_PASSWORD");
   const out = [];
@@ -147,12 +157,16 @@ async function srcEnformion({ firstName, lastName, street, city, state, zip }, d
   for (const p of phones) {
     pushPhone(out, p.phoneNumber || p.PhoneNumber || p.number, "Enformion", p.phoneType || p.PhoneType, p.lastReportedDate);
   }
+  const emails = d.emails || d.Emails || [];
+  for (const e of emails) {
+    pushEmail(emailsOut, typeof e === "string" ? e : (e.email || e.Email || e.emailAddress || e.EmailAddress), "Enformion");
+  }
   diag("Enformion", "ok", out.length);
   return out;
 }
 
 // ── SOURCE 2: one-api (Spokeo / Truthfinder / TruePeopleSearch / etc.) ───────
-async function srcOneApi({ ownerName, street, city, state, zip }, token, diag) {
+async function srcOneApi({ ownerName, street, city, state, zip }, token, diag, emailsOut = []) {
   const out = [];
   if (!token) { diag("Spokeo/one-api", "missing_apify_token", 0); return out; }
   const csz = [city, state, zip].filter(Boolean).join(", ");
@@ -176,12 +190,14 @@ async function srcOneApi({ ownerName, street, city, state, zip }, token, diag) {
     // "Phone-N Last Reported" = most-recent-use date (recency ranking).
     pushPhone(out, rec[`Phone-${i}`], "Spokeo", rec[`Phone-${i} Type`], rec[`Phone-${i} Last Reported`]);
   }
+  // "Email-N" columns carry the owner's reported email addresses.
+  for (let i = 1; i <= 5; i++) pushEmail(emailsOut, rec[`Email-${i}`] || rec[`Email ${i}`], "Spokeo");
   diag("Spokeo/one-api", "ok", out.length);
   return out;
 }
 
 // ── SOURCE 3: brilliant_gum (ThatsThem / Radaris / Spokeo) ───────────────────
-async function srcBrilliantGum({ firstName, lastName, street, city, state, zip }, token, diag) {
+async function srcBrilliantGum({ firstName, lastName, street, city, state, zip }, token, diag, emailsOut = []) {
   const out = [];
   if (!token) { diag("WhitePages/brilliant_gum", "missing_apify_token", 0); return out; }
   const input = {
@@ -205,6 +221,10 @@ async function srcBrilliantGum({ firstName, lastName, street, city, state, zip }
   for (const p of phones) {
     const num = p?.number || p?.phone || (typeof p === "string" ? p : null);
     pushPhone(out, num, "WhitePages", p?.type || p?.lineType, p?.lastReported || p?.date);
+  }
+  const emails = rec.emails || rec.emailAddresses || [];
+  for (const e of emails) {
+    pushEmail(emailsOut, typeof e === "string" ? e : (e?.email || e?.address || e?.value), "WhitePages");
   }
   diag("WhitePages/brilliant_gum", "ok", out.length);
   return out;
@@ -230,6 +250,21 @@ function aggregate(found) {
     (b.mobile === a.mobile ? 0 : b.mobile ? 1 : -1) ||
     String(b.lastReported || "").localeCompare(String(a.lastReported || ""))
   );
+  return list;
+}
+
+// Aggregate emails: dedupe by address, count distinct sources, rank by source count.
+function aggregateEmails(found) {
+  const byAddr = new Map();
+  for (const f of found) {
+    const cur = byAddr.get(f.email) || { email: f.email, sources: new Set() };
+    cur.sources.add(f.source);
+    byAddr.set(f.email, cur);
+  }
+  const list = [...byAddr.values()].map((x) => ({
+    email: x.email, sources: [...x.sources], source_count: x.sources.size,
+  }));
+  list.sort((a, b) => b.source_count - a.source_count || a.email.localeCompare(b.email));
   return list;
 }
 
@@ -259,12 +294,16 @@ Deno.serve(async (req) => {
       diag("entity_gate", "entity_owner_skipped", 0);
       return Response.json({
         is_entity_owner: true, phone: null, display: "", source: null, source_count: 0,
-        phones: [], _meta: { owner_name, target_label, duration_ms: Date.now() - t0 },
+        phones: [], email: null, email_source: null, emails: [],
+        _meta: { owner_name, target_label, duration_ms: Date.now() - t0 },
       });
     }
 
+    // Shared sink — every source also drops any emails it returns here.
+    const emailsFound = [];
+
     // ── SOURCE 1: Enformion (synchronous, cheapest) ──
-    const enformionPhones = await srcEnformion({ firstName, lastName, street, city, state, zip }, diag);
+    const enformionPhones = await srcEnformion({ firstName, lastName, street, city, state, zip }, diag, emailsFound);
 
     // ── SOURCES 2 & 3: Apify actors IN PARALLEL (only if token present) ──
     let apifyResults = [[], []];
@@ -275,16 +314,19 @@ Deno.serve(async (req) => {
         new Promise((resolve) => setTimeout(() => resolve([]), remaining)),
       ]);
       apifyResults = await Promise.all([
-        guard(srcOneApi({ ownerName: owner_name, street, city, state, zip }, apifyToken, diag)).catch((e) => { diag("Spokeo/one-api", e.message, 0); return []; }),
-        guard(srcBrilliantGum({ firstName, lastName, street, city, state, zip }, apifyToken, diag)).catch((e) => { diag("WhitePages/brilliant_gum", e.message, 0); return []; }),
+        guard(srcOneApi({ ownerName: owner_name, street, city, state, zip }, apifyToken, diag, emailsFound)).catch((e) => { diag("Spokeo/one-api", e.message, 0); return []; }),
+        guard(srcBrilliantGum({ firstName, lastName, street, city, state, zip }, apifyToken, diag, emailsFound)).catch((e) => { diag("WhitePages/brilliant_gum", e.message, 0); return []; }),
       ]);
     }
 
     const found = [...enformionPhones, ...apifyResults[0], ...apifyResults[1]];
     const phones = aggregate(found);
     const top = phones[0] || null;
+    const emails = aggregateEmails(emailsFound);
+    const topEmail = emails[0] || null;
 
     diag("AGGREGATE", top ? "hit" : "no_match", phones.length);
+    diag("AGGREGATE_EMAIL", topEmail ? "hit" : "no_email", emails.length);
 
     return Response.json({
       is_entity_owner: false,
@@ -293,6 +335,9 @@ Deno.serve(async (req) => {
       source: top ? (top.source_count > 1 ? `Aggregated: ${top.source_count} sources` : top.sources[0]) : null,
       source_count: top?.source_count || 0,
       phones,
+      email: topEmail?.email || null,
+      email_source: topEmail ? (topEmail.source_count > 1 ? `Aggregated: ${topEmail.source_count} sources` : topEmail.sources[0]) : null,
+      emails,
       _meta: {
         owner_name, target_label,
         apify_enabled: !!apifyToken,

@@ -8,7 +8,7 @@
  * grid uses, so the user can still hand-edit / type a different one.
  */
 import { useState } from "react";
-import { Phone, RefreshCw, ChevronDown } from "lucide-react";
+import { Phone, RefreshCw, ChevronDown, Mail, Copy } from "lucide-react";
 
 const BADGE_COLORS = {
   Enformion: "#0e7490",
@@ -53,6 +53,8 @@ export default function PhoneCascadeCell({ result, loading, value, onChange, onP
 
   const phones = result?.phones || [];
   const source = result?.source;
+  const emails = result?.emails || [];
+  const topEmail = result?.email;
 
   return (
     <div className="relative">
@@ -72,6 +74,27 @@ export default function PhoneCascadeCell({ result, loading, value, onChange, onP
             <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground">
               {phones.length} found <ChevronDown className="w-3 h-3" />
             </button>
+          )}
+        </div>
+      )}
+
+      {topEmail && (
+        <div className="px-4 pb-2 -mt-1 flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white px-1.5 py-0.5 rounded" style={{ background: "#0e7490" }}>
+            <Mail className="w-2.5 h-2.5" /> Email
+          </span>
+          <a href={`mailto:${topEmail}`} className="text-[11px] font-medium text-foreground hover:underline truncate max-w-[150px]" title={topEmail}>
+            {topEmail}
+          </a>
+          <button
+            onClick={() => navigator.clipboard?.writeText(topEmail)}
+            title="Copy email"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <Copy className="w-3 h-3" />
+          </button>
+          {emails.length > 1 && (
+            <span className="text-[10px] text-muted-foreground">+{emails.length - 1} more</span>
           )}
         </div>
       )}
