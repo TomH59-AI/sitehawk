@@ -43,6 +43,10 @@ export default function SiteSearch() {
   const [zoningResult, setZoningResult] = useState(null);
   // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
   const [targetA, setTargetA] = useState(null);
+  // SEQUENTIAL SCIP LADDER — which target labels have a generated SCIP
+  // ("Target A"/"Target B"/"Target C"). Persisted per search ring so a refresh
+  // never resets the ladder. Locking one target unlocks the next in Section 3.
+  const [generatedLabels, setGeneratedLabels] = useState([]);
   // True once all ten Section 4 maps are complete (Wind is now map #10) — unlocks Section 7.
   const [mapsComplete, setMapsComplete] = useState(false);
   // ── PER-SECTION CLEAR / REMOUNT ───────────────────────────────────────────
@@ -68,6 +72,38 @@ export default function SiteSearch() {
   // NWI source as §4 map), power=HIFLD electricUtilityLookup (not §7's contact).
   const [sectionData, setSectionData] = useState({});
   const mergeSectionData = (d) => setSectionData((prev) => ({ ...prev, ...d }));
+
+  // ── SCIP LADDER PERSISTENCE ───────────────────────────────────────────────
+  // Stable key for the current search ring; the generated-SCIP ladder is stored
+  // under it in localStorage so the locked A/B/C state survives a page refresh.
+  const LADDER_STORE = "sitehawk:scip-ladder";
+  const ringKey = searchCenter
+    ? `${searchCenter.lat},${searchCenter.lon},${searchParams.radius_miles},${(searchParams.ring_name || searchParams.agent_name || "").trim()}`
+    : null;
+
+  // Load the persisted ladder whenever the ring key changes (incl. on refresh).
+  useEffect(() => {
+    if (!ringKey) { setGeneratedLabels([]); return; }
+    try {
+      const all = JSON.parse(localStorage.getItem(LADDER_STORE) || "{}");
+      setGeneratedLabels(Array.isArray(all[ringKey]) ? all[ringKey] : []);
+    } catch { setGeneratedLabels([]); }
+  }, [ringKey]);
+
+  // Mark a target label as having a generated SCIP — locks it & unlocks the next.
+  const handleScipGenerated = (label) => {
+    if (!label || !ringKey) return;
+    setGeneratedLabels((prev) => {
+      if (prev.includes(label)) return prev;
+      const next = [...prev, label];
+      try {
+        const all = JSON.parse(localStorage.getItem(LADDER_STORE) || "{}");
+        all[ringKey] = next;
+        localStorage.setItem(LADDER_STORE, JSON.stringify(all));
+      } catch { /* ignore storage errors */ }
+      return next;
+    });
+  };
 
   // Ordered pipeline steps (sarf is Section 1, always present). Section 8
   // (propagation) is standalone — it gates nothing, so clearing it only remounts
@@ -107,6 +143,7 @@ export default function SiteSearch() {
     setMapsComplete(false);
     setSectionData({});
     setSearchCenter(null);
+    setGeneratedLabels([]);
     setPipelineStep("sarf");
     bumpKeys(["sarf", "zoning", "targets", "maps", "propagation"]);
   };
@@ -304,6 +341,7 @@ export default function SiteSearch() {
               targetA={targetA}
               zoningResult={zoningResult}
               sectionData={sectionData}
+              onGenerated={handleScipGenerated}
             />
           )}
           {coordsReady && (
@@ -399,6 +437,7 @@ export default function SiteSearch() {
           compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
           ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
           zoningResult={zoningResult}
+          generatedLabels={generatedLabels}
           onRun={() => setPipelineStep("targets")}
           onTargetAReady={(t) => setTargetA(t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : t)}
           onData={mergeSectionData}
@@ -410,7 +449,7 @@ export default function SiteSearch() {
           button. Maps render for Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section4MapSuite
-          key={`maps-${clearKeys.maps}`}
+          key={`maps-${clearKeys.maps}-${targetA?.apn || targetA?.label || `${targetA?.latitude},${targetA?.longitude}`}`}
           unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           active={pipelineStep === "maps"}
           onClear={() => clearFrom("maps")}
@@ -455,6 +494,7 @@ export default function SiteSearch() {
             targetA={targetA}
             zoningResult={zoningResult}
             sectionData={sectionData}
+            onGenerated={handleScipGenerated}
           />
         </div>
       )}

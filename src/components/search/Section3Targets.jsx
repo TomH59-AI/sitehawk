@@ -83,6 +83,7 @@ function targetToColumn(t) {
 export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
   towerHeightFt = 199, compoundSideFt = 100, ringName = "Search Ring", zoningResult, onRun, onTargetAReady, onData, onClear,
+  generatedLabels = [],
 }) {
   const [grid, setGrid] = useState(emptyGrid);
   const [loading, setLoading] = useState(false);
@@ -142,12 +143,40 @@ export default function Section3Targets({
   // Keep the ref pointed at the latest emitLead for applyCascade to use.
   useEffect(() => { emitLeadRef.current = emitLead; }, [emitLead]);
 
-  // User picks a different lead target — switch the selection and re-emit.
-  const selectLead = (colIdx) => {
-    if (!targets[colIdx]) return;
+  // Keep the active lead column aligned with the ladder once targets are loaded.
+  // The current working target is the next un-generated column (nextCol); if all
+  // three are locked, stay on the last one. Re-emits so the pipeline + Section 4
+  // point at the correct parcel after a refresh.
+  useEffect(() => {
+    if (!targets.some(Boolean)) return;
+    const col = nextCol === -1 ? COLS.length - 1 : nextCol;
+    if (col !== selectedCol && targets[col]) {
+      setSelectedCol(col);
+      setTimeout(() => emitLeadRef.current?.(col), 0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targets, generatedLabels]);
+
+  // ── SEQUENTIAL LADDER (A → B → C) ──────────────────────────────────────────
+  // A target is LOCKED once its SCIP is generated (label present in
+  // generatedLabels). The next target unlocks only when the prior one is locked.
+  const isLocked = (colIdx) => generatedLabels.includes(COLS[colIdx]);
+  // The single column the user may advance to next: the first not-yet-generated
+  // column whose predecessor IS generated (or column 0 when nothing is done).
+  const nextCol = (() => {
+    for (let i = 0; i < COLS.length; i++) {
+      if (!isLocked(i)) return i === 0 || isLocked(i - 1) ? i : -1;
+    }
+    return -1; // all three locked
+  })();
+
+  // Advance the lead to the next target in sequence and re-emit it. Only ever
+  // called for `nextCol`, so the ladder can never be skipped.
+  const advanceTo = (colIdx) => {
+    if (!targets[colIdx] || colIdx !== nextCol) return;
     setSelectedCol(colIdx);
     emitLead(colIdx);
-    toast.success(`${COLS[colIdx]} is now the lead site for the pipeline.`);
+    toast.success(`Advanced to ${COLS[colIdx]} — Section 4 reset fresh for this target.`);
   };
 
   const setCell = (rowKey, colIdx, val) => {
@@ -385,26 +414,36 @@ export default function Section3Targets({
                   {COLS.map((c, colIdx) => {
                     const isLead = selectedCol === colIdx;
                     const hasTarget = !!targets[colIdx];
+                    const locked = isLocked(colIdx);
+                    const canAdvance = hasTarget && colIdx === nextCol && !isLead;
                     return (
                       <th
                         key={c}
                         className="text-left px-4 py-2.5 font-bold text-white border border-white/20 uppercase tracking-wide"
-                        style={{ background: isLead ? "#2f6b5b" : HEADER_GREEN, minWidth: 220 }}
+                        style={{ background: locked ? "#1f4d40" : isLead ? "#2f6b5b" : HEADER_GREEN, minWidth: 220 }}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span>{c}</span>
                           {hasTarget && (
-                            isLead ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold normal-case bg-white/20 px-2 py-0.5 rounded-full">
-                                <CheckCircle2 className="w-3 h-3" /> Lead Site
+                            locked ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold normal-case bg-emerald-400/30 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-3 h-3" /> SCIP Generated ✓
                               </span>
-                            ) : (
+                            ) : isLead ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold normal-case bg-white/20 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="w-3 h-3" /> Active Target
+                              </span>
+                            ) : canAdvance ? (
                               <button
-                                onClick={() => selectLead(colIdx)}
-                                className="text-[10px] font-semibold normal-case bg-white/15 hover:bg-white/30 px-2 py-0.5 rounded-full transition-colors"
+                                onClick={() => advanceTo(colIdx)}
+                                className="text-[10px] font-semibold normal-case bg-white/20 hover:bg-white/40 px-2 py-0.5 rounded-full transition-colors"
                               >
-                                Use as lead site
+                                Advance to {c}
                               </button>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold normal-case bg-black/20 px-2 py-0.5 rounded-full opacity-70">
+                                <Lock className="w-3 h-3" /> Locked
+                              </span>
                             )
                           )}
                         </div>
@@ -419,8 +458,10 @@ export default function Section3Targets({
                     <td className="px-4 py-2 font-bold text-left text-foreground border border-border align-top">
                       {label}
                     </td>
-                    {[0, 1, 2].map((colIdx) => (
-                      <td key={colIdx} className="border border-border p-0 align-top">
+                    {[0, 1, 2].map((colIdx) => {
+                      const locked = isLocked(colIdx);
+                      return (
+                      <td key={colIdx} className={`border border-border p-0 align-top ${locked ? "opacity-50 pointer-events-none bg-muted/30" : ""}`}>
                         {key === "phone" ? (
                           <PhoneCascadeCell
                             result={phoneResults[colIdx]}
@@ -435,12 +476,14 @@ export default function Section3Targets({
                             rows={1}
                             value={grid[key][colIdx]}
                             onChange={(e) => setCell(key, colIdx, e.target.value)}
+                            disabled={locked}
                             placeholder="—"
                             className="w-full px-4 py-2 text-sm bg-transparent outline-none resize-y text-foreground focus:bg-emerald-50 dark:focus:bg-emerald-950/30"
                           />
                         )}
                       </td>
-                    ))}
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
@@ -451,7 +494,7 @@ export default function Section3Targets({
             <div className="grid border-t border-border" style={{ gridTemplateColumns: "200px repeat(3, minmax(220px, 1fr))" }}>
               <div className="px-4 py-3 font-bold text-foreground bg-muted/40 border-r border-border text-sm">Actions</div>
               {[0, 1, 2].map((colIdx) => (
-                <div key={colIdx} className="px-3 py-3 border-r border-border last:border-r-0">
+                <div key={colIdx} className={`px-3 py-3 border-r border-border last:border-r-0 ${isLocked(colIdx) ? "opacity-50 pointer-events-none" : ""}`}>
                   {targets[colIdx] ? (
                     <PushTargetCrmButton
                       ringName={ringName}

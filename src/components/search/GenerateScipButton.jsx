@@ -98,7 +98,7 @@ function ensurePrintStyles() {
 // renders the SiteHawk-branded SCIP in a modal with a Print / Save-as-PDF button.
 // All maps are regenerated as Mapbox Static Images so they always print.
 export default function GenerateScipButton({
-  searchCenter, searchParams, targetA, zoningResult, sectionData,
+  searchCenter, searchParams, targetA, zoningResult, sectionData, onGenerated,
 }) {
   const [open, setOpen] = useState(false);
   const [building, setBuilding] = useState(false);
@@ -186,7 +186,9 @@ export default function GenerateScipButton({
         sarf_map: buildSarfMap(srcLat, srcLon, radius, token, targetA),
         targetA: {
           ...targetA,
+          // Use the live emitted label (Target A / B / C) — never hardcode A.
           label: targetA.label || "Target A",
+          // Pull the resolved label out separately so it stamps the filename too.
           ground_elevation_ft: targetA.ground_elevation_ft ?? groundElevationFt,
           // Parse Parcel City / State / Zip out of the single parcel_address string
           // (e.g. "123 Main St, Karnes City, TX 78118"). County comes from the
@@ -260,6 +262,9 @@ export default function GenerateScipButton({
       };
       setRecord(rec);
       setOpen(true);
+      // Notify the pipeline that a SCIP was successfully generated for THIS
+      // target's label — Section 3 uses this to lock the ladder & advance.
+      onGenerated?.(rec.targetA.label || "Target A");
     } catch (err) {
       console.error(err);
       toast.error("Could not build the SCIP. Try regenerating the pipeline maps.");
@@ -268,7 +273,20 @@ export default function GenerateScipButton({
     }
   };
 
-  const handlePrint = () => { ensurePrintStyles(); window.print(); };
+  // Build the spec'd filename: {SiteName}_{TargetLabel}_SCIP_{YYYYMMDD}.
+  // Browsers use document.title as the default "Save as PDF" filename, so we
+  // swap it in for the print and restore it afterward.
+  const handlePrint = () => {
+    ensurePrintStyles();
+    const site = String(record?.site_name || "Site").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
+    const label = String(record?.targetA?.label || "Target A").replace(/\s+/g, "-");
+    const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const prevTitle = document.title;
+    document.title = `${site}_${label}_SCIP_${ymd}`;
+    const restore = () => { document.title = prevTitle; window.removeEventListener("afterprint", restore); };
+    window.addEventListener("afterprint", restore);
+    window.print();
+  };
 
   return (
     <>
