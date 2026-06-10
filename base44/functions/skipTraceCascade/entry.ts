@@ -177,12 +177,18 @@ async function srcOneApi({ ownerName, street, city, state, zip }, token, diag, e
   };
   Object.keys(input).forEach((k) => input[k] === undefined && delete input[k]);
 
-  const url = `${APIFY_BASE}/acts/${ACTOR_ONE_API}/run-sync-get-dataset-items?token=${token}`;
+  // one-api/skip-trace is a pay-per-result actor — the run-sync endpoint REQUIRES
+  // a maxItems billing cap > 0 or it returns http_400 (max-items-must-be-greater-than-zero).
+  const url = `${APIFY_BASE}/acts/${ACTOR_ONE_API}/run-sync-get-dataset-items?token=${token}&maxItems=5`;
   const res = await fetchWithTimeout(url, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
   }, PER_ACTOR_TIMEOUT_MS);
 
-  if (!res.ok) { diag("Spokeo/one-api", res.error || `http_${res.status}`, 0); return out; }
+  if (!res.ok) {
+    const detail = res.error || `http_${res.status}: ${JSON.stringify(res.json).slice(0, 200)}`;
+    diag("Spokeo/one-api", detail, 0);
+    return out;
+  }
   const items = Array.isArray(res.json) ? res.json : [];
   const rec = items[0] || {};
   for (let i = 1; i <= 5; i++) {
