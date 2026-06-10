@@ -81,11 +81,41 @@ function aerialRingUrl(token, lat, lon, ringMiles) {
   return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/geojson(${geojson}),${pin}/${lon},${lat},${z},0/1100x850@2x?access_token=${token}`;
 }
 
-function viewshedMapUrl(token, lat, lon, bearing) {
-  // Offset the center forward along the bearing so the horizon sits mid-frame.
-  const c = destPoint(lat, lon, bearing, 0.18);
+// Build a transparent directional cone (azimuth sector) polygon fanning out from
+// the tower along a bearing. RF engineers read this as the antenna's coverage
+// wedge — overlaid flat (2D top-down) over satellite so obstructions in that
+// sector are visible above the tree line and azimuths can be re-aimed.
+function conePolygon(lat, lon, bearing, reachMiles, halfAngle = 32, steps = 14) {
+  const coords = [[Number(lon.toFixed(5)), Number(lat.toFixed(5))]];
+  for (let i = 0; i <= steps; i++) {
+    const brg = bearing - halfAngle + (i / steps) * (halfAngle * 2);
+    const p = destPoint(lat, lon, brg, reachMiles);
+    coords.push([Number(p.lon.toFixed(5)), Number(p.lat.toFixed(5))]);
+  }
+  coords.push([Number(lon.toFixed(5)), Number(lat.toFixed(5))]); // close back to tower
+  return coords;
+}
+
+function viewshedMapUrl(token, lat, lon, bearing, ringMiles, color) {
+  // Flat 2D top-down satellite (pitch 0, north-up) with a TRANSPARENT colored
+  // azimuth cone fanning out along the bearing from the tower. The whole search
+  // ring sits in frame so the engineer sees the sector against real terrain.
+  const reach = Math.max(ringMiles, 0.5);
+  const hex = (color || "#00A7E1").replace("#", "");
+  const geojson = encodeURIComponent(JSON.stringify({
+    type: "FeatureCollection",
+    features: [{
+      type: "Feature",
+      properties: { stroke: `#${hex}`, "stroke-width": 2, "stroke-opacity": 0.9, fill: `#${hex}`, "fill-opacity": 0.28 },
+      geometry: { type: "Polygon", coordinates: [conePolygon(lat, lon, bearing, reach)] },
+    }],
+  }));
   const marker = `pin-l-communications-tower+${SKY_YELLOW}(${lon},${lat})`;
-  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${marker}/${c.lon},${c.lat},14,${bearing},60/1100x620@2x?access_token=${token}`;
+  // Auto-zoom to fit the cone reach (~2x reach across the frame), north-up, flat.
+  const targetMeters = (2 * reach * 1609.344) / 0.7;
+  const mpp = targetMeters / 850;
+  const z = Math.max(12, Math.min(18, Math.log2((156543.03392 * Math.cos((lat * Math.PI) / 180)) / mpp))).toFixed(2);
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/geojson(${geojson}),${marker}/${lon},${lat},${z},0/1100x850@2x?access_token=${token}`;
 }
 
 async function buildProfile(lat, lon, bearing, towerTopFt, baseGroundPre) {
@@ -161,7 +191,7 @@ Deno.serve(async (req) => {
         short: d.short,
         bearing: d.bearing,
         color: d.color,
-        map_url: viewshedMapUrl(token, latN, lonN, d.bearing),
+        map_url: viewshedMapUrl(token, latN, lonN, d.bearing, ring, d.color),
         profile,
         first_obstruction_mi,
         clear,

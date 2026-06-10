@@ -26,6 +26,10 @@ export default function ViewshedTiles({ viewshed }) {
         </div>
       )}
 
+      <div className="text-[11px] text-muted-foreground mb-2 leading-snug">
+        Each transparent colored wedge is the antenna azimuth sector for that direction over real terrain. Use them to spot line-of-sight obstructions above the tree line — if a sector is obstructed, the azimuth may need to be re-aimed.
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {directions.map((d) => (
           <div key={d.short} className="rounded-lg border border-border overflow-hidden">
