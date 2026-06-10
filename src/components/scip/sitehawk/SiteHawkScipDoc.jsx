@@ -3,6 +3,7 @@ import { HAWK, CONFIDENTIAL_NOTICE } from "../hawkScipBrand";
 import HawkScipSection, { HawkWatermark } from "../HawkScipSection";
 import SiteHawkInfoTable from "./SiteHawkInfoTable";
 import SiteHawkViewshedPage from "./SiteHawkViewshedPage";
+import SiteHawkDeedPage from "./SiteHawkDeedPage";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
 
@@ -173,6 +174,11 @@ export default function SiteHawkScipDoc({ record }) {
           ]}
         />
       </HawkScipSection>
+
+      {/* ─────────── WARRANTY DEED STATUS ─────────── */}
+      {r.deed && (
+        <SiteHawkDeedPage deed={r.deed} targetLabel={a.label || "Target A"} page={next()} />
+      )}
 
       {/* ─────────── EXISTING CONDITIONS ─────────── */}
       {hasConditions && (
