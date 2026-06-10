@@ -236,25 +236,48 @@ async function srcBrilliantGum({ firstName, lastName, street, city, state, zip }
   return out;
 }
 
+// Parse a "last reported" label into a sortable epoch (ms). Sources report it as
+// free text like "Last reported Jul 2018", "Mar 2026", or ISO dates — plain string
+// compare sorts those alphabetically (wrong). Returns 0 when unparseable.
+const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+function reportedToEpoch(raw) {
+  if (!raw) return 0;
+  const s = String(raw);
+  // "Mon YYYY" (with or without a "Last reported" prefix).
+  const m = s.match(/([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{4})/);
+  if (m && MONTHS[m[1].toLowerCase()] != null) return Date.UTC(Number(m[2]), MONTHS[m[1].toLowerCase()], 1);
+  // Bare 4-digit year.
+  const y = s.match(/\b(19|20)\d{2}\b/);
+  if (y) return Date.UTC(Number(y[0]), 0, 1);
+  // ISO / parseable date string.
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? t : 0;
+}
+
 // Aggregate: dedupe by E.164, count sources, prefer mobile then recency.
 function aggregate(found) {
   const byNum = new Map();
   for (const f of found) {
-    const cur = byNum.get(f.phone) || { phone: f.phone, sources: new Set(), mobile: false, lastReported: null };
+    const cur = byNum.get(f.phone) || { phone: f.phone, sources: new Set(), mobile: false, lastReported: null, reportedEpoch: 0 };
     cur.sources.add(f.source);
     if (isMobile(f.type)) cur.mobile = true;
-    if (f.lastReported && (!cur.lastReported || f.lastReported > cur.lastReported)) cur.lastReported = f.lastReported;
+    const epoch = reportedToEpoch(f.lastReported);
+    // Keep the MOST RECENT report label/date seen for this number.
+    if (epoch > cur.reportedEpoch) { cur.reportedEpoch = epoch; cur.lastReported = f.lastReported; }
+    else if (!cur.lastReported && f.lastReported) cur.lastReported = f.lastReported;
     byNum.set(f.phone, cur);
   }
   const list = [...byNum.values()].map((x) => ({
     phone: x.phone, display: prettyPhone(x.phone),
-    sources: [...x.sources], source_count: x.sources.size, mobile: x.mobile, lastReported: x.lastReported,
+    sources: [...x.sources], source_count: x.sources.size, mobile: x.mobile,
+    lastReported: x.lastReported, reportedEpoch: x.reportedEpoch,
   }));
-  // Rank: more sources → mobile → most recent.
+  // Rank: most recently reported → more sources → mobile. Recency first so a
+  // fresh, callable number always beats a decade-old one.
   list.sort((a, b) =>
+    b.reportedEpoch - a.reportedEpoch ||
     b.source_count - a.source_count ||
-    (b.mobile === a.mobile ? 0 : b.mobile ? 1 : -1) ||
-    String(b.lastReported || "").localeCompare(String(a.lastReported || ""))
+    (b.mobile === a.mobile ? 0 : b.mobile ? 1 : -1)
   );
   return list;
 }
