@@ -105,8 +105,16 @@ function waitForContainerSize(container, tag = "[S4 DIAG]") {
 async function makeMap(container, style, center, token, zoom = 14) {
   await waitForContainerSize(container);
   window.mapboxgl.accessToken = token;
+  // 🔥 CRISP MODE — render at a higher device-pixel ratio (clamped to 2.5) so
+  // satellite imagery, parcel/zoning lines and labels are retina-sharp, and
+  // exports (preserveDrawingBuffer) come out crisp too. antialias smooths
+  // polygon + line edges. This only affects render quality — no renderer logic.
+  const crispDpr = Math.min(Math.max(window.devicePixelRatio || 1, 2), 2.5);
   const map = new window.mapboxgl.Map({
-    container, style, center, zoom, preserveDrawingBuffer: true,
+    container, style, center, zoom,
+    preserveDrawingBuffer: true,
+    antialias: true,
+    pixelRatio: crispDpr,
   });
   map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
   map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
