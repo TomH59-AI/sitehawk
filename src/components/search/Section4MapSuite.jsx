@@ -47,7 +47,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Lock, Layers } from "lucide-react";
 import { toast } from "sonner";
 import MapSubStep from "./section4/MapSubStep";
+import SkipTraceStep from "./section4/SkipTraceStep";
 import ComplianceStep from "./section4/ComplianceStep";
+import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -87,6 +89,8 @@ export default function Section4MapSuite({
   const [powerInfo, setPowerInfo] = useState(null);
   // 2D directional viewshed result ({ aerial_ring_url, tower_height_ft, directions }).
   const [viewshedInfo, setViewshedInfo] = useState(null);
+  // Hawk Skip-Trace result for Target A's owner (phones + emails across all sources).
+  const [skipTraceInfo, setSkipTraceInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -365,6 +369,36 @@ export default function Section4MapSuite({
     }, 600);
   }, []);
 
+  // Hawk Skip-Trace (final step) — runs the multi-source cascade for Target A's
+  // owner. Long-running (~90s) so WhitePages is never skipped; own button.
+  const runSkipTrace = useCallback(async () => {
+    const owner = targetA?.owner_name || targetA?.owner || "";
+    if (!owner) {
+      setErrors((p) => ({ ...p, skiptrace: "No Target A owner name to trace — re-run Section 3." }));
+      return;
+    }
+    setErrors((p) => ({ ...p, skiptrace: null }));
+    setLoadingStep("skiptrace");
+    try {
+      const res = await skipTraceCascade({
+        owner_name: owner,
+        mailing_address: targetA?.mailing_address || targetA?.parcel_address || "",
+        target_label: "Target A",
+      });
+      const data = res?.data ?? res;
+      setSkipTraceInfo(data);
+      onData?.({ skip_trace: data });
+      setCompleted((prev) => ({ ...prev, skiptrace: true }));
+      toast.success("Skip-Trace complete for Target A.");
+    } catch (err) {
+      console.error(err);
+      setErrors((p) => ({ ...p, skiptrace: err?.message || "Skip-Trace failed." }));
+      toast.error(err?.message || "Skip-Trace failed.");
+    } finally {
+      setLoadingStep(null);
+    }
+  }, [targetA, onData]);
+
   // A sub-step is unlocked once the previous one is complete (aerial = first).
   const isUnlocked = (step) => {
     const i = STEPS.indexOf(step);
@@ -639,6 +673,16 @@ export default function Section4MapSuite({
           towerHeightFt={towerHeightFt}
           ringName={ringName}
           onRun={runCompliance}
+        />
+        <SkipTraceStep
+          index={15}
+          unlocked={active && !!completed.compliance}
+          loading={loadingStep === "skiptrace"}
+          done={!!completed.skiptrace}
+          result={skipTraceInfo}
+          error={errors.skiptrace}
+          ownerName={targetA?.owner_name || targetA?.owner || ""}
+          onRun={runSkipTrace}
         />
       </div>
     </div>

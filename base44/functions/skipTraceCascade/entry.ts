@@ -39,8 +39,12 @@ const ACTOR_ONE_API = "one-api~skip-trace";
 const ACTOR_BRILLIANT_GUM = "brilliant_gum~skip-trace-people-search";
 const ENFORMION_URL = "https://devapi.endato.com/Contact/Enrich";
 
+// one-api/Spokeo returns in ~25-30s. brilliant_gum (ThatsThem/Radaris/Spokeo via
+// residential proxy) is slower — 60-92s observed — so it gets a longer cap.
+// "Try hard, never miss" mode: we wait the full window rather than racing.
 const PER_ACTOR_TIMEOUT_MS = 30000;
-const TOTAL_BUDGET_MS = 35000;
+const BRILLIANT_GUM_TIMEOUT_MS = 110000;
+const TOTAL_BUDGET_MS = 120000;
 
 const VALID_PHONE_RX = /^[\d\-\+\(\)\s\.]{7,20}$/;
 
@@ -218,7 +222,7 @@ async function srcBrilliantGum({ firstName, lastName, street, city, state, zip }
   const url = `${APIFY_BASE}/acts/${ACTOR_BRILLIANT_GUM}/run-sync-get-dataset-items?token=${token}`;
   const res = await fetchWithTimeout(url, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
-  }, PER_ACTOR_TIMEOUT_MS);
+  }, BRILLIANT_GUM_TIMEOUT_MS);
 
   if (!res.ok) { diag("WhitePages/brilliant_gum", res.error || `http_${res.status}`, 0); return out; }
   const items = Array.isArray(res.json) ? res.json : [];
