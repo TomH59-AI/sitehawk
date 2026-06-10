@@ -48,6 +48,7 @@ import { Lock, Layers } from "lucide-react";
 import { toast } from "sonner";
 import MapSubStep from "./section4/MapSubStep";
 import SkipTraceStep from "./section4/SkipTraceStep";
+import DeedStep from "./section4/DeedStep";
 import ComplianceStep from "./section4/ComplianceStep";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import SectionClearButton from "./SectionClearButton";
@@ -91,6 +92,8 @@ export default function Section4MapSuite({
   const [viewshedInfo, setViewshedInfo] = useState(null);
   // Hawk Skip-Trace result for Target A's owner (phones + emails across all sources).
   const [skipTraceInfo, setSkipTraceInfo] = useState(null);
+  // Warranty Deed of record for Target A (Realie click lookup). null = no deed found.
+  const [deedInfo, setDeedInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -399,6 +402,35 @@ export default function Section4MapSuite({
     }
   }, [targetA, onData]);
 
+  // Warranty Deed lookup (Realie click) for Target A — shows the deed of record &
+  // chain of title, or "Not Available For This Target" when Realie has nothing.
+  const runDeed = useCallback(async () => {
+    setErrors((p) => ({ ...p, deed: null }));
+    setLoadingStep("deed");
+    try {
+      const res = await realieParcelsInRing({ mode: "click", lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
+      const parcel = res?.data?.parcels?.[0] || null;
+      const deed = parcel ? {
+        owner_name: parcel.owner_name || targetA?.owner_name || "",
+        deed_type: parcel.deed_type,
+        deed_doc_num: parcel.deed_doc_num,
+        deed_book: parcel.deed_book,
+        ownership_start: parcel.ownership_start,
+        last_sale_date: parcel.last_sale_date,
+        last_sale_price: parcel.last_sale_price,
+        legal_description: parcel.legal_description,
+        transfers: parcel.transfers || [],
+      } : null;
+      setDeedInfo(deed);
+      setCompleted((prev) => ({ ...prev, deed: true }));
+    } catch (err) {
+      console.error(err);
+      setErrors((p) => ({ ...p, deed: err?.message || "Deed lookup failed." }));
+    } finally {
+      setLoadingStep(null);
+    }
+  }, [targetA]);
+
   // A sub-step is unlocked once the previous one is complete (aerial = first).
   const isUnlocked = (step) => {
     const i = STEPS.indexOf(step);
@@ -674,9 +706,19 @@ export default function Section4MapSuite({
           ringName={ringName}
           onRun={runCompliance}
         />
-        <SkipTraceStep
+        <DeedStep
           index={15}
           unlocked={active && !!completed.compliance}
+          loading={loadingStep === "deed"}
+          done={!!completed.deed}
+          deed={deedInfo}
+          error={errors.deed}
+          ownerName={targetA?.owner_name || targetA?.owner || ""}
+          onRun={runDeed}
+        />
+        <SkipTraceStep
+          index={16}
+          unlocked={active && !!completed.deed}
           loading={loadingStep === "skiptrace"}
           done={!!completed.skiptrace}
           result={skipTraceInfo}
