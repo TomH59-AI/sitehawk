@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { HAWK, CONFIDENTIAL_NOTICE } from "../hawkScipBrand";
 import HawkScipSection, { HawkWatermark } from "../HawkScipSection";
 import SiteHawkInfoTable from "./SiteHawkInfoTable";
+import SiteHawkViewshedPage from "./SiteHawkViewshedPage";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
 
@@ -221,6 +222,11 @@ export default function SiteHawkScipDoc({ record }) {
           </div>
         </HawkScipSection>
       ))}
+
+      {/* ─────────── 2D VIEWSHED (N/S/E/W) ─────────── */}
+      {r.viewshed?.directions?.length > 0 && (
+        <SiteHawkViewshedPage viewshed={r.viewshed} targetLabel={a.label || "Target A"} page={next()} />
+      )}
 
       {/* ─────────── ZONING & PERMITTING ─────────── */}
       {hasZoning && (
