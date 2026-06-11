@@ -30,9 +30,10 @@ export default function HawkScipSection({ kicker, title, accent = HAWK.gold, rig
     <div
       className="page"
       style={{
-        position: "relative", width: "8.5in", minHeight: "11in",
+        position: "relative", width: "8.5in", height: "11in",
         padding: "0.45in 0.5in", background: "#fff",
-        display: "flex", flexDirection: "column",
+        display: "flex", flexDirection: "column", overflow: "hidden",
+        boxSizing: "border-box",
       }}
     >
       <HawkWatermark />
@@ -58,7 +59,7 @@ export default function HawkScipSection({ kicker, title, accent = HAWK.gold, rig
         {/* Bound body */}
         <div
           className="flex-1 rounded-lg p-4"
-          style={{ border: `1.5px solid ${HAWK.line}`, background: "#fff" }}
+          style={{ border: `1.5px solid ${HAWK.line}`, background: "#fff", overflow: "hidden", minHeight: 0 }}
         >
           {children}
         </div>

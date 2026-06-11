@@ -71,7 +71,7 @@ export default function SiteHawkScipDoc({ record }) {
     <div id="sitehawk-scip-doc" style={{ fontFamily: "Inter, Helvetica Neue, Arial, sans-serif" }}>
 
       {/* ─────────── COVER ─────────── */}
-      <div className="page" style={{ position: "relative", width: "8.5in", minHeight: "11in", background: "#fff", display: "flex", flexDirection: "column" }}>
+      <div className="page" style={{ position: "relative", width: "8.5in", height: "11in", background: "#fff", display: "flex", flexDirection: "column", overflow: "hidden", boxSizing: "border-box" }}>
         <HawkWatermark />
         <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
           <div className="flex items-center gap-5" style={{ background: HAWK.dark, padding: "0.55in 0.5in", ...EXACT }}>
