@@ -194,9 +194,18 @@ export async function renderTopo(container, target, token) {
   return new Promise((resolve) => {
     map.on("load", () => {
       const [w, s, e, n] = ringBbox(lat, lon, 0.6);
+      // Show BOTH the contour lines AND their elevation-foot labels across the
+      // medium- and large-scale bands. Requesting only the group layer IDs
+      // (9,14,19) drops the label feature sub-layers, so the contour feet stop
+      // rendering. We list the contour + label feature layers explicitly:
+      //   10-13  → 100-ft band (Index/Intermediate contours + labels)
+      //   15-18  → 50-ft band (Index/Intermediate contours + labels)
+      //   21,22  → large-scale Normal Index/Intermediate LABELS (the feet)
+      //   25,26  → large-scale Normal Index/Intermediate contour lines
+      const contourLayers = "10,11,12,13,15,16,17,18,21,22,25,26";
       const tileUrl =
         `${USGS_CONTOUR_URL}?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857` +
-        `&size=512,512&dpi=96&format=png32&transparent=true&layers=show:9,14,19&f=image`;
+        `&size=512,512&dpi=96&format=png32&transparent=true&layers=show:${contourLayers}&f=image`;
       map.addSource("s4-contours", { type: "raster", tiles: [tileUrl], tileSize: 512, bounds: [w, s, e, n] });
       map.addLayer({ id: "s4-contours-layer", type: "raster", source: "s4-contours", paint: { "raster-opacity": 0.9 } });
       addTowerMarker(map, lat, lon, owner);
