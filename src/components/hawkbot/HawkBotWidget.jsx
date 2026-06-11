@@ -8,9 +8,6 @@ const QUICK_ACTIONS = [
   "How do I use SiteHawk?",
   "Which candidate has the best fiber + zoning combo?",
   "What's the FAA risk for the top candidate?",
-  "Run a 199-ft tower compliance check",
-  "Explain the CloudRF propagation results",
-  "What's in the new SCIP Page 1 format?",
 ];
 
 const SCIP_CONTEXT = `You are HawkBot, the SiteHawk AI consultant. The platform produces a Site Candidate Information Package (SCIP) using this exact Page 1 format (in order):
@@ -167,13 +164,6 @@ export default function HawkBotWidget() {
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleScipIntent}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-cyan-500 text-[#0C1B2E] hover:bg-cyan-400 text-[11px] font-bold tracking-wider transition-all"
-                aria-label="Build SCIP"
-              >
-                <FileText className="w-3 h-3" /> Build SCIP →
-              </button>
               <button onClick={closeWidget} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-all" aria-label="Close HawkBot">
                 <X className="w-4 h-4" />
               </button>
