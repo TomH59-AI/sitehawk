@@ -122,33 +122,60 @@ export default function GenerateScipButton({
       // fall back to the legacy zoningResult prop for older flows.
       const z = bus.zoning || zoningResult?.zoning || {};
 
+      // ── OPPORTUNITY A — REUSE THE SHARED DATA BUS ─────────────────────────────
+      // Section 4 already fetched airport / cell tower / wind / fiber / power /
+      // FEMA / zoning into `sectionData`. Re-pulling them here wastes metered API
+      // credits and risks map↔SCIP drift. We now check the bus FIRST and only hit
+      // the network for values the bus is missing (e.g. user skipped Section 4).
+      // [SCIP-REUSE] logs show exactly what was reused vs. fetched during testing.
+      const reuseLog = { reused: [], fetched: [] };
+      // The power provider is a TEXT-ONLY field (no map tile needs its coords),
+      // and Section 4 already emits the serving utility onto the bus, so this is
+      // a safe reuse: skip electricUtilityLookup when the bus already has it.
+      const hasPowerBus = !!(bus.power_grid && bus.power_grid.serving_utility);
+      console.log("[SCIP-REUSE] bus keys present:", Object.keys(bus));
+
       // Nearest airport + cell tower for the two proximity maps (best-effort).
       // FLUM is optional — only some jurisdictions have a Future Land Use layer.
       // Ground elevation (USGS 3DEP) + nearest police/fire (OSM) fill the
       // Project Information + Existing Conditions template fields.
       const [airportRes, towerRes, flumRes, fluResolveRes, elevRes, safetyRes, powerRes, parcelClickRes] = await Promise.all([
-        nearestAirportFromDirectory({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
-        cellTowerLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        // Airport is always fetched here: the SCIP map tile needs the airport's
+        // lat/lon, which the bus `airport` value does NOT carry (name/distance/
+        // type only). The conditions text still prefers bus.airport below.
+        (reuseLog.fetched.push("airport"), nearestAirportFromDirectory({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null)),
+        // Cell tower is always fetched here: the SCIP map tile needs the tower's
+        // lat/lon, which the bus `tower` value does NOT carry (owner/distance/
+        // height only). The conditions text still prefers bus.tower below.
+        (reuseLog.fetched.push("celltower"), cellTowerLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null)),
         zoneomicsFlumDetails({ lat: targetA.latitude, lng: targetA.longitude }).catch(() => null),
         zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         pointElevation({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         publicSafetyLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
-        electricUtilityLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        hasPowerBus
+          ? (reuseLog.reused.push("power"), Promise.resolve(null))
+          : (reuseLog.fetched.push("power"), electricUtilityLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null)),
         // Realie v43 click lookup (via the metered Supabase proxy) for Target A's
         // tax + parcel-city data used in the Site Information table.
         realieParcelsInRing({ mode: "click", lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
       ]);
       const airport = airportRes?.data?.match || null;
+      // [SCIP-REUSE] Summary of which lookups were reused from the bus vs fetched.
+      console.log("[SCIP-REUSE] reused from bus:", reuseLog.reused, "· fetched fresh:", reuseLog.fetched);
       // Target A's Realie parcel record (tax + city source).
       const realieParcel = parcelClickRes?.data?.parcels?.[0] || null;
       const groundElevationFt = elevRes?.data?.elevation_ft ?? null;
       const police = safetyRes?.data?.police || null;
       const fire = safetyRes?.data?.fire || null;
       // HIFLD electric retail service territory → power provider name + phone.
+      // Prefer a fresh fetch; else reuse the serving utility Section 4 emitted
+      // onto the bus (power_grid.serving_utility), else the legacy bus.power name.
       const powerUtil = powerRes?.data || null;
       const powerProvider = powerUtil?.utility_name
         ? `${powerUtil.utility_name}${powerUtil.telephone ? ` — ${powerUtil.telephone}` : ""}`
-        : (bus.power?.name ? `${bus.power.name}${bus.power.phone ? ` — ${bus.power.phone}` : ""}` : "");
+        : (hasPowerBus
+            ? bus.power_grid.serving_utility
+            : (bus.power?.name ? `${bus.power.name}${bus.power.phone ? ` — ${bus.power.phone}` : ""}` : ""));
       // Resolve a FLUM label + polygon (Zoneomics first, FL GeoPlan fallback).
       const zflum = flumRes?.data?.flum || null;
       const flu = fluResolveRes?.data?.flu || null;
