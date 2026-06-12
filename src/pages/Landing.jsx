@@ -123,7 +123,7 @@ export default function Landing() {
           </h1>
 
           <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
-            The seamless, least-resistant path to site acquisition — built in one web app.
+            The seamless, least-resistant path to site acquisition success — built in one web app.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
