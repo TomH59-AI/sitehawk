@@ -187,7 +187,7 @@ export default function SiteHawkScipDoc({ record }) {
           title="EXISTING CONDITIONS"
           right={a.label || "Target A"}
           page={next()}
-          footerNote="FEMA NFHL flood zone · USFWS NWI wetlands · nearest airport · power & telco providers · public safety. Auto-collected by the pipeline."
+          footerNote="Flood Risk Layer · SiteHawk Wetlands Intelligence · nearest airport · power & telco providers · public safety. Auto-collected by the SiteHawk pipeline."
         >
           <SiteHawkInfoTable
             rows={[
@@ -217,7 +217,7 @@ export default function SiteHawkScipDoc({ record }) {
           title={title.toUpperCase()}
           right={a.label || "Target A"}
           page={next()}
-          footerNote="Aerial/topo/parcel © Mapbox · Floodplain © FEMA NFHL · Wetlands © USFWS NWI · Wind © ASCE 7-22 · Airport (FAA) & cell tower (FCC ASR/OpenCellID) shown crow-flies. Field verification recommended."
+          footerNote="Aerial/topo/parcel © Mapbox · Flood Risk Layer · SiteHawk Wetlands Intelligence · Wind per ASCE 7-22 · airport & cell tower shown crow-flies. Field verification recommended."
         >
           <div className="rounded-lg overflow-hidden h-full" style={{ height: "8.1in", border: `2px solid ${HAWK.blue}` }}>
             {urlOf(url) ? (
@@ -241,7 +241,7 @@ export default function SiteHawkScipDoc({ record }) {
           title="ZONING & PERMITTING"
           right={z.jurisdiction || "Jurisdiction"}
           page={next()}
-          footerNote="Zoneomics-primary zoning district & land use · curated jurisdiction contacts, fees & timeframes. Field verification recommended before submittal."
+          footerNote="HawkLaw Zoning Intelligence district & land use · curated jurisdiction contacts, fees & timeframes. Field verification recommended before submittal."
         >
           <SiteHawkInfoTable
             heading="Zoning Overview"

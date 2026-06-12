@@ -71,6 +71,7 @@ import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
+import { SOURCE_LABELS } from "@/lib/brandedLabels";
 
 const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "power", "viewshed", "compliance"];
 
@@ -193,7 +194,7 @@ export default function Section4MapSuite({
           const gdata = gres?.data ?? gres;
           if (gdata?.error) {
             setLoadingStep(null);
-            setErrors((p) => ({ ...p, zoning: gdata.error.includes("API_KEY") ? "Zoneomics auth failed — verify ZONEOMICS_API_KEY" : gdata.error }));
+            setErrors((p) => ({ ...p, zoning: gdata.error.includes("API_KEY") ? `${SOURCE_LABELS.zoneomics} authentication failed — contact support.` : gdata.error }));
             return;
           }
 
@@ -204,7 +205,7 @@ export default function Section4MapSuite({
 
           if (!rawCells.length) {
             setLoadingStep(null);
-            setErrors((p) => ({ ...p, zoning: "Zoneomics returned no zoning districts for this area." }));
+            setErrors((p) => ({ ...p, zoning: "No zoning districts found for this area." }));
             return;
           }
 
@@ -470,7 +471,7 @@ export default function Section4MapSuite({
       <>
         {zoneInfo?.zone_code ? (
           <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-            Zoneomics district at Target A: <span className="font-mono">{zoneInfo.zone_code}</span>
+            {SOURCE_LABELS.zoneomics} — district at Target A: <span className="font-mono">{zoneInfo.zone_code}</span>
             {zoneInfo.zone_name ? <span className="font-normal opacity-80"> — {zoneInfo.zone_name}</span> : null}
           </div>
         ) : targetA?.zoning_classification ? (
@@ -554,7 +555,7 @@ export default function Section4MapSuite({
             {powerInfo.closestSubstation.voltage ? <span className="opacity-80"> · {powerInfo.closestSubstation.voltage} kV</span> : null}
           </div>
         ) : (
-          <div className="font-semibold">No HIFLD substation found within ~5 mi of Target A.</div>
+          <div className="font-semibold">No substation found within ~5 mi of Target A.</div>
         )}
         <div className="opacity-80 text-xs">{powerInfo.transmissionLines} transmission line{powerInfo.transmissionLines !== 1 ? "s" : ""} in vicinity · orange = corridors, yellow = substations</div>
       </div>
