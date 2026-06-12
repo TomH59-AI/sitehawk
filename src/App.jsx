@@ -66,6 +66,7 @@ import HawkDocShareView from './pages/HawkDocShareView';
 import SubscriberCRM from './pages/SubscriberCRM';
 import PlansSelection from './pages/PlansSelection';
 import HawkTracker from './pages/HawkTracker';
+import TowerSiter from './pages/TowerSiter';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -133,6 +134,8 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
         <Route path="/hawk-tracker" element={<HawkTracker />} />
+        {/* HawkPerch — feature_tower_siter ships dark: route exists, no nav link */}
+        <Route path="/tower-siter" element={<TowerSiter />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
