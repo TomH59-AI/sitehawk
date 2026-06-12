@@ -185,6 +185,130 @@ export async function renderAerial(container, target, srcLat, srcLon, radiusMile
   });
 }
 
+// ============================================================
+// SiteHawk Map Layer Upgrade — ADDITIVE ONLY, June 2026
+// 1. Topo: bright orange contours + AMSL labels in feet
+// 2. Wetlands: ocean blue fill, print-friendly
+// 3. Layer ordering: overlays UNDER parcel boundary + labels
+// Does NOT modify any existing layers or sources. Every new
+// layer is prefixed sh- and guarded, so re-runs are safe.
+// ============================================================
+
+// Layers that must always stay ON TOP of the new sh- overlays.
+const SH_PRIORITY_LAYERS = [
+  "s4-target-fill", "s4-target-line", "s4-zoning-target-fill", "s4-zoning-target-line",
+  "s4-ring-fill", "s4-ring-line", "s4-sarf-ring-line", "s4-apn-layer", "s4-label-layer",
+];
+
+function shGetAnchorLayer(map) {
+  for (const id of SH_PRIORITY_LAYERS) {
+    if (map.getLayer(id)) return id; // insert new layers just below this
+  }
+  return undefined; // none found → layers go on top (safe fallback)
+}
+
+// Lift any priority layer back to the top — insurance if the anchor lookup missed.
+function shLiftPriorityLayers(map) {
+  SH_PRIORITY_LAYERS.forEach((id) => {
+    if (map.getLayer(id)) map.moveLayer(id);
+  });
+}
+
+// 1. TOPOGRAPHY — bright orange contour lines + AMSL ft labels from the
+// Mapbox Terrain v2 vector tileset. Additive on top of the USGS raster.
+function shAddContours(map) {
+  const anchor = shGetAnchorLayer(map);
+  if (!map.getSource("sh-contours")) {
+    map.addSource("sh-contours", { type: "vector", url: "mapbox://mapbox.mapbox-terrain-v2" });
+  }
+  if (!map.getLayer("sh-contour-lines")) {
+    map.addLayer({
+      id: "sh-contour-lines",
+      type: "line",
+      source: "sh-contours",
+      "source-layer": "contour",
+      paint: {
+        "line-color": "#FF6600", // bright orange
+        "line-width": ["case", ["==", ["get", "index"], 10], 2.5, 1.2],
+        "line-opacity": 0.9,
+      },
+    }, anchor);
+  }
+  if (!map.getLayer("sh-contour-labels")) {
+    map.addLayer({
+      id: "sh-contour-labels",
+      type: "symbol",
+      source: "sh-contours",
+      "source-layer": "contour",
+      filter: ["==", ["get", "index"], 10], // label index contours only
+      layout: {
+        "symbol-placement": "line",
+        "text-field": [
+          "concat",
+          ["to-string", ["round", ["*", ["get", "ele"], 3.28084]]], // meters → feet
+          " ft AMSL",
+        ],
+        "text-size": 12,
+        "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
+      },
+      paint: {
+        "text-color": "#CC4400",
+        "text-halo-color": "#FFFFFF",
+        "text-halo-width": 2,
+      },
+    }, anchor);
+  }
+  shLiftPriorityLayers(map);
+}
+
+// 2. WETLANDS — ocean-blue vector polygons. The existing NWI overlay is a
+// raster WMS (can't be restyled), so we fetch the actual NWI wetland polygons
+// from the FWS ArcGIS REST service for the map area and draw them ocean blue.
+const NWI_QUERY_URL =
+  "https://fwsprimary.wim.usgs.gov/server/rest/services/Wetlands/MapServer/0/query";
+
+async function shAddWetlandsBlue(map, lat, lon) {
+  const offset = 0.012; // ~0.8 mi envelope around Target A
+  const envelope = `${lon - offset},${lat - offset},${lon + offset},${lat + offset}`;
+  let fc = null;
+  try {
+    const res = await fetch(
+      `${NWI_QUERY_URL}?where=1=1&geometry=${envelope}&geometryType=esriGeometryEnvelope&inSR=4326` +
+      `&spatialRel=esriSpatialRelIntersects&outFields=WETLAND_TYPE&returnGeometry=true&f=geojson`
+    );
+    if (res.ok) fc = await res.json();
+  } catch (e) {
+    console.warn("[WETLANDS DIAG] NWI vector query failed — raster overlay only:", e);
+  }
+  if (!fc?.features?.length) return;
+
+  const anchor = shGetAnchorLayer(map);
+  if (!map.getSource("sh-wetlands")) {
+    map.addSource("sh-wetlands", { type: "geojson", data: fc });
+  }
+  if (!map.getLayer("sh-wetlands-fill")) {
+    map.addLayer({
+      id: "sh-wetlands-fill",
+      type: "fill",
+      source: "sh-wetlands",
+      paint: {
+        "fill-color": "#0077BE",      // ocean blue
+        "fill-opacity": 0.65,          // prints solid, imagery still visible
+        "fill-outline-color": "#004C7A",
+      },
+    }, anchor); // BELOW parcel boundary + labels
+  }
+  if (!map.getLayer("sh-wetlands-outline")) {
+    map.addLayer({
+      id: "sh-wetlands-outline",
+      type: "line",
+      source: "sh-wetlands",
+      paint: { "line-color": "#004C7A", "line-width": 1.5 },
+    }, anchor);
+  }
+  shLiftPriorityLayers(map);
+}
+
 // ────────────── 2. TOPOGRAPHY ──────────────
 // USGS contour raster overlay (contour lines + AMSL ft labels are baked into the
 // USGS contour service) on a satellite base, bound to the Target A vicinity.
@@ -208,6 +332,7 @@ export async function renderTopo(container, target, token) {
         `&size=512,512&dpi=96&format=png32&transparent=true&layers=show:${contourLayers}&f=image`;
       map.addSource("s4-contours", { type: "raster", tiles: [tileUrl], tileSize: 512, bounds: [w, s, e, n] });
       map.addLayer({ id: "s4-contours-layer", type: "raster", source: "s4-contours", paint: { "raster-opacity": 0.9 } });
+      shAddContours(map); // bright orange contours + AMSL ft labels (additive)
       addTowerMarker(map, lat, lon, owner);
       fitToRing(map, lat, lon, 0.6);
       resolve(map);
@@ -520,6 +645,7 @@ export async function renderWetlands(container, target, token) {
         `&crs=EPSG:3857&width=256&height=256&bbox={bbox-epsg-3857}`;
       map.addSource("s4-nwi", { type: "raster", tiles: [tileUrl], tileSize: 256 });
       map.addLayer({ id: "s4-nwi-layer", type: "raster", source: "s4-nwi", paint: { "raster-opacity": 0.85 } });
+      shAddWetlandsBlue(map, lat, lon); // ocean-blue NWI polygons (additive, async)
       addTowerMarker(map, lat, lon, owner);
       fitToRing(map, lat, lon, 0.5);
       resolve(map);
