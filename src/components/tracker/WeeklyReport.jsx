@@ -11,6 +11,7 @@ export default function WeeklyReport({ sites, milestones }) {
   // Latest milestone movement (updated within 7 days) per site.
   const movementBySite = {};
   for (const m of milestones) {
+    if (m.backfilled) continue; // import backfill is not real movement
     const ts = new Date(m.updated_date).getTime();
     if (ts < cutoff) continue;
     const cur = movementBySite[m.tracker_site_id];

@@ -1,7 +1,7 @@
 {
   "name": "HawkTrackerMilestone",
   "type": "object",
-  "description": "Hawk Tracker \u2014 one milestone row per gate per tracker site (19 rows created when the site is added). The MILESTONES list in lib/hawkTracker.js is display order only, NOT an enforced sequence \u2014 each row carries its own independent status. Built-in updated_date drives the weekly 'moved this week' report.",
+  "description": "Hawk Tracker \u2014 one milestone row per gate per tracker site (19 rows created when the site is added). The MILESTONES list in lib/hawkTracker.js is display order only, NOT an enforced sequence \u2014 each row carries its own independent status. Built-in updated_date drives the weekly 'moved this week' report; backfilled rows (created by CSV import) are excluded from that movement window.",
   "properties": {
     "tracker_site_id": {
       "type": "string",
@@ -47,7 +47,12 @@
     "completed_at": {
       "type": "string",
       "format": "date-time",
-      "description": "When the milestone was marked complete."
+      "description": "When the milestone was marked complete. Backfilled rows leave this null \u2014 never fabricate dates."
+    },
+    "backfilled": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when this row's status was set by CSV import backfill, not real movement. Excluded from the weekly 'moved this week' report."
     },
     "notes": {
       "type": "string",

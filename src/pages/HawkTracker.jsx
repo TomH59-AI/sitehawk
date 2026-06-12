@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, ClipboardList, CalendarCheck } from "lucide-react";
+import { Plus, ClipboardList, CalendarCheck, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import TrackerSiteForm from "../components/tracker/TrackerSiteForm";
 import TrackerSiteCard from "../components/tracker/TrackerSiteCard";
 import WeeklyReport from "../components/tracker/WeeklyReport";
+import ImportWizard from "../components/tracker/import/ImportWizard";
 import { MILESTONES, TRACKER_GREEN } from "@/lib/hawkTracker";
 
 // Hawk Tracker — 18 gates and an exit. Sites + per-gate milestone rows +
@@ -16,6 +17,7 @@ export default function HawkTracker() {
   const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -47,7 +49,7 @@ export default function HawkTracker() {
   };
 
   const updateMilestone = async (row, patch) => {
-    const data = { ...patch };
+    const data = { ...patch, backfilled: false }; // a real user edit is real movement
     if (patch.status === "complete" && !row.completed_at) data.completed_at = new Date().toISOString();
     if (patch.status && patch.status !== "complete") data.completed_at = null;
     await base44.entities.HawkTrackerMilestone.update(row.id, data);
@@ -87,9 +89,14 @@ export default function HawkTracker() {
           <h1 className="font-heading font-bold text-2xl text-foreground">Hawk Tracker</h1>
           <p className="text-sm text-muted-foreground">Site acquisition milestone tracking — 18 gates and an exit.</p>
         </div>
-        <Button onClick={() => setShowForm(true)} style={{ background: TRACKER_GREEN }} className="font-heading font-semibold">
-          <Plus className="w-4 h-4 mr-1" /> New Site
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowImport(true)} className="font-heading font-semibold">
+            <Upload className="w-4 h-4 mr-1" /> Import CSV/XLSX
+          </Button>
+          <Button onClick={() => setShowForm(true)} style={{ background: TRACKER_GREEN }} className="font-heading font-semibold">
+            <Plus className="w-4 h-4 mr-1" /> New Site
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-2 no-print">
@@ -104,6 +111,7 @@ export default function HawkTracker() {
       </div>
 
       {showForm && <TrackerSiteForm onSubmit={createSite} onCancel={() => setShowForm(false)} saving={saving} />}
+      {showImport && <ImportWizard existingSites={sites} onClose={() => setShowImport(false)} onDone={load} />}
 
       {tab === "sites" && (
         <div className="space-y-3">

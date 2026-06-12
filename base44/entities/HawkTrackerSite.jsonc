@@ -9,7 +9,7 @@
     },
     "carrier_site_number": {
       "type": "string",
-      "description": "The carrier's internal site ID."
+      "description": "The carrier's internal site ID. Dedup key on CSV import."
     },
     "carrier": {
       "type": "string",
@@ -66,6 +66,14 @@
       "type": "string",
       "format": "date",
       "description": "Carrier's target on-air date \u2014 drives urgency sorting on calls."
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Optional site latitude (decimal degrees)."
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Optional site longitude (decimal degrees)."
     },
     "candidate_id": {
       "type": "string",
