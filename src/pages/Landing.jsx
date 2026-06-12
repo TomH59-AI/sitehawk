@@ -118,15 +118,12 @@ export default function Landing() {
           </div>
 
           <h1 className="font-heading font-bold text-5xl md:text-7xl leading-tight text-white mb-6">
-            From a Pin to a<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Carrier-Ready SCIP</span><br />
-            in Minutes.
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">SiteHawk</span> with AI<br />
+            Intelligence Has Landed.
           </h1>
 
           <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto mb-10 leading-relaxed">
-            SiteHawk is the AI site acquisition platform for wireless infrastructure professionals.
-            Drop a pin and get ranked parcels, zoning ordinances, owner contact, RF & airport intelligence —
-            assembled into a full Site Candidate Information Package. Weeks of work, done in minutes.
+            The seamless, least-resistant path to site acquisition — built in one web app.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
