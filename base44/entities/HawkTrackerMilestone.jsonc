@@ -1,0 +1,102 @@
+{
+  "name": "HawkTrackerMilestone",
+  "type": "object",
+  "description": "Hawk Tracker \u2014 one milestone row per gate per tracker site (19 rows created when the site is added). The MILESTONES list in lib/hawkTracker.js is display order only, NOT an enforced sequence \u2014 each row carries its own independent status. Built-in updated_date drives the weekly 'moved this week' report.",
+  "properties": {
+    "tracker_site_id": {
+      "type": "string",
+      "description": "The HawkTrackerSite this milestone belongs to."
+    },
+    "milestone": {
+      "type": "string",
+      "enum": [
+        "search_ring_received",
+        "candidates_identified",
+        "site_visits_complete",
+        "scip_submitted",
+        "scip_approved",
+        "landlord_contacted",
+        "loi_issued",
+        "loi_executed",
+        "lease_negotiation",
+        "lease_executed",
+        "regulatory_complete",
+        "zoning_submitted",
+        "zoning_approved",
+        "survey_complete",
+        "cd_approved",
+        "bp_submitted",
+        "bp_issued",
+        "ntp_issued",
+        "ring_exhausted"
+      ],
+      "description": "Which gate this row tracks. One row per milestone per site."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "in_progress",
+        "complete",
+        "blocked",
+        "na"
+      ],
+      "default": "pending",
+      "description": "na = gate doesn't apply (e.g. by-right jurisdictions gray out zoning rows)."
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the milestone was marked complete."
+    },
+    "notes": {
+      "type": "string",
+      "description": "The 'color' the SAQ gives on the call."
+    }
+  },
+  "required": [
+    "tracker_site_id",
+    "milestone"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "name": "HawkTrackerSite",
+  "type": "object",
+  "description": "Hawk Tracker \u2014 one site acquisition project being driven through the 18-gate deployment milestone ladder (plus the ring_exhausted side-exit). Stands alone on site_name + carrier_site_number; candidate/search links are soft references only, never load-bearing.",
+  "properties": {
+    "site_name": {
+      "type": "string",
+      "description": "Site name / search ring name."
+    },
+    "carrier_site_number": {
+      "type": "string",
+      "description": "The carrier's internal site ID."
+    },
+    "carrier": {
+      "type": "string",
+      "description": "Verizon, AT&T, T-Mobile, DISH, etc."
+    },
+    "market": {
+      "type": "string",
+      "description": "Deployment market name \u2014 the weekly report groups by this."
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter state code."
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Zoning/permitting jurisdiction."
+    },
+    "current_status": {
+      "type": "string",
+      "enum": [
+        "search_ring_received",
+        "candidates_identified",
+        "site_visits_complete",
+        "scip_submitted",
+        "scip_approved",
+        "landlord_contacted",
+        "loi_issued",
+        "loi_executed",
+        "lease_negotiation",
+        "lease_executed",
+        "regulatory_complete",
+        "zoning_submitted",
+        "zoning_approved",
+        "survey_complete",
+        "cd_approved",
+        "bp_submitted",
+        "bp_issued",
+        "ntp_issued",
+        "ring_exhausted"
+      ],
+      "default": "search_ring_received",
+      "description": "The furthest milestone the site has reached (display convenience; milestones are the source of truth)."
+    },
+    "is_blocked": {
+      "type": "boolean",
+      "default": false,
+      "description": "Blocked sites pin to the top of the weekly report in red."
+    },
+    "blocked_reason": {
+      "type": "string",
+      "description": "Why the site is blocked."
+    },
+    "target_on_air": {
+      "type": "string",
+      "format": "date",
+      "description": "Carrier's target on-air date \u2014 drives urgency sorting on calls."
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "Soft reference to an external candidate record (stored ID string, no enforced FK)."
+    },
+    "search_id": {
+      "type": "string",
+      "description": "Soft reference to an external search record (stored ID string, no enforced FK)."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Site-level notes."
+    }
+  },
+  "required": [
+    "site_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
