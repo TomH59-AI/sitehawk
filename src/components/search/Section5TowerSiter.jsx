@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { point, booleanPointInPolygon, circle as turfCircle } from "@turf/turf";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Layers, CheckCircle2, Download, Printer, AlertOctagon, Map as MapIcon, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Layers, CheckCircle2, Download, Printer, AlertOctagon, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { recompute, makeFrame, compoundRect } from "@/lib/towerSiterEngine";
 import { siterEntitlements } from "@/lib/towerSiterAccess";
 import { svgToPngDownload, svgToPdfDownload, exportExhibitB } from "@/lib/towerSiterExports";
@@ -51,7 +51,6 @@ export default function Section5TowerSiter({
   });
   const [towerOverride, setTowerOverride] = useState(null);
   const [residential, setResidential] = useState(null);
-  const [view, setView] = useState("map");
   const [upgrade, setUpgrade] = useState(null);
   const exhibitARef = useRef(null);
 
@@ -239,7 +238,10 @@ export default function Section5TowerSiter({
               <div className="font-heading font-bold text-white text-sm">
                 {targetA.parcel_address || targetA.owner_name || "Target A"}
               </div>
-              <div>APN <b className="text-white/85">{targetA.apn || "—"}</b> · {targetA.acreage ? `${targetA.acreage} ac` : "—"} · {targetA.zoning_classification || ""}</div>
+              <div>
+                Parcel ID: <b className="text-white/85">{parcel?.apn || parcel?.parcelId || targetA.apn || <span className="text-white/40 italic">loading from Realie…</span>}</b>
+                {" · "}{targetA.acreage ? `${targetA.acreage} ac` : "—"}{targetA.zoning_classification ? ` · ${targetA.zoning_classification}` : ""}
+              </div>
               {targetA.owner_name && <div>Owner: <b className="text-white/85">{targetA.owner_name}</b></div>}
               {zoning?.jurisdiction && <div className="text-cyan-300">Zoning jurisdiction: {zoning.jurisdiction}</div>}
               {loading && <div className="text-amber-300 animate-pulse">Loading parcel boundary from Realie…</div>}
@@ -285,39 +287,19 @@ export default function Section5TowerSiter({
               )}
             </div>
 
-            {/* Map / plan sheet */}
+            {/* Plan Sheet — always shown */}
             <div className="space-y-3">
-              <div className="flex gap-2">
-                <Button size="sm" variant={view === "map" ? "default" : "outline"} onClick={() => setView("map")}>
-                  <MapIcon className="w-4 h-4 mr-1" /> Satellite
-                </Button>
-                <Button size="sm" variant={view === "plan" ? "default" : "outline"} onClick={() => setView("plan")} disabled={!result || result.collapsed}>
-                  <FileText className="w-4 h-4 mr-1" /> Plan Sheet (Exhibit A)
-                </Button>
+              <div className="flex items-center gap-2 text-xs text-white/50">
+                <FileText className="w-3.5 h-3.5" /> Plan Sheet (Exhibit A)
               </div>
-
-              <div className={view === "map" ? "h-[480px]" : "hidden"}>
-                <SiterMap
-                  parcelGeoJSON={parcel ? { type: "Feature", properties: {}, geometry: parcel.geometry } : null}
-                  result={result && !result.collapsed ? result : null}
-                  leaseLonLat={leaseLonLat}
-                  residCircle={residential?.circle || null}
-                  draftPoints={[]}
-                  onTowerDrag={onTowerDrag}
-                  onMapClick={() => {}}
-                  clickMode={null}
-                />
-              </div>
-
-              {view === "plan" && result && !result.collapsed && (
-                <ExhibitA ref={exhibitARef} result={result} controls={controls} meta={exhibitMeta} watermark={ent.watermark} />
-              )}
-              {/* Hidden mount so export works from map view too */}
-              {view === "map" && result && !result.collapsed && (
-                <div className="hidden" aria-hidden="true">
-                  <ExhibitA ref={exhibitARef} result={result} controls={controls} meta={exhibitMeta} watermark={ent.watermark} />
-                </div>
-              )}
+              {result && !result.collapsed
+                ? <ExhibitA ref={exhibitARef} result={result} controls={controls} meta={exhibitMeta} watermark={ent.watermark} />
+                : (
+                  <div className="rounded-xl border border-white/10 bg-white/5 flex items-center justify-center h-48 text-white/30 text-sm">
+                    {parcel ? "Adjust controls to compute a compliant placement." : "Load parcel boundary to generate the plan sheet."}
+                  </div>
+                )
+              }
             </div>
           </div>
         </div>

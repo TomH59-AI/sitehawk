@@ -11,12 +11,10 @@ export default function SiterControls({ controls, onChange, rules, peAllowedByTi
   const num = (k) => (e) => set(k, e.target.value === "" ? "" : Number(e.target.value));
 
   const peOrdinanceOK = rules?.pe_fall_zone_allowed === true;
-  const peEnabled = peOrdinanceOK && peAllowedByTier;
-  const peTooltip = !peOrdinanceOK
-    ? `PE fall-zone reduction not permitted${rules?.section_ref ? ` per § ${rules.section_ref}` : " — no ordinance authorization on file"}`
-    : !peAllowedByTier
-      ? "PE letter toggle is a HawkVision+ feature"
-      : "";
+  // Ordinance warning shown when toggled ON but jurisdiction doesn't allow it
+  const peOrdinanceWarning = controls.peToggle && !peOrdinanceOK && rules
+    ? `⚠ Jurisdiction${rules?.section_ref ? ` § ${rules.section_ref}` : ""} does not authorize PE fall-zone reduction — for comparison only`
+    : null;
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-3">
@@ -51,12 +49,20 @@ export default function SiterControls({ controls, onChange, rules, peAllowedByTi
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between" title={peTooltip}>
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <Label className={`text-xs font-semibold ${peEnabled ? "text-white" : "text-white/30"}`}>PE letter — engineered fall radius</Label>
-          {peTooltip && <p className="text-[10px] text-white/35">{peTooltip}</p>}
+          <Label className="text-xs font-semibold text-white">PE letter — engineered fall radius</Label>
+          {peOrdinanceWarning && (
+            <p className="text-[10px] text-amber-400 mt-0.5">{peOrdinanceWarning}</p>
+          )}
+          {!rules && (
+            <p className="text-[10px] text-white/35">No ordinance on file — toggle to compare</p>
+          )}
+          {rules && peOrdinanceOK && (
+            <p className="text-[10px] text-emerald-400">✓ Jurisdiction authorizes PE fall-zone reduction</p>
+          )}
         </div>
-        <Switch checked={controls.peToggle && peEnabled} disabled={!peEnabled} onCheckedChange={(v) => set("peToggle", v)} />
+        <Switch checked={!!controls.peToggle} onCheckedChange={(v) => set("peToggle", v)} />
       </div>
     </div>
   );
