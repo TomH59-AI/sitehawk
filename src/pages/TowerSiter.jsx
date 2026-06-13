@@ -21,6 +21,7 @@ import RuleCard from "../components/towersiter/RuleCard";
 import SiterMap from "../components/towersiter/SiterMap";
 import ExhibitA from "../components/towersiter/ExhibitA";
 import UpgradeModal from "../components/towersiter/UpgradeModal";
+import SitingDeepDive from "../components/towersiter/SitingDeepDive";
 
 // HawkPerch — Tower Siter. Single source of truth for placement math is
 // lib/towerSiterEngine.js (recompute pipeline). NO Zoneomics, NO Regrid —
@@ -38,13 +39,18 @@ export default function TowerSiter() {
   const [view, setView] = useState("map");
   const [busy, setBusy] = useState(false);
   const [upgrade, setUpgrade] = useState(null); // reason string | null
+  const [sitingResult, setSitingResult] = useState(null); // perch-siting-solver verdict
+  const [anonKey, setAnonKey] = useState(null);
   const [clickMode, setClickMode] = useState(null);
   const [draftPoints, setDraftPoints] = useState([]);
   const [manualRect, setManualRect] = useState({ w: "", d: "" });
   const [pendingPlat, setPendingPlat] = useState(null);
   const exhibitARef = useRef(null);
 
-  useEffect(() => { base44.auth.me().then(setUser).catch(() => setUser(null)); }, []);
+  useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => setUser(null));
+    loadPublicConfig().then((cfg) => setAnonKey(cfg?.hawkSupabaseAnonKey || null)).catch(() => {});
+  }, []);
 
   /* ---------------- engine — recompute on every control change / drag ---------------- */
   const result = useMemo(() => {
@@ -94,6 +100,7 @@ export default function TowerSiter() {
     setTowerOverride(null);
     setResidential(null);
     setRules(null);
+    setSitingResult(null);
     setClickMode(null);
     setDraftPoints([]);
     if (p.state && p.jurisdiction) {
@@ -300,6 +307,15 @@ export default function TowerSiter() {
           )}
 
           {parcel && <RuleCard rules={rules} jurisdiction={parcel.jurisdiction} unverified={result?.unverified} />}
+
+          {parcel && (
+            <SitingDeepDive
+              parcel={parcel}
+              anonKey={anonKey}
+              onResult={(r) => { setSitingResult(r); }}
+            />
+          )}
+
           <SiterControls controls={controls} onChange={setControls} rules={rules} peAllowedByTier={ent.peAllowed} />
 
           {result && !result.collapsed && (
@@ -308,17 +324,23 @@ export default function TowerSiter() {
                 <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm placement
               </Button>
               <div className="grid grid-cols-2 gap-2">
-                <Button size="sm" variant="outline" className="border-white/15 text-white/70" onClick={exportA}>
+                <Button size="sm" variant="outline" className="border-white/15 text-white/70" onClick={exportA}
+                  disabled={sitingResult && !sitingResult.feasible}
+                  title={sitingResult && !sitingResult.feasible ? "Deep-dive found no compliant height — confirm override before exporting" : undefined}>
                   <Download className="w-3.5 h-3.5 mr-1" /> Exhibit A
                 </Button>
-                <Button size="sm" variant="outline" className="border-white/15 text-white/70" onClick={exportB}>
+                <Button size="sm" variant="outline" className="border-white/15 text-white/70" onClick={exportB}
+                  disabled={sitingResult && !sitingResult.feasible}
+                  title={sitingResult && !sitingResult.feasible ? "Deep-dive found no compliant height — confirm override before exporting" : undefined}>
                   <Download className="w-3.5 h-3.5 mr-1" /> Exhibit B
                 </Button>
               </div>
-              <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={exportPdf}>
+              <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={exportPdf}
+                disabled={sitingResult && !sitingResult.feasible}>
                 <Printer className="w-3.5 h-3.5 mr-1" /> Print Exhibit A — PDF
               </Button>
-              <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={sendToScip}>
+              <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={sendToScip}
+                disabled={sitingResult && !sitingResult.feasible}>
                 <Send className="w-3.5 h-3.5 mr-1" /> Send to SCIP
               </Button>
             </div>
