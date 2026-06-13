@@ -11,6 +11,7 @@ import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section8Propagation from "../components/search/Section8Propagation";
+import Section5TowerSiter from "../components/search/Section5TowerSiter";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
@@ -159,6 +160,8 @@ export default function SiteSearch() {
     if (zoningReady) done.push("zoning");
     if (targetA) done.push("targets");
     if (mapsComplete) done.push("maps");
+    // tower_siter is available once targetA resolves — mark unlocked in sidebar
+    if (targetA) done.push("tower_siter");
     setCompletedSteps(done);
   }, [sarfReady, zoningReady, targetA, mapsComplete, setCompletedSteps]);
 
@@ -477,6 +480,20 @@ export default function SiteSearch() {
           targetA={targetA}
           towerHeightFt={searchParams.tower_height_ft || 150}
           onData={mergeSectionData}
+        />
+      )}
+
+      {/* SECTION 5 — TOWER SITER. Unlocks when Target A is resolved.
+          Passes Target A coords + zoning rules so the parcel pre-loads. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section5TowerSiter
+          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          active={pipelineStep === "tower_siter"}
+          onClear={() => clearFrom("maps")}
+          onRun={() => setPipelineStep("tower_siter")}
+          targetA={targetA}
+          zoningResult={zoningResult}
+          towerHeightFt={searchParams.tower_height_ft || 199}
         />
       )}
 
