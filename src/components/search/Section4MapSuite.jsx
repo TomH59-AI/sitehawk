@@ -164,10 +164,10 @@ export default function Section4MapSuite({
         map = await renderAerial(refs.aerial.current, targetA, srcLat, srcLon, radiusMiles, token);
         console.log("[AERIAL DIAG] renderAerial resolved — map instance:", !!map);
       } else if (step === "topo") {
-        map = await renderTopo(refs.topo.current, targetA, token);
+        map = await renderTopo(refs.topo.current, targetA, token, srcLat, srcLon, radiusMiles);
       } else if (step === "fema") {
         const [m, fres] = await Promise.all([
-          renderFema(refs.fema.current, targetA, token),
+          renderFema(refs.fema.current, targetA, token, srcLat, srcLon, radiusMiles),
           femaFloodLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         ]);
         map = m;
@@ -270,7 +270,7 @@ export default function Section4MapSuite({
         }
         map = await renderFlumPolygon(refs.flum.current, targetA, token, fluFeature, flumLabel);
       } else if (step === "wetlands") {
-        map = await renderWetlands(refs.wetlands.current, targetA, token);
+        map = await renderWetlands(refs.wetlands.current, targetA, token, srcLat, srcLon, radiusMiles);
       } else if (step === "airport") {
         const ares = await nearestAirportFromDirectory({ lat: targetA.latitude, lon: targetA.longitude });
         const airport = ares.data?.match;

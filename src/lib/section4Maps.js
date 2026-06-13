@@ -312,8 +312,10 @@ async function shAddWetlandsBlue(map, lat, lon) {
 // ────────────── 2. TOPOGRAPHY ──────────────
 // USGS contour raster overlay (contour lines + AMSL ft labels are baked into the
 // USGS contour service) on a satellite base, bound to the Target A vicinity.
-export async function renderTopo(container, target, token) {
+export async function renderTopo(container, target, token, srcLat, srcLon, radiusMiles = 0.6) {
   const { latitude: lat, longitude: lon, owner } = target;
+  const cLat = Number.isFinite(srcLat) ? srcLat : lat;
+  const cLon = Number.isFinite(srcLon) ? srcLon : lon;
   const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 14);
   return new Promise((resolve) => {
     map.on("load", () => {
@@ -333,16 +335,25 @@ export async function renderTopo(container, target, token) {
       map.addSource("s4-contours", { type: "raster", tiles: [tileUrl], tileSize: 512, bounds: [w, s, e, n] });
       map.addLayer({ id: "s4-contours-layer", type: "raster", source: "s4-contours", paint: { "raster-opacity": 0.9 } });
       shAddContours(map); // bright orange contours + AMSL ft labels (additive)
+
+      // SARF search ring
+      const ring = buildCircle(cLat, cLon, radiusMiles);
+      map.addSource("s4-topo-ring", { type: "geojson", data: ring });
+      map.addLayer({ id: "s4-topo-ring-fill", type: "fill", source: "s4-topo-ring", paint: { "fill-color": "#facc15", "fill-opacity": 0.07 } });
+      map.addLayer({ id: "s4-topo-ring-line", type: "line", source: "s4-topo-ring", paint: { "line-color": "#facc15", "line-width": 3 } });
+
       addTowerMarker(map, lat, lon, owner);
-      fitToRing(map, lat, lon, 0.6);
+      fitToRing(map, cLat, cLon, radiusMiles);
       resolve(map);
     });
   });
 }
 
 // ────────────── 3. FEMA FLOODPLAIN ──────────────
-export async function renderFema(container, target, token) {
+export async function renderFema(container, target, token, srcLat, srcLon, radiusMiles = 0.6) {
   const { latitude: lat, longitude: lon, owner } = target;
+  const cLat = Number.isFinite(srcLat) ? srcLat : lat;
+  const cLon = Number.isFinite(srcLon) ? srcLon : lon;
   const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 14);
   return new Promise((resolve) => {
     map.on("load", () => {
@@ -351,8 +362,15 @@ export async function renderFema(container, target, token) {
         `&size=512,512&dpi=96&format=png32&transparent=true&layers=show:28&f=image`;
       map.addSource("s4-nfhl", { type: "raster", tiles: [tileUrl], tileSize: 512 });
       map.addLayer({ id: "s4-nfhl-layer", type: "raster", source: "s4-nfhl", paint: { "raster-opacity": 0.6 } });
+
+      // SARF search ring
+      const ring = buildCircle(cLat, cLon, radiusMiles);
+      map.addSource("s4-fema-ring", { type: "geojson", data: ring });
+      map.addLayer({ id: "s4-fema-ring-fill", type: "fill", source: "s4-fema-ring", paint: { "fill-color": "#facc15", "fill-opacity": 0.07 } });
+      map.addLayer({ id: "s4-fema-ring-line", type: "line", source: "s4-fema-ring", paint: { "line-color": "#facc15", "line-width": 3 } });
+
       addTowerMarker(map, lat, lon, owner);
-      fitToRing(map, lat, lon, 0.6);
+      fitToRing(map, cLat, cLon, radiusMiles);
       resolve(map);
     });
   });
@@ -634,8 +652,10 @@ export async function renderFlumPolygon(container, target, token, fluFeature, fl
 }
 
 // ────────────── 5. WETLANDS ──────────────
-export async function renderWetlands(container, target, token) {
+export async function renderWetlands(container, target, token, srcLat, srcLon, radiusMiles = 0.5) {
   const { latitude: lat, longitude: lon, owner } = target;
+  const cLat = Number.isFinite(srcLat) ? srcLat : lat;
+  const cLon = Number.isFinite(srcLon) ? srcLon : lon;
   const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 14);
   return new Promise((resolve) => {
     map.on("load", () => {
@@ -646,8 +666,15 @@ export async function renderWetlands(container, target, token) {
       map.addSource("s4-nwi", { type: "raster", tiles: [tileUrl], tileSize: 256 });
       map.addLayer({ id: "s4-nwi-layer", type: "raster", source: "s4-nwi", paint: { "raster-opacity": 0.85 } });
       shAddWetlandsBlue(map, lat, lon); // ocean-blue NWI polygons (additive, async)
+
+      // SARF search ring
+      const ring = buildCircle(cLat, cLon, radiusMiles);
+      map.addSource("s4-wetlands-ring", { type: "geojson", data: ring });
+      map.addLayer({ id: "s4-wetlands-ring-fill", type: "fill", source: "s4-wetlands-ring", paint: { "fill-color": "#facc15", "fill-opacity": 0.07 } });
+      map.addLayer({ id: "s4-wetlands-ring-line", type: "line", source: "s4-wetlands-ring", paint: { "line-color": "#facc15", "line-width": 3 } });
+
       addTowerMarker(map, lat, lon, owner);
-      fitToRing(map, lat, lon, 0.5);
+      fitToRing(map, cLat, cLon, radiusMiles);
       resolve(map);
     });
   });
