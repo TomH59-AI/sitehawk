@@ -9,6 +9,7 @@ import { siterEntitlements } from "@/lib/towerSiterAccess";
 import { svgToPngDownload, svgToPdfDownload, exportExhibitB } from "@/lib/towerSiterExports";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { towerSiterParcel } from "@/functions/towerSiterParcel";
+import { towerSiterOrdinance } from "@/functions/towerSiterOrdinance";
 import { towerSiterResidential } from "@/functions/towerSiterResidential";
 import { towerSiterSitings } from "@/functions/towerSiterSitings";
 import SiterControls from "@/components/towersiter/SiterControls";
@@ -100,7 +101,6 @@ export default function Section5TowerSiter({
         setResidential(null);
         // Try to load ordinance if we have jurisdiction info
         if (hit.state && hit.jurisdiction) {
-          const { towerSiterOrdinance } = await import("@/functions/towerSiterOrdinance");
           const { data: ord } = await towerSiterOrdinance({ state: hit.state, jurisdiction: hit.jurisdiction }).catch(() => ({ data: null }));
           if (ord?.rules) setRules(ord.rules);
         }
