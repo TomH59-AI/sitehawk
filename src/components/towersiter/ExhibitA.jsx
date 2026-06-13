@@ -144,6 +144,9 @@ const ExhibitA = forwardRef(function ExhibitA({ result, controls, meta, watermar
         <text x="30" y={meta?.sourceLabel ? 90 : 78} fontFamily={MONO} fontSize="14" fontWeight="bold" fill="#b91c1c">
           {NOT_A_SURVEY}
         </text>
+        <text x={W - 30} y={meta?.sourceLabel ? 90 : 78} fontFamily={MONO} fontSize="9" fill={INK} textAnchor="end" letterSpacing="0.5">
+          FOR DISCUSSION PURPOSES ONLY
+        </text>
       </g>
     </svg>
   );
