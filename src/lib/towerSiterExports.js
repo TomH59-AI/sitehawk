@@ -30,8 +30,8 @@ export function azimuthToBearing(az) {
   return `${ns} ${d}\u00B0${String(m).padStart(2, "0")}\u2032 ${ew}`;
 }
 
-/* ---- SVG node → PNG download at 2x ---- */
-export async function svgToPngDownload(svgNode, filename) {
+/* ---- shared: SVG node → 2x canvas ---- */
+async function svgToCanvas(svgNode) {
   const xml = new XMLSerializer().serializeToString(svgNode);
   const blob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -45,7 +45,26 @@ export async function svgToPngDownload(svgNode, filename) {
   ctx.scale(2, 2);
   ctx.drawImage(img, 0, 0, vb.width, vb.height);
   URL.revokeObjectURL(url);
+  return { canvas, vb };
+}
+
+/* ---- SVG node → PNG download at 2x ---- */
+export async function svgToPngDownload(svgNode, filename) {
+  const { canvas } = await svgToCanvas(svgNode);
   triggerDownload(canvas.toDataURL("image/png"), filename);
+}
+
+/* ---- SVG node → landscape-letter PDF download ---- */
+export async function svgToPdfDownload(svgNode, filename) {
+  const { canvas, vb } = await svgToCanvas(svgNode);
+  const { jsPDF } = await import("jspdf");
+  const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
+  const pw = pdf.internal.pageSize.getWidth();
+  const ph = pdf.internal.pageSize.getHeight();
+  const s = Math.min(pw / vb.width, ph / vb.height);
+  const w = vb.width * s, h = vb.height * s;
+  pdf.addImage(canvas.toDataURL("image/png"), "PNG", (pw - w) / 2, (ph - h) / 2, w, h);
+  pdf.save(filename);
 }
 
 /* ---- Exhibit B — Mapbox Static Images PNG with encoded GeoJSON overlay ---- */

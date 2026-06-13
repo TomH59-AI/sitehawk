@@ -3,11 +3,11 @@ import { base44 } from "@/api/base44Client";
 import { point, booleanPointInPolygon, circle as turfCircle, area as turfArea } from "@turf/turf";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Map as MapIcon, FileText, Download, Send, CheckCircle2, AlertOctagon, Layers } from "lucide-react";
+import { Map as MapIcon, FileText, Download, Send, CheckCircle2, AlertOctagon, Layers, Printer } from "lucide-react";
 
 import { recompute, makeFrame, polygonFromFrame, compoundRect, polygonFromCalls } from "@/lib/towerSiterEngine";
 import { siterEntitlements, DEMO_PARCEL } from "@/lib/towerSiterAccess";
-import { svgToPngDownload, exportExhibitB } from "@/lib/towerSiterExports";
+import { svgToPngDownload, svgToPdfDownload, exportExhibitB } from "@/lib/towerSiterExports";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { towerSiterParcel } from "@/functions/towerSiterParcel";
 import { towerSiterOrdinance } from "@/functions/towerSiterOrdinance";
@@ -213,6 +213,10 @@ export default function TowerSiter() {
     if (!exhibitARef.current) { toast.error("Open the Plan Sheet view first."); return; }
     await svgToPngDownload(exhibitARef.current, `${fileBase}-exhibit-A.png`);
   };
+  const exportPdf = async () => {
+    if (!exhibitARef.current) { toast.error("Open the Plan Sheet view first."); return; }
+    await svgToPdfDownload(exhibitARef.current, `${fileBase}-exhibit-A.pdf`);
+  };
   const exportB = async () => {
     try {
       const cfg = await loadPublicConfig();
@@ -311,6 +315,9 @@ export default function TowerSiter() {
                   <Download className="w-3.5 h-3.5 mr-1" /> Exhibit B
                 </Button>
               </div>
+              <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={exportPdf}>
+                <Printer className="w-3.5 h-3.5 mr-1" /> Print Exhibit A — PDF
+              </Button>
               <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={sendToScip}>
                 <Send className="w-3.5 h-3.5 mr-1" /> Send to SCIP
               </Button>

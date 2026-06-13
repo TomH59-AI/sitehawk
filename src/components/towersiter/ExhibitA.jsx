@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { synthesizeCalls, NOT_A_SURVEY } from "@/lib/towerSiterExports";
+import PlatStamp from "./PlatStamp";
 
 const W = 1100, H = 850, M = 70, TITLE_H = 110;
 const MONO = "'IBM Plex Mono', monospace";
@@ -124,6 +125,9 @@ const ExhibitA = forwardRef(function ExhibitA({ result, controls, meta, watermar
           PRELIMINARY — SITEHAWK
         </text>
       )}
+
+      {/* plat-review stamp */}
+      <PlatStamp x={W - 130} y={H - TITLE_H - 100} date={today.toUpperCase()} />
 
       {/* title block */}
       <g transform={`translate(0, ${H - TITLE_H})`}>
