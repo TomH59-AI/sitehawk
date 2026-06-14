@@ -4,14 +4,20 @@ import { Switch } from "@/components/ui/switch";
 
 // Tower Siter controls — height, compound W×D (default 75×75), lease area,
 // PE-letter toggle + engineered fall radius (default 40% of height).
-// PE toggle is DISABLED (greyed + tooltip citing section_ref) when the
-// ordinance does not allow PE fall zones, or the tier doesn't include it.
 export default function SiterControls({ controls, onChange, rules, peAllowedByTier }) {
   const set = (k, v) => onChange({ ...controls, [k]: v });
   const num = (k) => (e) => set(k, e.target.value === "" ? "" : Number(e.target.value));
 
+  // Single combined "WxD" string → split on x/× into W and D
+  const parseDims = (raw, wKey, dKey) => {
+    const parts = raw.replace(/[xX×]/g, "x").split("x");
+    const w = parseInt(parts[0], 10);
+    const d = parseInt(parts[1], 10);
+    if (!isNaN(w)) set(wKey, w);
+    if (!isNaN(d)) set(dKey, d);
+  };
+
   const peOrdinanceOK = rules?.pe_fall_zone_allowed === true;
-  // Ordinance warning shown when toggled ON but jurisdiction doesn't allow it
   const peOrdinanceWarning = controls.peToggle && !peOrdinanceOK && rules
     ? `⚠ Jurisdiction${rules?.section_ref ? ` § ${rules.section_ref}` : ""} does not authorize PE fall-zone reduction — for comparison only`
     : null;
@@ -21,32 +27,44 @@ export default function SiterControls({ controls, onChange, rules, peAllowedByTi
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label className="text-[11px] text-white/50">Tower height (ft)</Label>
-          <Input type="number" min={10} max={2000} value={controls.heightFt} onChange={num("heightFt")} className="h-8 bg-white/5 border-white/10 text-white" />
+          <Input
+            type="number" min={10} max={2000}
+            placeholder="e.g. 195"
+            value={controls.heightFt === "" ? "" : controls.heightFt}
+            onChange={(e) => set("heightFt", e.target.value === "" ? "" : Number(e.target.value))}
+            className="h-8 bg-white/5 border-white/10 text-white placeholder:text-white/30"
+          />
         </div>
         <div>
           <Label className="text-[11px] text-white/50">Engineered fall radius (ft)</Label>
           <Input
             type="number" min={1}
-            placeholder={`${Math.ceil(0.4 * (controls.heightFt || 0))} (40% of H)`}
+            placeholder={controls.heightFt ? `${Math.ceil(0.4 * Number(controls.heightFt))} ft (40%)` : "40% of height"}
             value={controls.peRadiusFt}
             onChange={num("peRadiusFt")}
             disabled={!controls.peToggle}
-            className="h-8 bg-white/5 border-white/10 text-white disabled:opacity-40"
+            className="h-8 bg-white/5 border-white/10 text-white placeholder:text-white/30 disabled:opacity-40"
           />
         </div>
         <div>
-          <Label className="text-[11px] text-white/50">Compound W × D (ft)</Label>
-          <div className="flex gap-1.5">
-            <Input type="number" min={10} value={controls.compoundW} onChange={num("compoundW")} className="h-8 bg-white/5 border-white/10 text-white" />
-            <Input type="number" min={10} value={controls.compoundD} onChange={num("compoundD")} className="h-8 bg-white/5 border-white/10 text-white" />
-          </div>
+          <Label className="text-[11px] text-white/50">Compound size (W × D ft)</Label>
+          <Input
+            placeholder="e.g. 75x75"
+            defaultValue={`${controls.compoundW}x${controls.compoundD}`}
+            key={`cmp-${controls.compoundW}-${controls.compoundD}`}
+            onBlur={(e) => parseDims(e.target.value, "compoundW", "compoundD")}
+            className="h-8 bg-white/5 border-white/10 text-white placeholder:text-white/30"
+          />
         </div>
         <div>
-          <Label className="text-[11px] text-white/50">Lease area W × D (ft)</Label>
-          <div className="flex gap-1.5">
-            <Input type="number" min={10} value={controls.leaseW} onChange={num("leaseW")} className="h-8 bg-white/5 border-white/10 text-white" />
-            <Input type="number" min={10} value={controls.leaseD} onChange={num("leaseD")} className="h-8 bg-white/5 border-white/10 text-white" />
-          </div>
+          <Label className="text-[11px] text-white/50">Lease area (W × D ft)</Label>
+          <Input
+            placeholder="e.g. 100x100"
+            defaultValue={`${controls.leaseW}x${controls.leaseD}`}
+            key={`lease-${controls.leaseW}-${controls.leaseD}`}
+            onBlur={(e) => parseDims(e.target.value, "leaseW", "leaseD")}
+            className="h-8 bg-white/5 border-white/10 text-white placeholder:text-white/30"
+          />
         </div>
       </div>
       <div className="flex items-start justify-between gap-2">

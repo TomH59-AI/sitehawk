@@ -357,6 +357,15 @@ export default function TowerSiter() {
           )}
 
           {result && !result.collapsed && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-start gap-2">
+              <AlertOctagon className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+              <span>
+                <b>Proposed location only.</b> This siting is an auto-generated estimate and may not satisfy all requirements of the local governing authority. Verify setbacks, height limits, fall zones, and compound dimensions with your jurisdiction before submission.
+              </span>
+            </div>
+          )}
+
+          {result && !result.collapsed && (
             <ComplianceChips checks={result.checks} residential={residential} residentialAllowed={ent.residentialCheck} />
           )}
 
