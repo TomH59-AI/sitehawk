@@ -9,7 +9,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
   const [lon, setLon] = useState("");
   const [agentName, setAgentName] = useState("");
   const [ringName, setRingName] = useState("");
-  const [towerHeight, setTowerHeight] = useState("199");
+  const [towerHeight, setTowerHeight] = useState("");
   const [radius, setRadius] = useState(0.5);
   const [compound, setCompound] = useState("100x100");
   const [county, setCounty] = useState("");
@@ -24,7 +24,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
     onSearch(latitude, longitude, {
       agent_name: agentName,
       ring_name: ringName,
-      tower_height_ft: parseFloat(towerHeight) || 199,
+      tower_height_ft: parseFloat(towerHeight) || 150,
       radius_miles: radius,
       compound_size: compound,
       county: county.trim(),
@@ -88,7 +88,9 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
             <Input
               type="number"
               step="1"
-              placeholder="e.g. 199"
+              min="10"
+              max="2000"
+              placeholder="e.g. 150"
               value={towerHeight}
               onChange={(e) => setTowerHeight(e.target.value)}
               className="bg-secondary border-border"

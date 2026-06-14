@@ -29,7 +29,7 @@ export default function SiteSearch() {
   const [pageLoading, setPageLoading] = useState(true);
   const [scanError, setScanError] = useState(null);
   const [searchCenter, setSearchCenter] = useState(null);
-  const [searchParams, setSearchParams] = useState({ radius_miles: 0.5, tower_height_ft: 199, agent_name: "", ring_name: "", compound_size: "100x100" });
+  const [searchParams, setSearchParams] = useState({ radius_miles: 0.5, tower_height_ft: 150, agent_name: "", ring_name: "", compound_size: "100x100" });
   const [chatOpen, setChatOpen] = useState(false);
   // Pipeline state machine. Steps: "sarf" → "zoning" → ... Each downstream
   // section stays locked until the prior one completes AND the user clicks its
@@ -379,7 +379,7 @@ export default function SiteSearch() {
               SARF Map — {searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"} · {Number(searchCenter.lat).toFixed(6)}, {Number(searchCenter.lon).toFixed(6)}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              {searchParams.radius_miles}-mile search ring · {String(searchParams.compound_size || "100x100").replace("x", "'×")}' compound · {searchParams.tower_height_ft || 199}' AGL. Advance to the next pipeline step manually when ready.
+              {searchParams.radius_miles}-mile search ring · {String(searchParams.compound_size || "100x100").replace("x", "'×")}' compound · {searchParams.tower_height_ft || 150}' AGL. Advance to the next pipeline step manually when ready.
             </div>
           </div>
           <Section1SarfMap
@@ -436,7 +436,7 @@ export default function SiteSearch() {
           lat={Number(searchCenter.lat)}
           lon={Number(searchCenter.lon)}
           radiusMiles={searchParams.radius_miles}
-          towerHeightFt={searchParams.tower_height_ft || 199}
+          towerHeightFt={searchParams.tower_height_ft || 150}
           compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
           ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
           zoningResult={zoningResult}
@@ -461,7 +461,7 @@ export default function SiteSearch() {
           srcLon={Number(searchCenter.lon)}
           radiusMiles={searchParams.radius_miles}
           ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
-          towerHeightFt={searchParams.tower_height_ft || 199}
+          towerHeightFt={searchParams.tower_height_ft || 150}
           sectionData={sectionData}
           onRun={() => setPipelineStep("maps")}
           onComplete={() => setMapsComplete(true)}
@@ -493,7 +493,7 @@ export default function SiteSearch() {
           onRun={() => setPipelineStep("tower_siter")}
           targetA={targetA}
           zoningResult={zoningResult}
-          towerHeightFt={searchParams.tower_height_ft || 199}
+          towerHeightFt={searchParams.tower_height_ft || 150}
         />
       )}
 
