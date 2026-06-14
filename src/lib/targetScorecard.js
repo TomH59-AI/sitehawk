@@ -54,9 +54,12 @@ function zoningFit(target) {
   if (!has(target.zoning_classification)) return cat(null, null, "parcel_targets.zoning_classification");
   const z = String(target.zoning_classification).toLowerCase();
   const residential = /\br-?\d|resid/i.test(z);
-  return residential
-    ? cat(55, `Zoned ${target.zoning_classification} — residential context may complicate approval.`, "parcel_targets.zoning_classification")
-    : cat(85, `Zoned ${target.zoning_classification} — generally workable for tower siting.`, "parcel_targets.zoning_classification");
+  if (residential) return cat(0, `Zoned ${target.zoning_classification} — RESIDENTIAL: hard disqualified, no workable exceptions for new tower construction.`, "parcel_targets.zoning_classification");
+  if (/(industrial|i-1|i-2|im|manufactur)/.test(z)) return cat(95, `Zoned ${target.zoning_classification} — Industrial: strongest zoning for tower siting.`, "parcel_targets.zoning_classification");
+  if (/(agricultur|\ba-1\b|\ba-2\b|\bag\b|rural|farm)/.test(z)) return cat(90, `Zoned ${target.zoning_classification} — Agricultural/rural: highly favorable for tower siting.`, "parcel_targets.zoning_classification");
+  if (/(commercial|\bc-1\b|\bc-2\b|\bc-3\b|business|\bcg\b|\bcc\b)/.test(z)) return cat(82, `Zoned ${target.zoning_classification} — Commercial: favorable, CUP/SUP typically available.`, "parcel_targets.zoning_classification");
+  if (/(utility|public|institution|government|vacant)/.test(z)) return cat(75, `Zoned ${target.zoning_classification} — Public/utility/vacant: workable, verify permit path.`, "parcel_targets.zoning_classification");
+  return cat(65, `Zoned ${target.zoning_classification} — Non-residential: retained for CUP/SUP review.`, "parcel_targets.zoning_classification");
 }
 
 // ── Parcel Size / Buildability — acreage threshold for a compound.

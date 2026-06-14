@@ -313,12 +313,13 @@ Deno.serve(async (req) => {
         reasons.push("Sparse parcel data — low confidence");
       }
 
-      // 1. No residential — HARD disqualifier per client criteria, but ONLY on
-      //    KNOWN zoning. Blank zoning is flagged for resolution, never auto-passed.
+      // 1. No residential — ABSOLUTE HARD disqualifier. No exceptions.
+      //    Residential zoning does not have workable special exceptions for new
+      //    cell tower construction. Hard-drop at scoring time, never ranked.
       if (realieResidential) {
-        score -= 45;
+        score = 0;
         disqualified = true;
-        reasons.push("Residential use — disqualified by client criteria");
+        reasons.push("Residential zoning — hard disqualified, no exceptions");
       } else if (zoningKnown) {
         score += 10;
         reasons.push("Non-residential use");
@@ -425,16 +426,33 @@ Deno.serve(async (req) => {
       }
     });
 
-    // RANK FIRST on cheap data (Realie + FEMA only) — dry buildable first, then
-    // confirmed acreage fit, then score, then distance to center. This lets us
-    // resolve zoning via the PAID Zoneomics API on ONLY the top few ranked
-    // parcels, never all survivors (the 48-call cost/runtime blowup).
+    // RANKING PRIORITY ORDER (per client spec):
+    //  1. Flood exclusion — dry parcels always rank above flood-excluded
+    //  2. Zoning tier — industrial > agricultural > commercial > utility/public > unknown > (residential already removed)
+    //  3. Confirmed acreage fit vs required footprint
+    //  4. Score
+    //  5. Distance to ring center (tiebreaker)
+    const ZONING_TIER = (s) => {
+      const z = `${s.zoning_classification || ""} ${s.land_use || ""}`.toLowerCase();
+      if (/(industrial|i-1|i-2|im|light industrial|heavy industrial|manufactur)/.test(z)) return 0;
+      if (/(agricultur|\ba-1\b|\ba-2\b|\bag\b|rural|farm)/.test(z)) return 1;
+      if (/(commercial|\bc-1\b|\bc-2\b|\bc-3\b|business|\bcg\b|\bcc\b|retail|office)/.test(z)) return 2;
+      if (/(utility|public|institution|government|vacant|conservation open)/.test(z)) return 3;
+      return 4; // unknown/other — retained for CUP review but ranked last
+    };
     const confirmedFits = (s) => Number(s.acreage) >= needAcres ? 1 : 0;
     const rankCmp = (a, b) => {
+      // 1. Dry first
       if (!!a.flood_excluded !== !!b.flood_excluded) return a.flood_excluded ? 1 : -1;
+      // 2. Zoning tier (lower = better)
+      const zt = ZONING_TIER(a) - ZONING_TIER(b);
+      if (zt !== 0) return zt;
+      // 3. Confirmed acreage fit
       const ca = confirmedFits(a), cb = confirmedFits(b);
       if (ca !== cb) return cb - ca;
+      // 4. Score
       if (b.score !== a.score) return b.score - a.score;
+      // 5. Distance to center
       const da = a.latitude ? haversineMiles(lat, lon, a.latitude, a.longitude) : 99;
       const db = b.latitude ? haversineMiles(lat, lon, b.latitude, b.longitude) : 99;
       return da - db;
@@ -470,8 +488,8 @@ Deno.serve(async (req) => {
         s.zoning_classification = zc;
         if (isResidential(null, zc, null)) {
           s.buildable = false;
-          s.score = Math.max(0, s.score - 45);
-          s.score_reasons.push(`Zoneomics resolved zoning "${zc}" — residential, disqualified by client criteria`);
+          s.score = 0;
+          s.score_reasons.push(`Zoneomics resolved zoning "${zc}" — residential, hard disqualified, no exceptions`);
         } else {
           const zs2 = zoningScore(zc, null);
           s.score = Math.max(0, Math.min(100, s.score + 10 + zs2.pts));
