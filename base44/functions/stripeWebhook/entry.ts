@@ -306,9 +306,58 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // ── Trial converted to paid (or plan changed) ──
+      case 'customer.subscription.updated': {
+        const sub = event.data.object;
+        const meta = sub.metadata || {};
+        const userEmail = meta.user_email;
+        const planKey = meta.plan_key || meta.plan;
+        if (!userEmail || !planKey) {
+          console.log('subscription.updated: missing user_email or plan_key in metadata, skipping');
+          break;
+        }
+        const status = sub.status; // trialing | active | past_due | canceled | etc.
+        const users = await base44.asServiceRole.entities.User.filter({ email: userEmail });
+        if (!users.length) { console.error(`subscription.updated: user ${userEmail} not found`); break; }
+        const updates = { stripe_subscription_id: sub.id, stripe_customer_id: sub.customer };
+        if (status === 'active' || status === 'trialing') {
+          updates.tier = planKey;
+          updates.subscription_plan = planKey;
+          updates.subscription_status = status;
+        } else if (status === 'past_due') {
+          updates.subscription_status = 'past_due';
+        }
+        await base44.asServiceRole.entities.User.update(users[0].id, updates);
+        console.log(`subscription.updated: ${userEmail} → tier=${planKey}, status=${status}`);
+        break;
+      }
+
+      // ── Subscription canceled ──
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object;
+        const meta = sub.metadata || {};
+        const userEmail = meta.user_email;
+        if (!userEmail) { console.log('subscription.deleted: no user_email in metadata, skipping'); break; }
+        const users = await base44.asServiceRole.entities.User.filter({ email: userEmail });
+        if (!users.length) { console.error(`subscription.deleted: user ${userEmail} not found`); break; }
+        await base44.asServiceRole.entities.User.update(users[0].id, {
+          tier: 'blind',
+          subscription_plan: null,
+          subscription_status: 'canceled',
+        });
+        console.log(`subscription.deleted: ${userEmail} → downgraded to blind`);
+        break;
+      }
+
+      // ── Trial will end reminder (optional — log only) ──
+      case 'customer.subscription.trial_will_end': {
+        const sub = event.data.object;
+        console.log(`Trial ending soon for customer: ${sub.customer}`);
+        break;
+      }
+
       default:
-        // All subscription/invoice events are owned by Supabase. Ignore cleanly.
-        console.log(`Ignored event type (owned elsewhere): ${event.type}`);
+        console.log(`Ignored event type: ${event.type}`);
     }
   } catch (err) {
     console.error('Webhook handler error:', err.message);
