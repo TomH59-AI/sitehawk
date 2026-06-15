@@ -52,7 +52,10 @@ Deno.serve(async (req) => {
         cancel_url: `${origin}/plans-selection`,
         client_reference_id: user.id,
         metadata: meta,
-        subscription_data: { metadata: meta },
+        subscription_data: {
+          metadata: meta,
+          trial_period_days: 7,
+        },
       });
 
       return Response.json({ url: session.url });
