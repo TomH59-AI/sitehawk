@@ -5,6 +5,7 @@ import { Loader2, Crosshair, ChevronRight, Award } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
 import { sectionLabel, SECTION_KEYS } from "@/lib/scipTarget";
+import TargetScorecard from "@/components/scip/TargetScorecard";
 
 const ROWS = [
   ["owner_name", "Owner's Name"],
@@ -153,6 +154,10 @@ export default function HawkParcelTargets({ record, onUpdate }) {
               <ChevronRight className="w-4 h-4" />
             </button>
           )}
+
+          <div className="mt-5">
+            <TargetScorecard record={record} />
+          </div>
         </>
       )}
     </div>
