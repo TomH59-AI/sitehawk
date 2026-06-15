@@ -114,7 +114,7 @@ export default function Landing() {
         <div className="relative max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 text-xs font-semibold tracking-wide mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            🎁 Run your first Search Ring FREE — no credit card required.
+            🦅 7-Day Free Trial — 2 SCIPs/day included
           </div>
 
           <h1 className="font-heading font-bold text-5xl md:text-7xl leading-tight text-white mb-6">
@@ -131,7 +131,7 @@ export default function Landing() {
               to="/search"
               className="px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-heading font-bold text-lg shadow-2xl shadow-blue-500/25 transition-all hover:scale-105"
             >
-              Try Your Free Scan Now →
+              Start Your Free Trial →
             </Link>
             <Link
               to="/dashboard"
@@ -141,7 +141,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">1 free scan for every new account · Paid plans from $249/mo · No credit card to try</p>
+          <p className="text-xs text-white/30 mt-6">7-day free trial · 2 SCIPs/day · Paid plans from $249/mo</p>
 
           <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-[11px] text-white/50">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
@@ -267,7 +267,7 @@ export default function Landing() {
           <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Simple Pricing</p>
           <h2 className="font-heading font-bold text-4xl text-white mb-4">Three Tiers. One Mission.</h2>
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-cyan-400/30 bg-cyan-400/8 text-cyan-300 text-sm font-semibold mb-6">
-            🎁 Start with 1 free scan — no credit card required
+            🦅 7-day free trial included with every plan
           </div>
           <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, and the SiteHawk AI Consultant.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -301,10 +301,10 @@ export default function Landing() {
             <p className="text-white/50 mb-8 leading-relaxed">Stop spending weeks manually researching parcels. SiteHawk gives you the AI vision to find, vet, and contact the right landowner — fast.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                to="/search"
+                to="/pricing"
                 className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-heading font-bold text-lg shadow-2xl shadow-blue-500/25 transition-all hover:scale-105"
               >
-                Try 1 Free Scan 🦅
+                Start Free Trial 🦅
               </Link>
               <Link
                 to="/pricing"
@@ -313,7 +313,7 @@ export default function Landing() {
                 View Paid Plans →
               </Link>
             </div>
-            <p className="text-xs text-white/30 mt-5">No credit card required to try · Plans from $249/mo after your free scan</p>
+            <p className="text-xs text-white/30 mt-5">7-day free trial · 2 SCIPs/day during trial · Plans from $249/mo</p>
           </div>
         </div>
       </section>
