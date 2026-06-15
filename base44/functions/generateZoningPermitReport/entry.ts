@@ -21,14 +21,16 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // A HawkSCIP is spent when a user runs Zoning on a site for the FIRST time.
 // SARF is free. Tier is read from User.tier (the field the Supabase payment
 // webhook stamps). Counting HawkScipSpend rows IS the quota.
-//   free          → 1 Search Ring lifetime (one free trial ring to prove quality)
+//   free          → 0 Search Rings (must subscribe)
+//   trialing      → 2 Search Rings / day (7-day trial generosity — 14 total)
 //   hawk_site     → 15 / calendar month
 //   hawkeyes      → 40 / calendar month
 //   hawkeye_apex  → unlimited
 const QUOTA = {
-  free:         { limit: 1,  window: 'lifetime' },
-  hawk_site:    { limit: 15, window: 'month' },
-  hawkeyes:     { limit: 40, window: 'month' },
+  free:         { limit: 0,        window: 'lifetime' },
+  trialing:     { limit: 2,        window: 'day' },
+  hawk_site:    { limit: 15,       window: 'month' },
+  hawkeyes:     { limit: 40,       window: 'month' },
   hawkeye_apex: { limit: Infinity, window: 'unlimited' },
 };
 
@@ -86,6 +88,10 @@ async function putCachedZoning(base44, siteKey, stateCode, payload) {
 function monthStartISO() {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+function dayStartISO() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -452,6 +458,9 @@ Deno.serve(async (req) => {
         let spends = await base44.asServiceRole.entities.HawkScipSpend.filter(query);
         if (window === 'month') {
           const start = monthStartISO();
+          spends = spends.filter((s) => (s.created_date || '') >= start);
+        } else if (window === 'day') {
+          const start = dayStartISO();
           spends = spends.filter((s) => (s.created_date || '') >= start);
         }
         const used = spends.length;

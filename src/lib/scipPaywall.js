@@ -58,6 +58,8 @@ function normalizeQuota(body) {
   const window = q.window ?? null;
   const defaultMsg = window === "lifetime"
     ? "You've used your free Search Ring."
+    : window === "day"
+    ? "You've used your 2 trial SCIPs for today. Come back tomorrow or upgrade to keep going."
     : "You've reached your monthly Search Ring limit.";
   return {
     error: q.error || defaultMsg,
