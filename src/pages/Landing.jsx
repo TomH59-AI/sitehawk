@@ -37,8 +37,8 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "Hawk Site", price: "$249/mo", desc: "1 trial ring · 15 Search Rings/month · Targets A, B & C included", cta: "Get Started", highlight: false },
-  { name: "Hawkeyes", price: "$599/mo", desc: "1 free trial · 40 Search Rings/month · 3 seats · PDF & CSV exports", cta: "Most Popular", highlight: true },
+  { name: "Hawk Site", price: "$249/mo", desc: "7-day free trial · 15 Search Rings/month · Targets A, B & C included", cta: "Start Free Trial", highlight: false },
+  { name: "Hawkeyes", price: "$599/mo", desc: "7-day free trial · 40 Search Rings/month · 3 seats · PDF & CSV exports", cta: "Start Free Trial", highlight: true },
   { name: "Hawkeye Apex", price: "Contact us", desc: "Unlimited Search Rings · Unlimited seats · Mailer + skip trace", cta: "Contact Sales", highlight: false },
 ];
 
