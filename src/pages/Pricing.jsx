@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Check, Zap, Star, Crown } from "lucide-react";
-import HawkIcon from "../components/HawkIcon";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { stripeCheckout } from "@/functions/stripeCheckout";
@@ -147,38 +146,11 @@ export default function Pricing() {
   const currentTier = user?.tier || "blind";
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       {/* Header */}
-      <div className="text-center max-w-3xl mx-auto space-y-3">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-2">
-          <HawkIcon size={18} />
-          <span className="text-xs uppercase tracking-[0.2em] text-primary font-bold">Powered by Hawkeye AI Intelligence</span>
-        </div>
-        <h1 className="font-heading font-bold text-4xl md:text-5xl text-foreground leading-tight">
-          SiteHawk: The Premier Research Tool<br className="hidden md:block" /> for Wireless Infrastructure.
-        </h1>
-        <p className="text-muted-foreground text-base mt-3 max-w-xl mx-auto leading-relaxed">
-          It's not just data, it's prophecy.
-        </p>
-      </div>
-
-      {/* S.A.I.R. spotlight */}
-      <div className="max-w-4xl mx-auto rounded-2xl border border-cyan-500/30 bg-cyan-500/5 p-6 flex flex-col md:flex-row items-center gap-6">
-        <div className="shrink-0 w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shadow-lg text-3xl">
-          📡
-        </div>
-        <div className="flex-1 text-center md:text-left">
-          <p className="text-xs uppercase tracking-widest text-cyan-400 font-bold mb-1">Included with Hawkeyes & Hawkeye Apex</p>
-          <h2 className="font-heading font-bold text-xl text-foreground">S.A.I.R. — Site AI Intelligence Report</h2>
-          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-            Every scan generates a full <span className="text-cyan-400 font-semibold">Site AI Intelligence Report (S.A.I.R.)</span> — zoning analysis, regulatory context, LDC section references, scored candidates, owner data, airport proximity, and cell tower density. The complete intelligence package for every acquisition decision.
-          </p>
-          <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
-            {["Zoning & LDC References", "Owner Skip Trace", "Airport Proximity", "Cell Tower Density", "PDF Export"].map(f => (
-              <span key={f} className="px-3 py-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-xs font-medium">{f}</span>
-            ))}
-          </div>
-        </div>
+      <div className="flex items-center gap-3">
+        <span className="text-3xl">📡</span>
+        <h1 className="font-heading font-bold text-3xl text-foreground">SiteHawk Prices</h1>
       </div>
 
       {/* Tier Cards */}
