@@ -1,0 +1,205 @@
+{
+  "name": "MarketingProspect",
+  "type": "object",
+  "description": "ADMIN-ONLY cold B2B outreach prospect for the SiteHawk marketing pipeline. One row per person sourced from Apollo.io. COMPLETELY SEPARATE from the landlord-facing ScipCRMContact (which requires a scip_record_id) and from SubscriberCRMContact (existing paying customers). Never merge them. Populated by the apollo-sync Supabase edge function, deduped on apollo_id. Scored into 4 ICP tiers (1=site-acq/A&E/zoning first, 2=turf/EPC, 3=tower owners, 4=developers/pole owners); tier 0 = no clean ICP match, quarantined for manual review and never auto-queued. email_verified_external is the hard send-gate: a prospect must pass an external verifier (NeverBounce/ZeroBounce) before any cold send, because Apollo emails run ~93% accurate and unverified sends torch domain reputation.",
+  "properties": {
+    "apollo_id": {
+      "type": "string",
+      "description": "Apollo.io person id. DEDUP KEY \u2014 apollo-sync upserts on this so re-syncing never duplicates a person."
+    },
+    "full_name": {
+      "type": "string",
+      "description": "Person full name."
+    },
+    "first_name": {
+      "type": "string",
+      "description": "First name (used for {{first_name}} merge field in sequences)."
+    },
+    "last_name": {
+      "type": "string",
+      "description": "Last name."
+    },
+    "title": {
+      "type": "string",
+      "description": "Job title as returned by Apollo (e.g. 'Site Acquisition Manager')."
+    },
+    "seniority": {
+      "type": "string",
+      "description": "Apollo seniority bucket (e.g. manager, director, vp, c_suite, owner)."
+    },
+    "email": {
+      "type": "string",
+      "description": "Work email from Apollo. May be null until a reveal credit is spent."
+    },
+    "email_status": {
+      "type": "string",
+      "enum": [
+        "verified",
+        "guessed",
+        "unavailable",
+        "bounced",
+        "unknown"
+      ],
+      "default": "unknown",
+      "description": "Apollo's own deliverability flag at sync time. NOT a substitute for external verification."
+    },
+    "email_verified_external": {
+      "type": "boolean",
+      "default": false,
+      "description": "HARD SEND-GATE. True only after an external verifier (NeverBounce/ZeroBounce) confirms the email. Cold sender must filter on this = true."
+    },
+    "phone": {
+      "type": "string",
+      "description": "Direct/mobile phone if a phone credit was spent (optional)."
+    },
+    "linkedin_url": {
+      "type": "string",
+      "description": "LinkedIn profile URL for manual/social-touch outreach."
+    },
+    "company_name": {
+      "type": "string",
+      "description": "Employer/org name."
+    },
+    "company_domain": {
+      "type": "string",
+      "description": "Primary company domain \u2014 used for company-level dedup and as the email-verification fallback domain."
+    },
+    "company_size": {
+      "type": "number",
+      "description": "Employee count from Apollo (drives ICP fit: sweet spot 20-500)."
+    },
+    "industry": {
+      "type": "string",
+      "description": "Apollo industry label."
+    },
+    "company_city": {
+      "type": "string"
+    },
+    "company_state": {
+      "type": "string",
+      "description": "Two-letter state \u2014 useful for prioritizing markets where SiteHawk zoning coverage is deep (FL/CA/etc.)."
+    },
+    "tier": {
+      "type": "number",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "default": 0,
+      "description": "ICP tier. 1=mid-market site-acq/A&E/zoning (fastest yes, contact FIRST); 2=turf/EPC (MasTec/Bechtel/Ericsson-class); 3=tower owners (AMT/SBA/Crown); 4=developers/pole owners; 0=no clean ICP match, quarantined \u2014 never auto-queued, manual eyeball only."
+    },
+    "tier_label": {
+      "type": "string",
+      "description": "Human-readable tier name for display (e.g. 'Tier 1 \u2014 Site Acquisition & A&E')."
+    },
+    "tier_score": {
+      "type": "number",
+      "description": "0-100 confidence that the tier assignment is correct (title-match strength + company-size fit). Low scores in tiers 1-4 are worth a manual glance."
+    },
+    "outreach_status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "queued",
+        "sent",
+        "opened",
+        "replied",
+        "demo_booked",
+        "trial_started",
+        "won",
+        "not_interested",
+        "dead"
+      ],
+      "default": "new",
+      "description": "Pipeline stage for this prospect's cold outreach. 'new' = freshly synced, not yet pushed to the cold sender."
+    },
+    "sequence_step": {
+      "type": "number",
+      "default": 0,
+      "description": "Which step of the cold email sequence this prospect last received (0 = none sent)."
+    },
+    "last_contacted": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of the last outreach touch."
+    },
+    "next_follow_up": {
+      "type": "string",
+      "format": "date",
+      "description": "Next planned touch date."
+    },
+    "reply_sentiment": {
+      "type": "string",
+      "enum": [
+        "none",
+        "positive",
+        "neutral",
+        "negative",
+        "auto_reply"
+      ],
+      "default": "none",
+      "description": "Read on the last reply, when applicable."
+    },
+    "do_not_contact": {
+      "type": "boolean",
+      "default": false,
+      "description": "Manual suppression \u2014 never contact (unsubscribe request, competitor, personal ask, etc.)."
+    },
+    "bounce_status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "soft_bounce",
+        "hard_bounce",
+        "complaint"
+      ],
+      "default": "ok",
+      "description": "Deliverability outcome from the cold sender. hard_bounce/complaint must suppress all further sends."
+    },
+    "source_seed": {
+      "type": "string",
+      "description": "Which Apollo search/seed list produced this prospect (e.g. 'tier1_site_acq_FL', 'turf_vendors') \u2014 provenance for measuring which searches convert."
+    },
+    "apollo_synced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO timestamp of the last apollo-sync that touched this row."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form manual notes."
+    },
+    "raw_apollo": {
+      "type": "object",
+      "description": "Raw Apollo person payload for provenance/debugging. Optional; may be trimmed for large payloads."
+    }
+  },
+  "required": [
+    "apollo_id"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
