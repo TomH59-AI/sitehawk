@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
+import HubSpotSidebarConnect from "./sidebar/HubSpotSidebarConnect";
 import AppFooter from "./AppFooter";
 import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
@@ -93,6 +94,8 @@ export default function Layout() {
           })}
         </nav>
         <div className="p-4 border-t border-border space-y-1">
+          <HubSpotSidebarConnect />
+          <div className="border-t border-border/50 my-1" />
           <div className="flex items-center justify-end pb-1">
             <RestartTourButton />
           </div>
