@@ -5,8 +5,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Shield, Users, TowerControl } from "lucide-react";
-import { FEATURE_TOWER_SITER } from "@/lib/featureFlags";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -20,7 +19,6 @@ const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 const BASE_NAV = [
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
-  ...(FEATURE_TOWER_SITER ? [{ path: "/tower-siter", icon: TowerControl, label: "Tower Siter" }] : []),
   { path: "/crm", icon: Briefcase, label: "Deal Pipeline" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
