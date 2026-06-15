@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { point, booleanPointInPolygon, circle as turfCircle, area as turfArea } from "@turf/turf";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Map as MapIcon, FileText, Download, Send, CheckCircle2, AlertOctagon, Layers, Printer } from "lucide-react";
+import { FileText, Download, Send, CheckCircle2, AlertOctagon, Layers, Printer } from "lucide-react";
 
 import { recompute, makeFrame, polygonFromFrame, compoundRect, polygonFromCalls } from "@/lib/towerSiterEngine";
 import { siterEntitlements, DEMO_PARCEL } from "@/lib/towerSiterAccess";
@@ -18,7 +18,6 @@ import ParcelInputPanel from "../components/towersiter/ParcelInputPanel";
 import SiterControls from "../components/towersiter/SiterControls";
 import ComplianceChips from "../components/towersiter/ComplianceChips";
 import RuleCard from "../components/towersiter/RuleCard";
-import SiterMap from "../components/towersiter/SiterMap";
 import ExhibitA from "../components/towersiter/ExhibitA";
 import UpgradeModal from "../components/towersiter/UpgradeModal";
 import SitingDeepDive from "../components/towersiter/SitingDeepDive";
@@ -36,7 +35,7 @@ export default function TowerSiter() {
   const [controls, setControls] = useState({ heightFt: 195, compoundW: 75, compoundD: 75, leaseW: 100, leaseD: 100, peToggle: false, peRadiusFt: "" });
   const [towerOverride, setTowerOverride] = useState(null);
   const [residential, setResidential] = useState(null); // { key, loading, result, circle }
-  const [view, setView] = useState("map");
+  const [view, setView] = useState("plan");
   const [busy, setBusy] = useState(false);
   const [upgrade, setUpgrade] = useState(null); // reason string | null
   const [sitingResult, setSitingResult] = useState(null); // perch-siting-solver verdict
@@ -370,32 +369,16 @@ export default function TowerSiter() {
           )}
 
           <div className="flex gap-2">
-            <Button size="sm" variant={view === "map" ? "default" : "outline"} onClick={() => setView("map")}>
-              <MapIcon className="w-4 h-4 mr-1" /> Satellite
-            </Button>
             <Button size="sm" variant={view === "plan" ? "default" : "outline"} onClick={() => setView("plan")} disabled={!result || result.collapsed}>
               <FileText className="w-4 h-4 mr-1" /> Plan Sheet (Exhibit A)
             </Button>
           </div>
 
-          <div className={view === "map" ? "h-[560px]" : "hidden"}>
-            <SiterMap
-              parcelGeoJSON={parcel ? { type: "Feature", properties: {}, geometry: parcel.geometry } : null}
-              result={result && !result.collapsed ? result : null}
-              leaseLonLat={leaseLonLat}
-              residCircle={residential?.circle || null}
-              draftPoints={draftPoints}
-              onTowerDrag={onTowerDrag}
-              onMapClick={handleMapClick}
-              clickMode={clickMode}
-            />
-          </div>
-
           {view === "plan" && result && !result.collapsed && (
             <ExhibitA ref={exhibitARef} result={result} controls={controls} meta={exhibitMeta} watermark={ent.watermark} />
           )}
-          {/* keep the SVG mounted (hidden) so Exhibit A can export from the map view too */}
-          {view === "map" && result && !result.collapsed && (
+          {/* keep ExhibitA mounted (hidden) so exports always work */}
+          {view !== "plan" && result && !result.collapsed && (
             <div className="hidden" aria-hidden="true">
               <ExhibitA ref={exhibitARef} result={result} controls={controls} meta={exhibitMeta} watermark={ent.watermark} />
             </div>
