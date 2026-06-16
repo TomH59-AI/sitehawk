@@ -228,3 +228,42 @@ export function recompute({ parcelGeoJSON, locationPoint, rules, towerHeightFt, 
     collapsed: false, ambiguousParcel: sel.ambiguous };
 }
 function polygonFromFrameSafe(poly, frame, fn) { try { return fn(poly, frame); } catch { return null; } }
+
+/* -----------------------------------------------------------------------
+ * calculateTowerBuildArea (§5.1 alt-entry, per TowerSiter_BuildSheet §4d)
+ * Accepts a raw config object — mirrors the external API spec provided.
+ * Internally delegates to the engine's resolveSetback + buildableEnvelope
+ * so the geometry is consistent with the main recompute pipeline.
+ *
+ * @param {Object} parcelGeoJSON  - GeoJSON Polygon|Feature<Polygon> (lon/lat)
+ * @param {Object} config
+ *   @param {number}  config.towerHeight          - Tower height in feet
+ *   @param {number}  config.standardSetback      - Zoning setback in feet
+ *   @param {number}  config.fallZoneMultiplier   - e.g. 1.1 for 110% height
+ *   @param {boolean} config.hasPELetter          - PE letter reduces fall zone
+ *   @param {number}  [config.peFallZoneRadius]   - Engineered radius (ft) from PE letter
+ * @returns {Object|null} GeoJSON Feature<Polygon|MultiPolygon> of buildable area, or null
+ * ----------------------------------------------------------------------- */
+export function calculateTowerBuildArea(parcelGeoJSON, config) {
+  const {
+    towerHeight,
+    standardSetback,
+    fallZoneMultiplier,
+    hasPELetter,
+    peFallZoneRadius,
+  } = config;
+
+  // 1. Determine active fall zone distance (feet)
+  const activeFallZone = hasPELetter
+    ? (peFallZoneRadius ?? 0)
+    : towerHeight * fallZoneMultiplier;
+
+  // 2. Total required buffer = the larger of the zoning setback or the fall zone
+  const totalRequiredSetback = Math.max(standardSetback, activeFallZone);
+
+  // 3. Delegate to the engine's buildableEnvelope (uses turf {units:'feet'})
+  const { envelope, collapsed } = buildableEnvelope(parcelGeoJSON, totalRequiredSetback);
+
+  if (collapsed || !envelope) return null;
+  return envelope;
+}
