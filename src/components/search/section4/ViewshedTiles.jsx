@@ -13,19 +13,6 @@ export default function ViewshedTiles({ viewshed }) {
 
   return (
     <div className="absolute inset-0 overflow-auto bg-card p-3">
-      {viewshed.aerial_ring_url && (
-        <div className="mb-3">
-          <div className="text-[11px] font-mono tracking-wider text-muted-foreground mb-1">
-            TARGET A AERIAL · {viewshed.tower_height_ft} FT TOWER
-          </div>
-          <img
-            src={viewshed.aerial_ring_url}
-            alt="Target A aerial ring"
-            className="w-full rounded-lg border border-border"
-          />
-        </div>
-      )}
-
       <div className="text-[11px] text-muted-foreground mb-2 leading-snug">
         Each transparent colored wedge is the antenna azimuth sector for that direction over real terrain. Use them to spot line-of-sight obstructions above the tree line — if a sector is obstructed, the azimuth may need to be re-aimed.
       </div>
