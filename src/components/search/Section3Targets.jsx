@@ -41,6 +41,9 @@ const ROWS = [
   ["Parcel Size (acres):", "acreage"],
   ["Boundaries", "boundaries"],
   ["Zoning Classification:", "zoning_classification"],
+  ["Zoning Status:", "zoning_status"],
+  ["CUP / Special Exception:", "cup_note"],
+  ["PE Letter (Fall Zone Relief):", "pe_note"],
   ["Owner's Mailing Address:", "mailing_address"],
   ["Coordinates:", "coordinates"],
   ["Phone:", "phone"],
@@ -56,6 +59,17 @@ function emptyGrid() {
   return g;
 }
 
+// Derive CUP / PE display strings from a raw target object returned by scipBestParcels.
+function deriveCupPeNotes(t) {
+  const cup = t?.cup_review_required
+    ? "CUP / Special Exception required — all non-residential parcels retained for review"
+    : "By-right (no CUP needed)";
+  const pe = t?.pe_letter_review_required
+    ? "PE sealed letter assumed — engineered fall-zone radius may reduce required setback"
+    : "No PE letter relief";
+  return { cup, pe };
+}
+
 function str(v) {
   if (v === null || v === undefined || v === "") return "";
   return String(v);
@@ -64,6 +78,12 @@ function str(v) {
 // Map a scipBestParcels target → the row values for one column.
 function targetToColumn(t) {
   if (!t) return {};
+  const { cup, pe } = deriveCupPeNotes(t);
+  const zoningStatusLabel = t.zoning_status === "confirmed"
+    ? "✓ Confirmed non-residential"
+    : t.zoning_status === "unverified"
+    ? "⚠ Unverified — confirm before pursuing"
+    : str(t.zoning_status);
   return {
     owner_name: str(t.owner_name),
     parcel_address: str(t.parcel_address),
@@ -71,6 +91,9 @@ function targetToColumn(t) {
     acreage: t.acreage != null ? String(t.acreage) : "",
     boundaries: str(t.boundaries),
     zoning_classification: str(t.zoning_classification),
+    zoning_status: zoningStatusLabel,
+    cup_note: cup,
+    pe_note: pe,
     mailing_address: str(t.mailing_address),
     coordinates: t.latitude != null && t.longitude != null
       ? `${Number(t.latitude).toFixed(6)}, ${Number(t.longitude).toFixed(6)}`
@@ -404,6 +427,33 @@ export default function Section3Targets({
               </p>
             </div>
           )}
+          {/* CUP / PE / Zoning posture summary banner */}
+          {!noData && targets.some(Boolean) && (
+            <div className="px-4 py-3 border-b border-border bg-emerald-50 dark:bg-emerald-950/20 text-xs text-emerald-900 dark:text-emerald-200 space-y-1.5">
+              <p className="font-bold text-sm text-emerald-800 dark:text-emerald-300">✅ CUP / PE Posture Applied to All Targets</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
+                <div className="rounded bg-emerald-100 dark:bg-emerald-900/30 px-3 py-2">
+                  <p className="font-semibold">🏛 Zero Residential Tolerance</p>
+                  <p className="opacity-80 mt-0.5">All residential-zoned parcels hard-excluded. No exceptions.</p>
+                </div>
+                <div className="rounded bg-emerald-100 dark:bg-emerald-900/30 px-3 py-2">
+                  <p className="font-semibold">⚖️ CUP Baseline Assumed</p>
+                  <p className="opacity-80 mt-0.5">All non-residential targets retained for CUP / special-exception review. By-right not required to qualify.</p>
+                </div>
+                <div className="rounded bg-emerald-100 dark:bg-emerald-900/30 px-3 py-2">
+                  <p className="font-semibold">📉 PE Letter Relief Active</p>
+                  <p className="opacity-80 mt-0.5">Engineered PE sealed letter assumed — reduced fall-zone radius applied to tighter parcels to maximize eligible set.</p>
+                </div>
+              </div>
+              {scanStats?.scanned != null && (
+                <p className="opacity-70 mt-1">
+                  Scanned <strong>{scanStats.scanned}</strong> parcels in ring ·{" "}
+                  {scanStats.required_acres != null && <>Min buildable: ~<strong>{scanStats.required_acres} ac</strong> ·{" "}</>}
+                  Returned top <strong>{targets.filter(Boolean).length}</strong> ranked targets
+                </p>
+              )}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm" style={{ fontFamily: "Inter, Calibri, sans-serif" }}>
               <thead>
@@ -453,13 +503,28 @@ export default function Section3Targets({
                 </tr>
               </thead>
               <tbody>
-                {ROWS.map(([label, key], rowIdx) => (
-                  <tr key={key} className={rowIdx % 2 === 0 ? "bg-background" : "bg-muted/40"}>
-                    <td className="px-4 py-2 font-bold text-left text-foreground border border-border align-top">
+                {ROWS.map(([label, key], rowIdx) => {
+                  // Compliance/posture rows get a distinct teal-tinted background
+                  const isPostureRow = key === "zoning_status" || key === "cup_note" || key === "pe_note";
+                  const rowBg = isPostureRow
+                    ? "bg-emerald-50 dark:bg-emerald-950/20"
+                    : rowIdx % 2 === 0 ? "bg-background" : "bg-muted/40";
+                  return (
+                  <tr key={key} className={rowBg}>
+                    <td className={`px-4 py-2 font-bold text-left border border-border align-top ${isPostureRow ? "text-emerald-800 dark:text-emerald-300" : "text-foreground"}`}>
                       {label}
                     </td>
                     {[0, 1, 2].map((colIdx) => {
                       const locked = isLocked(colIdx);
+                      const val = grid[key]?.[colIdx] || "";
+                      // Zoning status: color the cell by verified/unverified
+                      const zoningStatusClass = key === "zoning_status"
+                        ? val.includes("✓")
+                          ? "text-emerald-700 dark:text-emerald-300 font-semibold"
+                          : val.includes("⚠")
+                          ? "text-amber-700 dark:text-amber-300 font-semibold"
+                          : ""
+                        : "";
                       return (
                       <td key={colIdx} className={`border border-border p-0 align-top ${locked ? "opacity-50 pointer-events-none bg-muted/30" : ""}`}>
                         {key === "phone" ? (
@@ -471,10 +536,15 @@ export default function Section3Targets({
                             onPick={(v) => setCell("phone", colIdx, v)}
                             onRetry={() => { const m = targetMeta[colIdx]; if (m) runCascade(colIdx, m.owner, m.addr, COLS[colIdx], true); }}
                           />
+                        ) : isPostureRow ? (
+                          // Read-only display for compliance posture rows
+                          <div className={`px-4 py-2 text-xs leading-snug ${zoningStatusClass || "text-emerald-800 dark:text-emerald-300"}`}>
+                            {val || "—"}
+                          </div>
                         ) : (
                           <textarea
                             rows={1}
-                            value={grid[key][colIdx]}
+                            value={val}
                             onChange={(e) => setCell(key, colIdx, e.target.value)}
                             disabled={locked}
                             placeholder="—"
@@ -485,7 +555,8 @@ export default function Section3Targets({
                       );
                     })}
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
