@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import HawkIcon from "../components/HawkIcon";
 import { useState, useEffect } from "react";
 import DataUseCaseCards from "../components/landing/DataUseCaseCards";
+import LandingMapBackground from "../components/landing/LandingMapBackground";
 
 const FEATURES = [
   {
@@ -105,13 +106,17 @@ export default function Landing() {
 
       {/* ── HERO ── */}
       <section className="relative pt-32 pb-24 px-6 text-center overflow-hidden">
+        {/* Full-screen Mapbox satellite map background */}
+        <LandingMapBackground />
+        {/* Dark overlay so text stays readable over the satellite imagery */}
+        <div className="absolute inset-0 bg-[#060E1A]/75 pointer-events-none" style={{ zIndex: 1 }} />
         {/* Glow backdrop */}
-        <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-blue-600/10 blur-[120px]" />
           <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] rounded-full bg-cyan-400/5 blur-[80px]" />
         </div>
 
-        <div className="relative max-w-4xl mx-auto">
+        <div className="relative max-w-4xl mx-auto" style={{ zIndex: 3 }}>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 text-xs font-semibold tracking-wide mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             🦅 7-Day Free Trial — 2 SCIPs/day included
@@ -150,7 +155,7 @@ export default function Landing() {
         </div>
 
         {/* Hero mockup strip */}
-        <div className="relative max-w-5xl mx-auto mt-16">
+        <div className="relative max-w-5xl mx-auto mt-16" style={{ zIndex: 3 }}>
           <div className="rounded-2xl border border-white/10 bg-[#0C1B2E] shadow-2xl shadow-black/50 overflow-hidden p-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-3 h-3 rounded-full bg-red-500/60" />
