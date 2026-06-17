@@ -29,6 +29,42 @@ function haversineM(lat1, lon1, lat2, lon2) {
   return haversineMi(lat1, lon1, lat2, lon2) * MI_TO_KM * 1000;
 }
 
+/**
+ * FCC ASR structure_type codes → human-readable category + kind.
+ * Full code list: https://www.fcc.gov/antenna-structure-registration
+ */
+const STRUCTURE_MAP = {
+  // True towers
+  'GT':  { label: 'Guyed Tower',           category: 'tower' },
+  'LT':  { label: 'Lattice Tower',          category: 'tower' },
+  'MT':  { label: 'Monopole Tower',         category: 'tower' },
+  'ST':  { label: 'Self-Supporting Tower',  category: 'tower' },
+  'T':   { label: 'Tower',                  category: 'tower' },
+  // Buildings / rooftops
+  'B':   { label: 'Building / Rooftop',     category: 'rooftop' },
+  'BU':  { label: 'Building / Rooftop',     category: 'rooftop' },
+  // Utility / infrastructure
+  'UT':  { label: 'Utility Structure',      category: 'utility' },
+  'WP':  { label: 'Wood Pole',              category: 'utility' },
+  'UP':  { label: 'Utility Pole',           category: 'utility' },
+  // Elevated structures
+  'WT':  { label: 'Water Tank',             category: 'elevated' },
+  'WTR': { label: 'Water Tower',            category: 'elevated' },
+  'SD':  { label: 'Silo / Grain Elevator',  category: 'elevated' },
+  'CH':  { label: 'Church Steeple',         category: 'elevated' },
+  'SS':  { label: 'Sign Structure',         category: 'elevated' },
+  'SD2': { label: 'Stadium',               category: 'elevated' },
+  // Concealed
+  'TP':  { label: 'Tree / Flagpole (Concealed)', category: 'concealed' },
+  'FP':  { label: 'Flagpole (Concealed)',   category: 'concealed' },
+};
+
+function decodeStructure(code) {
+  if (!code) return { label: 'Unknown', category: 'unknown' };
+  const upper = String(code).trim().toUpperCase();
+  return STRUCTURE_MAP[upper] || { label: code, category: 'other' };
+}
+
 function carrierName(mcc, mnc) {
   if (mcc !== 310 && mcc !== 311 && mcc !== 312 && mcc !== 313) return `MCC ${mcc} / MNC ${mnc}`;
   const VZ = new Set([12, 13, 590, 890, 910, 480]);
@@ -171,6 +207,7 @@ Deno.serve(async (req) => {
       const range_m = nearby[0]?.c?.range_m ?? null;
       nearby.forEach(({ idx }) => usedOcid.add(idx));
 
+      const structInfo = decodeStructure(tower.structure_type);
       return {
         ...tower,
         radio_types,
@@ -182,6 +219,8 @@ Deno.serve(async (req) => {
         distance_miles: parseFloat(tower.distance_miles.toFixed(2)),
         has_signal_data: nearby.length > 0,
         source: nearby.length > 0 ? "FCC ASR + OpenCellID" : "FCC ASR",
+        structure_label: structInfo.label,
+        structure_category: structInfo.category,
       };
     });
 
@@ -201,6 +240,8 @@ Deno.serve(async (req) => {
             owner: c.carrier || "Unknown",
             height_ft: null,
             structure_type: null,
+            structure_label: 'Signal Only (no FCC record)',
+            structure_category: 'signal_only',
             call_letters: null,
             distance_miles: parseFloat(c.distance_miles.toFixed(2)),
             radio_types: c.radio ? [c.radio] : [],

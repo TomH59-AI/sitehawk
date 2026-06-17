@@ -30,6 +30,30 @@ const SOURCE_COLORS = {
   "OpenCellID (signal only)": "#7c3aed",
 };
 
+const STRUCTURE_CATEGORY_STYLES = {
+  tower:       { bg: "#1d4ed8", icon: "📡", label: "Cell Tower" },
+  rooftop:     { bg: "#b45309", icon: "🏢", label: "Building / Rooftop" },
+  utility:     { bg: "#6b7280", icon: "⚡", label: "Utility Structure" },
+  elevated:    { bg: "#0f766e", icon: "🏗", label: "Elevated Structure" },
+  concealed:   { bg: "#15803d", icon: "🌲", label: "Concealed" },
+  signal_only: { bg: "#7c3aed", icon: "📶", label: "Signal Only" },
+  other:       { bg: "#64748b", icon: "❓", label: "Other" },
+  unknown:     { bg: "#94a3b8", icon: "❓", label: "Unknown" },
+};
+
+function StructureBadge({ category, label }) {
+  const style = STRUCTURE_CATEGORY_STYLES[category] || STRUCTURE_CATEGORY_STYLES.unknown;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold text-white whitespace-nowrap"
+      style={{ background: style.bg }}
+      title={label}
+    >
+      {style.icon} {label || style.label}
+    </span>
+  );
+}
+
 function TowerPopup({ tower, onClose }) {
   return (
     <div className="min-w-[200px] p-3 bg-white rounded-lg shadow-xl border border-border text-sm space-y-1">
@@ -114,10 +138,11 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
         .setLngLat([srcLon, srcLat])
         .addTo(map);
 
-      // Tower pins
+      // Tower pins — colored by structure category
       towerList.forEach((tower) => {
         if (!tower.latitude || !tower.longitude) return;
-        const color = SOURCE_COLORS[tower.source] || "#64748b";
+        const catStyle = STRUCTURE_CATEGORY_STYLES[tower.structure_category] || STRUCTURE_CATEGORY_STYLES.unknown;
+        const color = catStyle.bg;
 
         // Create a custom SVG element so we can color by source
         const el = document.createElement("div");
@@ -164,7 +189,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">
           <strong style="word-break:break-word">${popupTower.owner || "Unknown Owner"}</strong>
         </div>
-        ${popupTower.structure_type ? `<p style="color:#64748b;font-size:11px;margin:0 0 2px">${popupTower.structure_type}</p>` : ""}
+        ${popupTower.structure_label ? `<p style="display:inline-flex;align-items:center;gap:4px;font-size:11px;margin:0 0 4px;padding:2px 6px;border-radius:4px;background:${(STRUCTURE_CATEGORY_STYLES[popupTower.structure_category] || STRUCTURE_CATEGORY_STYLES.unknown).bg};color:#fff;font-weight:600">${(STRUCTURE_CATEGORY_STYLES[popupTower.structure_category] || STRUCTURE_CATEGORY_STYLES.unknown).icon} ${popupTower.structure_label}</p>` : ""}
         ${popupTower.height_ft != null ? `<p style="margin:2px 0"><span style="font-weight:600">Height:</span> ${popupTower.height_ft} ft AGL</p>` : ""}
         ${popupTower.radio_types?.length ? `<p style="margin:2px 0"><span style="font-weight:600">Radio:</span> ${popupTower.radio_types.join(", ")}</p>` : ""}
         ${popupTower.carriers?.length ? `<p style="margin:2px 0"><span style="font-weight:600">Carriers:</span> ${popupTower.carriers.join(", ")}</p>` : ""}
@@ -286,13 +311,14 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
                 <p className="font-semibold text-sm">
                   {towers.length} tower site{towers.length !== 1 ? "s" : ""} found within {RADIUS_MILES} miles
                 </p>
-                <p className="opacity-80">
-                  Click any pin for owner, height, and radio type details.
-                  <span className="ml-2">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#1d4ed8] mr-1" />FCC ASR &nbsp;
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#0e7490] mr-1" />FCC + OpenCellID &nbsp;
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#7c3aed] mr-1" />OpenCellID signal only
-                  </span>
+                <p className="opacity-80 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                  <span>Click any pin for details. Pin color = structure type:</span>
+                  {Object.entries(STRUCTURE_CATEGORY_STYLES).filter(([k]) => !["other","unknown"].includes(k)).map(([, s]) => (
+                    <span key={s.label} className="inline-flex items-center gap-1">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.bg }} />
+                      <span>{s.icon} {s.label}</span>
+                    </span>
+                  ))}
                 </p>
               </div>
 
@@ -308,7 +334,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="text-white text-xs" style={{ background: HEADER_COLOR }}>
-                      {["#", "Owner / Operator", "Structure Type", "Height (ft)", "Radio Types", "Carriers", "Distance (mi)", "Source"].map((h) => (
+                      {["#", "Owner / Operator", "Structure", "Height (ft)", "Radio Types", "Carriers", "Distance (mi)", "Source"].map((h) => (
                         <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap border border-white/10">{h}</th>
                       ))}
                     </tr>
@@ -318,7 +344,9 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
                       <tr key={i} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
                         <td className="px-3 py-2 border border-border font-mono text-xs">{i + 1}</td>
                         <td className="px-3 py-2 border border-border font-semibold">{t.owner || "—"}</td>
-                        <td className="px-3 py-2 border border-border text-muted-foreground">{t.structure_type || "—"}</td>
+                        <td className="px-3 py-2 border border-border">
+                          <StructureBadge category={t.structure_category || "unknown"} label={t.structure_label || t.structure_type || "Unknown"} />
+                        </td>
                         <td className="px-3 py-2 border border-border font-mono">{t.height_ft != null ? `${t.height_ft}'` : "—"}</td>
                         <td className="px-3 py-2 border border-border">{t.radio_types?.length ? t.radio_types.join(", ") : "—"}</td>
                         <td className="px-3 py-2 border border-border">{t.carriers?.length ? t.carriers.join(", ") : "—"}</td>
