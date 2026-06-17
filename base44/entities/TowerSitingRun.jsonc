@@ -1,0 +1,212 @@
+{
+  "name": "TowerSitingRun",
+  "type": "object",
+  "description": "HawkPerch \u2014 one preliminary 2D tower siting run. Stores the parcel, ordinance rules, solver inputs, and full geometry result. NOT a stamped survey, zoning determination, or final tower location.",
+  "properties": {
+    "scip_record_id": {
+      "type": "string",
+      "description": "Linked ScipRecord id (optional)."
+    },
+    "search_result_id": {
+      "type": "string",
+      "description": "Linked SearchResult id (optional)."
+    },
+    "tower_visualization_id": {
+      "type": "string",
+      "description": "Linked TowerVisualization id (optional)."
+    },
+    "parcel_id": {
+      "type": "string",
+      "description": "External parcel / APN identifier."
+    },
+    "property_address": {
+      "type": "string",
+      "description": "Human-readable parcel address."
+    },
+    "parcel_geometry": {
+      "type": "object",
+      "description": "GeoJSON Polygon/MultiPolygon of the parcel boundary."
+    },
+    "parcel_centroid_lat": {
+      "type": "number",
+      "description": "Parcel centroid latitude."
+    },
+    "parcel_centroid_lon": {
+      "type": "number",
+      "description": "Parcel centroid longitude."
+    },
+    "jurisdiction_name": {
+      "type": "string",
+      "description": "Resolved zoning jurisdiction name."
+    },
+    "jurisdiction_rules": {
+      "type": "object",
+      "description": "Telecom ordinance rules used for this run."
+    },
+    "zoning_source": {
+      "type": "string",
+      "description": "Where the ordinance rules came from (telecom_ordinances, JurisdictionZoningCache, manual, unverified)."
+    },
+    "zoning_confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "unverified"
+      ],
+      "default": "unverified"
+    },
+    "ordinance_source_url": {
+      "type": "string",
+      "description": "Authoritative ordinance source URL."
+    },
+    "ordinance_last_verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tower_height_ft": {
+      "type": "number",
+      "description": "Tower height used for this run in feet."
+    },
+    "tower_type": {
+      "type": "string",
+      "default": "monopole",
+      "description": "Tower type (monopole, lattice, stealth, etc.)."
+    },
+    "compound_width_ft": {
+      "type": "number",
+      "default": 100
+    },
+    "compound_depth_ft": {
+      "type": "number",
+      "default": 100
+    },
+    "pe_toggle": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether PE-letter fall-zone reduction was applied."
+    },
+    "pe_radius_ft": {
+      "type": "number",
+      "description": "Engineered PE fall-zone radius in feet (if pe_toggle true)."
+    },
+    "existing_towers_used": {
+      "type": "array",
+      "description": "Nearby FCC ASR / OpenCellID towers used for separation check.",
+      "items": {
+        "type": "object"
+      }
+    },
+    "structures_used": {
+      "type": "array",
+      "description": "Structure points/polygons used for separation check.",
+      "items": {
+        "type": "object"
+      }
+    },
+    "siting_result": {
+      "type": "object",
+      "description": "Full solver result object including feasibility, checks, warnings, chosen point."
+    },
+    "result_class": {
+      "type": "string",
+      "enum": [
+        "clean_pass",
+        "pass_with_unverified_items",
+        "pe_relief_possible",
+        "fail_height_cap",
+        "fail_no_candidate_area",
+        "fail_fall_zone",
+        "fail_compound_fit",
+        "fail_tower_separation",
+        "needs_manual_review"
+      ],
+      "description": "Deterministic result classification."
+    },
+    "feasible": {
+      "type": "boolean",
+      "description": "Whether a compliant placement was found."
+    },
+    "candidate_area_geojson": {
+      "type": "object",
+      "description": "GeoJSON of the buildable envelope (inward-buffered parcel)."
+    },
+    "compound_geojson": {
+      "type": "object",
+      "description": "GeoJSON of the proposed compound rectangle."
+    },
+    "fall_zone_geojson": {
+      "type": "object",
+      "description": "GeoJSON of the fall-zone circle."
+    },
+    "property_setback_geojson": {
+      "type": "object",
+      "description": "GeoJSON of the property-line setback band."
+    },
+    "tower_separation_geojson": {
+      "type": "object",
+      "description": "GeoJSON of existing-tower separation buffer(s)."
+    },
+    "conflict_layers_geojson": {
+      "type": "object",
+      "description": "GeoJSON FeatureCollection of all conflict/exclusion layers."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "running",
+        "completed",
+        "failed"
+      ],
+      "default": "draft"
+    },
+    "error_message": {
+      "type": "string",
+      "description": "Error detail if status = failed."
+    }
+  },
+  "required": [],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

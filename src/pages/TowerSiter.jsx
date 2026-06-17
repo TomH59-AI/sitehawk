@@ -1,18 +1,20 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { point, booleanPointInPolygon, circle as turfCircle, area as turfArea } from "@turf/turf";
+import { point, booleanPointInPolygon, circle as turfCircle, area as turfArea, centroid as turfCentroid } from "@turf/turf";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { FileText, Download, Send, CheckCircle2, AlertOctagon, Layers, Printer } from "lucide-react";
+import { FileText, Download, Send, CheckCircle2, AlertOctagon, Layers, Printer, Save } from "lucide-react";
 
 import { recompute, makeFrame, polygonFromFrame, compoundRect, polygonFromCalls } from "@/lib/towerSiterEngine";
 import { siterEntitlements, DEMO_PARCEL } from "@/lib/towerSiterAccess";
 import { svgToPngDownload, svgToPdfDownload, exportExhibitB } from "@/lib/towerSiterExports";
+import { classifyResult, normalizeOrdinanceRules, getResultMeta } from "@/lib/towerSiterResult";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { towerSiterParcel } from "@/functions/towerSiterParcel";
 import { towerSiterOrdinance } from "@/functions/towerSiterOrdinance";
 import { towerSiterResidential } from "@/functions/towerSiterResidential";
 import { towerSiterSitings } from "@/functions/towerSiterSitings";
+import { useTowerSeparation } from "@/components/towersiter/TowerSeparationLayer";
 
 import ParcelInputPanel from "../components/towersiter/ParcelInputPanel";
 import SiterControls from "../components/towersiter/SiterControls";
@@ -21,6 +23,7 @@ import RuleCard from "../components/towersiter/RuleCard";
 import ExhibitA from "../components/towersiter/ExhibitA";
 import UpgradeModal from "../components/towersiter/UpgradeModal";
 import SitingDeepDive from "../components/towersiter/SitingDeepDive";
+import SitingResultPanel from "../components/towersiter/SitingResultPanel";
 
 // HawkPerch — Tower Siter. Single source of truth for placement math is
 // lib/towerSiterEngine.js (recompute pipeline). NO Zoneomics, NO Regrid —
@@ -39,7 +42,10 @@ export default function TowerSiter() {
   const [busy, setBusy] = useState(false);
   const [upgrade, setUpgrade] = useState(null); // reason string | null
   const [sitingResult, setSitingResult] = useState(null); // perch-siting-solver verdict
+  const [resultClass, setResultClass] = useState(null);
+  const [savingRun, setSavingRun] = useState(false);
   const [anonKey, setAnonKey] = useState(null);
+  const { fetchTowers, towerData, separationCheck, loading: towerSepLoading, reset: resetTowerSep } = useTowerSeparation();
   const [clickMode, setClickMode] = useState(null);
   const [draftPoints, setDraftPoints] = useState([]);
   const [manualRect, setManualRect] = useState({ w: "", d: "" });
@@ -55,10 +61,12 @@ export default function TowerSiter() {
   const result = useMemo(() => {
     if (!parcel?.geometry) return null;
     try {
+      // Normalize ordinance units before passing to the engine
+      const normalizedRules = normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199);
       return recompute({
         parcelGeoJSON: parcel.geometry,
         locationPoint: parcel.location?.coordinates || null,
-        rules,
+        rules: normalizedRules || rules,
         towerHeightFt: Number(controls.heightFt) || 0,
         peToggle: controls.peToggle && ent.peAllowed,
         engineeredFallRadiusFt: controls.peRadiusFt === "" ? undefined : Number(controls.peRadiusFt),
@@ -100,6 +108,8 @@ export default function TowerSiter() {
     setResidential(null);
     setRules(null);
     setSitingResult(null);
+    setResultClass(null);
+    resetTowerSep();
     setClickMode(null);
     setDraftPoints([]);
     if (p.state && p.jurisdiction) {
@@ -189,27 +199,101 @@ export default function TowerSiter() {
     setTowerOverride(lonLat);
   }, [result?.parcel]);
 
-  /* ---------------- residential separation — fires ONCE on Confirm, cached per session ---------------- */
+  /* ---------------- residential + tower separation — fires ONCE on Confirm ---------------- */
   const confirmPlacement = async () => {
     if (!result || result.collapsed) return;
-    const sep = rules?.residential_separation_ft;
-    if (!sep) { setResidential({ result: { status: "skip", label: "No residential separation rule on file" } }); return; }
+
+    const normalizedRules = normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199);
+    const effectiveRules = normalizedRules || rules;
+
+    // 1. Residential separation
+    const resSep = effectiveRules?.residential_separation_ft;
     const key = result.towerLonLat.map((v) => v.toFixed(5)).join(",");
-    if (residential?.key === key && residential.result) return; // cached
-    setResidential({ key, loading: true });
+    if (!resSep) {
+      setResidential({ result: { status: "skip", label: "No residential separation rule on file" } });
+    } else if (!(residential?.key === key && residential.result)) {
+      setResidential({ key, loading: true });
+      try {
+        const { data } = await towerSiterResidential({ lat: result.towerLonLat[1], lon: result.towerLonLat[0], separationFt: resSep });
+        const hits = data?.properties || [];
+        setResidential({
+          key,
+          result: hits.length
+            ? { status: "fail", label: `Residence within ${resSep}′`, offendingAddress: hits[0].address }
+            : { status: "pass", label: `No residences within ${resSep}′` },
+          circle: turfCircle(result.towerLonLat, resSep, { units: "feet", steps: 64 }),
+        });
+      } catch (e) {
+        console.error(e);
+        setResidential({ key, result: { status: "skip", label: "Residential check unavailable" } });
+      }
+    }
+
+    // 2. Tower separation — fetch nearby towers + run check
+    const towerSep = effectiveRules?.tower_separation_ft;
+    await fetchTowers(result.towerLonLat[1], result.towerLonLat[0], towerSep, 2);
+
+    // 3. Compute result classification (after checks are set — use current values)
+    const rc = classifyResult(
+      result.checks,
+      [],
+      false // structures not yet supported
+    );
+    setResultClass(rc);
+  };
+
+  /* ---------------- save run to TowerSitingRun entity ---------------- */
+  const saveRun = async () => {
+    if (!result || result.collapsed || !parcel) return;
+    setSavingRun(true);
     try {
-      const { data } = await towerSiterResidential({ lat: result.towerLonLat[1], lon: result.towerLonLat[0], separationFt: sep });
-      const hits = data?.properties || [];
-      setResidential({
-        key,
-        result: hits.length
-          ? { status: "fail", label: `Residence within ${sep}′`, offendingAddress: hits[0].address }
-          : { status: "pass", label: `No residences within ${sep}′` },
-        circle: turfCircle(result.towerLonLat, sep, { units: "feet", steps: 64 }),
-      });
+      const centroid = turfCentroid(result.parcel).geometry.coordinates;
+      const normalizedRules = normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199);
+      const effectiveRules = normalizedRules || rules;
+      const rc = resultClass || classifyResult(result.checks, [], false, result.collapsed);
+
+      const payload = {
+        parcel_id: parcel.apn || null,
+        property_address: parcel.addressFull || parcel.parcel_address || null,
+        parcel_geometry: result.parcel?.geometry || null,
+        parcel_centroid_lat: centroid[1],
+        parcel_centroid_lon: centroid[0],
+        jurisdiction_name: parcel.jurisdiction || null,
+        jurisdiction_rules: effectiveRules || null,
+        zoning_source: rules ? "telecom_ordinances" : "unverified",
+        zoning_confidence: rules ? "medium" : "unverified",
+        ordinance_source_url: effectiveRules?.source_url || null,
+        tower_height_ft: Number(controls.heightFt) || null,
+        tower_type: "monopole",
+        compound_width_ft: Number(controls.compoundW) || 75,
+        compound_depth_ft: Number(controls.compoundD) || 75,
+        pe_toggle: !!controls.peToggle,
+        pe_radius_ft: controls.peRadiusFt ? Number(controls.peRadiusFt) : null,
+        existing_towers_used: towerData?.towers || [],
+        siting_result: {
+          towerLonLat: result.towerLonLat,
+          clearanceFt: result.clearanceFt,
+          setback: result.setback,
+          fallRadius: result.fallRadius,
+          checks: result.checks,
+          towerSeparation: separationCheck,
+        },
+        result_class: rc,
+        feasible: !result.collapsed && Object.values(result.checks || {}).every((c) => c === true || c?.status !== "fail"),
+        compound_geojson: result.compound?.lonLat?.geometry || null,
+        fall_zone_geojson: result.checks?.fallZone?.circle?.geometry || null,
+        candidate_area_geojson: result.envelope?.geometry || null,
+        tower_separation_geojson: towerData?.buffers || null,
+        status: "completed",
+      };
+
+      await base44.entities.TowerSitingRun.create(payload);
+      toast.success("Siting run saved.");
     } catch (e) {
-      console.error(e);
-      setResidential({ key, result: { status: "skip", label: "Residential check unavailable" } });
+      console.error("saveRun error:", e);
+      toast.error("Could not save the siting run.");
+    } finally {
+      setSavingRun(false);
     }
   };
 
@@ -319,24 +403,26 @@ export default function TowerSiter() {
 
           {result && !result.collapsed && (
             <div className="space-y-2">
-              <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-500" onClick={confirmPlacement}>
-                <CheckCircle2 className="w-4 h-4 mr-1" /> Confirm placement
+              <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-500" onClick={confirmPlacement} disabled={towerSepLoading}>
+                <CheckCircle2 className="w-4 h-4 mr-1" /> {towerSepLoading ? "Checking towers…" : "Confirm placement"}
               </Button>
               <div className="grid grid-cols-2 gap-2">
                 <Button size="sm" variant="outline" className="border-white/15 text-white/70" onClick={exportA}
-                  disabled={sitingResult && !sitingResult.feasible}
-                  title={sitingResult && !sitingResult.feasible ? "Deep-dive found no compliant height — confirm override before exporting" : undefined}>
+                  disabled={sitingResult && !sitingResult.feasible}>
                   <Download className="w-3.5 h-3.5 mr-1" /> Exhibit A
                 </Button>
                 <Button size="sm" variant="outline" className="border-white/15 text-white/70" onClick={exportB}
-                  disabled={sitingResult && !sitingResult.feasible}
-                  title={sitingResult && !sitingResult.feasible ? "Deep-dive found no compliant height — confirm override before exporting" : undefined}>
+                  disabled={sitingResult && !sitingResult.feasible}>
                   <Download className="w-3.5 h-3.5 mr-1" /> Exhibit B
                 </Button>
               </div>
               <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={exportPdf}
                 disabled={sitingResult && !sitingResult.feasible}>
                 <Printer className="w-3.5 h-3.5 mr-1" /> Print Exhibit A — PDF
+              </Button>
+              <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={saveRun}
+                disabled={savingRun}>
+                <Save className="w-3.5 h-3.5 mr-1" /> {savingRun ? "Saving…" : "Save Run"}
               </Button>
               <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={sendToScip}
                 disabled={sitingResult && !sitingResult.feasible}>
@@ -365,7 +451,29 @@ export default function TowerSiter() {
           )}
 
           {result && !result.collapsed && (
-            <ComplianceChips checks={result.checks} residential={residential} residentialAllowed={ent.residentialCheck} />
+            <ComplianceChips
+              checks={result.checks}
+              residential={residential}
+              residentialAllowed={ent.residentialCheck}
+              towerSeparation={separationCheck}
+              towerSeparationLoading={towerSepLoading}
+            />
+          )}
+
+          {result && !result.collapsed && separationCheck && (
+            <SitingResultPanel
+              result={result}
+              resultClass={resultClass}
+              checks={{ ...result.checks, towerSeparation: separationCheck }}
+              towerSeparation={separationCheck}
+              residential={residential}
+              warnings={[
+                ...(!towerData?.towers?.length ? [] : []),
+                "Structure and residential separation could not be fully verified because building footprint data was unavailable.",
+                "Preliminary automated siting exhibit only. Final placement must be verified by surveyor, engineer, and jurisdictional review.",
+              ]}
+              rules={normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199) || rules}
+            />
           )}
 
           <div className="flex gap-2">
