@@ -10,6 +10,7 @@ import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
+import Section9Colocation from "../components/search/Section9Colocation";
 import Section8Propagation from "../components/search/Section8Propagation";
 import Section5TowerSiter from "../components/search/Section5TowerSiter";
 import AIChatPanel from "../components/search/AIChatPanel";
@@ -444,6 +445,18 @@ export default function SiteSearch() {
           onRun={() => setPipelineStep("targets")}
           onTargetAReady={(t) => setTargetA(t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : t)}
           onData={mergeSectionData}
+        />
+      )}
+
+      {/* SECTION 9 — HAWK COLOCATION INTELLIGENCE. Standalone, unlocked as soon as
+          SARF center is set. Scans FCC + OpenCellID within a 3-mile ring. */}
+      {coordsReady && sarfReady && (
+        <Section9Colocation
+          key={`colocation-${clearKeys.sarf}`}
+          unlocked={coordsReady && sarfReady}
+          srcLat={Number(searchCenter.lat)}
+          srcLon={Number(searchCenter.lon)}
+          onClear={() => { /* standalone — no downstream rollback needed */ }}
         />
       )}
 
