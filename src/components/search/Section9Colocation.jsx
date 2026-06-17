@@ -185,20 +185,26 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
       const res = await colocationOpportunities({ lat: srcLat, lon: srcLon, radius_miles: RADIUS_MILES });
       const list = res?.data?.towers || [];
       setTowers(list);
-      setDone(true);
       if (list.length === 0) {
         toast.message("No existing towers found within 3 miles — this may be a greenfield opportunity.");
       } else {
         toast.success(`Found ${list.length} tower site${list.length !== 1 ? "s" : ""} within ${RADIUS_MILES} mi.`);
-        await buildMap(list);
       }
     } catch (err) {
       console.error(err);
       toast.error(err?.message || "Colocation scan failed.");
     } finally {
       setLoading(false);
+      setDone(true);
     }
-  }, [srcLat, srcLon, buildMap]);
+  }, [srcLat, srcLon]);
+
+  // Build the map AFTER the results block (and mapRef div) is in the DOM
+  useEffect(() => {
+    if (done && towers.length > 0) {
+      buildMap(towers);
+    }
+  }, [done, towers, buildMap]);
 
   const rerun = () => {
     clearMap();
