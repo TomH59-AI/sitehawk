@@ -34,11 +34,11 @@ export default function About() {
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Mail className="w-4 h-4 text-primary shrink-0" />
-          <span>Inquiries: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">info@sitehawk.com</a></span>
+          <span>Inquiries: <a href="mailto:info@sitehawk.com" className="text-primary hover:underline">info@sitehawk.com</a></span>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Mail className="w-4 h-4 text-primary shrink-0" />
-          <span>Founder: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">tom@sitehawk.com</a></span>
+          <span>Founder: <a href="mailto:tom@sitehawk.com" className="text-primary hover:underline">tom@sitehawk.com</a></span>
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Globe className="w-4 h-4 text-primary shrink-0" />
