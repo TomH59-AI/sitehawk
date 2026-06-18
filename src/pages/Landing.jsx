@@ -77,7 +77,8 @@ export default function Landing() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
             <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="#testimonials" className="hover:text-white transition-colors">Testimonials</a>
+            <Link to="/crm" className="hover:text-white transition-colors">Deal Pipeline</Link>
+            <Link to="/hawk-docs" className="hover:text-white transition-colors">Document Intelligence</Link>
             <Link to="/about" className="hover:text-white transition-colors">About</Link>
           </div>
           <div className="hidden md:flex items-center gap-3">
@@ -96,7 +97,8 @@ export default function Landing() {
           <div className="md:hidden border-t border-white/5 bg-[#060E1A] px-6 py-4 space-y-3 text-sm font-medium">
             <a href="#features" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Features</a>
             <a href="#pricing" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Pricing</a>
-            <a href="#testimonials" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Testimonials</a>
+            <Link to="/crm" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Deal Pipeline</Link>
+            <Link to="/hawk-docs" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Document Intelligence</Link>
             <Link to="/about" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>About</Link>
             <Link to="/dashboard" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Log In</Link>
             <Link to="/pricing" className="block w-full text-center px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold mt-2" onClick={() => setMenuOpen(false)}>Get Started</Link>
