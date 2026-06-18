@@ -4,6 +4,7 @@ import { point, booleanPointInPolygon, circle as turfCircle, area as turfArea, c
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { FileText, Download, Send, CheckCircle2, AlertOctagon, Layers, Printer, Save } from "lucide-react";
+import Generate3DImageButton from "@/components/towersiter/Generate3DImageButton";
 
 import { recompute, makeFrame, polygonFromFrame, compoundRect, polygonFromCalls } from "@/lib/towerSiterEngine";
 import { siterEntitlements, DEMO_PARCEL } from "@/lib/towerSiterAccess";
@@ -425,6 +426,7 @@ export default function TowerSiter() {
                 disabled={savingRun}>
                 <Save className="w-3.5 h-3.5 mr-1" /> {savingRun ? "Saving…" : "Save Run"}
               </Button>
+              <Generate3DImageButton result={result} controls={controls} parcel={parcel} />
               <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={sendToScip}
                 disabled={sitingResult && !sitingResult.feasible}>
                 <Send className="w-3.5 h-3.5 mr-1" /> Send to SCIP

@@ -1,0 +1,166 @@
+{
+  "name": "Tower3DRender",
+  "type": "object",
+  "description": "Generate 3D Image run \u2014 the Cesium-rendered exaggerated 3D parcel preview produced AFTER the Tower Siter (TowerSitingRun / Target A). Shows the to-scale parcel boundary, an exaggerated monopole tower, and a user-selected landscaped buffered compound, for landowner persuasion. Carries a not-to-scale disclaimer.",
+  "properties": {
+    "tower_siting_run_id": {
+      "type": "string",
+      "description": "The TowerSitingRun (Target A / Tower Siter output) this 3D preview was generated from."
+    },
+    "scip_record_id": {
+      "type": "string",
+      "description": "Optional linked ScipRecord."
+    },
+    "tower_visualization_id": {
+      "type": "string",
+      "description": "Optional linked TowerVisualization (2D/AI render) run."
+    },
+    "parcel_id": {
+      "type": "string",
+      "description": "External parcel / APN identifier."
+    },
+    "property_address": {
+      "type": "string",
+      "description": "Human-readable parcel address shown on the preview."
+    },
+    "site_name": {
+      "type": "string",
+      "default": "Target A",
+      "description": "Display name on the viewer (e.g. 'Target A')."
+    },
+    "centroid_lat": {
+      "type": "number",
+      "description": "Parcel centroid latitude used to place the compound/tower."
+    },
+    "centroid_lon": {
+      "type": "number",
+      "description": "Parcel centroid longitude used to place the compound/tower."
+    },
+    "parcel_geojson": {
+      "type": "object",
+      "description": "GeoJSON Polygon of the parcel boundary (drawn to scale, clamped to terrain). Snapshot from TowerSitingRun.parcel_geometry."
+    },
+    "compound_geojson": {
+      "type": "object",
+      "description": "Optional GeoJSON Polygon of the proposed compound rectangle (from TowerSitingRun.compound_geojson)."
+    },
+    "tower_type": {
+      "type": "string",
+      "enum": [
+        "monopole",
+        "lattice",
+        "guyed",
+        "stealth"
+      ],
+      "default": "monopole",
+      "description": "Tower structure type rendered."
+    },
+    "tower_height_ft": {
+      "type": "number",
+      "default": 199,
+      "description": "Tower height in feet (rendered to scale)."
+    },
+    "compound_size": {
+      "type": "string",
+      "enum": [
+        "50x50",
+        "75x75",
+        "100x100"
+      ],
+      "default": "75x75",
+      "description": "User-selected fenced compound pad footprint."
+    },
+    "compound_width_ft": {
+      "type": "number",
+      "default": 75,
+      "description": "Compound pad width (E-W) in feet."
+    },
+    "compound_depth_ft": {
+      "type": "number",
+      "default": 75,
+      "description": "Compound pad depth (N-S) in feet."
+    },
+    "buffer_ft": {
+      "type": "number",
+      "enum": [
+        10,
+        25,
+        50
+      ],
+      "default": 25,
+      "description": "User-selected landscaped screening buffer width in feet around the compound."
+    },
+    "viewer_html_url": {
+      "type": "string",
+      "description": "URL/path to the generated self-contained Cesium viewer HTML."
+    },
+    "snapshot_image_url": {
+      "type": "string",
+      "description": "Captured still frame (PNG) from the 3D viewer for the landowner packet."
+    },
+    "disclaimer_text": {
+      "type": "string",
+      "default": "Illustrative concept \u2014 not a survey. Parcel outline and tower height are to scale; the monopole, fence, gravel pad, and landscaped buffer are shown at exaggerated scale so placement is easy to see. Final dimensions set after site walk & survey.",
+      "description": "Not-to-scale disclaimer stamped on the preview."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "generating",
+        "ready",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Generation status."
+    },
+    "error": {
+      "type": "string",
+      "description": "Error detail if status = failed."
+    }
+  },
+  "required": [
+    "tower_siting_run_id"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
