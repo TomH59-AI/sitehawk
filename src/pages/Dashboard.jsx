@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatsCards from "../components/dashboard/StatsCards";
 import SearchHistoryTable from "../components/dashboard/SearchHistoryTable";
@@ -136,6 +136,29 @@ export default function Dashboard() {
 
       {/* Refer & earn — give 5 / get 5 growth loop */}
       <ReferralBanner />
+
+      {/* Schedule a call with Tom */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <CalendarDays className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <div className="font-semibold text-foreground text-sm">Need help or have questions?</div>
+            <div className="text-xs text-muted-foreground mt-0.5">Schedule a free 15-minute call with Tom — SiteHawk founder & site acquisition expert.</div>
+          </div>
+        </div>
+        <a
+          href="https://calendly.com/tomhodges-sitehawk/15min"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Button size="sm" variant="outline" className="gap-2 border-primary/30 text-primary hover:bg-primary/10 whitespace-nowrap font-semibold">
+            <CalendarDays className="w-3.5 h-3.5" />
+            Schedule a Call
+          </Button>
+        </a>
+      </div>
 
       {/* SiteHawk capabilities index — read-only directory of everything SiteHawk does */}
       <WorkflowIndex />
