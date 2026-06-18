@@ -65,7 +65,7 @@ export default function Layout() {
             <UsageBadge />
           </div>
         </div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto min-h-0">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
@@ -83,7 +83,7 @@ export default function Layout() {
                 </Link>
                 {/* On Site Search, mirror the live pipeline right under the menu item */}
                 {item.path === "/search" && location.pathname === "/search" && (
-                  <div className="mt-2 mb-1">
+                  <div className="mt-2 mb-1 max-h-64 overflow-y-auto">
                     <PipelineSidebarNav />
                   </div>
                 )}
