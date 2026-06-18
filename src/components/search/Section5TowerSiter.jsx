@@ -294,7 +294,7 @@ export default function Section5TowerSiter({
                     onSnapshot={({ file_url }) => { setSnapshotUrl(file_url); setSnapshotRefresh((n) => n + 1); }}
                   />
                   {snapshotUrl && (
-                    <Snapshot3DGallery snapshotUrl={snapshotUrl} refreshKey={snapshotRefresh} />
+                    <Snapshot3DGallery snapshotUrl={snapshotUrl} refreshKey={snapshotRefresh} towerId={null} />
                   )}
                 </div>
               )}
