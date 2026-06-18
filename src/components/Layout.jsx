@@ -30,12 +30,16 @@ export default function Layout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggle } = useTheme();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    try { return localStorage.getItem("sh_is_admin") === "1"; } catch { return false; }
+  });
   const [enterpriseTrialExpired, setEnterpriseTrialExpired] = useState(false);
 
   useEffect(() => {
     base44.auth.me().then(u => {
-      setIsAdmin(u?.email === ADMIN_EMAIL);
+      const admin = u?.role === "admin" || u?.email === ADMIN_EMAIL;
+      setIsAdmin(admin);
+      try { localStorage.setItem("sh_is_admin", admin ? "1" : "0"); } catch {};
       if (u?.tier === "enterprise_trial" && u?.enterprise_trial_expires_at) {
         if (new Date(u.enterprise_trial_expires_at) < new Date()) {
           setEnterpriseTrialExpired(true);
@@ -44,17 +48,21 @@ export default function Layout() {
     });
   }, []);
 
-  const navItems = isAdmin
+  const adminExtra = isAdmin
     ? [
-        { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
         { path: "/enterprise-trial-admin", icon: Crown, label: "Enterprise Trials" },
-        ...BASE_NAV.filter(i => i.path !== "/dashboard"),
         { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" },
         { path: "/send-update", icon: Send, label: "Send Update" },
         { path: "/mail-orders", icon: Mail, label: "Mail Orders" },
         { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" },
       ]
-    : BASE_NAV;
+    : [];
+
+  const navItems = [
+    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    ...adminExtra,
+    ...BASE_NAV.filter(i => i.path !== "/dashboard"),
+  ];
 
   const handleLogout = () => {
     base44.auth.logout();
