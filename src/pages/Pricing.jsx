@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Check, Zap, Star, Crown } from "lucide-react";
+import { Check, Zap, Star, Crown, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { stripeCheckout } from "@/functions/stripeCheckout";
@@ -151,6 +151,47 @@ export default function Pricing() {
       <div className="flex items-center gap-3">
         <span className="text-3xl">📡</span>
         <h1 className="font-heading font-bold text-3xl text-foreground">SiteHawk Prices</h1>
+      </div>
+
+      {/* Enterprise Trial Card */}
+      <div className="max-w-6xl mx-auto rounded-2xl border-2 border-yellow-400/50 bg-gradient-to-r from-yellow-400/10 via-card to-card p-6 flex flex-col md:flex-row md:items-center gap-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 px-4 py-1.5 bg-yellow-400 text-black text-xs font-bold font-heading rounded-bl-xl">
+          🦅 Enterprise Trial
+        </div>
+        <div className="flex items-center gap-4 flex-1">
+          <div className="w-14 h-14 rounded-xl bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-center shrink-0">
+            <Clock className="w-7 h-7 text-yellow-400" />
+          </div>
+          <div>
+            <h3 className="font-heading font-bold text-xl text-foreground">5-Day Enterprise Trial</h3>
+            <p className="text-sm text-muted-foreground mt-1">Get full Hawkeyes access — 2 complete SCIPs per day for 5 days. No guessing, just results.</p>
+            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              {["2 full SCIPs/day", "5 days free", "Full Hawkeyes feature set", "Zoning, RF, Maps & CRM"].map(f => (
+                <li key={f} className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Check className="w-3 h-3 text-yellow-400 shrink-0" />{f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 shrink-0 min-w-[220px]">
+          <div className="text-center">
+            <span className="font-heading font-bold text-3xl text-foreground">Free</span>
+            <span className="text-muted-foreground text-sm"> for 5 days</span>
+            <p className="text-xs text-yellow-400 font-semibold mt-0.5">Then $599/mo or call us to customize</p>
+          </div>
+          <Button
+            className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-heading font-bold"
+            onClick={() => window.location.href = "mailto:hodgesthomas@outlook.com?subject=Enterprise%20Trial%20Request&body=I'd%20like%20to%20start%20a%205-day%20enterprise%20trial%20of%20SiteHawk.%0A%0AName:%0ACompany:%0APhone:"}
+          >
+            Request Trial Access
+          </Button>
+          <a href="tel:+12487871888" className="w-full">
+            <Button variant="outline" className="w-full border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 font-heading font-semibold">
+              📞 Call Tom — (248) 787-1888
+            </Button>
+          </a>
+        </div>
       </div>
 
       {/* Tier Cards */}
