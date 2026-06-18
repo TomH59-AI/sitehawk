@@ -18,6 +18,7 @@ import SiterMap from "@/components/towersiter/SiterMap";
 import ExhibitA from "@/components/towersiter/ExhibitA";
 import UpgradeModal from "@/components/towersiter/UpgradeModal";
 import Generate3DImageButton from "@/components/towersiter/Generate3DImageButton";
+import Snapshot3DGallery from "@/components/towersiter/Snapshot3DGallery";
 import SectionClearButton from "@/components/search/SectionClearButton";
 
 // Section 5 — Tower Siter (pipeline-embedded).
@@ -53,6 +54,8 @@ export default function Section5TowerSiter({
   const [towerOverride, setTowerOverride] = useState(null);
   const [residential, setResidential] = useState(null);
   const [upgrade, setUpgrade] = useState(null);
+  const [snapshotUrl, setSnapshotUrl] = useState(null);
+  const [snapshotRefresh, setSnapshotRefresh] = useState(0);
   const exhibitARef = useRef(null);
 
   // Auto-load the parcel from Target A's coordinates when the section is first expanded
@@ -284,7 +287,15 @@ export default function Section5TowerSiter({
                   <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={exportPdf}>
                     <Printer className="w-3.5 h-3.5 mr-1" /> Print Exhibit A — PDF
                   </Button>
-                  <Generate3DImageButton result={result} controls={controls} parcel={parcel} />
+                  <Generate3DImageButton
+                    result={result}
+                    controls={controls}
+                    parcel={parcel}
+                    onSnapshot={({ file_url }) => { setSnapshotUrl(file_url); setSnapshotRefresh((n) => n + 1); }}
+                  />
+                  {snapshotUrl && (
+                    <Snapshot3DGallery snapshotUrl={snapshotUrl} refreshKey={snapshotRefresh} />
+                  )}
                 </div>
               )}
             </div>
