@@ -12,6 +12,9 @@ const PRICE_IDS = {
   hawk_compliance: 'price_1TdJlxIE4fOP88RJBeqKRVgw',
 };
 
+// Enterprise trial default plan when trial converts to paid
+const ENTERPRISE_TRIAL_PRICE_ID = 'price_1Tg4yhIE4fOP88RJoenWGmaL'; // Hawkeyes $599/mo
+
 const TRIAL_SCANS = {
   hawk_site: 1,
   hawkeyes: 5,
@@ -114,6 +117,58 @@ Deno.serve(async (req) => {
       });
 
       return Response.json({ success: true });
+    }
+
+    // ── ENTERPRISE TRIAL CHECKOUT ─────────────────────────────
+    // Called by admin after granting a trial. Creates a Stripe subscription
+    // with a trial_end matching the user's enterprise_trial_expires_at so that
+    // when the trial ends Stripe automatically charges them for Hawkeyes.
+    if (action === 'enterprise_trial_checkout') {
+      const user = await base44.auth.me();
+      if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
+
+      const { trial_user_email, trial_ends_at } = body;
+      if (!trial_user_email || !trial_ends_at) {
+        return Response.json({ error: 'trial_user_email and trial_ends_at required' }, { status: 400 });
+      }
+
+      const trialEndTimestamp = Math.floor(new Date(trial_ends_at).getTime() / 1000);
+      const origin = req.headers.get('origin') || 'https://app.base44.com';
+
+      const meta = {
+        base44_app_id: Deno.env.get('BASE44_APP_ID'),
+        user_email: trial_user_email,
+        plan: 'hawkeyes',
+        plan_key: 'hawkeyes',
+        enterprise_trial: 'true',
+      };
+
+      // Create or find Stripe customer for the trial user
+      let customerId;
+      const existing = await stripe.customers.list({ email: trial_user_email, limit: 1 });
+      if (existing.data.length) {
+        customerId = existing.data[0].id;
+      } else {
+        const customer = await stripe.customers.create({ email: trial_user_email, metadata: meta });
+        customerId = customer.id;
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [{ price: ENTERPRISE_TRIAL_PRICE_ID, quantity: 1 }],
+        customer: customerId,
+        success_url: `${origin}/dashboard?enterprise_trial_setup=success`,
+        cancel_url: `${origin}/pricing`,
+        client_reference_id: trial_user_email,
+        metadata: meta,
+        subscription_data: {
+          metadata: meta,
+          trial_end: trialEndTimestamp,
+        },
+      });
+
+      console.log(`enterprise_trial_checkout: created session for ${trial_user_email} trial_end=${trial_ends_at}`);
+      return Response.json({ url: session.url });
     }
 
     // ── PORTAL ────────────────────────────────────────────────

@@ -27,11 +27,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 //   hawkeyes      → 40 / calendar month
 //   hawkeye_apex  → unlimited
 const QUOTA = {
-  free:         { limit: 0,        window: 'lifetime' },
-  trialing:     { limit: 2,        window: 'day' },
-  hawk_site:    { limit: 15,       window: 'month' },
-  hawkeyes:     { limit: 40,       window: 'month' },
-  hawkeye_apex: { limit: Infinity, window: 'unlimited' },
+  free:              { limit: 0,        window: 'lifetime' },
+  trialing:          { limit: 2,        window: 'day' },
+  enterprise_trial:  { limit: 2,        window: 'day' },
+  hawk_site:         { limit: 15,       window: 'month' },
+  hawkeyes:          { limit: 40,       window: 'month' },
+  hawkeye_apex:      { limit: Infinity, window: 'unlimited' },
 };
 
 function siteKeyFor(lat, lon) {

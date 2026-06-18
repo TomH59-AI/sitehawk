@@ -6,9 +6,10 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Crown, CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
+import { Crown, CheckCircle2, XCircle, Loader2, Clock, ExternalLink } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
+import { stripeCheckout } from "@/functions/stripeCheckout";
 
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 
@@ -42,23 +43,56 @@ export default function EnterpriseTrialAdmin() {
     }
   };
 
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
+
   const grantTrial = async () => {
     if (!searchEmail.trim()) return;
     setSaving("grant");
+    setCheckoutUrl(null);
     try {
-      const matches = await base44.entities.User.filter({ email: searchEmail.trim().toLowerCase() });
-      if (!matches.length) {
-        toast({ title: "User not found", description: `No user with email ${searchEmail}`, variant: "destructive" });
-        setSaving(null);
-        return;
-      }
-      const u = matches[0];
+      const email = searchEmail.trim().toLowerCase();
       const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-      await base44.entities.User.update(u.id, {
-        tier: "enterprise_trial",
-        enterprise_trial_expires_at: expiresAt,
+
+      // Try to find existing user — if not found, invite them first
+      let matches = await base44.entities.User.filter({ email });
+      if (!matches.length) {
+        try {
+          await base44.users.inviteUser(email, "user");
+          toast({ title: "Invite sent", description: `${email} has been invited. Granting trial…` });
+          // Re-check after invite (may take a moment to appear)
+          await new Promise(r => setTimeout(r, 1500));
+          matches = await base44.entities.User.filter({ email });
+        } catch (inviteErr) {
+          console.warn("Invite error (continuing):", inviteErr.message);
+        }
+      }
+
+      // Update the user record if found
+      if (matches.length) {
+        await base44.entities.User.update(matches[0].id, {
+          tier: "enterprise_trial",
+          enterprise_trial_expires_at: expiresAt,
+        });
+      }
+
+      // Create Stripe checkout session — user fills in card details,
+      // trial runs free until trial_end, then auto-charges Hawkeyes $599/mo.
+      const res = await stripeCheckout({
+        action: "enterprise_trial_checkout",
+        trial_user_email: email,
+        trial_ends_at: expiresAt,
       });
-      toast({ title: "Enterprise Trial Granted ✓", description: `${searchEmail} — expires in ${days} days` });
+      const url = res?.data?.url;
+      if (url) {
+        setCheckoutUrl(url);
+        toast({
+          title: "Enterprise Trial Granted ✓",
+          description: `${email} — ${days} days free, then $599/mo. Share the Stripe link below.`,
+        });
+      } else {
+        toast({ title: "Trial granted", description: `${email} set — no Stripe link returned.`, variant: "destructive" });
+      }
+
       setSearchEmail("");
       loadTrialUsers();
     } catch (e) {
@@ -111,7 +145,7 @@ export default function EnterpriseTrialAdmin() {
       {/* Grant new trial */}
       <div className="rounded-xl border border-yellow-400/30 bg-yellow-400/5 p-6 space-y-4">
         <h2 className="font-heading font-semibold text-foreground">Grant Enterprise Trial</h2>
-        <p className="text-sm text-muted-foreground">The user must already have a SiteHawk account (invited via the dashboard).</p>
+        <p className="text-sm text-muted-foreground">Enter any email — if they don't have an account yet they'll be auto-invited. A Stripe checkout link is generated so they set up their card now; the trial runs free, then auto-charges Hawkeyes ($599/mo) when it ends. Limit: 2 SCIPs/day during trial.</p>
         <div className="flex gap-3 flex-wrap">
           <Input
             placeholder="user@company.com"
@@ -138,9 +172,29 @@ export default function EnterpriseTrialAdmin() {
             className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold"
           >
             {saving === "grant" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
-            Grant Trial
+            Grant Trial + Stripe Setup
           </Button>
         </div>
+        {checkoutUrl && (
+          <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/5 p-4 space-y-2">
+            <p className="text-sm font-semibold text-emerald-400">✓ Stripe checkout link ready — send this to the user:</p>
+            <p className="text-xs text-muted-foreground">They'll enter their card now. Trial runs free until the period ends, then $599/mo (Hawkeyes) auto-charges.</p>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={checkoutUrl}
+                className="flex-1 text-xs bg-background border border-border rounded px-2 py-1.5 font-mono"
+                onFocus={e => e.target.select()}
+              />
+              <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(checkoutUrl); toast({ title: "Copied!" }); }}>
+                Copy
+              </Button>
+              <a href={checkoutUrl} target="_blank" rel="noopener noreferrer">
+                <Button size="sm" variant="outline"><ExternalLink className="w-3 h-3" /></Button>
+              </a>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Active trials */}
