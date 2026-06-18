@@ -287,12 +287,7 @@ export default function Section5TowerSiter({
                   <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={exportPdf}>
                     <Printer className="w-3.5 h-3.5 mr-1" /> Print Exhibit A — PDF
                   </Button>
-                  <Generate3DImageButton
-                    result={result}
-                    controls={controls}
-                    parcel={parcel}
-                    onSnapshot={({ file_url }) => { setSnapshotUrl(file_url); setSnapshotRefresh((n) => n + 1); }}
-                  />
+                  <Generate3DImageButton result={result} />
                   {snapshotUrl && (
                     <Snapshot3DGallery snapshotUrl={snapshotUrl} refreshKey={snapshotRefresh} towerId={null} />
                   )}

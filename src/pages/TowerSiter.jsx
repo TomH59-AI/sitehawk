@@ -46,6 +46,7 @@ export default function TowerSiter() {
   const [sitingResult, setSitingResult] = useState(null); // perch-siting-solver verdict
   const [resultClass, setResultClass] = useState(null);
   const [savingRun, setSavingRun] = useState(false);
+  const [savedRunId, setSavedRunId] = useState(null);
   const [anonKey, setAnonKey] = useState(null);
   const { fetchTowers, towerData, separationCheck, loading: towerSepLoading, reset: resetTowerSep } = useTowerSeparation();
   const [clickMode, setClickMode] = useState(null);
@@ -111,6 +112,7 @@ export default function TowerSiter() {
     setRules(null);
     setSitingResult(null);
     setResultClass(null);
+    setSavedRunId(null);
     resetTowerSep();
     setClickMode(null);
     setDraftPoints([]);
@@ -289,7 +291,8 @@ export default function TowerSiter() {
         status: "completed",
       };
 
-      await base44.entities.TowerSitingRun.create(payload);
+      const saved = await base44.entities.TowerSitingRun.create(payload);
+      setSavedRunId(saved?.id || null);
       toast.success("Siting run saved.");
     } catch (e) {
       console.error("saveRun error:", e);
@@ -426,7 +429,7 @@ export default function TowerSiter() {
                 disabled={savingRun}>
                 <Save className="w-3.5 h-3.5 mr-1" /> {savingRun ? "Saving…" : "Save Run"}
               </Button>
-              <Generate3DImageButton result={result} controls={controls} parcel={parcel} />
+              <Generate3DImageButton result={result} runId={savedRunId} />
               <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={sendToScip}
                 disabled={sitingResult && !sitingResult.feasible}>
                 <Send className="w-3.5 h-3.5 mr-1" /> Send to SCIP

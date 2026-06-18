@@ -1,125 +1,34 @@
 /**
- * Generate3DImageButton — appears on the TowerSiter result screen after
- * a placement is confirmed. Creates a Tower3DRender record and opens the
- * full-screen CesiumTower3DViewer.
+ * Generate3DImageButton — links to the standalone Tower3DViewer page.
+ * Passes the TowerSitingRun id (from the current siting result) as a query param.
+ * Falls back to the page's default (most recent feasible run) if no id is available.
  */
-import { useState } from "react";
-import { Box, Loader2 } from "lucide-react";
+import { Box } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { base44 } from "@/api/base44Client";
-import { loadPublicConfig } from "@/lib/publicConfig";
-import { toast } from "sonner";
-import CesiumTower3DViewer from "./CesiumTower3DViewer";
-import Snapshot3DGallery from "./Snapshot3DGallery";
+import { useNavigate } from "react-router-dom";
 
-export default function Generate3DImageButton({ result, controls, parcel }) {
-  const [loading, setLoading] = useState(false);
-  const [render, setRender] = useState(null);
-  const [cesiumToken, setCesiumToken] = useState(null);
-  const [snapshotUrl, setSnapshotUrl] = useState(null);
-  const [snapshotRefresh, setSnapshotRefresh] = useState(0);
+export default function Generate3DImageButton({ runId, result, disabled }) {
+  const navigate = useNavigate();
 
-  if (!result || result.collapsed || !parcel) return null;
+  // Only show if there's a feasible result or a known run id
+  if (!runId && (!result || result?.collapsed)) return null;
 
-  const handleGenerate = async () => {
-    setLoading(true);
-    try {
-      const cfg = await loadPublicConfig();
-      const token = cfg?.cesiumIonToken || "";
-      setCesiumToken(token);
-
-      // Derive compound size label
-      const cw = Number(controls.compoundW) || 75;
-      const cd = Number(controls.compoundD) || 75;
-      const closestSize = ["50x50", "75x75", "100x100"].reduce((best, s) => {
-        const [w] = s.split("x").map(Number);
-        return Math.abs(w - cw) < Math.abs(Number(best.split("x")[0]) - cw) ? s : best;
-      }, "75x75");
-
-      // Tower centroid from result
-      const [lon, lat] = result.towerLonLat || [parcel.location?.coordinates?.[0] || 0, parcel.location?.coordinates?.[1] || 0];
-
-      const rec = await base44.entities.Tower3DRender.create({
-        parcel_id: parcel.apn || null,
-        property_address: parcel.addressFull || parcel.apn || null,
-        site_name: "Target A",
-        centroid_lat: lat,
-        centroid_lon: lon,
-        parcel_geojson: result.parcel?.geometry || parcel.geometry || null,
-        compound_geojson: result.compound?.lonLat?.geometry || null,
-        tower_type: "monopole",
-        tower_height_ft: Number(controls.heightFt) || 199,
-        compound_size: closestSize,
-        compound_width_ft: cw,
-        compound_depth_ft: cd,
-        buffer_ft: 25,
-        status: "ready",
-      });
-
-      setRender(rec);
-      // Reset any previous snapshot when opening a fresh render
-      setSnapshotUrl(null);
-    } catch (e) {
-      console.error("Generate3DImageButton error:", e);
-      toast.error("Could not create 3D preview.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSnapshot = ({ file_url }) => {
-    setSnapshotUrl(file_url);
-    setSnapshotRefresh((n) => n + 1);
-  };
-
-  const handleSettingsChange = async ({ compound, buffer, height }) => {
-    if (!render?.id) return;
-    try {
-      const [cw, cd] = compound.split("x").map(Number);
-      const updated = await base44.entities.Tower3DRender.update(render.id, {
-        compound_size: compound,
-        compound_width_ft: cw,
-        compound_depth_ft: cd,
-        buffer_ft: Number(buffer),
-        tower_height_ft: Number(height),
-        status: "ready",
-      });
-      setRender(updated);
-    } catch { /* non-critical */ }
+  const handleClick = () => {
+    const path = runId
+      ? `/tower-3d-viewer?runId=${runId}`
+      : "/tower-3d-viewer";
+    navigate(path);
   };
 
   return (
-    <>
-      <Button
-        size="sm"
-        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold"
-        onClick={handleGenerate}
-        disabled={loading}
-      >
-        {loading
-          ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Opening 3D viewer…</>
-          : <><Box className="w-3.5 h-3.5 mr-1.5" /> Generate 3D Image</>
-        }
-      </Button>
-
-      {render && cesiumToken && (
-        <CesiumTower3DViewer
-          render={render}
-          cesiumToken={cesiumToken}
-          onClose={() => setRender(null)}
-          onSettingsChange={handleSettingsChange}
-          onSnapshot={handleSnapshot}
-        />
-      )}
-
-      {/* Snapshot gallery — shown below the button once a frame has been captured */}
-      {(snapshotUrl || render?.snapshot_image_url) && (
-        <Snapshot3DGallery
-          towerId={render?.id}
-          snapshotUrl={snapshotUrl || render?.snapshot_image_url}
-          refreshKey={snapshotRefresh}
-        />
-      )}
-    </>
+    <Button
+      size="sm"
+      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold gap-2"
+      onClick={handleClick}
+      disabled={disabled}
+    >
+      <Box className="w-3.5 h-3.5" />
+      Generate 3D Image
+    </Button>
   );
 }
