@@ -45,7 +45,15 @@ export default function Layout() {
   }, []);
 
   const navItems = isAdmin
-    ? [...BASE_NAV, { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" }, { path: "/send-update", icon: Send, label: "Send Update" }, { path: "/mail-orders", icon: Mail, label: "Mail Orders" }, { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" }, { path: "/enterprise-trial-admin", icon: Crown, label: "Enterprise Trials" }]
+    ? [
+        { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+        { path: "/enterprise-trial-admin", icon: Crown, label: "Enterprise Trials" },
+        ...BASE_NAV.filter(i => i.path !== "/dashboard"),
+        { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" },
+        { path: "/send-update", icon: Send, label: "Send Update" },
+        { path: "/mail-orders", icon: Mail, label: "Mail Orders" },
+        { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" },
+      ]
     : BASE_NAV;
 
   const handleLogout = () => {
