@@ -5,7 +5,7 @@ import { cloudRFCoverage } from "@/functions/cloudRFCoverage";
 import { Loader2, RadioTower, AlertTriangle, Signal } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
-import { sectionLabel, SECTION_KEYS } from "@/lib/scipTarget";
+import { sectionLabel, SECTION_KEYS, resolveScipActiveTarget } from "@/lib/scipTarget";
 import RFProximityMaps from "@/components/ai-vision/RFProximityMaps";
 
 /**
@@ -25,14 +25,15 @@ export default function HawkRFCoverage({ record, onUpdate }) {
   const [covLoading, setCovLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const ctx = resolveScipActiveTarget(record);
   const targets = record.parcel_targets || [];
-  const idx = record.active_target_index || 0;
-  const target = targets[idx] || null;
+  const idx = ctx.target_index;
+  const target = targets.length > 0 ? (targets[idx] || null) : null;
   const slotKey = String(idx);
   const slot = record.rf_enrichment?.[slotKey] || null;
 
-  const lat = target ? Number(target.latitude ?? record.latitude) : null;
-  const lon = target ? Number(target.longitude ?? record.longitude) : null;
+  const lat = ctx.lat;
+  const lon = ctx.lon;
   const towerHeightFt = Number(record.sarf_height) || 199;
   const ringRadius = Number(record.search_radius) || 1.0;
 

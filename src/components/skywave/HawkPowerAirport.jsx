@@ -4,7 +4,7 @@ import { scipPowerAirportMaps } from "@/functions/scipPowerAirportMaps";
 import { Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
-import { stampPatch, SECTION_KEYS, sectionLabel } from "@/lib/scipTarget";
+import { stampPatch, SECTION_KEYS, sectionLabel, resolveScipActiveTarget } from "@/lib/scipTarget";
 import ScipPowerAirportPage from "./ScipPowerAirportPage";
 import SectionStaleBanner from "./SectionStaleBanner";
 import LiveAirportMap from "./LiveAirportMap";
@@ -13,8 +13,9 @@ import LiveTowerMap from "./LiveTowerMap";
 // Step 3.6 — Power (electric service) + Airport maps for the active target.
 export default function HawkPowerAirport({ record, onUpdate }) {
   const [busy, setBusy] = useState(false);
+  const ctx = resolveScipActiveTarget(record);
   const targets = record.parcel_targets || [];
-  const target = targets[record.active_target_index || 0] || null;
+  const target = targets.length > 0 ? (targets[ctx.target_index] || null) : null;
   const data = record.power_airport_maps || null;
 
   async function generate() {
@@ -25,8 +26,8 @@ export default function HawkPowerAirport({ record, onUpdate }) {
     setBusy(true);
     try {
       const res = await scipPowerAirportMaps({
-        lat: Number(target.latitude ?? record.latitude),
-        lon: Number(target.longitude ?? record.longitude),
+        lat: ctx.lat,
+        lon: ctx.lon,
         radius_miles: Number(record.search_radius) || 1.0,
         state: (record.state || "").toUpperCase(),
       });
@@ -69,19 +70,19 @@ export default function HawkPowerAirport({ record, onUpdate }) {
       <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.power_airport} hasData={!!data} />
       {data && <ScipPowerAirportPage data={data} />}
 
-      {target && (
+      {ctx.lat != null && ctx.lon != null && (
         <div className="mt-4 no-print">
           <LiveAirportMap
-            lat={Number(target.latitude ?? record.latitude)}
-            lon={Number(target.longitude ?? record.longitude)}
-            label={target.label || "Target A"}
+            lat={ctx.lat}
+            lon={ctx.lon}
+            label={ctx.target_label}
             radiusMiles={Number(record.search_radius) || 1}
           />
           <div className="mt-4">
             <LiveTowerMap
-              lat={Number(target.latitude ?? record.latitude)}
-              lon={Number(target.longitude ?? record.longitude)}
-              label={target.label || "Target A"}
+              lat={ctx.lat}
+              lon={ctx.lon}
+              label={ctx.target_label}
             />
           </div>
         </div>

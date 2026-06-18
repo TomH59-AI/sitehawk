@@ -4,7 +4,7 @@ import { scipBestParcels } from "@/functions/scipBestParcels";
 import { Loader2, Crosshair, ChevronRight, Award } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
-import { sectionLabel, SECTION_KEYS } from "@/lib/scipTarget";
+import { sectionLabel, SECTION_KEYS, resolveScipActiveTarget } from "@/lib/scipTarget";
 import TargetScorecard from "@/components/scip/TargetScorecard";
 
 const ROWS = [
@@ -35,7 +35,8 @@ function cellValue(t, key) {
 export default function HawkParcelTargets({ record, onUpdate }) {
   const [busy, setBusy] = useState(false);
   const targets = record.parcel_targets || [];
-  const activeIdx = record.active_target_index || 0;
+  const ctx = resolveScipActiveTarget(record);
+  const activeIdx = ctx.target_index;
 
   async function generate() {
     setBusy(true);
@@ -49,9 +50,12 @@ export default function HawkParcelTargets({ record, onUpdate }) {
       });
       const t = res.data?.targets || [];
       if (!t.length) throw new Error("no parcels");
+      // Persist targets + explicit active_target_index: 0 (Target A) + clear
+      // any stale section stamps so all sections know they need regeneration.
       const updated = await base44.entities.ScipRecord.update(record.id, {
         parcel_targets: t,
         active_target_index: 0,
+        section_target_index: {},
       });
       onUpdate(updated);
       toast.success(`Found ${res.data.count_scanned} parcels — ranked top 3 targets`);
@@ -68,9 +72,16 @@ export default function HawkParcelTargets({ record, onUpdate }) {
       return;
     }
     const next = activeIdx + 1;
-    const updated = await base44.entities.ScipRecord.update(record.id, { active_target_index: next });
+    // When promoting a new target, clear all flat-section stamps so every
+    // section knows it was generated for a different target and must regenerate.
+    // rf_enrichment already keys by index so it does not need clearing.
+    const staleSectionPatch = { section_target_index: {} };
+    const updated = await base44.entities.ScipRecord.update(record.id, {
+      active_target_index: next,
+      ...staleSectionPatch,
+    });
     onUpdate(updated);
-    toast.success(`SCIP now focused on ${targets[next].label}`);
+    toast.success(`SCIP now focused on ${targets[next]?.label || `Target ${next + 1}`} — regenerate each section for the new target.`);
   }
 
   return (

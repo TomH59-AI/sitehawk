@@ -6,7 +6,7 @@ import { Loader2, ClipboardList, RefreshCw, DatabaseZap } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { SKYWAVE } from "@/lib/skywave";
-import { sectionLabel, SECTION_KEYS } from "@/lib/scipTarget";
+import { sectionLabel, SECTION_KEYS, resolveScipActiveTarget } from "@/lib/scipTarget";
 import ScipZoningPage from "./ScipZoningPage";
 import TargetSiteIntelPanel from "./TargetSiteIntelPanel";
 
@@ -18,7 +18,9 @@ export default function HawkZoningPermitting({ record, onUpdate }) {
   const [busy, setBusy] = useState(false);
   const [provenance, setProvenance] = useState(null);
   const report = record.zoning_report || null;
-  const target = (record.parcel_targets || [])[record.active_target_index || 0] || null;
+  const ctx = resolveScipActiveTarget(record);
+  const targets = record.parcel_targets || [];
+  const target = targets.length > 0 ? (targets[ctx.target_index] || null) : null;
 
   async function generate(forceRefresh = false) {
     setBusy(true);
@@ -135,9 +137,9 @@ export default function HawkZoningPermitting({ record, onUpdate }) {
       <div className="mt-5 no-print">
         <h4 className="font-bold text-sm mb-2" style={{ color: SKYWAVE.navy }}>Target Site Intelligence — {target?.label || "Target A"}</h4>
         <TargetSiteIntelPanel
-          lat={Number(target?.latitude ?? record.latitude)}
-          lon={Number(target?.longitude ?? record.longitude)}
-          label={target?.label || "Target A"}
+          lat={ctx.lat ?? Number(record.latitude)}
+          lon={ctx.lon ?? Number(record.longitude)}
+          label={ctx.target_label}
         />
       </div>
     </div>

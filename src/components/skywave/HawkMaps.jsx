@@ -4,15 +4,16 @@ import { scipMapSuite } from "@/functions/scipMapSuite";
 import { Loader2, Map } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
-import { stampPatch, SECTION_KEYS, sectionLabel } from "@/lib/scipTarget";
+import { stampPatch, SECTION_KEYS, sectionLabel, resolveScipActiveTarget } from "@/lib/scipTarget";
 import ScipHawkMapsPage from "./ScipHawkMapsPage";
 import SectionStaleBanner from "./SectionStaleBanner";
 
 // Step 3.5 — HAWK MAPS for the active target (Aerial / Topography / Floodplain / Zoning).
 export default function HawkMaps({ record, onUpdate }) {
   const [busy, setBusy] = useState(false);
+  const ctx = resolveScipActiveTarget(record);
   const targets = record.parcel_targets || [];
-  const target = targets[record.active_target_index || 0] || null;
+  const target = targets.length > 0 ? (targets[ctx.target_index] || null) : null;
   const maps = record.hawk_maps || null;
 
   async function generate() {
@@ -24,12 +25,12 @@ export default function HawkMaps({ record, onUpdate }) {
     try {
       const res = await scipMapSuite({
         targets: [{
-          label: "A",
+          label: ctx.target_label,
           site_name: record.site_name || "Site",
-          lat: Number(target.latitude ?? record.latitude),
-          lng: Number(target.longitude ?? record.longitude),
-          apn: target.apn || null,
-          owner: target.owner_name || null,
+          lat: ctx.lat,
+          lng: ctx.lon,
+          apn: ctx.apn || null,
+          owner: ctx.owner_name || null,
         }],
         jurisdiction: record.zoning_jurisdiction || record.county || "Unknown",
         state: (record.state || "XX").toUpperCase(),

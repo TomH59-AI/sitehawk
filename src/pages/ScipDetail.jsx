@@ -5,6 +5,7 @@ import { generateSarfMap } from "@/functions/generateSarfMap";
 import { Printer, Download, RefreshCw, Copy, Loader2, ArrowLeft, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
+import { resolveScipActiveTarget } from "@/lib/scipTarget";
 import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
 import HawkZoningPermitting from "../components/skywave/HawkZoningPermitting";
 import HawkParcelTargets from "../components/skywave/HawkParcelTargets";
@@ -18,6 +19,7 @@ import TargetScorecard from "../components/scip/TargetScorecard";
 import NotionSyncToggle from "../components/scip/NotionSyncToggle";
 import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
 import PrintSiteHawkScipButton from "../components/scip/PrintSiteHawkScipButton";
+import RunFullScipButton from "../components/scip/RunFullScipButton";
 
 // Thin, self-contained print row placed above each on-screen SCIP panel. Lets a
 // user print the ENTIRE branded SCIP from wherever they're reviewing — without
@@ -76,9 +78,13 @@ export default function ScipDetail() {
   async function handleRegenerate() {
     setBusy(true);
     try {
+      // SARF map always uses the SCIP ring centroid (record.latitude/longitude),
+      // not the active target — the ring is anchored to the original search point.
       const res = await generateSarfMap({
-        lat: Number(record.latitude), lon: Number(record.longitude),
-        search_radius: record.search_radius, site_name: record.site_name,
+        lat: Number(record.latitude),
+        lon: Number(record.longitude),
+        search_radius: record.search_radius,
+        site_name: record.site_name,
       });
       const mapUrl = res.data?.map_image_url;
       if (!mapUrl) throw new Error("no url");
@@ -220,6 +226,11 @@ export default function ScipDetail() {
         <div className="mb-5">
           <PanelPrintRow record={record} />
           <HawkExistingConditions record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Run Full SCIP — pipeline guard that runs all sections for the active target */}
+        <div className="mb-5 no-print">
+          <RunFullScipButton record={record} onUpdate={setRecord} />
         </div>
 
         {/* Print Full SCIP — prominent end-of-page call to action */}

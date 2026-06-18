@@ -4,7 +4,7 @@ import { scipExistingConditions } from "@/functions/scipExistingConditions";
 import { Loader2, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
-import { stampPatch, SECTION_KEYS, sectionLabel } from "@/lib/scipTarget";
+import { stampPatch, SECTION_KEYS, sectionLabel, resolveScipActiveTarget } from "@/lib/scipTarget";
 import SectionStaleBanner from "./SectionStaleBanner";
 
 const ROWS = [
@@ -21,8 +21,9 @@ const ROWS = [
 // Step — Existing Conditions for Target A (the active SCIP target).
 export default function HawkExistingConditions({ record, onUpdate }) {
   const [busy, setBusy] = useState(false);
+  const ctx = resolveScipActiveTarget(record);
   const targets = record.parcel_targets || [];
-  const target = targets[record.active_target_index || 0] || null;
+  const target = targets.length > 0 ? (targets[ctx.target_index] || null) : null;
   const ec = record.existing_conditions || null;
 
   async function generate() {
@@ -33,9 +34,9 @@ export default function HawkExistingConditions({ record, onUpdate }) {
     setBusy(true);
     try {
       const res = await scipExistingConditions({
-        lat: Number(target.latitude ?? record.latitude),
-        lon: Number(target.longitude ?? record.longitude),
-        parcel_address: target.parcel_address || "",
+        lat: ctx.lat,
+        lon: ctx.lon,
+        parcel_address: ctx.parcel_address || "",
         county: record.county || "",
         state: record.state || "",
       });
