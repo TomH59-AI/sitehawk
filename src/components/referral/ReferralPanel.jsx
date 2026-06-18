@@ -53,7 +53,7 @@ export default function ReferralPanel() {
         </div>
         <div>
           <h3 className="font-heading font-bold text-foreground text-lg">Refer & Earn</h3>
-          <p className="text-sm text-muted-foreground">Share your link — you both get 5 free scan credits when they subscribe.</p>
+          <p className="text-sm text-muted-foreground">Share your link — you both get 3 free scan credits when they subscribe.</p>
         </div>
       </div>
 
@@ -84,7 +84,7 @@ export default function ReferralPanel() {
             Share on LinkedIn
           </a>
           <a
-            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Discover cell tower site acquisition intelligence with SiteHawk 🦅 Use my link for 5 free scan credits:")}&url=${encodeURIComponent(referralUrl || "")}`}
+            href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("Discover cell tower site acquisition intelligence with SiteHawk 🦅 Use my link for 3 free scan credits:")}&url=${encodeURIComponent(referralUrl || "")}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-secondary transition-all text-foreground font-medium"
@@ -92,7 +92,7 @@ export default function ReferralPanel() {
             Share on X / Twitter
           </a>
           <a
-            href={`mailto:?subject=Check out SiteHawk&body=I've been using SiteHawk to find cell tower sites. Sign up with my referral link and we both get 5 free scan credits: ${referralUrl || ""}`}
+            href={`mailto:?subject=Check out SiteHawk&body=I've been using SiteHawk to find cell tower sites. Sign up with my referral link and we both get 3 free scan credits: ${referralUrl || ""}`}
             className="text-xs px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-secondary transition-all text-foreground font-medium"
           >
             Share via Email
@@ -127,7 +127,7 @@ export default function ReferralPanel() {
         <ol className="space-y-1.5 text-sm text-muted-foreground list-decimal list-inside">
           <li>Share your unique referral link with colleagues</li>
           <li>They sign up using your link</li>
-          <li>When they subscribe to any paid plan, you both receive <span className="text-foreground font-semibold">5 free scan credits</span></li>
+          <li>When they subscribe to any paid plan, you both receive <span className="text-foreground font-semibold">3 free scan credits</span></li>
         </ol>
       </div>
     </div>

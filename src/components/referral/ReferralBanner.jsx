@@ -35,8 +35,8 @@ export default function ReferralBanner() {
           <Gift className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <p className="font-heading font-bold text-foreground">Give 5 scans, get 5 scans</p>
-          <p className="text-sm text-muted-foreground">Invite a colleague — you both get 5 free scan credits when they subscribe.</p>
+          <p className="font-heading font-bold text-foreground">Give 3 scans, get 3 scans</p>
+          <p className="text-sm text-muted-foreground">Invite a colleague — you both get 3 free scan credits when they subscribe.</p>
         </div>
       </div>
       <div className="flex items-center gap-2 w-full md:w-auto">

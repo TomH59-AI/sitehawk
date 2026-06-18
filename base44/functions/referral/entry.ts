@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const CREDITS_REWARD = 5;
+const CREDITS_REWARD = 3;
 
 function generateCode(email) {
   const base = email.split("@")[0].replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 8);
