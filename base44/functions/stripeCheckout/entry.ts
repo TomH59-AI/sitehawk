@@ -15,9 +15,10 @@ const PRICE_IDS = {
 // Enterprise trial default plan when trial converts to paid
 const ENTERPRISE_TRIAL_PRICE_ID = 'price_1Tg4yhIE4fOP88RJoenWGmaL'; // Hawkeyes $599/mo
 
+// 2 SCIPs/day × 3 days = 6 trial scans for both plans
 const TRIAL_SCANS = {
-  hawk_site: 1,
-  hawkeyes: 5,
+  hawk_site: 6,
+  hawkeyes: 6,
 };
 
 Deno.serve(async (req) => {
