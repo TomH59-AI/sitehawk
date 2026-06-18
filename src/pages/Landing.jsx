@@ -38,8 +38,8 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "Hawk Site", price: "$249/mo", desc: "7-day free trial · 15 Search Rings/month · Targets A, B & C included", cta: "Start Free Trial", highlight: false },
-  { name: "Hawkeyes", price: "$599/mo", desc: "7-day free trial · 40 Search Rings/month · 3 seats · PDF & CSV exports", cta: "Start Free Trial", highlight: true },
+  { name: "Hawk Site", price: "$249/mo", desc: "3-day free trial · 15 Search Rings/month · Targets A, B & C included", cta: "Start Free Trial", highlight: false },
+  { name: "Hawkeyes", price: "$599/mo", desc: "3-day free trial · 40 Search Rings/month · 3 seats · PDF & CSV exports", cta: "Start Free Trial", highlight: true },
   { name: "Hawkeye Apex", price: "Contact us", desc: "Unlimited Search Rings · Unlimited seats · Mailer + skip trace", cta: "Contact Sales", highlight: false },
 ];
 
@@ -121,7 +121,7 @@ export default function Landing() {
         <div className="relative max-w-4xl mx-auto" style={{ zIndex: 3 }}>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 text-xs font-semibold tracking-wide mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            🦅 7-Day Free Trial — 2 SCIPs/day included
+            🦅 3-Day Free Trial — 2 SCIPs/day included
           </div>
 
           <h1 className="font-heading font-bold text-5xl md:text-7xl leading-tight text-white mb-6">
@@ -148,7 +148,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">7-day free trial · 2 SCIPs/day · Paid plans from $249/mo</p>
+          <p className="text-xs text-white/30 mt-6">3-day free trial · 2 SCIPs/day · Paid plans from $249/mo</p>
 
           <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-[11px] text-white/50">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
@@ -274,7 +274,7 @@ export default function Landing() {
           <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Simple Pricing</p>
           <h2 className="font-heading font-bold text-4xl text-white mb-4">Three Tiers. One Mission.</h2>
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-cyan-400/30 bg-cyan-400/8 text-cyan-300 text-sm font-semibold mb-6">
-            🦅 7-day free trial included with every plan
+            🦅 3-day free trial included with every plan
           </div>
           <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, and the SiteHawk AI Consultant.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -320,7 +320,7 @@ export default function Landing() {
                 View Paid Plans →
               </Link>
             </div>
-            <p className="text-xs text-white/30 mt-5">7-day free trial · 2 SCIPs/day during trial · Plans from $249/mo</p>
+            <p className="text-xs text-white/30 mt-5">3-day free trial · 2 SCIPs/day during trial · Plans from $249/mo</p>
           </div>
         </div>
       </section>

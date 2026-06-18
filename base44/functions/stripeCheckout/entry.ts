@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
         metadata: meta,
         subscription_data: {
           metadata: meta,
-          trial_period_days: 7,
+          trial_period_days: 3,
         },
       });
 

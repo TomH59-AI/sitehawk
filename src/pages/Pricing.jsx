@@ -17,7 +17,7 @@ const tiers = [
     iconColor: "text-primary",
     iconBg: "bg-primary/10 border-primary/20",
     features: [
-      "7-day free trial — no charge today",
+      "3-day free trial — no charge today",
       "15 Search Rings per month",
       "Each ring includes Targets A, B & C",
       "Satellite map view",
@@ -31,7 +31,7 @@ const tiers = [
     ],
     cta: "Start Free Trial — $249/mo after",
     highlight: false,
-    badge: "7-Day Free Trial",
+    badge: "3-Day Free Trial",
   },
   {
     id: "hawkeyes",
@@ -43,7 +43,7 @@ const tiers = [
     iconColor: "text-accent",
     iconBg: "bg-accent/10 border-accent/20",
     features: [
-      "7-day free trial — no charge today",
+      "3-day free trial — no charge today",
       "40 Search Rings per month",
       "Each ring includes Targets A, B & C",
       "3 team seats",
