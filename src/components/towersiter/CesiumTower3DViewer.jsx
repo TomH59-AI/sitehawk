@@ -9,7 +9,7 @@
  *   onClose  — callback to close
  */
 import { useEffect, useRef, useState } from "react";
-import { X, RotateCw, Square, ArrowDown, Loader2 } from "lucide-react";
+import { X, Loader2, Camera, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
 import { toast } from "sonner";
@@ -127,6 +127,10 @@ function buildCesiumHtml(render, cesiumToken) {
     <button class="btn btn-secondary" id="btnOrbit">🎬 Cinematic Orbit</button>
     <button class="btn btn-secondary" id="btnTop">⬆ Top-down</button>
   </div>
+  <div class="btn-row" style="margin-top:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px">
+    <button class="btn" id="btnCapture" style="background:#7c3aed;color:#fff;flex:1">📸 Capture frame → packet</button>
+  </div>
+  <div id="captureStatus" style="display:none;margin-top:8px;font-size:11px;color:#86efac;text-align:center"></div>
 </div>
 <script>
 Cesium.Ion.defaultAccessToken = "${cesiumToken}";
@@ -461,6 +465,97 @@ function startOrbit() {
   });
 }
 
+// ── Frame capture with disclaimer + caption composite ────────────────────────
+function captureFrame() {
+  const btn = document.getElementById("btnCapture");
+  const statusEl = document.getElementById("captureStatus");
+  btn.disabled = true;
+  btn.textContent = "Capturing…";
+  statusEl.style.display = "none";
+
+  // Force Cesium to render one fresh frame, then grab the canvas
+  viewer.render();
+  setTimeout(() => {
+    try {
+      const compStr = document.getElementById("selCompound").value;
+      const bufFt = document.getElementById("selBuffer").value;
+      const hFt = document.getElementById("selHeight").value;
+
+      // Find the Cesium WebGL canvas
+      const cesiumCanvas = viewer.scene.canvas;
+      const W = cesiumCanvas.width;
+      const H = cesiumCanvas.height;
+
+      const DISC_H = Math.round(H * 0.048);   // disclaimer bar ~5% height
+      const CAP_H  = Math.round(H * 0.058);   // caption bar ~6% height
+      const TOTAL_H = H + DISC_H + CAP_H;
+
+      const out = document.createElement("canvas");
+      out.width = W;
+      out.height = TOTAL_H;
+      const ctx = out.getContext("2d");
+
+      // 1. Disclaimer bar (red)
+      ctx.fillStyle = "#991b1b";
+      ctx.fillRect(0, 0, W, DISC_H);
+      ctx.fillStyle = "#fca5a5";
+      ctx.font = "bold " + Math.round(DISC_H * 0.52) + "px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        "⚠ ILLUSTRATIVE CONCEPT — NOT A SURVEY  ·  Parcel & tower height to scale; compound/buffer/fence exaggerated for visibility",
+        W / 2, DISC_H / 2
+      );
+
+      // 2. Cesium scene
+      ctx.drawImage(cesiumCanvas, 0, DISC_H, W, H);
+
+      // 3. Caption bar (dark navy)
+      const captionY = DISC_H + H;
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(0, captionY, W, CAP_H);
+      const siteName = "${site_name}";
+      const now = new Date();
+      const dateStr = now.toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" });
+      const captionText = siteName + "  ·  Tower: " + hFt + " ft AGL  ·  Compound: " + compStr + " ft  ·  Buffer: " + bufFt + " ft  ·  " + dateStr;
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = Math.round(CAP_H * 0.38) + "px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(captionText, Math.round(W * 0.015), captionY + CAP_H / 2);
+
+      // Skywave watermark right-aligned
+      ctx.fillStyle = "rgba(148,163,184,0.5)";
+      ctx.font = "bold " + Math.round(CAP_H * 0.32) + "px sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText("SiteHawk · HawkPerch 3D", W - Math.round(W * 0.015), captionY + CAP_H / 2);
+
+      const dataUrl = out.toDataURL("image/png");
+
+      window.parent.postMessage({
+        type: "sitehawk:3d-snapshot",
+        dataUrl,
+        site_name: siteName,
+        tower_height_ft: Number(hFt),
+        compound_size: compStr,
+        buffer_ft: Number(bufFt),
+        captured_at: now.toISOString(),
+      }, "*");
+
+      statusEl.textContent = "✓ Sending to packet…";
+      statusEl.style.display = "block";
+      btn.textContent = "📸 Capture frame → packet";
+      btn.disabled = false;
+    } catch(e) {
+      btn.textContent = "📸 Capture frame → packet";
+      btn.disabled = false;
+      statusEl.textContent = "Capture failed: " + e.message;
+      statusEl.style.color = "#fca5a5";
+      statusEl.style.display = "block";
+    }
+  }, 300);
+}
+
 // ── Control events ────────────────────────────────────────────────────────────
 document.getElementById("btnRender").addEventListener("click", () => {
   const compStr = document.getElementById("selCompound").value;
@@ -478,6 +573,7 @@ document.getElementById("btnOrbit").addEventListener("click", () => {
 });
 
 document.getElementById("btnTop").addEventListener("click", topDown);
+document.getElementById("btnCapture").addEventListener("click", captureFrame);
 
 // ── Init: set selectors from record values, render, fly ───────────────────────
 const initCompound = "${render.compound_size || "75x75"}";
@@ -496,25 +592,62 @@ setTimeout(() => flyToSite(Number(initHeight)), 2000);
 </html>`;
 }
 
-export default function CesiumTower3DViewer({ render, cesiumToken, onClose, onSettingsChange }) {
+export default function CesiumTower3DViewer({ render, cesiumToken, onClose, onSettingsChange, onSnapshot }) {
   const iframeRef = useRef(null);
   const [htmlContent, setHtmlContent] = useState("");
+  const [snapshotSaving, setSnapshotSaving] = useState(false);
+  const [snapshotSaved, setSnapshotSaved] = useState(false);
 
   useEffect(() => {
     if (!render || !cesiumToken) return;
     setHtmlContent(buildCesiumHtml(render, cesiumToken));
   }, [render?.id, cesiumToken, render?.tower_height_ft, render?.compound_width_ft, render?.buffer_ft]);
 
-  // Listen for settings updates from the iframe
+  // Listen for settings updates AND snapshot messages from the iframe
   useEffect(() => {
-    const handler = (e) => {
+    const handler = async (e) => {
       if (e.data?.type === "3d_settings") {
         onSettingsChange?.(e.data);
+        return;
+      }
+
+      if (e.data?.type === "sitehawk:3d-snapshot") {
+        const { dataUrl, site_name, tower_height_ft, compound_size, buffer_ft, captured_at } = e.data;
+        if (!dataUrl || !render?.id) return;
+        setSnapshotSaving(true);
+        setSnapshotSaved(false);
+        try {
+          // Convert dataUrl → Blob → File
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          const file = new File([blob], `3d-snapshot-${Date.now()}.png`, { type: "image/png" });
+
+          // Upload via UploadFile integration
+          const { file_url } = await base44.integrations.Core.UploadFile({ file });
+
+          // Persist URL on the Tower3DRender record
+          await base44.entities.Tower3DRender.update(render.id, {
+            snapshot_image_url: file_url,
+            status: "ready",
+          });
+
+          setSnapshotSaved(true);
+          toast.success("Saved to packet ✓");
+          onSnapshot?.({ file_url, site_name, tower_height_ft, compound_size, buffer_ft, captured_at });
+
+          // Auto-clear the confirmation after 4 s
+          setTimeout(() => setSnapshotSaved(false), 4000);
+        } catch (err) {
+          console.error("Snapshot upload failed:", err);
+          toast.error("Could not save snapshot to packet.");
+        } finally {
+          setSnapshotSaving(false);
+        }
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [onSettingsChange]);
+  }, [render?.id, onSettingsChange, onSnapshot]);
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
@@ -526,6 +659,18 @@ export default function CesiumTower3DViewer({ render, cesiumToken, onClose, onSe
             3D Tower Preview — {render?.site_name || "Target A"}
           </span>
           <span className="text-white/40 text-xs ml-2">{render?.property_address}</span>
+
+          {/* Snapshot status pill */}
+          {snapshotSaving && (
+            <span className="ml-3 flex items-center gap-1.5 text-xs text-purple-300">
+              <Loader2 className="w-3 h-3 animate-spin" /> Saving to packet…
+            </span>
+          )}
+          {snapshotSaved && !snapshotSaving && (
+            <span className="ml-3 flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Saved to packet ✓
+            </span>
+          )}
         </div>
         <Button
           size="sm"

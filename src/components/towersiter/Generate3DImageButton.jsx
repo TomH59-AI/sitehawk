@@ -10,11 +10,14 @@ import { base44 } from "@/api/base44Client";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { toast } from "sonner";
 import CesiumTower3DViewer from "./CesiumTower3DViewer";
+import Snapshot3DGallery from "./Snapshot3DGallery";
 
 export default function Generate3DImageButton({ result, controls, parcel }) {
   const [loading, setLoading] = useState(false);
   const [render, setRender] = useState(null);
   const [cesiumToken, setCesiumToken] = useState(null);
+  const [snapshotUrl, setSnapshotUrl] = useState(null);
+  const [snapshotRefresh, setSnapshotRefresh] = useState(0);
 
   if (!result || result.collapsed || !parcel) return null;
 
@@ -54,12 +57,19 @@ export default function Generate3DImageButton({ result, controls, parcel }) {
       });
 
       setRender(rec);
+      // Reset any previous snapshot when opening a fresh render
+      setSnapshotUrl(null);
     } catch (e) {
       console.error("Generate3DImageButton error:", e);
       toast.error("Could not create 3D preview.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSnapshot = ({ file_url }) => {
+    setSnapshotUrl(file_url);
+    setSnapshotRefresh((n) => n + 1);
   };
 
   const handleSettingsChange = async ({ compound, buffer, height }) => {
@@ -98,6 +108,16 @@ export default function Generate3DImageButton({ result, controls, parcel }) {
           cesiumToken={cesiumToken}
           onClose={() => setRender(null)}
           onSettingsChange={handleSettingsChange}
+          onSnapshot={handleSnapshot}
+        />
+      )}
+
+      {/* Snapshot gallery — shown below the button once a frame has been captured */}
+      {(snapshotUrl || render?.snapshot_image_url) && (
+        <Snapshot3DGallery
+          towerId={render?.id}
+          snapshotUrl={snapshotUrl || render?.snapshot_image_url}
+          refreshKey={snapshotRefresh}
         />
       )}
     </>
