@@ -403,32 +403,40 @@ function renderAll(compoundWFt, compoundDFt, bufferFt, towerHFt) {
 }
 
 // ── Camera helpers ────────────────────────────────────────────────────────────
+// Frame tightly on the tower using an explicit bounding sphere so terrain-clamped
+// parcel geometry never inflates the camera distance.
 function flyToSite(towerHFt) {
   const towerHM = towerHFt * FT_TO_M;
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(LON, LAT - 0.003, towerHM * 4.5),
-    orientation: {
-      heading: Cesium.Math.toRadians(0),
-      pitch: Cesium.Math.toRadians(-28),
-      roll: 0,
-    },
-    duration: 2.5,
-  });
+  // Center the sphere at ~45% of tower height so the mid-tower is in frame
+  const center = Cesium.Cartesian3.fromDegrees(LON, LAT, towerHM * 0.45);
+  const range = towerHM * 1.5 + 55; // ~140 m for a 199 ft tower
+  viewer.camera.flyToBoundingSphere(
+    new Cesium.BoundingSphere(center, 1),
+    {
+      duration: 2.5,
+      offset: new Cesium.HeadingPitchRange(
+        Cesium.Math.toRadians(35),
+        Cesium.Math.toRadians(-18),
+        range
+      ),
+    }
+  );
 }
 
 function topDown() {
   stopOrbit();
-  const towerHFt = Number(document.getElementById("selHeight").value);
-  const towerHM = towerHFt * FT_TO_M;
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(LON, LAT, towerHM * 7 + 300),
-    orientation: {
-      heading: Cesium.Math.toRadians(0),
-      pitch: Cesium.Math.toRadians(-90),
-      roll: 0,
-    },
-    duration: 1.8,
-  });
+  // Fly straight down to ~165 m over the centroid — tight enough to see pad + buffer
+  viewer.camera.flyToBoundingSphere(
+    new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(LON, LAT, 0), 1),
+    {
+      duration: 1.8,
+      offset: new Cesium.HeadingPitchRange(
+        Cesium.Math.toRadians(0),
+        Cesium.Math.toRadians(-90),
+        165
+      ),
+    }
+  );
 }
 
 function stopOrbit() {
@@ -442,9 +450,9 @@ function startOrbit() {
   document.getElementById("btnOrbit").textContent = "⏹ Stop Orbit";
   const towerHFt = Number(document.getElementById("selHeight").value);
   const towerHM = towerHFt * FT_TO_M;
-  const center = Cesium.Cartesian3.fromDegrees(LON, LAT, towerHM * 0.6);
-  const ORBIT_RADIUS = towerHM * 3.5;
-  const ORBIT_HEIGHT = towerHM * 1.8;
+  const center = Cesium.Cartesian3.fromDegrees(LON, LAT, towerHM * 0.45);
+  const ORBIT_RADIUS = towerHM * 1.5 + 55; // match flyToSite range
+  const ORBIT_HEIGHT = towerHM * 0.85 + 30; // roughly mid-tower altitude
   let startTime = Date.now();
   orbitHandle = viewer.clock.onTick.addEventListener(() => {
     if (!orbitActive) return;
