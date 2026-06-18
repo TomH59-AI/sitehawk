@@ -5,7 +5,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, Crown } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -13,6 +13,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { stripeCheckout } from "@/functions/stripeCheckout";
 import { Button } from "@/components/ui/button";
+import EnterpriseTrialExpiredScreen from "@/components/billing/EnterpriseTrialExpiredScreen";
 
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 
@@ -30,13 +31,21 @@ export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggle } = useTheme();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [enterpriseTrialExpired, setEnterpriseTrialExpired] = useState(false);
 
   useEffect(() => {
-    base44.auth.me().then(u => setIsAdmin(u?.email === ADMIN_EMAIL));
+    base44.auth.me().then(u => {
+      setIsAdmin(u?.email === ADMIN_EMAIL);
+      if (u?.tier === "enterprise_trial" && u?.enterprise_trial_expires_at) {
+        if (new Date(u.enterprise_trial_expires_at) < new Date()) {
+          setEnterpriseTrialExpired(true);
+        }
+      }
+    });
   }, []);
 
   const navItems = isAdmin
-    ? [...BASE_NAV, { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" }, { path: "/send-update", icon: Send, label: "Send Update" }, { path: "/mail-orders", icon: Mail, label: "Mail Orders" }, { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" }]
+    ? [...BASE_NAV, { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" }, { path: "/send-update", icon: Send, label: "Send Update" }, { path: "/mail-orders", icon: Mail, label: "Mail Orders" }, { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" }, { path: "/enterprise-trial-admin", icon: Crown, label: "Enterprise Trials" }]
     : BASE_NAV;
 
   const handleLogout = () => {
@@ -48,6 +57,8 @@ export default function Layout() {
     const data = res.data;
     if (data?.url) window.location.href = data.url;
   };
+
+  if (enterpriseTrialExpired) return <EnterpriseTrialExpiredScreen />;
 
   return (
     <div className="min-h-screen flex bg-background font-body">

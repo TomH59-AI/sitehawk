@@ -68,6 +68,7 @@ import PlansSelection from './pages/PlansSelection';
 import HawkTracker from './pages/HawkTracker';
 import TowerSiter from './pages/TowerSiter';
 import Tower3DViewer from './pages/Tower3DViewer';
+import EnterpriseTrialAdmin from './pages/EnterpriseTrialAdmin';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -138,6 +139,7 @@ const AuthenticatedApp = () => {
         {/* HawkPerch — feature_tower_siter ships dark: route exists, no nav link */}
         <Route path="/tower-siter" element={<TowerSiter />} />
         <Route path="/tower-3d-viewer" element={<Tower3DViewer />} />
+        <Route path="/enterprise-trial-admin" element={<EnterpriseTrialAdmin />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
