@@ -12,7 +12,7 @@ const fc = (items) => ({
 // envelope teal dash + 12% fill, fall zone cyan 18%, compound amber 45%,
 // tower white circle / amber stroke, residential circle red dash. Drag the
 // tower to re-site (clamping + recompute happen in the parent).
-export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCircle, draftPoints, onTowerDrag, onMapClick, clickMode }) {
+export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCircle, towerData, draftPoints, onTowerDrag, onMapClick, clickMode }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -53,6 +53,10 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
           "circle-radius": 8, "circle-color": "#ffffff",
           "circle-stroke-color": "#f59e0b", "circle-stroke-width": 3,
         });
+        // Tower separation layers
+        add("ts-sep-buf-fill", "fill", { "fill-color": "#ef4444", "fill-opacity": 0.08 });
+        add("ts-sep-buf-line", "line", { "line-color": "#ef4444", "line-width": 1.5, "line-dasharray": [3, 2] });
+        add("ts-sep-pts", "circle", { "circle-radius": 6, "circle-color": "#ef4444", "circle-stroke-color": "#fff", "circle-stroke-width": 1.5 });
 
         // tower drag
         let dragging = false;
@@ -123,6 +127,14 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
     if (!ready) return;
     setData("ts-resid-line", residCircle ? fc([residCircle]) : EMPTY);
   }, [ready, residCircle]);
+
+  // tower separation buffers + points
+  useEffect(() => {
+    if (!ready) return;
+    setData("ts-sep-buf-fill", towerData?.buffers || EMPTY);
+    setData("ts-sep-buf-line", towerData?.buffers || EMPTY);
+    setData("ts-sep-pts", towerData?.towerPoints || EMPTY);
+  }, [ready, towerData]);
 
   // manual polygon draft
   useEffect(() => {
