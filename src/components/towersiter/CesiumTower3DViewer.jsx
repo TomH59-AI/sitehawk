@@ -698,7 +698,7 @@ export default function CesiumTower3DViewer({ render, cesiumToken, onClose, onSe
             srcDoc={htmlContent}
             title="Cesium 3D Tower Preview"
             className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts"
             allow="fullscreen"
           />
         ) : (
