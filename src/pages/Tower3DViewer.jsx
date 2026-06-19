@@ -181,6 +181,17 @@ export default function Tower3DViewer() {
     setSnapshotUrl(file_url);
     setSnapshotRefresh((n) => n + 1);
     setViewerOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openViewer = () => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    setViewerOpen(true);
+  };
+
+  const closeViewer = () => {
+    setViewerOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -230,7 +241,7 @@ export default function Tower3DViewer() {
 
           <Button
             className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold gap-2"
-            onClick={() => setViewerOpen(true)}
+            onClick={openViewer}
           >
             <Box className="w-4 h-4" />
             {snapshotUrl ? "Re-open 3D Viewer" : "Open 3D Viewer"}
@@ -245,7 +256,7 @@ export default function Tower3DViewer() {
       {viewerOpen && render && (
         <ThreeTower3DViewer
           render={render}
-          onClose={() => setViewerOpen(false)}
+          onClose={closeViewer}
           onSnapshot={handleSnapshot}
         />
       )}
