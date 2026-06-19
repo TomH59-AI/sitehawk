@@ -329,6 +329,34 @@ Deno.serve(async (req) => {
         }
         await base44.asServiceRole.entities.User.update(users[0].id, updates);
         console.log(`subscription.updated: ${userEmail} → tier=${planKey}, status=${status}`);
+
+        // Award referral credits when a subscription first goes active
+        if (status === 'active') {
+          try {
+            const refRecords = await base44.asServiceRole.entities.Referral.filter({ referred_email: userEmail, status: 'signed_up' });
+            if (refRecords.length) {
+              const ref = refRecords[0];
+              const CREDITS = 3;
+              // Credit referrer
+              const referrers = await base44.asServiceRole.entities.User.filter({ email: ref.referrer_email });
+              if (referrers.length) {
+                await base44.asServiceRole.entities.User.update(referrers[0].id, {
+                  trial_scans_remaining: (referrers[0].trial_scans_remaining || 0) + CREDITS,
+                });
+              }
+              // Credit referred
+              await base44.asServiceRole.entities.User.update(users[0].id, {
+                trial_scans_remaining: (users[0].trial_scans_remaining || 0) + CREDITS,
+              });
+              await base44.asServiceRole.entities.Referral.update(ref.id, {
+                status: 'credited', referrer_credited: true, referred_credited: true,
+              });
+              console.log(`Referral credited: referrer=${ref.referrer_email} referred=${userEmail}`);
+            }
+          } catch (refErr) {
+            console.error('Referral credit error (non-fatal):', refErr.message);
+          }
+        }
         break;
       }
 

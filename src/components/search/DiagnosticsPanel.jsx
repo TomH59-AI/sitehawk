@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
 import { integrationDiagnostics } from "@/functions/integrationDiagnostics";
+import { base44 } from "@/api/base44Client";
 import { Activity, RefreshCw } from "lucide-react";
 
 export default function DiagnosticsPanel() {
   const [checks, setChecks] = useState(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    base44.auth.me().then(u => setIsAdmin(u?.role === "admin")).catch(() => {});
+  }, []);
 
   const run = async () => {
     setLoading(true);
@@ -18,7 +24,9 @@ export default function DiagnosticsPanel() {
     setLoading(false);
   };
 
-  useEffect(() => { run(); }, []);
+  useEffect(() => { if (isAdmin) run(); }, [isAdmin]);
+
+  if (!isAdmin) return null;
 
   const allOk = checks && checks.every((c) => c.ok);
   const redCount = checks ? checks.filter((c) => !c.ok).length : 0;

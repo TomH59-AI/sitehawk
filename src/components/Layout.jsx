@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import HubSpotSidebarConnect from "./sidebar/HubSpotSidebarConnect";
 import AppFooter from "./AppFooter";
+import AppErrorBoundary from "./AppErrorBoundary";
 import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
@@ -219,7 +220,9 @@ export default function Layout() {
       {/* Main Content */}
       <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 flex flex-col min-h-screen">
         <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex-1">
-          <Outlet />
+          <AppErrorBoundary>
+            <Outlet />
+          </AppErrorBoundary>
         </div>
         <AppFooter />
       </main>
