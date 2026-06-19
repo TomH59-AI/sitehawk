@@ -13,7 +13,6 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { stripeCheckout } from "@/functions/stripeCheckout";
 import { Button } from "@/components/ui/button";
-import EnterpriseTrialExpiredScreen from "@/components/billing/EnterpriseTrialExpiredScreen";
 
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 
@@ -33,24 +32,16 @@ export default function Layout() {
   const [isAdmin, setIsAdmin] = useState(() => {
     try { return localStorage.getItem("sh_is_admin") === "1"; } catch { return false; }
   });
-  const [enterpriseTrialExpired, setEnterpriseTrialExpired] = useState(false);
-
   useEffect(() => {
     base44.auth.me().then(u => {
       const admin = u?.role === "admin" || u?.email === ADMIN_EMAIL;
       setIsAdmin(admin);
       try { localStorage.setItem("sh_is_admin", admin ? "1" : "0"); } catch {};
-      if (u?.tier === "enterprise_trial" && u?.enterprise_trial_expires_at) {
-        if (new Date(u.enterprise_trial_expires_at) < new Date()) {
-          setEnterpriseTrialExpired(true);
-        }
-      }
     });
   }, []);
 
   const adminExtra = isAdmin
     ? [
-        { path: "/enterprise-trial-admin", icon: Crown, label: "Enterprise Trials" },
         { path: "/demo-manager", icon: Crown, label: "Demo Manager" },
         { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" },
         { path: "/send-update", icon: Send, label: "Send Update" },
@@ -74,8 +65,6 @@ export default function Layout() {
     const data = res.data;
     if (data?.url) window.location.href = data.url;
   };
-
-  if (enterpriseTrialExpired) return <EnterpriseTrialExpiredScreen />;
 
   return (
     <div className="min-h-screen flex bg-background font-body">
