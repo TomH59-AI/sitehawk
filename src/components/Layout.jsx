@@ -51,6 +51,7 @@ export default function Layout() {
   const adminExtra = isAdmin
     ? [
         { path: "/enterprise-trial-admin", icon: Crown, label: "Enterprise Trials" },
+        { path: "/demo-manager", icon: Crown, label: "Demo Manager" },
         { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" },
         { path: "/send-update", icon: Send, label: "Send Update" },
         { path: "/mail-orders", icon: Mail, label: "Mail Orders" },

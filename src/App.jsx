@@ -69,6 +69,7 @@ import HawkTracker from './pages/HawkTracker';
 import TowerSiter from './pages/TowerSiter';
 import Tower3DViewer from './pages/Tower3DViewer';
 import EnterpriseTrialAdmin from './pages/EnterpriseTrialAdmin';
+import DemoManager from './pages/DemoManager';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -140,6 +141,7 @@ const AuthenticatedApp = () => {
         <Route path="/tower-siter" element={<TowerSiter />} />
         <Route path="/tower-3d-viewer" element={<Tower3DViewer />} />
         <Route path="/enterprise-trial-admin" element={<EnterpriseTrialAdmin />} />
+        <Route path="/demo-manager" element={<DemoManager />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

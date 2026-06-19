@@ -13,6 +13,7 @@ export const TIER_CONFIG = {
   hawk_site:        { label: "HawkSite",        limit: 15,       window: "month" },
   hawkeyes:         { label: "Hawkeyes",        limit: 40,       window: "month" },
   hawkeye_apex:     { label: "Apex",            limit: Infinity, window: "month" },
+  demo:             { label: "Demo",            limit: Infinity, window: "month" },
 };
 
 function startOfMonthISO() {
@@ -35,7 +36,8 @@ export function useHawkScipUsage() {
       const user = await base44.auth.me();
       if (!user) { setUsage(null); setLoading(false); return; }
 
-      const tierKey = TIER_CONFIG[user.tier] ? user.tier : "free";
+      // Demo role always gets unlimited access regardless of tier field
+      const tierKey = (user.role === "demo") ? "demo" : (TIER_CONFIG[user.tier] ? user.tier : "free");
       const cfg = TIER_CONFIG[tierKey];
 
       let used = 0;

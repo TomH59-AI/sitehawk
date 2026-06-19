@@ -301,6 +301,20 @@ export default function SiteSearch() {
   }
 
   const isAdmin = user?.role === "admin";
+  const isDemo = user?.role === "demo";
+
+  // Block disabled demo accounts
+  if (isDemo && user?.demo_disabled) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="text-5xl">🔒</div>
+        <h2 className="font-heading font-bold text-2xl text-foreground">Demo Access Disabled</h2>
+        <p className="text-muted-foreground max-w-md">
+          This demo account has been deactivated. Please contact your SiteHawk representative to regain access.
+        </p>
+      </div>
+    );
+  }
   const coordsReady = searchCenter && Number.isFinite(searchCenter.lat) && Number.isFinite(searchCenter.lon);
 
   // Stable primitive SARF inputs — the memoized map component only redraws when
@@ -358,7 +372,7 @@ export default function SiteSearch() {
               Clear All · Total Rescan
             </button>
           )}
-          {isAdmin && <DemoModeButton />}
+          {(isAdmin || isDemo) && <DemoModeButton />}
         </div>
       </div>
 
