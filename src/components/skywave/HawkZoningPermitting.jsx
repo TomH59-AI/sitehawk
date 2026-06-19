@@ -38,7 +38,7 @@ export default function HawkZoningPermitting({ record, onUpdate }) {
         }
       }
 
-      // 2) Cache miss or force refresh → run the real Zoneomics→Realie→AI fetch.
+      // 2) Cache miss or force refresh → run the full zoning fetch.
       const gen = await generateZoningPermitReport({
         lat, lon,
         candidate: target
@@ -106,7 +106,7 @@ export default function HawkZoningPermitting({ record, onUpdate }) {
             <button
               onClick={() => generate(true)}
               disabled={busy}
-              title="Re-fetch from Zoneomics and update the jurisdiction cache for everyone"
+              title="Re-fetch live zoning data and update the jurisdiction cache"
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-white disabled:opacity-50"
               style={{ border: `1.5px solid ${SKYWAVE.blue}`, color: SKYWAVE.blue }}
             >
@@ -117,7 +117,7 @@ export default function HawkZoningPermitting({ record, onUpdate }) {
       </div>
 
       <p className="text-xs mb-3" style={{ color: SKYWAVE.muted }}>
-        Same jurisdiction = fetch once, reuse many times. Zoning is saved to an app-wide jurisdiction cache and reused automatically across SCIPs. Populate this <strong>before</strong> picking your 3 targets so the parcel scoring uses the right zoning. Use <strong>Force Refresh</strong> to re-pull from Zoneomics and update the shared cache.
+        Same jurisdiction = fetch once, reuse many times. Zoning is saved to an app-wide jurisdiction cache and reused automatically across SCIPs. Populate this <strong>before</strong> picking your 3 targets so the parcel scoring uses the right zoning. Use <strong>Force Refresh</strong> to re-pull the latest live data and update the shared cache.
       </p>
 
       {provenance && (

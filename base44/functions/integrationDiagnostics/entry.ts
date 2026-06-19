@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+    if (user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
 
     const mapboxToken = Deno.env.get("MAPBOX_ACCESS_TOKEN");
     const cesiumToken = Deno.env.get("CESIUM_ION_API");

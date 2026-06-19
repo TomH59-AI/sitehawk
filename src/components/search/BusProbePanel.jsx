@@ -8,7 +8,7 @@ const EXPECTED = [
   ["zoning", "Section 2 · Zoning"],
   ["parcelFit", "Section 3 · Parcel fit"],
   ["fema", "Section 4 · FEMA flood"],
-  ["zoneomicsDistrict", "Section 4 · Zoneomics district"],
+  ["zoneomicsDistrict", "Section 4 · Zoning district"],
   ["wetlands", "Wetlands (score-only)"],
   ["airport", "Section 6 · Airport"],
   ["tower", "Section 6 · Cell tower"],

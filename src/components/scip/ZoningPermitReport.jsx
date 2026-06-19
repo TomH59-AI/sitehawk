@@ -5,11 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import SyncToNotionButton from "./SyncToNotionButton";
 
 const SOURCE_COLORS = {
-  Municode:        "bg-blue-100 text-blue-800 border-blue-200",
-  Notion:          "bg-purple-100 text-purple-800 border-purple-200",
-  Oxylabs:         "bg-amber-100 text-amber-800 border-amber-200",
+  "Verified":      "bg-emerald-100 text-emerald-800 border-emerald-200",
+  "Parcel Data":   "bg-teal-100 text-teal-800 border-teal-200",
+  "AI Research":   "bg-violet-100 text-violet-800 border-violet-200",
   "Web Research":  "bg-amber-100 text-amber-800 border-amber-200",
-  Realie:          "bg-green-100 text-green-800 border-green-200",
   none:            "bg-slate-100 text-slate-500 border-slate-200",
 };
 
@@ -122,7 +121,7 @@ export default function ZoningPermitReport({ lat, lon, candidate, onComplete }) 
     return (
       <div className="bg-card border border-border rounded-xl p-8 flex flex-col items-center gap-3">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
-        <div className="font-heading font-semibold text-foreground">Pulling zoning + permit data from Municode, Notion master DB, and live planning department pages…</div>
+        <div className="font-heading font-semibold text-foreground">Pulling zoning + permit data from live planning department sources…</div>
         <div className="text-xs text-muted-foreground">This usually takes 30–60 seconds.</div>
       </div>
     );
@@ -151,10 +150,9 @@ export default function ZoningPermitReport({ lat, lon, candidate, onComplete }) 
         <FileSearch className="w-5 h-5 text-primary" />
         <div className="font-heading font-semibold text-foreground">Zoning & Permit Report — {data.jurisdiction_resolved}</div>
         <div className="flex flex-wrap gap-1.5 ml-auto items-center">
-          {sources.municode && <Badge className="bg-blue-100 text-blue-800 border-blue-200"><CheckCircle2 className="w-3 h-3 mr-1" />Municode</Badge>}
-          {sources.notion && <Badge className="bg-purple-100 text-purple-800 border-purple-200"><CheckCircle2 className="w-3 h-3 mr-1" />Notion: {sources.notion_folder}</Badge>}
-          {sources.oxylabs_scrapes > 0 && <Badge className="bg-amber-100 text-amber-800 border-amber-200"><CheckCircle2 className="w-3 h-3 mr-1" />Oxylabs ({sources.oxylabs_scrapes})</Badge>}
-          {sources.realie && <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle2 className="w-3 h-3 mr-1" />Realie</Badge>}
+          {sources.telecom_ordinance && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200"><CheckCircle2 className="w-3 h-3 mr-1" />Verified Data</Badge>}
+          {sources.realie && <Badge className="bg-teal-100 text-teal-800 border-teal-200"><CheckCircle2 className="w-3 h-3 mr-1" />Parcel Data</Badge>}
+          <Badge className="bg-violet-100 text-violet-800 border-violet-200"><CheckCircle2 className="w-3 h-3 mr-1" />AI Research</Badge>
           <SyncToNotionButton reportData={data} candidate={candidate} />
         </div>
       </div>

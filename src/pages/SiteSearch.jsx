@@ -389,7 +389,7 @@ export default function SiteSearch() {
       {coordsReady && pipelineStep === "sarf" && (
         <div className="space-y-2" data-coach="sarf-map">
           <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500/15 via-transparent to-transparent border border-cyan-500/30">
-            <div className="text-[10px] font-mono text-cyan-700 tracking-[0.3em] mb-0.5">IMAGE GENERATED · MAPBOX</div>
+            <div className="text-[10px] font-mono text-cyan-700 tracking-[0.3em] mb-0.5">IMAGE GENERATED · SITEHAWK</div>
             <div className="font-heading font-bold text-foreground">
               SARF Map — {searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"} · {Number(searchCenter.lat).toFixed(6)}, {Number(searchCenter.lon).toFixed(6)}
             </div>
@@ -499,8 +499,7 @@ export default function SiteSearch() {
       )}
 
       {/* SECTION 8 — HAWK RF PROPAGATION VISION. STANDALONE — unlocked as soon as
-          Target A exists; does NOT gate or block any other section. One Generate
-          button → UnwiredLabs carrier scan + per-carrier CloudRF → map. */}
+          Target A exists; does NOT gate or block any other section. */}
       {coordsReady && sarfReady && zoningReady && (
         <Section8Propagation
           key={`propagation-${clearKeys.propagation}`}
