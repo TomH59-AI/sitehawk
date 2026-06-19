@@ -149,7 +149,7 @@ export default function Dashboard() {
           </div>
         </div>
         <a
-          href="https://calendly.com/tomhodges-sitehawk/15min"
+          href="https://calendly.com/hodges-thomas"
           target="_blank"
           rel="noopener noreferrer"
         >
