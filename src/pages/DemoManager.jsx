@@ -173,11 +173,25 @@ export default function DemoManager() {
                 </div>
               </div>
 
-              {/* Passcode display */}
+              {/* Passcode display + trial status */}
               <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
                 <span className="text-xs text-muted-foreground">Passcode:</span>
                 <span className="font-mono font-bold text-sm tracking-widest">{slot.passcode}</span>
               </div>
+              {isRegistered && (() => {
+                const started = dbUser?.demo_trial_started_at;
+                if (!started) return <p className="text-xs text-muted-foreground italic">No SCIPs run yet — trial not started.</p>;
+                const expiresAt = new Date(started).getTime() + 5 * 24 * 60 * 60 * 1000;
+                const expired = Date.now() > expiresAt;
+                const daysLeft = Math.max(0, Math.ceil((expiresAt - Date.now()) / 86400000));
+                return (
+                  <div className={`text-xs px-3 py-1.5 rounded-lg ${expired ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"}`}>
+                    {expired
+                      ? `⚠ Demo expired — started ${new Date(started).toLocaleDateString()}, ended ${new Date(expiresAt).toLocaleDateString()}`
+                      : `✓ Trial active — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} left (expires ${new Date(expiresAt).toLocaleDateString()})`}
+                  </div>
+                );
+              })()}
 
               {/* Label / notes for this slot */}
               {isRegistered && (

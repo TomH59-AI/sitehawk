@@ -32,11 +32,20 @@ export default function Layout() {
   const [isAdmin, setIsAdmin] = useState(() => {
     try { return localStorage.getItem("sh_is_admin") === "1"; } catch { return false; }
   });
+  const [demoExpired, setDemoExpired] = useState(false);
+
   useEffect(() => {
     base44.auth.me().then(u => {
       const admin = u?.role === "admin" || u?.email === ADMIN_EMAIL;
       setIsAdmin(admin);
       try { localStorage.setItem("sh_is_admin", admin ? "1" : "0"); } catch {};
+      // Demo expiry: 5 days after first SCIP
+      if (u?.role === "demo" && u?.demo_trial_started_at) {
+        const expiresAt = new Date(u.demo_trial_started_at).getTime() + 5 * 24 * 60 * 60 * 1000;
+        if (Date.now() > expiresAt) setDemoExpired(true);
+      }
+      // Also block if admin toggled demo_disabled
+      if (u?.role === "demo" && u?.demo_disabled) setDemoExpired(true);
     });
   }, []);
 
@@ -65,6 +74,25 @@ export default function Layout() {
     const data = res.data;
     if (data?.url) window.location.href = data.url;
   };
+
+  if (demoExpired) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-8">
+        <div className="max-w-md text-center space-y-4">
+          <div className="text-5xl">🦅</div>
+          <h1 className="font-heading font-bold text-2xl text-foreground">Your Demo Has Ended</h1>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            Your 5-day SiteHawk demo has expired. Ready to keep going?<br />
+            Contact your SiteHawk representative or start a plan today.
+          </p>
+          <a href="mailto:info@sitehawk.com?subject=SiteHawk Demo — Ready to Subscribe"
+            className="inline-block mt-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-heading font-bold text-sm hover:bg-primary/90 transition-colors">
+            Contact SiteHawk →
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-background font-body">

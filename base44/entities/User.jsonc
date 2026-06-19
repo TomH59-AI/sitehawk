@@ -13,7 +13,7 @@
     },
     "tier": {
       "type": "string",
-      "description": "Subscription tier matching the billing quota tiers. free = 1 lifetime trial SCIP; hawk_site = 15/mo; hawkeyes = 30/mo; hawkeye_apex = unlimited; enterprise_trial = full access for a limited time; demo = sales demo accounts, unlimited, can be disabled.",
+      "description": "Subscription tier matching the billing quota tiers.",
       "enum": [
         "free",
         "hawk_site",
@@ -49,26 +49,31 @@
     },
     "pending_propositions": {
       "type": "object",
-      "description": "Keyed map of in-flight single-landlord proposition letter drafts awaiting Stripe payment. Cleared after Lob fulfillment."
+      "description": "Keyed map of in-flight single-landlord proposition letter drafts awaiting Stripe payment."
     },
     "hawk_compliance_active": {
       "type": "boolean",
-      "description": "True if the user has an active Hawk Compliance subscription (unlocks the /hawk-compliance route).",
+      "description": "True if the user has an active Hawk Compliance subscription.",
       "default": false
     },
     "enterprise_trial_expires_at": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO datetime when the enterprise_trial tier expires. Checked on every app load; after expiry the user sees the enterprise trial lockout screen."
+      "description": "ISO datetime when the enterprise_trial tier expires."
     },
     "demo_disabled": {
       "type": "boolean",
-      "description": "Admin-set flag to instantly cut off a demo account. When true, the demo user is blocked from accessing the app.",
+      "description": "Admin-set flag to instantly cut off a demo account.",
       "default": false
     },
     "demo_label": {
       "type": "string",
-      "description": "Human-readable label for this demo slot, e.g. 'Sales Rep 1 \u2014 John Smith'."
+      "description": "Human-readable label for this demo slot."
+    },
+    "demo_trial_started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO datetime when the demo user ran their first SCIP. The 5-day demo window starts from this timestamp."
     }
   },
   "required": [

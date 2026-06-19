@@ -439,55 +439,66 @@ Deno.serve(async (req) => {
     }
 
     // ── HAWKSCIP QUOTA GATE — runs BEFORE any paid Zoneomics/Realie call ──────
-    // Admins bypass entirely. Everyone else is gated by their User.tier quota.
+    // Admins bypass entirely. Demo users get 5 days from first SCIP. Others gated by tier.
     if (user.role !== 'admin') {
-      const tier = QUOTA[user.tier] ? user.tier : 'free';
-      const { limit, window } = QUOTA[tier];
       const siteKey = siteKeyFor(lat, lon);
-
-      // Idempotent per site — if this user already spent a HawkSCIP on this
-      // exact site, let them re-run Zoning for free (no double-charge).
-      const existing = await base44.asServiceRole.entities.HawkScipSpend.filter({
-        user_email: user.email,
-        site_key: siteKey,
-      });
+      const existing = await base44.asServiceRole.entities.HawkScipSpend.filter({ user_email: user.email, site_key: siteKey });
       const alreadySpentHere = existing.length > 0;
 
-      if (!alreadySpentHere && limit !== Infinity) {
-        // Count spends in the quota window: lifetime (free) or since month start (paid).
-        const query = { user_email: user.email };
-        let spends = await base44.asServiceRole.entities.HawkScipSpend.filter(query);
-        if (window === 'month') {
-          const start = monthStartISO();
-          spends = spends.filter((s) => (s.created_date || '') >= start);
-        } else if (window === 'day') {
-          const start = dayStartISO();
-          spends = spends.filter((s) => (s.created_date || '') >= start);
+      if (user.role === 'demo') {
+        // Demo: unlimited SCIPs within a 5-day window starting from first SCIP.
+        if (!alreadySpentHere) {
+          if (user.demo_trial_started_at) {
+            const expiresAt = new Date(user.demo_trial_started_at).getTime() + 5 * 24 * 60 * 60 * 1000;
+            if (Date.now() > expiresAt) {
+              console.log(`[DEMO GATE] EXPIRED user=${user.email} started=${user.demo_trial_started_at}`);
+              return Response.json({ upgrade_required: true, tier: 'demo', window: 'demo_expired' }, { status: 402 });
+            }
+          } else {
+            // First SCIP — stamp the trial start time on the User record
+            const userMatches = await base44.asServiceRole.entities.User.filter({ email: user.email });
+            if (userMatches?.[0]) {
+              await base44.asServiceRole.entities.User.update(userMatches[0].id, { demo_trial_started_at: new Date().toISOString() });
+              console.log(`[DEMO GATE] TRIAL STARTED user=${user.email}`);
+            }
+          }
+          await base44.asServiceRole.entities.HawkScipSpend.create({
+            user_email: user.email, site_key: siteKey, tier_at_time: 'demo',
+            lat: Number(lat), lon: Number(lon),
+          });
         }
-        const used = spends.length;
-
-        if (used >= limit) {
-          console.log(`[HAWKSCIP GATE] BLOCKED user=${user.email} tier=${tier} used=${used}/${limit} window=${window}`);
-          return Response.json(
-            { upgrade_required: true, tier, used, limit, window },
-            { status: 402 }
-          );
-        }
-      }
-
-      // Under limit (or unlimited) and not already charged for this site →
-      // record ONE HawkSCIP spend, then proceed with the (paid) report.
-      if (!alreadySpentHere) {
-        await base44.asServiceRole.entities.HawkScipSpend.create({
-          user_email: user.email,
-          site_key: siteKey,
-          tier_at_time: tier,
-          lat: Number(lat),
-          lon: Number(lon),
-        });
-        console.log(`[HAWKSCIP GATE] SPENT user=${user.email} tier=${tier} site=${siteKey} window=${window}`);
       } else {
-        console.log(`[HAWKSCIP GATE] REUSE user=${user.email} site=${siteKey} (already spent — free re-run)`);
+        // Standard tier quota gate
+        const tier = QUOTA[user.tier] ? user.tier : 'free';
+        const { limit, window } = QUOTA[tier];
+
+        if (!alreadySpentHere && limit !== Infinity) {
+          const query = { user_email: user.email };
+          let spends = await base44.asServiceRole.entities.HawkScipSpend.filter(query);
+          if (window === 'month') {
+            const start = monthStartISO();
+            spends = spends.filter((s) => (s.created_date || '') >= start);
+          } else if (window === 'day') {
+            const start = dayStartISO();
+            spends = spends.filter((s) => (s.created_date || '') >= start);
+          }
+          const used = spends.length;
+          if (used >= limit) {
+            console.log(`[HAWKSCIP GATE] BLOCKED user=${user.email} tier=${tier} used=${used}/${limit} window=${window}`);
+            return Response.json({ upgrade_required: true, tier, used, limit, window }, { status: 402 });
+          }
+        }
+
+        if (!alreadySpentHere) {
+          const tier = QUOTA[user.tier] ? user.tier : 'free';
+          await base44.asServiceRole.entities.HawkScipSpend.create({
+            user_email: user.email, site_key: siteKey, tier_at_time: tier,
+            lat: Number(lat), lon: Number(lon),
+          });
+          console.log(`[HAWKSCIP GATE] SPENT user=${user.email} tier=${tier} site=${siteKey}`);
+        } else {
+          console.log(`[HAWKSCIP GATE] REUSE user=${user.email} site=${siteKey} (already spent — free re-run)`);
+        }
       }
     }
 
