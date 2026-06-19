@@ -42,8 +42,8 @@ export default function Section5TowerSiter({
   // Pre-fill controls from zoning data when available
   const zoning = zoningResult?.zoning || zoningResult?.zoning || {};
   const defaultHeight = zoning?.max_height
-    ? Math.min(Number(String(zoning.max_height).replace(/\D/g, "")) || towerHeightFt || 195, 2000)
-    : (towerHeightFt || 195);
+    ? Math.min(Number(String(zoning.max_height).replace(/\D/g, "")) || towerHeightFt || 150, 300)
+    : Math.min(towerHeightFt || 150, 300);
 
   const [controls, setControls] = useState({
     heightFt: defaultHeight,
@@ -71,9 +71,9 @@ export default function Section5TowerSiter({
     if (userAdjustedHeight) return;
     const zoning = zoningResult?.zoning || {};
     const zoningH = zoning?.max_height
-      ? Math.min(Number(String(zoning.max_height).replace(/\D/g, "")) || 0, 2000)
+      ? Math.min(Number(String(zoning.max_height).replace(/\D/g, "")) || 0, 300)
       : 0;
-    const resolved = zoningH || towerHeightFt || 150;
+    const resolved = Math.min(zoningH || towerHeightFt || 150, 300);
     setControls((prev) => ({ ...prev, heightFt: resolved }));
   }, [zoningResult, towerHeightFt, userAdjustedHeight]);
 
