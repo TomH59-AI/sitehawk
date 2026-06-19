@@ -429,7 +429,7 @@ export default function TowerSiter() {
                 disabled={savingRun}>
                 <Save className="w-3.5 h-3.5 mr-1" /> {savingRun ? "Saving…" : "Save Run"}
               </Button>
-              <Generate3DImageButton result={result} runId={savedRunId} />
+              <Generate3DImageButton result={result} runId={savedRunId} controls={controls} parcel={parcel} />
               <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={sendToScip}
                 disabled={sitingResult && !sitingResult.feasible}>
                 <Send className="w-3.5 h-3.5 mr-1" /> Send to SCIP

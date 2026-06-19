@@ -1,9 +1,11 @@
 /**
  * Tower3DViewer — standalone page for the Generate 3D Image feature.
- * Uses lightweight Three.js renderer (replaces Cesium).
- * Route: /tower-3d-viewer?runId=<TowerSitingRun.id>
+ * Uses lightweight Three.js renderer. Accepts live result data via router state
+ * (no saved DB run required) OR falls back to a runId query param / most recent run.
+ * Route: /tower-3d-viewer
  */
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Loader2, AlertTriangle, Box, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,13 +14,13 @@ import ThreeTower3DViewer from "@/components/towersiter/ThreeTower3DViewer";
 import Snapshot3DGallery from "@/components/towersiter/Snapshot3DGallery";
 
 function centroidFromGeojson(geojson) {
-  let ring = null;
   try {
     const g = geojson?.type === "Feature" ? geojson.geometry : geojson;
     if (!g) return null;
+    let ring = null;
     if (g.type === "Polygon") ring = g.coordinates?.[0];
     else if (g.type === "MultiPolygon") ring = g.coordinates?.[0]?.[0];
-    if (!ring || ring.length === 0) return null;
+    if (!ring?.length) return null;
     let sumLon = 0, sumLat = 0;
     for (const [lon, lat] of ring) { sumLon += lon; sumLat += lat; }
     return { lat: sumLat / ring.length, lon: sumLon / ring.length };
@@ -33,8 +35,15 @@ function normaliseGeometry(geojson) {
 }
 
 export default function Tower3DViewer() {
+  const location = useLocation();
   const urlParams = new URLSearchParams(window.location.search);
-  const runId = urlParams.get("runId");
+  const runIdFromQuery = urlParams.get("runId");
+
+  // Router state passed from Generate3DImageButton (live data path — no DB needed)
+  const routerState = location.state || {};
+  const liveResult = routerState.liveResult || null;
+  const runIdFromState = routerState.runId || null;
+  const runId = runIdFromState || runIdFromQuery;
 
   const [status, setStatus] = useState("loading");
   const [errorMsg, setErrorMsg] = useState("");
@@ -43,11 +52,76 @@ export default function Tower3DViewer() {
   const [snapshotRefresh, setSnapshotRefresh] = useState(0);
   const [viewerOpen, setViewerOpen] = useState(false);
 
-  useEffect(() => { init(); }, [runId]);
+  useEffect(() => { init(); }, []);
 
   async function init() {
     setStatus("loading");
     try {
+      // ── PATH A: Live result passed via router state (preferred) ──────────────
+      if (liveResult) {
+        const geom = normaliseGeometry(liveResult.parcelGeojson);
+        const lat = liveResult.centroidLat;
+        const lon = liveResult.centroidLon;
+
+        const renderRec = {
+          id: null, // no DB record yet — snapshot save is optional
+          tower_siting_run_id: runId || null,
+          property_address: liveResult.propertyAddress || "Current Siting",
+          site_name: liveResult.propertyAddress || "Current Siting",
+          parcel_id: liveResult.parcelId || null,
+          centroid_lat: lat,
+          centroid_lon: lon,
+          parcel_geojson: geom,
+          tower_type: liveResult.towerType || "monopole",
+          tower_height_ft: liveResult.towerHeightFt || 150,
+          compound_width_ft: liveResult.compoundWidthFt || 75,
+          compound_depth_ft: liveResult.compoundDepthFt || 75,
+          snapshot_image_url: null,
+        };
+
+        // Optionally persist a Tower3DRender record so snapshots can be saved
+        if (runId) {
+          try {
+            const existing = await base44.entities.Tower3DRender.filter({ tower_siting_run_id: runId });
+            let saved;
+            if (existing?.[0]) {
+              saved = await base44.entities.Tower3DRender.update(existing[0].id, {
+                centroid_lat: lat, centroid_lon: lon, parcel_geojson: geom,
+                tower_type: renderRec.tower_type,
+                tower_height_ft: renderRec.tower_height_ft,
+                compound_width_ft: renderRec.compound_width_ft,
+                compound_depth_ft: renderRec.compound_depth_ft,
+                status: "ready",
+              });
+            } else {
+              saved = await base44.entities.Tower3DRender.create({
+                tower_siting_run_id: runId,
+                parcel_id: renderRec.parcel_id,
+                property_address: renderRec.property_address,
+                site_name: renderRec.site_name,
+                centroid_lat: lat, centroid_lon: lon, parcel_geojson: geom,
+                tower_type: renderRec.tower_type,
+                tower_height_ft: renderRec.tower_height_ft,
+                compound_size: "75x75",
+                compound_width_ft: renderRec.compound_width_ft,
+                compound_depth_ft: renderRec.compound_depth_ft,
+                buffer_ft: 25, status: "ready",
+              });
+            }
+            renderRec.id = saved?.id || null;
+            renderRec.snapshot_image_url = saved?.snapshot_image_url || null;
+          } catch (e) {
+            console.warn("Tower3DRender persist failed (non-fatal):", e.message);
+          }
+        }
+
+        setRender(renderRec);
+        setSnapshotUrl(renderRec.snapshot_image_url || null);
+        setStatus("ready");
+        return;
+      }
+
+      // ── PATH B: Fallback — load from saved TowerSitingRun in DB ─────────────
       let run = null;
       if (runId) {
         const rows = await base44.entities.TowerSitingRun.filter({ id: runId });
@@ -57,7 +131,7 @@ export default function Tower3DViewer() {
         const all = await base44.entities.TowerSitingRun.list("-created_date", 20);
         run = all.find((r) => r.feasible === true) || all[0] || null;
       }
-      if (!run) throw new Error("No TowerSitingRun found. Run the Tower Siter first.");
+      if (!run) throw new Error("No TowerSitingRun found. Run the Tower Siter and save a run first.");
 
       let lat = run.parcel_centroid_lat;
       let lon = run.parcel_centroid_lon;
@@ -70,19 +144,15 @@ export default function Tower3DViewer() {
       const parcelGeom = normaliseGeometry(run.parcel_geometry);
       const cw = run.compound_width_ft || 75;
       const cd = run.compound_depth_ft || 75;
-      const closestSize = ["50x50", "75x75", "100x100"].reduce((best, s) => {
-        const [w] = s.split("x").map(Number);
-        return Math.abs(w - cw) < Math.abs(Number(best.split("x")[0]) - cw) ? s : best;
-      }, "75x75");
 
-      let rec = null;
       const existing = await base44.entities.Tower3DRender.filter({ tower_siting_run_id: run.id });
+      let rec;
       if (existing?.[0]) {
         rec = await base44.entities.Tower3DRender.update(existing[0].id, {
           centroid_lat: lat, centroid_lon: lon, parcel_geojson: parcelGeom,
           tower_type: run.tower_type || "monopole",
           tower_height_ft: run.tower_height_ft || 150,
-          compound_size: closestSize, compound_width_ft: cw, compound_depth_ft: cd, status: "ready",
+          compound_width_ft: cw, compound_depth_ft: cd, status: "ready",
         });
       } else {
         rec = await base44.entities.Tower3DRender.create({
@@ -92,7 +162,7 @@ export default function Tower3DViewer() {
           centroid_lat: lat, centroid_lon: lon, parcel_geojson: parcelGeom,
           tower_type: run.tower_type || "monopole",
           tower_height_ft: run.tower_height_ft || 150,
-          compound_size: closestSize, compound_width_ft: cw, compound_depth_ft: cd,
+          compound_size: "75x75", compound_width_ft: cw, compound_depth_ft: cd,
           buffer_ft: 25, status: "ready",
         });
       }
@@ -132,7 +202,7 @@ export default function Tower3DViewer() {
 
       {status === "loading" && (
         <div className="flex items-center gap-3 text-muted-foreground py-12">
-          <Loader2 className="w-5 h-5 animate-spin" /> Loading Tower Siting Run data…
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading Tower Siting data…
         </div>
       )}
 
@@ -149,7 +219,7 @@ export default function Tower3DViewer() {
       {status === "ready" && render && (
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-card p-4 text-sm space-y-1">
-            <div className="font-semibold text-foreground">{render.property_address || render.site_name || "Target A"}</div>
+            <div className="font-semibold text-foreground">{render.property_address || render.site_name || "Current Siting"}</div>
             {render.parcel_id && <div className="text-muted-foreground">Parcel: {render.parcel_id}</div>}
             <div className="text-muted-foreground">
               Tower: <b className="text-foreground">{render.tower_height_ft} ft AGL</b>

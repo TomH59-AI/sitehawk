@@ -1,23 +1,36 @@
 /**
  * Generate3DImageButton — links to the standalone Tower3DViewer page.
- * Passes the TowerSitingRun id (from the current siting result) as a query param.
- * Falls back to the page's default (most recent feasible run) if no id is available.
+ * Passes live result data via router state so the viewer doesn't need a saved DB run.
+ * Also passes the saved runId (if available) so the snapshot can be persisted.
  */
 import { Box } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
-export default function Generate3DImageButton({ runId, result, disabled }) {
+export default function Generate3DImageButton({ runId, result, controls, parcel, disabled }) {
   const navigate = useNavigate();
 
   // Only show if there's a feasible result or a known run id
   if (!runId && (!result || result?.collapsed)) return null;
 
   const handleClick = () => {
-    const path = runId
-      ? `/tower-3d-viewer?runId=${runId}`
-      : "/tower-3d-viewer";
-    navigate(path);
+    navigate("/tower-3d-viewer", {
+      state: {
+        runId: runId || null,
+        liveResult: result ? {
+          towerLonLat: result.towerLonLat,
+          parcelGeojson: result.parcel?.geometry || null,
+          centroidLat: result.towerLonLat?.[1] || null,
+          centroidLon: result.towerLonLat?.[0] || null,
+          towerHeightFt: controls?.heightFt || 150,
+          compoundWidthFt: controls?.compoundW || 75,
+          compoundDepthFt: controls?.compoundD || 75,
+          towerType: "monopole",
+          propertyAddress: parcel?.addressFull || parcel?.apn || null,
+          parcelId: parcel?.apn || null,
+        } : null,
+      },
+    });
   };
 
   return (
