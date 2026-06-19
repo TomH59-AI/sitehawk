@@ -6,8 +6,9 @@ import { siteChat } from "@/functions/siteChat";
 
 const QUICK_ACTIONS = [
   "How do I use SiteHawk?",
+  "Who is the electric utility at 29.9417, -97.8673?",
+  "What's the local zoning jurisdiction at 30.2672, -97.7431?",
   "Which candidate has the best fiber + zoning combo?",
-  "What's the FAA risk for the top candidate?",
 ];
 
 const SCIP_CONTEXT = `You are HawkBot, the SiteHawk AI consultant. The platform produces a Site Candidate Information Package (SCIP) using this exact Page 1 format (in order):
@@ -160,7 +161,7 @@ export default function HawkBotWidget() {
               <HawkIcon size={32} />
               <div>
                 <h3 className="font-heading font-bold text-foreground text-sm">HawkBot</h3>
-                <p className="text-[10px] text-muted-foreground">Parcels · Zoning · SCIP</p>
+                <p className="text-[10px] text-muted-foreground">Parcels · Zoning · Utilities · SCIP</p>
               </div>
             </div>
             <div className="flex items-center gap-1.5">
