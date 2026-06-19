@@ -13,7 +13,7 @@ import { toast } from "sonner";
 const DEMO_SLOTS = [
   { email: "demo+1@sitehawk.io", passcode: "HAWK-DEMO-7741", slot: 1 },
   { email: "belinda.bodie@att.net", passcode: "HAWK-DEMO-3892", slot: 2, label: "Belinda Bodie" },
-  { email: "demo+3@sitehawk.io", passcode: "HAWK-DEMO-5514", slot: 3 },
+  { email: "walter.boyanton@crowncastle.com", passcode: "HAWK-DEMO-5514", slot: 3, label: "Walter Boyanton" },
   { email: "demo+4@sitehawk.io", passcode: "HAWK-DEMO-2267", slot: 4 },
   { email: "demo+5@sitehawk.io", passcode: "HAWK-DEMO-9930", slot: 5 },
 ];
