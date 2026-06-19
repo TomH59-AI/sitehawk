@@ -7,11 +7,11 @@ import BrandFooter from "../components/BrandFooter";
 
 const CONTACT_EMAIL = "info@sitehawk.com";
 
-// hawk_site = Hawk Site ($249/mo, 7-day free trial) | hawkeyes = Hawkeyes ($599/mo, 7-day free trial)
+// hawk_site = Hawk Site ($249/mo, 3-day free trial) | hawkeyes = Hawkeyes ($599/mo, 3-day free trial)
 // 1 Search Ring = 1 SCIP bundle including all 3 AI targets (A, B & C).
 const PLAN_CARDS = [
-  { key: "hawk_site", name: "Hawk Site", price: "$249", period: "/month", scips: "7-day free trial, then 15 Search Rings per month — each includes Targets A, B & C", cta: "Start Free Trial", paid: true },
-  { key: "hawkeyes", name: "Hawkeyes", price: "$599", period: "/month", scips: "7-day free trial, then 40 Search Rings per month — each includes Targets A, B & C", cta: "Start Free Trial", paid: true, highlight: true },
+  { key: "hawk_site", name: "Hawk Site", price: "$249", period: "/month", scips: "3-day free trial — 2 SCIPs/day, then 15 Search Rings per month — each includes Targets A, B & C", cta: "Start Free Trial", paid: true },
+  { key: "hawkeyes", name: "Hawkeyes", price: "$599", period: "/month", scips: "3-day free trial — 2 SCIPs/day, then 40 Search Rings per month — each includes Targets A, B & C", cta: "Start Free Trial", paid: true, highlight: true },
   { key: "hawkeye_apex", name: "Hawkeye Apex", price: "Contact us", period: "", scips: "Unlimited Search Rings — call or email HawkSite customer service for a quote", cta: "Contact sales", paid: false },
 ];
 
@@ -68,8 +68,8 @@ export default function PlansSelection() {
     <div className="space-y-10">
       <div className="text-center max-w-3xl mx-auto space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">SiteHawk plans</p>
-        <h1 className="font-heading font-bold text-3xl md:text-4xl text-foreground">Try SiteHawk free for 7 days</h1>
-        <p className="text-muted-foreground text-sm">No charge today. Cancel anytime. After your trial, pick the plan that fits — each Search Ring delivers a full SCIP with all three AI-selected targets (A, B & C).</p>
+        <h1 className="font-heading font-bold text-3xl md:text-4xl text-foreground">Try SiteHawk free for 3 days</h1>
+        <p className="text-muted-foreground text-sm">No charge today. 2 SCIPs/day during your trial. Cancel anytime. After your trial, pick the plan that fits — each Search Ring delivers a full SCIP with all three AI-selected targets (A, B & C).</p>
         {currentTier && (
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
             <span className="text-muted-foreground/70">Current tier:</span>
