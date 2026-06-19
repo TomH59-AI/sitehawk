@@ -464,6 +464,7 @@ export default function SiteSearch() {
           Target A is resolved. Six maps, each fired one-at-a-time by its own
           button. Maps render for Target A ONLY. */}
       {coordsReady && sarfReady && zoningReady && (
+        <div data-section="map-suite">
         <Section4MapSuite
           key={`maps-${clearKeys.maps}-${targetA?.apn || targetA?.label || `${targetA?.latitude},${targetA?.longitude}`}`}
           unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
@@ -480,6 +481,7 @@ export default function SiteSearch() {
           onComplete={() => setMapsComplete(true)}
           onData={mergeSectionData}
         />
+        </div>
       )}
 
       {/* SECTION 8 — HAWK RF PROPAGATION VISION. STANDALONE — unlocked as soon as
@@ -514,7 +516,30 @@ export default function SiteSearch() {
           Section 8 so users who finish at the propagation map can print the full
           SCIP (and pick pages from their printer) without scrolling back up. */}
       {coordsReady && (
-        <div className="flex flex-col items-center gap-2 pt-2 pb-6 border-t border-border">
+        <div className="flex flex-col items-center gap-3 pt-4 pb-6 border-t border-border">
+          {/* Nudge: warn if Section 7 (infrastructure) hasn't been run yet */}
+          {targetA && !sectionData?.fiber && (
+            <div className="w-full max-w-xl rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 flex items-start gap-3">
+              <span className="text-amber-500 text-lg shrink-0">⚠</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                  Fiber &amp; Power maps not yet run
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                  Fiber Optics (Map 11) and Power Grid (Map 12) data won't be in your SCIP. Scroll up and run those maps first for a complete report.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const el = document.querySelector("[data-section='map-suite']");
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-400 transition-colors whitespace-nowrap"
+              >
+                ↑ Go to Maps
+              </button>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground text-center">
             Finished the pipeline? Generate the full SiteHawk SCIP — then Print / Save PDF and choose which pages to print.
           </p>
