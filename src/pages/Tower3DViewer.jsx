@@ -81,7 +81,7 @@ export default function Tower3DViewer() {
         rec = await base44.entities.Tower3DRender.update(existing[0].id, {
           centroid_lat: lat, centroid_lon: lon, parcel_geojson: parcelGeom,
           tower_type: run.tower_type || "monopole",
-          tower_height_ft: run.tower_height_ft || 199,
+          tower_height_ft: run.tower_height_ft || 150,
           compound_size: closestSize, compound_width_ft: cw, compound_depth_ft: cd, status: "ready",
         });
       } else {
@@ -91,7 +91,7 @@ export default function Tower3DViewer() {
           site_name: run.property_address || "Target A",
           centroid_lat: lat, centroid_lon: lon, parcel_geojson: parcelGeom,
           tower_type: run.tower_type || "monopole",
-          tower_height_ft: run.tower_height_ft || 199,
+          tower_height_ft: run.tower_height_ft || 150,
           compound_size: closestSize, compound_width_ft: cw, compound_depth_ft: cd,
           buffer_ft: 25, status: "ready",
         });

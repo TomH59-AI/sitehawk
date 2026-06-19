@@ -37,7 +37,7 @@ export default function TowerSiter() {
   const [parcel, setParcel] = useState(null);
   const [parcelOptions, setParcelOptions] = useState([]);
   const [rules, setRules] = useState(null);
-  const [controls, setControls] = useState({ heightFt: 195, compoundW: 75, compoundD: 75, leaseW: 100, leaseD: 100, peToggle: false, peRadiusFt: "" });
+  const [controls, setControls] = useState({ heightFt: 150, compoundW: 75, compoundD: 75, leaseW: 100, leaseD: 100, peToggle: false, peRadiusFt: "" });
   const [towerOverride, setTowerOverride] = useState(null);
   const [residential, setResidential] = useState(null); // { key, loading, result, circle }
   const [view, setView] = useState("map");

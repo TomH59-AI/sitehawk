@@ -14,6 +14,7 @@ const FT_TO_M = 0.3048;
 export default function ThreeTower3DViewer({ render, onClose, onSnapshot }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
   const rendererRef = useRef(null);
   const animFrameRef = useRef(null);
   const isDragging = useRef(false);
@@ -36,6 +37,7 @@ export default function ThreeTower3DViewer({ render, onClose, onSnapshot }) {
 
     // Camera
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.5, 1000);
+    cameraRef.current = camera;
     updateCamera(camera);
 
     // Renderer
@@ -147,14 +149,18 @@ export default function ThreeTower3DViewer({ render, onClose, onSnapshot }) {
   }
 
   async function captureSnapshot() {
-    if (!rendererRef.current || !render?.id) return;
+    if (!rendererRef.current) return;
     setSaving(true);
     try {
+      // Force a fresh render before capturing so the canvas is populated
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
       const dataUrl = rendererRef.current.domElement.toDataURL("image/png");
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], "tower-3d-snapshot.png", { type: "image/png" });
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      await base44.entities.Tower3DRender.update(render.id, { snapshot_image_url: file_url });
+      if (render?.id) {
+        await base44.entities.Tower3DRender.update(render.id, { snapshot_image_url: file_url });
+      }
       if (onSnapshot) onSnapshot({ file_url });
     } catch (e) {
       console.error("Snapshot failed:", e);
