@@ -28,8 +28,11 @@
  *  preferred over landline, most-recently-reported preferred. confidence =
  *  number of distinct sources that returned the winning number.
  *
- *  ENTITY OWNERS (LLC/Trust/Corp): short-circuited — people-search can't match
- *  them. Returns is_entity_owner:true so the UI shows "manual lookup required".
+ *  ENTITY OWNERS (LLC/Trust/Corp): people-search can't match them, but we CAN
+ *  look them up on Google Maps via lurkapi/google-maps-business-leads-scraper.
+ *  That actor searches by business name + city/state and returns phone, email,
+ *  and website. If it hits, we return those contacts. If it misses, we still
+ *  set is_entity_owner:true so the UI knows it's a business.
  * ============================================================================
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
@@ -46,6 +49,7 @@ const PER_ACTOR_TIMEOUT_MS = 30000;
 const BRILLIANT_GUM_TIMEOUT_MS = 110000;
 const TOTAL_BUDGET_MS = 120000;
 
+const ACTOR_GOOGLE_MAPS_BIZ = "lurkapi~google-maps-business-leads-scraper";
 const VALID_PHONE_RX = /^[\d\-\+\(\)\s\.]{7,20}$/;
 
 function isValidPhone(p) {
@@ -166,6 +170,50 @@ async function srcEnformion({ firstName, lastName, street, city, state, zip }, d
     pushEmail(emailsOut, typeof e === "string" ? e : (e.email || e.Email || e.emailAddress || e.EmailAddress), "Enformion");
   }
   diag("Enformion", "ok", out.length);
+  return out;
+}
+
+// ── SOURCE 0 (entity path): Google Maps Business Leads (lurkapi) ─────────────
+// Used ONLY when the owner is a business entity (LLC, Corp, Trust, etc.).
+// Searches Google Maps by business name + city/state and extracts phone + email.
+async function srcGoogleMapsBusiness({ businessName, city, state }, token, diag, emailsOut = []) {
+  const out = [];
+  if (!token) { diag("GoogleMaps/lurkapi", "missing_apify_token", 0); return out; }
+  const location = [city, state].filter(Boolean).join(", ") || "";
+  const input = {
+    searchTerms: [businessName],
+    location: location || "United States",
+    maxPlacesPerSearch: 3,
+    outputPhone: true,
+    outputEmail: true,
+    outputWebsite: true,
+    outputTitle: true,
+    outputAddress: true,
+  };
+
+  const url = `${APIFY_BASE}/acts/${ACTOR_GOOGLE_MAPS_BIZ}/run-sync-get-dataset-items?token=${token}&maxItems=3&maxTotalChargeUsd=0.05`;
+  const res = await fetchWithTimeout(url, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+  }, 45000);
+
+  if (!res.ok) {
+    diag("GoogleMaps/lurkapi", res.error || `http_${res.status}`, 0);
+    return out;
+  }
+
+  const items = Array.isArray(res.json) ? res.json : [];
+  if (!items.length) { diag("GoogleMaps/lurkapi", "no_results", 0); return out; }
+
+  // Take the first (best) match
+  const rec = items[0];
+  pushPhone(out, rec.phone || rec.primaryPhone, "GoogleMaps", null, null);
+  pushEmail(emailsOut, rec.email || rec.primaryEmail, "GoogleMaps");
+
+  // Also scrape any additional emails from the result
+  const extraEmails = rec.emails || rec.allEmails || [];
+  for (const e of extraEmails) pushEmail(emailsOut, typeof e === "string" ? e : e?.email, "GoogleMaps");
+
+  diag("GoogleMaps/lurkapi", "ok", out.length);
   return out;
 }
 
@@ -322,13 +370,28 @@ Deno.serve(async (req) => {
     const diag = (source, result, count) =>
       console.log(`[SKIPTRACE DIAG] source=${source} target=${target_label || "?"} owner="${owner_name}" result=${result} count=${count}`);
 
-    // ── Entity gate ──
+    // ── Entity gate — business owners get Google Maps lookup instead of people-search ──
     if (isEntity) {
-      diag("entity_gate", "entity_owner_skipped", 0);
+      diag("entity_gate", "entity_owner_google_maps_lookup", 0);
+      const bizEmailsFound = [];
+      const bizPhones = apifyToken
+        ? await srcGoogleMapsBusiness({ businessName: owner_name, city, state }, apifyToken, diag, bizEmailsFound).catch((e) => { diag("GoogleMaps/lurkapi", e.message, 0); return []; })
+        : [];
+      const phones = aggregate(bizPhones);
+      const emails = aggregateEmails(bizEmailsFound);
+      const top = phones[0] || null;
+      const topEmail = emails[0] || null;
       return Response.json({
-        is_entity_owner: true, phone: null, display: "", source: null, source_count: 0,
-        phones: [], email: null, email_source: null, emails: [],
-        _meta: { owner_name, target_label, duration_ms: Date.now() - t0 },
+        is_entity_owner: true,
+        phone: top?.phone || null,
+        display: top?.display || "",
+        source: top ? top.sources[0] : null,
+        source_count: top?.source_count || 0,
+        phones,
+        email: topEmail?.email || null,
+        email_source: topEmail ? topEmail.sources[0] : null,
+        emails,
+        _meta: { owner_name, target_label, is_entity: true, duration_ms: Date.now() - t0 },
       });
     }
 
