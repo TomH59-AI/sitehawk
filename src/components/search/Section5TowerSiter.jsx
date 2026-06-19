@@ -51,6 +51,7 @@ export default function Section5TowerSiter({
     leaseW: 100, leaseD: 100,
     peToggle: false, peRadiusFt: "",
   });
+  const [userAdjustedHeight, setUserAdjustedHeight] = useState(false);
   const [towerOverride, setTowerOverride] = useState(null);
   const [residential, setResidential] = useState(null);
   const [upgrade, setUpgrade] = useState(null);
@@ -64,6 +65,17 @@ export default function Section5TowerSiter({
     if (parcel) return; // already loaded
     loadFromTargetA();
   }, [expanded, targetA?.latitude, targetA?.longitude]);
+
+  // Sync height from pipeline whenever zoning or prop changes — but don't clobber user edits
+  useEffect(() => {
+    if (userAdjustedHeight) return;
+    const zoning = zoningResult?.zoning || {};
+    const zoningH = zoning?.max_height
+      ? Math.min(Number(String(zoning.max_height).replace(/\D/g, "")) || 0, 2000)
+      : 0;
+    const resolved = zoningH || towerHeightFt || 150;
+    setControls((prev) => ({ ...prev, heightFt: resolved }));
+  }, [zoningResult, towerHeightFt, userAdjustedHeight]);
 
   // Also pre-populate setback rules from zoning
   useEffect(() => {
@@ -269,7 +281,10 @@ export default function Section5TowerSiter({
           <div className="grid grid-cols-1 lg:grid-cols-[300px,1fr] gap-4">
             {/* Controls rail */}
             <div className="space-y-3">
-              <SiterControls controls={controls} onChange={setControls} rules={rules} peAllowedByTier={ent.peAllowed} />
+              <SiterControls controls={controls} onChange={(next) => {
+            if (next.heightFt !== controls.heightFt) setUserAdjustedHeight(true);
+            setControls(next);
+          }} rules={rules} peAllowedByTier={ent.peAllowed} />
 
               {result && !result.collapsed && (
                 <div className="space-y-2">
