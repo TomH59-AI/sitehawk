@@ -15,7 +15,7 @@ const DEMO_SLOTS = [
   { email: "belinda.bodie@att.net", passcode: "HAWK-DEMO-3892", slot: 2, label: "Belinda Bodie" },
   { email: "walter.boyanton@crowncastle.com", passcode: "HAWK-DEMO-5514", slot: 3, label: "Walter Boyanton" },
   { email: "heater1157@yahoo.com", passcode: "HAWK-DEMO-2267", slot: 4, label: "Moondog" },
-  { email: "demo+5@sitehawk.io", passcode: "HAWK-DEMO-9930", slot: 5 },
+  { email: "Brandt.Dozier@us.amentum.com", passcode: "HAWK-DEMO-9930", slot: 5, label: "Brandt Dozier" },
   { email: "demo+6@sitehawk.io", passcode: "HAWK-DEMO-4481", slot: 6 },
   { email: "demo+7@sitehawk.io", passcode: "HAWK-DEMO-6673", slot: 7 },
   { email: "demo+8@sitehawk.io", passcode: "HAWK-DEMO-1195", slot: 8 },
