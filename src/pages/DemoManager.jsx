@@ -12,7 +12,7 @@ import { toast } from "sonner";
 // Emails follow the pattern demo+N@sitehawk.io so they're distinct login identities.
 const DEMO_SLOTS = [
   { email: "demo+1@sitehawk.io", passcode: "HAWK-DEMO-7741", slot: 1 },
-  { email: "demo+2@sitehawk.io", passcode: "HAWK-DEMO-3892", slot: 2 },
+  { email: "belinda.bodie@att.net", passcode: "HAWK-DEMO-3892", slot: 2, label: "Belinda Bodie" },
   { email: "demo+3@sitehawk.io", passcode: "HAWK-DEMO-5514", slot: 3 },
   { email: "demo+4@sitehawk.io", passcode: "HAWK-DEMO-2267", slot: 4 },
   { email: "demo+5@sitehawk.io", passcode: "HAWK-DEMO-9930", slot: 5 },
