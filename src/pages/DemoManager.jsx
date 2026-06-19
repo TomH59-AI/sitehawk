@@ -16,6 +16,16 @@ const DEMO_SLOTS = [
   { email: "walter.boyanton@crowncastle.com", passcode: "HAWK-DEMO-5514", slot: 3, label: "Walter Boyanton" },
   { email: "heater1157@yahoo.com", passcode: "HAWK-DEMO-2267", slot: 4, label: "Moondog" },
   { email: "demo+5@sitehawk.io", passcode: "HAWK-DEMO-9930", slot: 5 },
+  { email: "demo+6@sitehawk.io", passcode: "HAWK-DEMO-4481", slot: 6 },
+  { email: "demo+7@sitehawk.io", passcode: "HAWK-DEMO-6673", slot: 7 },
+  { email: "demo+8@sitehawk.io", passcode: "HAWK-DEMO-1195", slot: 8 },
+  { email: "demo+9@sitehawk.io", passcode: "HAWK-DEMO-8824", slot: 9 },
+  { email: "demo+10@sitehawk.io", passcode: "HAWK-DEMO-3367", slot: 10 },
+  { email: "demo+11@sitehawk.io", passcode: "HAWK-DEMO-7712", slot: 11 },
+  { email: "demo+12@sitehawk.io", passcode: "HAWK-DEMO-5590", slot: 12 },
+  { email: "demo+13@sitehawk.io", passcode: "HAWK-DEMO-2248", slot: 13 },
+  { email: "demo+14@sitehawk.io", passcode: "HAWK-DEMO-8836", slot: 14 },
+  { email: "demo+15@sitehawk.io", passcode: "HAWK-DEMO-1174", slot: 15 },
 ];
 
 export default function DemoManager() {
@@ -95,7 +105,7 @@ export default function DemoManager() {
             <ShieldCheck className="w-6 h-6 text-purple-500" /> Demo Account Manager
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            5 sales demo slots — share credentials with reps, disable any slot instantly to cut off access.
+            15 sales demo slots — share credentials with prospects, disable any slot instantly to cut off access.
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={loadDemoUsers} disabled={loading}>
