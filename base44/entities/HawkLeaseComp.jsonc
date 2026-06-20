@@ -1,0 +1,110 @@
+{
+  "name": "HawkLeaseComp",
+  "type": "object",
+  "description": "Rent comparable library for tower leases. National bands by region, density tier, lease type, and carrier. Read-mostly for users. Carrier overlay data restricted to HawkVision+ tiers.",
+  "properties": {
+    "region": {
+      "type": "string",
+      "enum": [
+        "West",
+        "Northeast",
+        "Southeast",
+        "Midwest",
+        "South_Central",
+        "Mountain"
+      ]
+    },
+    "state": {
+      "type": "string",
+      "description": "2-char USPS code (optional)"
+    },
+    "metro_market": {
+      "type": "string"
+    },
+    "density_tier": {
+      "type": "string",
+      "enum": [
+        "Rural",
+        "Suburban",
+        "Urban",
+        "Major_Metro"
+      ]
+    },
+    "lease_type": {
+      "type": "string",
+      "enum": [
+        "ground",
+        "rooftop",
+        "tower_mod"
+      ]
+    },
+    "tower_height_range": {
+      "type": "string",
+      "enum": [
+        "under_100",
+        "100_149",
+        "150_199",
+        "200_plus"
+      ]
+    },
+    "carrier": {
+      "type": "string",
+      "enum": [
+        "Verizon",
+        "AT&T",
+        "T-Mobile",
+        "DISH",
+        "AMT",
+        "CCI",
+        "SBA",
+        "Tillman",
+        "Vertical_Bridge",
+        "Generic_Carrier",
+        "Generic_Tower_Co"
+      ]
+    },
+    "rent_low_monthly": {
+      "type": "number",
+      "description": "USD low range"
+    },
+    "rent_mid_monthly": {
+      "type": "number",
+      "description": "USD mid range"
+    },
+    "rent_high_monthly": {
+      "type": "number",
+      "description": "USD high range"
+    },
+    "escalation_pct_typical": {
+      "type": "number"
+    },
+    "escalation_frequency_typical": {
+      "type": "string",
+      "enum": [
+        "annual",
+        "per_renewal"
+      ]
+    },
+    "notes": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "description": "Data source attribution"
+    },
+    "effective_date": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "region",
+    "density_tier",
+    "lease_type",
+    "rent_low_monthly",
+    "rent_mid_monthly",
+    "rent_high_monthly",
+    "source",
+    "effective_date"
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "name": "HawkLeaseEvent",
+  "type": "object",
+  "description": "Milestone log per HawkLeaseSite. Tracks LOI, draft, redline, execution, rent start, option exercise, termination events.",
+  "properties": {
+    "hawklease_site_id": {
+      "type": "string",
+      "description": "FK to HawkLeaseSite"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "LOI_Sent",
+        "LOI_Executed",
+        "Draft_Sent",
+        "Redlines_Received",
+        "Counter_Sent",
+        "Executed",
+        "Rent_Started",
+        "Option_Exercised",
+        "Termination",
+        "Custom"
+      ],
+      "description": "Type of lease milestone event"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "counterparty": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "attachments": {
+      "type": "object",
+      "description": "Array of Base44 file URLs stored as JSON"
+    }
+  },
+  "required": [
+    "hawklease_site_id",
+    "event_type",
+    "event_date"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

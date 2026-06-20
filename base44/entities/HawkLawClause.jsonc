@@ -1,0 +1,77 @@
+{
+  "name": "HawkLawClause",
+  "type": "object",
+  "description": "Boilerplate clause library powering Hawk Law analysis. Each record represents a known lease clause pattern with favorability scoring, red flag severity, counter-suggestion language, and plain-English explainer for landlords.",
+  "properties": {
+    "clause_category": {
+      "type": "string",
+      "enum": [
+        "Term",
+        "Rent",
+        "DueDiligence",
+        "Exclusivity",
+        "ROFR",
+        "Assignment",
+        "Default",
+        "Termination",
+        "Indemnification",
+        "Insurance",
+        "Hazmat",
+        "Utilities",
+        "LenderRights",
+        "Waivers",
+        "Other"
+      ]
+    },
+    "clause_name": {
+      "type": "string",
+      "description": "Short label for the clause"
+    },
+    "clause_text_typical": {
+      "type": "string",
+      "description": "Example boilerplate verbatim text"
+    },
+    "source_vendor": {
+      "type": "string",
+      "enum": [
+        "Anthemnet",
+        "Pop_Wireless",
+        "Verizon",
+        "AT&T",
+        "T-Mobile",
+        "CCI",
+        "AMT",
+        "SBA",
+        "ViaSat",
+        "Other"
+      ]
+    },
+    "landlord_favorability_score": {
+      "type": "number",
+      "description": "1-5 (1=very bad for landlord, 5=very good)"
+    },
+    "red_flag_severity": {
+      "type": "string",
+      "enum": [
+        "none",
+        "caution",
+        "critical"
+      ]
+    },
+    "counter_suggestion": {
+      "type": "string",
+      "description": "Specific redline language to push back"
+    },
+    "ai_explainer": {
+      "type": "string",
+      "description": "Plain-English explanation for the landlord"
+    }
+  },
+  "required": [
+    "clause_category",
+    "clause_name",
+    "clause_text_typical",
+    "landlord_favorability_score",
+    "red_flag_severity"
+  ]
+}

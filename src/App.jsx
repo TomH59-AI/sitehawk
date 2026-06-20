@@ -69,6 +69,18 @@ import HawkTracker from './pages/HawkTracker';
 import TowerSiter from './pages/TowerSiter';
 import Tower3DViewer from './pages/Tower3DViewer';
 import DemoManager from './pages/DemoManager';
+import HawkLease from './pages/HawkLease';
+import HawkLeaseDashboard from './pages/hawklease/HawkLeaseDashboard';
+import HawkLeaseSites from './pages/hawklease/HawkLeaseSites';
+import HawkLeaseSiteDetail from './pages/hawklease/HawkLeaseSiteDetail';
+import HawkLeaseComps from './pages/hawklease/HawkLeaseComps';
+import HawkLeaseReports from './pages/hawklease/HawkLeaseReports';
+import HawkLaw from './pages/HawkLaw';
+import HawkLawNewAnalysis from './pages/hawklaw/HawkLawNewAnalysis';
+import HawkLawSessions from './pages/hawklaw/HawkLawSessions';
+import HawkLawSessionDetail from './pages/hawklaw/HawkLawSessionDetail';
+import HawkLawClauses from './pages/hawklaw/HawkLawClauses';
+import HawkLawHistory from './pages/hawklaw/HawkLawHistory';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -140,6 +152,22 @@ const AuthenticatedApp = () => {
         <Route path="/tower-siter" element={<TowerSiter />} />
         <Route path="/tower-3d-viewer" element={<Tower3DViewer />} />
         <Route path="/demo-manager" element={<DemoManager />} />
+        {/* HawkLease */}
+        <Route path="/hawk-lease" element={<HawkLease />}>
+          <Route index element={<HawkLeaseDashboard />} />
+          <Route path="sites" element={<HawkLeaseSites />} />
+          <Route path="sites/:id" element={<HawkLeaseSiteDetail />} />
+          <Route path="comps" element={<HawkLeaseComps />} />
+          <Route path="reports" element={<HawkLeaseReports />} />
+        </Route>
+        {/* Hawk Law */}
+        <Route path="/hawk-law" element={<HawkLaw />}>
+          <Route index element={<HawkLawNewAnalysis />} />
+          <Route path="sessions" element={<HawkLawSessions />} />
+          <Route path="sessions/:id" element={<HawkLawSessionDetail />} />
+          <Route path="clauses" element={<HawkLawClauses />} />
+          <Route path="history" element={<HawkLawHistory />} />
+        </Route>
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

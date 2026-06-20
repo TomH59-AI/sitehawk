@@ -1,0 +1,129 @@
+{
+  "name": "HawkLawSession",
+  "type": "object",
+  "description": "Active negotiation session for Hawk Law. One per uploaded lease analysis. Tracks triage result, clause-by-clause review, negotiation rounds, redline state, risk assessment, and attorney export. Sessions can be standalone or linked to a HawkLeaseSite.",
+  "properties": {
+    "hawklease_site_id": {
+      "type": "string",
+      "description": "Optional FK to HawkLeaseSite \u2014 sessions can run standalone"
+    },
+    "uploaded_lease_file": {
+      "type": "string",
+      "description": "Base44 file storage URL"
+    },
+    "file_name": {
+      "type": "string"
+    },
+    "vendor_detected": {
+      "type": "string",
+      "enum": [
+        "Anthemnet",
+        "Pop_Wireless",
+        "Verizon",
+        "AT&T",
+        "T-Mobile",
+        "CCI",
+        "AMT",
+        "SBA",
+        "ViaSat",
+        "Other",
+        "Unknown"
+      ]
+    },
+    "extracted_clauses": {
+      "type": "object",
+      "description": "Full parsed structure from /hawk-review"
+    },
+    "triage_result": {
+      "type": "string",
+      "enum": [
+        "green",
+        "yellow",
+        "red"
+      ]
+    },
+    "triage_summary": {
+      "type": "string"
+    },
+    "triage_reasons": {
+      "type": "object",
+      "description": "Array of triage findings as JSON"
+    },
+    "negotiation_rounds": {
+      "type": "object",
+      "description": "Array of {round_num, user_message, ai_response, redline_generated, timestamp}"
+    },
+    "current_redline_state": {
+      "type": "object",
+      "description": "Running redline document state"
+    },
+    "risk_assessment": {
+      "type": "object",
+      "description": "Output from /hawk-risk"
+    },
+    "attorney_export_url": {
+      "type": "string"
+    },
+    "attorney_recipient_email": {
+      "type": "string"
+    },
+    "attorney_export_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "disclaimer_acknowledged_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "First-use disclaimer acknowledgment timestamp"
+    },
+    "state_of_property": {
+      "type": "string",
+      "description": "2-char state code for UPL disclaimer routing"
+    }
+  },
+  "required": [
+    "file_name",
+    "disclaimer_acknowledged_at"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

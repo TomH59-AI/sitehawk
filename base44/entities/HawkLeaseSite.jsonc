@@ -1,0 +1,327 @@
+{
+  "name": "HawkLeaseSite",
+  "type": "object",
+  "description": "Core lease record for HawkLease module. One per leased tower site. Tracks property, landlord, lease terms, key dates, clauses, insurance, signatory, and negotiation data. STANDALONE \u2014 does not modify existing SiteHawk pipeline entities.",
+  "properties": {
+    "site_name": {
+      "type": "string",
+      "description": "Site name/label"
+    },
+    "source_tracker_site_id": {
+      "type": "string",
+      "description": "Optional read-only FK to HawkTrackerSite for import"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Pre-LOI",
+        "LOI Sent",
+        "LOI Executed",
+        "Drafted",
+        "In Negotiation",
+        "Executed",
+        "Active",
+        "Terminated"
+      ],
+      "default": "Pre-LOI",
+      "description": "Lease lifecycle status"
+    },
+    "lease_type": {
+      "type": "string",
+      "enum": [
+        "ground_lease",
+        "rooftop",
+        "tower_mod",
+        "easement",
+        "satellite_gateway"
+      ],
+      "default": "ground_lease"
+    },
+    "carrier": {
+      "type": "string",
+      "enum": [
+        "Verizon",
+        "AT&T",
+        "T-Mobile",
+        "DISH",
+        "Tower_Co",
+        "Other"
+      ]
+    },
+    "tower_company": {
+      "type": "string",
+      "description": "Free text if carrier=Tower_Co"
+    },
+    "property_address": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "description": "2-char USPS code"
+    },
+    "county": {
+      "type": "string"
+    },
+    "zip": {
+      "type": "string"
+    },
+    "parcel_apn": {
+      "type": "string",
+      "description": "Auto-pulls from Realie if available"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "fema_zone": {
+      "type": "string",
+      "description": "Auto-pulled from FL-compliance API"
+    },
+    "fema_risk": {
+      "type": "string"
+    },
+    "landlord_name": {
+      "type": "string",
+      "description": "Legal entity name"
+    },
+    "landlord_entity_state": {
+      "type": "string",
+      "description": "State of incorporation (2-char)"
+    },
+    "landlord_entity_type": {
+      "type": "string",
+      "enum": [
+        "Individual",
+        "LLC",
+        "Trust",
+        "Corporation",
+        "Joint_Tenants",
+        "Other"
+      ]
+    },
+    "landlord_contact_name": {
+      "type": "string"
+    },
+    "landlord_contact_email": {
+      "type": "string"
+    },
+    "landlord_contact_phone": {
+      "type": "string"
+    },
+    "landlord_mailing_address": {
+      "type": "string"
+    },
+    "base_monthly_rent": {
+      "type": "number",
+      "description": "USD/mo"
+    },
+    "initial_term_years": {
+      "type": "number",
+      "default": 5
+    },
+    "renewal_count": {
+      "type": "number",
+      "default": 5
+    },
+    "renewal_term_years": {
+      "type": "number",
+      "default": 5
+    },
+    "total_potential_term_years": {
+      "type": "number",
+      "description": "CALCULATED: initial + (renewal_count \u00d7 renewal_term_years)"
+    },
+    "due_diligence_months": {
+      "type": "number"
+    },
+    "due_diligence_payment": {
+      "type": "number",
+      "description": "USD"
+    },
+    "due_diligence_extension_allowed": {
+      "type": "boolean",
+      "default": false
+    },
+    "option_period_count": {
+      "type": "number"
+    },
+    "escalation_value": {
+      "type": "number",
+      "default": 2,
+      "description": "Percent"
+    },
+    "escalation_frequency": {
+      "type": "string",
+      "enum": [
+        "annual",
+        "per_renewal"
+      ],
+      "default": "annual",
+      "description": "KEY DIFFERENTIATOR \u2014 annual vs per_renewal"
+    },
+    "escalation_type": {
+      "type": "string",
+      "enum": [
+        "fixed_percent",
+        "cpi",
+        "stepped"
+      ],
+      "default": "fixed_percent"
+    },
+    "revenue_share_type": {
+      "type": "string",
+      "enum": [
+        "none",
+        "percentage",
+        "nominal"
+      ],
+      "default": "none"
+    },
+    "revenue_share_value": {
+      "type": "number",
+      "default": 0
+    },
+    "additional_consideration": {
+      "type": "string"
+    },
+    "term_commencement_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "rent_commencement_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lease_execution_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "lease_expiration_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "CALCULATED"
+    },
+    "next_option_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "CALCULATED"
+    },
+    "exclusivity_radius_miles": {
+      "type": "number"
+    },
+    "rofr_match_window_days": {
+      "type": "number",
+      "default": 45
+    },
+    "non_renewal_notice_days": {
+      "type": "number",
+      "default": 90
+    },
+    "cure_period_days": {
+      "type": "number",
+      "default": 30
+    },
+    "post_install_modifications_approval": {
+      "type": "boolean",
+      "default": false
+    },
+    "insurance_cgl_per_occurrence": {
+      "type": "number",
+      "default": 1000000
+    },
+    "insurance_cgl_aggregate": {
+      "type": "number",
+      "default": 2000000
+    },
+    "insurance_umbrella_amount": {
+      "type": "number",
+      "default": 5000000
+    },
+    "signatory_name": {
+      "type": "string"
+    },
+    "signatory_title": {
+      "type": "string"
+    },
+    "signatory_email": {
+      "type": "string"
+    },
+    "signatory_tax_id": {
+      "type": "string"
+    },
+    "witness_names": {
+      "type": "string"
+    },
+    "witness_emails": {
+      "type": "string"
+    },
+    "negotiation_brief": {
+      "type": "object",
+      "description": "Stores /hawk-brief output"
+    },
+    "exhibits": {
+      "type": "object",
+      "description": "Auto-generated: Site Sketch, Property Boundaries, FEMA Map, Topography Map, Zoning Audit"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "site_name",
+    "status",
+    "lease_type",
+    "property_address",
+    "city",
+    "state",
+    "county",
+    "zip",
+    "landlord_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

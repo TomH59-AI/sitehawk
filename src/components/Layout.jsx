@@ -6,7 +6,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, Crown } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, Crown, FileSignature, Scale } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -21,6 +21,8 @@ const BASE_NAV = [
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/crm", icon: Briefcase, label: "Deal Pipeline" },
+  { path: "/hawk-lease", icon: FileSignature, label: "🦅 HawkLease" },
+  { path: "/hawk-law", icon: Scale, label: "⚖️ Hawk Law" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
   { path: "/about", icon: Radio, label: "About" },
@@ -113,7 +115,9 @@ export default function Layout() {
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto min-h-0">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = item.path === "/dashboard"
+            ? location.pathname === item.path
+            : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
             return (
               <div key={item.path}>
                 <Link
@@ -190,7 +194,9 @@ export default function Layout() {
         <div className="lg:hidden fixed inset-0 z-20 bg-background/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)}>
           <div className="absolute top-16 left-0 right-0 bg-sidebar border-b border-border p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isActive = item.path === "/dashboard"
+                ? location.pathname === item.path
+                : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
               return (
                 <Link
                   key={item.path}
