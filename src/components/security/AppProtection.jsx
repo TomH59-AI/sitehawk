@@ -18,7 +18,7 @@ export default function AppProtection() {
     const preventCopyShortcuts = (event) => {
       if (isEditable(event.target)) return;
       const key = event.key?.toLowerCase();
-      if ((event.ctrlKey || event.metaKey) && ["s", "u", "p"].includes(key)) {
+      if ((event.ctrlKey || event.metaKey) && ["s", "p"].includes(key)) {
         event.preventDefault();
       }
     };
