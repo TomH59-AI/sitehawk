@@ -14,22 +14,26 @@ import ReferralBanner from "../components/referral/ReferralBanner";
 import { getEffectiveTier } from "@/lib/testAccess";
 
 const TIER_LIMITS = {
-  blind: 0,
   free: 0,
-  hawk_site: 30,
-  hawkeyes: 150,
-  hawk_sight: 150,
-  hawkeye_20: 600,
+  hawk_site: 15,
+  hawk_site_law: 15,
+  hawk_vision: 30,
+  hawk_vision_law: 30,
+  hawk_command: 9999,
+  // legacy
+  hawkeyes: 40,
   hawkeye_apex: 9999,
 };
 
 const TIER_LABELS = {
-  blind: "Blind",
-  free: "Free Trial",
-  hawk_site: "Hawk Site",
+  free: "Free",
+  hawk_site: "🦅 HawkSite Solo",
+  hawk_site_law: "HawkSite + Hawk Law",
+  hawk_vision: "🚀 HawkVision Pro",
+  hawk_vision_law: "HawkVision + Hawk Law",
+  hawk_command: "Hawk Enterprise",
+  // legacy
   hawkeyes: "Hawkeyes",
-  hawk_sight: "Hawk Sight",
-  hawkeye_20: "Hawkeye 20/20",
   hawkeye_apex: "Hawkeye Apex",
 };
 

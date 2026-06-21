@@ -7,13 +7,19 @@ import { base44 } from "@/api/base44Client";
 // monthly; hawkeye_apex is unlimited. Mirrors server-side quota rules — this is
 // display-only (real enforcement lives in the backend 402).
 export const TIER_CONFIG = {
-  free:             { label: "Free",            limit: 0,        window: "lifetime" },
-  trialing:         { label: "Trial",           limit: 2,        window: "day" },
-  enterprise_trial: { label: "Enterprise Trial",limit: 2,        window: "day" },
-  hawk_site:        { label: "HawkSite",        limit: 15,       window: "month" },
-  hawkeyes:         { label: "Hawkeyes",        limit: 40,       window: "month" },
-  hawkeye_apex:     { label: "Apex",            limit: Infinity, window: "month" },
-  demo:             { label: "Demo",            limit: Infinity, window: "month" },
+  free:             { label: "Free",                  limit: 0,        window: "lifetime" },
+  trialing:         { label: "Trial",                 limit: 2,        window: "day" },
+  enterprise_trial: { label: "Enterprise Trial",      limit: 2,        window: "day" },
+  // Current tiers
+  hawk_site:        { label: "🦅 HawkSite Solo",      limit: 15,       window: "month" },
+  hawk_site_law:    { label: "HawkSite + Hawk Law",   limit: 15,       window: "month" },
+  hawk_vision:      { label: "🚀 HawkVision Pro",     limit: 30,       window: "month" },
+  hawk_vision_law:  { label: "HawkVision + Hawk Law", limit: 30,       window: "month" },
+  hawk_command:     { label: "Hawk Enterprise",       limit: Infinity, window: "month" },
+  // Legacy
+  hawkeyes:         { label: "Hawkeyes",              limit: 40,       window: "month" },
+  hawkeye_apex:     { label: "Apex",                  limit: Infinity, window: "month" },
+  demo:             { label: "Demo",                  limit: Infinity, window: "month" },
 };
 
 function startOfMonthISO() {

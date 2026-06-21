@@ -17,7 +17,7 @@ export const TESTER_EMAILS = [
   "hodges.thomas@gmail.com",
 ];
 
-export const TESTER_TIER = "hawkeye_apex";
+export const TESTER_TIER = "hawk_command";
 
 export function isTester(user) {
   if (!user?.email) return false;
