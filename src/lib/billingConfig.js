@@ -107,6 +107,17 @@ export const GATE_UPGRADE = {
   hawk_law: { free: "hawk_site_law", hawk_site: "hawk_site_law", hawk_vision: "hawk_vision_law" },
   lease_site: { free: "hawk_site", hawk_site: "hawk_vision", hawk_site_law: "hawk_vision_law" },
   carrier_overlay: { free: "hawk_vision", hawk_site: "hawk_vision", hawk_site_law: "hawk_vision_law" },
+  photo_3d: { free: "hawk_vision", hawk_site: "hawk_vision", hawk_site_law: "hawk_vision_law" },
+};
+
+// Daily Google 3D Tiles session quotas per tier
+export const PHOTO_3D_DAILY_QUOTA = {
+  free: 0,
+  hawk_site: 0,
+  hawk_site_law: 0,
+  hawk_vision: 10,
+  hawk_vision_law: 25,
+  hawk_command: Infinity,
 };
 
 export function getTier(tierKey) {
