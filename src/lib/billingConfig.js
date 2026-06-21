@@ -17,10 +17,10 @@ export const TIERS = {
   },
   hawk_site: {
     key: "hawk_site",
-    label: "HawkSite",
-    priceId: "price_1Tkq5CIE4fOP88RJDsmMYlp2",
-    productId: "prod_UkKkQIHnEVoQvI",
-    monthly_usd: 149,
+    label: "🦅 HawkSite Solo",
+    priceId: "price_1TksEIIE4fOP88RJtkkAJpF3",
+    productId: "prod_UkMy9qQRfMCUnw",
+    monthly_usd: 299,
     scip_quota: 15,
     lease_site_cap: 5,
     hawk_law: false,
@@ -41,13 +41,13 @@ export const TIERS = {
   },
   hawk_vision: {
     key: "hawk_vision",
-    label: "HawkVision",
-    priceId: "price_1Tkq5CIE4fOP88RJBjebsjqG",
-    productId: "prod_UkKkM39EXD8N88",
-    monthly_usd: 399,
+    label: "🚀 HawkVision Pro",
+    priceId: "price_1TksEIIE4fOP88RJjMUrsvGG",
+    productId: "prod_UkMy8Le8CgKc4L",
+    monthly_usd: 599,
     scip_quota: 30,
     lease_site_cap: 25,
-    hawk_law: false,
+    hawk_law: true,
     carrier_overlay: true,
     unlimited: false,
   },
@@ -78,18 +78,24 @@ export const TIERS = {
 
 // Map Stripe product IDs → tier keys
 export const PRODUCT_TO_TIER = {
-  "prod_UkKkQIHnEVoQvI": "hawk_site",
+  "prod_UkMy9qQRfMCUnw": "hawk_site",       // HawkSite Solo $299
   "prod_UkKk8vUKlxsTAT": "hawk_site_law",
-  "prod_UkKkM39EXD8N88": "hawk_vision",
+  "prod_UkMy8Le8CgKc4L": "hawk_vision",     // HawkVision Pro $599
   "prod_UkKkhTUH5fUsTo": "hawk_vision_law",
+  // Legacy product IDs (kept for existing subscribers)
+  "prod_UkKkQIHnEVoQvI": "hawk_site",
+  "prod_UkKkM39EXD8N88": "hawk_vision",
 };
 
 // Map Stripe price IDs → tier keys
 export const PRICE_TO_TIER = {
-  "price_1Tkq5CIE4fOP88RJDsmMYlp2": "hawk_site",
+  "price_1TksEIIE4fOP88RJtkkAJpF3": "hawk_site",   // HawkSite Solo $299
+  "price_1TksEIIE4fOP88RJjMUrsvGG": "hawk_vision", // HawkVision Pro $599
   "price_1Tkq5CIE4fOP88RJPztKWgzB": "hawk_site_law",
-  "price_1Tkq5CIE4fOP88RJBjebsjqG": "hawk_vision",
   "price_1Tkq5CIE4fOP88RJGiKdRi82": "hawk_vision_law",
+  // Legacy price IDs (kept for existing subscribers)
+  "price_1Tkq5CIE4fOP88RJDsmMYlp2": "hawk_site",
+  "price_1Tkq5CIE4fOP88RJBjebsjqG": "hawk_vision",
 };
 
 // Upgrade path recommendations: when a user hits a gate, suggest this tier

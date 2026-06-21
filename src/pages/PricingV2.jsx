@@ -1,108 +1,111 @@
 /**
- * PricingV2 — SiteHawk pricing page with Stripe Checkout integration.
- * Replaces /pricing route.
+ * PricingV2 — SiteHawk pricing page.
+ * Three tiers: HawkSite Solo ($299), HawkVision Pro ($599), Hawk Enterprise (custom).
  */
 import { useState } from "react";
-import { CheckCircle2, ArrowRight, Zap, Building2, Scale, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, ArrowRight, Zap, Building2, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TIERS } from "@/lib/billingConfig";
 import { hawkBillingCheckout } from "@/functions/hawkBillingCheckout";
 import HawkCommandContactForm from "@/components/billing/HawkCommandContactForm";
 
-const TIER_CARDS = [
+const PLANS = [
   {
     key: "hawk_site",
+    emoji: "🦅",
+    name: "HawkSite Solo",
+    tagline: "The independent specialist's engine.",
     highlight: false,
     badge: null,
+    ctaLabel: "Start Solo Plan",
+    description: "Everything you need to find the site, hit the owner, and manage your pipeline. Pays for itself the first time you skip a manual zoning hunt.",
     features: [
-      "15 SCIPs per month",
-      "Basic HawkLease (up to 5 lease sites)",
-      "Hawk Infrastructure Vision maps",
-      "SCIP CRM pipeline",
-      "Postcard mailer outreach",
+      "15 SCIPs per month (Site Acquisition Intelligence Reports)",
+      "Basic HawkLease — track up to 5 active lease sites",
+      "Hawk Infrastructure Vision Maps (Viewshed, FEMA, Zoning overlays)",
+      "SCIP CRM Pipeline — track your 14-stage deals seamlessly",
+      "Postcard Mailer Outreach — integrated Lob automation",
     ],
-    missing: ["Hawk Law toolkit", "Carrier overlay records"],
-  },
-  {
-    key: "hawk_site_law",
-    highlight: false,
-    badge: "Adds Hawk Law",
-    features: [
-      "Everything in HawkSite",
-      "Full Hawk Law: triage, review, redline, risk, brief, export",
-      "Unlimited Hawk Law sessions",
+    missing: [
+      "Hawk Law toolkit not included",
     ],
-    missing: ["Carrier overlay records"],
   },
   {
     key: "hawk_vision",
+    emoji: "🚀",
+    name: "HawkVision Pro",
+    tagline: "The heavy-hitting dealmaker's toolkit.",
     highlight: true,
     badge: "Most Popular",
+    ctaLabel: "Upgrade to Pro",
+    description: "For the specialist handling volume and negotiating paper. Bring an AI telecom attorney to the table and cut your redlining time in half.",
     features: [
       "30 SCIPs per month",
-      "Full HawkLease (up to 25 lease sites)",
-      "Carrier overlay records in Comp Library",
-      "All HawkSite features",
-    ],
-    missing: ["Hawk Law toolkit"],
-  },
-  {
-    key: "hawk_vision_law",
-    highlight: false,
-    badge: "Best Value",
-    features: [
-      "Everything in HawkVision",
-      "Full Hawk Law toolkit",
-      "Unlimited Hawk Law sessions",
-      "30 SCIPs + 25 lease sites",
+      "Unlimited Hawk Law Sessions — clause-by-clause triage, redlining & risk briefs",
+      "Full HawkLease — track up to 25 lease sites",
+      "AI Site Renders — show the landowner exactly what the tower will look like",
+      "Carrier Overlay Records in Comp Library",
+      "Includes all HawkSite Solo features",
     ],
     missing: [],
   },
 ];
 
-function TierCard({ card, onSelect, loading }) {
-  const tier = TIERS[card.key];
+function PlanCard({ plan, onSelect, loading }) {
+  const tier = TIERS[plan.key];
   return (
-    <div className={`relative rounded-2xl border bg-card p-6 flex flex-col gap-4 transition-all
-      ${card.highlight ? "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary/30" : "border-border"}`}>
-      {card.badge && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap
-            ${card.highlight ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}>
-            {card.badge}
+    <div className={`relative rounded-2xl border bg-card flex flex-col transition-all
+      ${plan.highlight
+        ? "border-primary shadow-xl shadow-primary/15 ring-2 ring-primary/30"
+        : "border-border shadow-sm"}`}>
+      {plan.badge && (
+        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+          <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-primary text-primary-foreground whitespace-nowrap shadow">
+            {plan.badge}
           </span>
         </div>
       )}
-      <div>
-        <div className="font-heading font-bold text-xl text-foreground">{tier.label}</div>
-        <div className="mt-1 flex items-end gap-1">
-          <span className="text-3xl font-bold text-foreground">${tier.monthly_usd}</span>
-          <span className="text-muted-foreground text-sm mb-1">/month</span>
+
+      {/* Header */}
+      <div className={`p-6 pb-5 rounded-t-2xl ${plan.highlight ? "bg-primary/5" : ""}`}>
+        <div className="text-3xl mb-1">{plan.emoji}</div>
+        <h2 className="font-heading font-bold text-xl text-foreground">{plan.name}</h2>
+        <p className="text-sm text-muted-foreground mt-0.5 mb-3">{plan.tagline}</p>
+        <div className="flex items-end gap-1">
+          <span className="text-4xl font-bold text-foreground">${tier.monthly_usd}</span>
+          <span className="text-muted-foreground text-sm mb-1.5">/ month</span>
         </div>
+        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{plan.description}</p>
       </div>
-      <ul className="space-y-2 flex-1">
-        {card.features.map((f, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+
+      {/* Features */}
+      <div className="px-6 py-5 flex-1 space-y-2.5">
+        {plan.features.map((f, i) => (
+          <div key={i} className="flex items-start gap-2.5 text-sm text-foreground">
             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
             <span>{f}</span>
-          </li>
+          </div>
         ))}
-        {card.missing.map((f, i) => (
-          <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground/50">
-            <span className="w-4 h-4 shrink-0 mt-0.5 text-center">—</span>
+        {plan.missing.map((f, i) => (
+          <div key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground/50">
+            <X className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{f}</span>
-          </li>
+          </div>
         ))}
-      </ul>
-      <Button
-        onClick={() => onSelect(tier.priceId)}
-        disabled={loading === tier.priceId}
-        variant={card.highlight ? "default" : "outline"}
-        className="w-full gap-1"
-      >
-        {loading === tier.priceId ? "Redirecting…" : "Get started"}
-        <ArrowRight className="w-4 h-4" />
-      </Button>
+      </div>
+
+      {/* CTA */}
+      <div className="px-6 pb-6 pt-2">
+        <Button
+          onClick={() => onSelect(tier.priceId)}
+          disabled={loading === tier.priceId}
+          variant={plan.highlight ? "default" : "outline"}
+          className="w-full gap-1.5 h-11 text-sm font-semibold"
+        >
+          {loading === tier.priceId ? "Redirecting…" : plan.ctaLabel}
+          <ArrowRight className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -115,7 +118,7 @@ function FAQItem({ q, a }) {
         <span className="text-sm font-medium text-foreground">{q}</span>
         {open ? <ChevronUp className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />}
       </button>
-      {open && <p className="mt-2 text-sm text-muted-foreground">{a}</p>}
+      {open && <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{a}</p>}
     </div>
   );
 }
@@ -145,7 +148,8 @@ export default function PricingV2() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-4 space-y-16">
+    <div className="max-w-5xl mx-auto py-12 px-4 space-y-16">
+
       {/* Hero */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium">
@@ -158,49 +162,63 @@ export default function PricingV2() {
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
 
-      {/* Tier cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 pt-4">
-        {TIER_CARDS.map(card => (
-          <TierCard key={card.key} card={card} onSelect={handleSelect} loading={loading} />
+      {/* Plan cards — 2 column */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 max-w-3xl mx-auto">
+        {PLANS.map(plan => (
+          <PlanCard key={plan.key} plan={plan} onSelect={handleSelect} loading={loading} />
         ))}
       </div>
 
-      {/* Free Hawk Law triage callout */}
-      <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl px-6 py-5 flex items-start gap-4">
-        <Scale className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
-        <div>
-          <div className="font-semibold text-foreground">Try Hawk Law free — one triage per account</div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Every SiteHawk account gets one complimentary Hawk Law document triage, no credit card required.
-            Upgrade to HawkSite + Hawk Law or HawkVision + Hawk Law for unlimited access.
+      {/* Enterprise block */}
+      <div id="hawk-command" className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="p-8 space-y-2 border-b border-border bg-secondary/30">
+          <div className="flex items-start gap-4">
+            <Building2 className="w-8 h-8 text-primary shrink-0 mt-1" />
+            <div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="font-heading font-bold text-2xl text-foreground">🏢 Hawk Enterprise</h2>
+                <span className="text-xs font-semibold bg-secondary text-muted-foreground px-3 py-1 rounded-full">Custom Pricing</span>
+              </div>
+              <p className="text-muted-foreground mt-1 text-sm">For vendor agencies and regional firms.</p>
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed pt-1">
+            Managing a team of specialists? Get admin-level oversight, compliance tools, and pooled data.
           </p>
         </div>
-      </div>
 
-      {/* HawkCommand */}
-      <div id="hawk-command" className="bg-card border border-border rounded-2xl p-8 space-y-6">
-        <div className="flex items-start gap-4">
-          <Building2 className="w-8 h-8 text-primary shrink-0 mt-1" />
-          <div>
-            <h2 className="font-heading font-bold text-2xl text-foreground">HawkCommand — Enterprise</h2>
-            <p className="text-muted-foreground mt-1">
-              Unlimited SCIPs, unlimited lease sites, full Hawk Law, dedicated support, and custom enterprise features. 
-              Contact us for a quote tailored to your team's volume.
-            </p>
-          </div>
+        {/* Enterprise features */}
+        <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            "Custom SCIP & Lease Volumes — pooled across your entire team",
+            "Team CRM Roll-ups & Analytics",
+            "Hawk Compliance — NEPA / Section 106 screening & Form 620/621 generation",
+            "B2B Marketing Stack — Apollo.io imports & campaign builder",
+            "Dedicated API Access & Support",
+          ].map((f, i) => (
+            <div key={i} className="flex items-start gap-2.5 text-sm text-foreground">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              <span>{f}</span>
+            </div>
+          ))}
         </div>
-        <HawkCommandContactForm />
+
+        <div className="px-8 pb-8">
+          <HawkCommandContactForm />
+        </div>
       </div>
 
       {/* FAQ */}
-      <div className="max-w-2xl mx-auto space-y-0">
+      <div className="max-w-2xl mx-auto">
         <h2 className="font-heading font-bold text-xl text-foreground mb-4">Frequently asked questions</h2>
         <FAQItem q="Can I cancel anytime?" a="Yes. Cancel through the Stripe billing portal at any time. Your access continues until the end of the current billing period." />
-        <FAQItem q="What counts as a SCIP?" a="One SCIP is consumed the first time you run the Zoning & Permitting (generateZoningPermitReport) for a given site location. Re-running the same site does not count again." />
+        <FAQItem q="What counts as a SCIP?" a="One SCIP is consumed the first time you run the Zoning & Permitting analysis for a given site location. Re-running the same site does not count again." />
         <FAQItem q="Can I upgrade mid-month?" a="Yes. Stripe prorates the difference. You'll be charged only for the remaining days on your new plan." />
-        <FAQItem q="What is the free Hawk Law triage?" a="Every account gets one complimentary document triage to try Hawk Law — no subscription needed. After that, a Hawk Law add-on plan is required." />
-        <FAQItem q="Is HawkCommand self-serve?" a="No. HawkCommand is a custom enterprise arrangement. Use the contact form above and we'll reach out within one business day." />
+        <FAQItem q="Does HawkVision Pro include Hawk Law?" a="Yes — HawkVision Pro includes unlimited Hawk Law sessions: triage, clause-by-clause review, redlining, risk briefs, and attorney export packets." />
+        <FAQItem q="Is HawkVision Pro right for me?" a="If you're negotiating leases, dealing with tower vendors, or running volume — yes. The AI lease attorney alone typically saves hours per deal." />
+        <FAQItem q="Is Hawk Enterprise self-serve?" a="No. Hawk Enterprise is a custom arrangement. Use the contact form above and we'll reach out within one business day." />
       </div>
+
     </div>
   );
 }
