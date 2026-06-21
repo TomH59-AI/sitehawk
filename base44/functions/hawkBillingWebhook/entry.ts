@@ -14,10 +14,14 @@ import Stripe from 'npm:stripe@14.21.0';
 
 // Map Stripe price IDs → SiteHawk tier keys
 const PRICE_TO_TIER = {
+  // Current prices
+  "price_1TksEIIE4fOP88RJtkkAJpF3": "hawk_site",      // HawkSite Solo $299
+  "price_1TksEIIE4fOP88RJjMUrsvGG": "hawk_vision",    // HawkVision Pro $599
+  "price_1Tkq5CIE4fOP88RJPztKWgzB": "hawk_site_law",  // HawkSite + Hawk Law $348
+  "price_1Tkq5CIE4fOP88RJGiKdRi82": "hawk_vision_law",// HawkVision + Hawk Law $499
+  // Legacy prices (existing subscribers)
   "price_1Tkq5CIE4fOP88RJDsmMYlp2": "hawk_site",
-  "price_1Tkq5CIE4fOP88RJPztKWgzB": "hawk_site_law",
   "price_1Tkq5CIE4fOP88RJBjebsjqG": "hawk_vision",
-  "price_1Tkq5CIE4fOP88RJGiKdRi82": "hawk_vision_law",
 };
 
 async function resolveUserByCustomer(base44, stripe, customerId) {
