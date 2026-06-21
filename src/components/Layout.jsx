@@ -12,7 +12,6 @@ import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { stripeCheckout } from "@/functions/stripeCheckout";
 import { Button } from "@/components/ui/button";
 
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
@@ -25,6 +24,7 @@ const BASE_NAV = [
   { path: "/hawk-law", icon: Scale, label: "⚖️ Hawk Law" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
+  { path: "/billing", icon: Settings, label: "Billing" },
   { path: "/about", icon: Radio, label: "About" },
 ];
 
@@ -70,12 +70,6 @@ export default function Layout() {
 
   const handleLogout = () => {
     base44.auth.logout();
-  };
-
-  const handleManageSubscription = async () => {
-    const res = await stripeCheckout({ action: "portal" });
-    const data = res.data;
-    if (data?.url) window.location.href = data.url;
   };
 
   if (demoExpired) {
@@ -154,13 +148,13 @@ export default function Layout() {
             {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             {theme === "dark" ? "Light Mode" : "Dark Mode"}
           </button>
-          <button
-            onClick={handleManageSubscription}
+          <Link
+            to="/billing"
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
           >
             <Settings className="w-4 h-4" />
-            Manage Subscription
-          </button>
+            Billing
+          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
@@ -211,10 +205,10 @@ export default function Layout() {
                 </Link>
               );
             })}
-            <button onClick={handleManageSubscription} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground w-full">
+            <Link to="/billing" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground w-full">
               <Settings className="w-4 h-4" />
-              Manage Subscription
-            </button>
+              Billing
+            </Link>
             <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground w-full">
               <LogOut className="w-4 h-4" />
               Sign Out

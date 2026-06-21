@@ -4,6 +4,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Upload, AlertTriangle, CheckCircle2, Scale, Loader2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HAWK_LAW_HEADER } from "../HawkLaw";
+import { useBilling } from "@/lib/useBilling";
+import UpgradeModal from "@/components/billing/UpgradeModal";
 
 const HAWK_LAW_EDGE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/hawk-law";
 const DISCLAIMER_KEY = "hawklaw_disclaimer_acked";
@@ -156,6 +158,9 @@ export default function HawkLawNewAnalysis() {
   const [error, setError] = useState(null);
   const [triageData, setTriageData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
+  const [upgradeModal, setUpgradeModal] = useState(null);
+
+  const { checkHawkLaw, admin, loading: billingLoading } = useBilling();
 
   const handleAck = () => {
     localStorage.setItem(DISCLAIMER_KEY, "1");
@@ -167,6 +172,15 @@ export default function HawkLawNewAnalysis() {
     if (!file) return;
     setError(null);
     setTriageData(null);
+
+    // Gate: free triage preview or full Hawk Law access
+    if (!billingLoading && !admin) {
+      const gate = checkHawkLaw(true);
+      if (!gate.allowed) {
+        setUpgradeModal(gate);
+        return;
+      }
+    }
 
     try {
       // 1. Extract text
@@ -224,6 +238,14 @@ export default function HawkLawNewAnalysis() {
       };
       await base44.entities.HawkLawSession.update(session.id, updatePayload);
 
+      // Mark free triage used if this was the free preview
+      if (!admin && !user?.hawk_law_free_triage_used) {
+        const gate = checkHawkLaw(true);
+        if (gate.isFreePreview) {
+          await base44.auth.updateMe({ hawk_law_free_triage_used: true });
+        }
+      }
+
       setTriageData(data);
       setStatus("done");
     } catch (err) {
@@ -241,6 +263,16 @@ export default function HawkLawNewAnalysis() {
   return (
     <div className="max-w-2xl space-y-6">
       {showDisclaimer && <DisclaimerModal onAck={handleAck} />}
+      {upgradeModal && (
+        <UpgradeModal
+          open={!!upgradeModal}
+          onClose={() => setUpgradeModal(null)}
+          gate={upgradeModal.gate}
+          message={upgradeModal.message}
+          upgradeTo={upgradeModal.upgradeTo}
+          currentTier={upgradeModal.currentTierKey}
+        />
+      )}
 
       {/* Analysis Header */}
       <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-xs text-amber-700 dark:text-amber-400">

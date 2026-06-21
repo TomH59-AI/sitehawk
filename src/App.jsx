@@ -76,6 +76,8 @@ import HawkLeaseSiteDetail from './pages/hawklease/HawkLeaseSiteDetail';
 import HawkLeaseComps from './pages/hawklease/HawkLeaseComps';
 import HawkLeaseReports from './pages/hawklease/HawkLeaseReports';
 import HawkLaw from './pages/HawkLaw';
+import Billing from './pages/Billing';
+import PricingV2 from './pages/PricingV2';
 import HawkLawNewAnalysis from './pages/hawklaw/HawkLawNewAnalysis';
 import HawkLawSessions from './pages/hawklaw/HawkLawSessions';
 import HawkLawSessionDetail from './pages/hawklaw/HawkLawSessionDetail';
@@ -127,7 +129,8 @@ const AuthenticatedApp = () => {
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />
-        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/pricing" element={<PricingV2 />} />
+        <Route path="/billing" element={<Billing />} />
         <Route path="/plans-selection" element={<PlansSelection />} />
         <Route path="/about" element={<About />} />
         <Route path="/terms" element={<Terms />} />

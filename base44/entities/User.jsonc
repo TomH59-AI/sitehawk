@@ -13,10 +13,14 @@
     },
     "tier": {
       "type": "string",
-      "description": "Subscription tier matching the billing quota tiers.",
+      "description": "Subscription tier: hawk_site | hawk_site_law | hawk_vision | hawk_vision_law | hawk_command | free",
       "enum": [
         "free",
         "hawk_site",
+        "hawk_site_law",
+        "hawk_vision",
+        "hawk_vision_law",
+        "hawk_command",
         "hawkeyes",
         "hawkeye_apex",
         "enterprise_trial",
@@ -24,13 +28,40 @@
       ],
       "default": "free"
     },
+    "subscription_status": {
+      "type": "string",
+      "description": "Stripe subscription status",
+      "enum": [
+        "active",
+        "trialing",
+        "past_due",
+        "canceled",
+        "incomplete",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
     "subscription_plan": {
       "type": "string",
-      "description": "Active Stripe subscription plan"
+      "description": "Active Stripe subscription plan label"
     },
     "stripe_customer_id": {
       "type": "string",
       "description": "Stripe customer ID"
+    },
+    "stripe_subscription_id": {
+      "type": "string",
+      "description": "Stripe subscription ID"
+    },
+    "stripe_current_period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO datetime when current billing period ends (next billing date)"
+    },
+    "hawk_law_free_triage_used": {
+      "type": "boolean",
+      "description": "True if the user has used their one lifetime free Hawk Law triage session",
+      "default": false
     },
     "trial_scans_remaining": {
       "type": "number",

@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Link } from "react-router-dom";
-import { Search, Filter } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Search, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useBilling } from "@/lib/useBilling";
+import UpgradeModal from "@/components/billing/UpgradeModal";
 
 const STATUS_OPTS = ["All", "Pre-LOI", "LOI Sent", "LOI Executed", "Drafted", "In Negotiation", "Executed", "Active", "Terminated"];
 const CARRIER_OPTS = ["All", "Verizon", "AT&T", "T-Mobile", "DISH", "Tower_Co", "Other"];
@@ -19,12 +22,16 @@ const statusColors = {
 };
 
 export default function HawkLeaseSites() {
+  const navigate = useNavigate();
   const [sites, setSites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [stateFilter, setStateFilter] = useState("");
   const [carrierFilter, setCarrierFilter] = useState("All");
+  const [upgradeModal, setUpgradeModal] = useState(null);
+
+  const { checkLeaseSiteCap, admin, loading: billingLoading } = useBilling();
 
   useEffect(() => {
     base44.entities.HawkLeaseSite.list("-updated_date", 200).then(data => {
@@ -32,6 +39,17 @@ export default function HawkLeaseSites() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
+
+  const handleNewSite = async () => {
+    if (!billingLoading && !admin) {
+      const gate = await checkLeaseSiteCap(sites.length);
+      if (!gate.allowed) {
+        setUpgradeModal(gate);
+        return;
+      }
+    }
+    navigate("/hawk-lease/sites/new");
+  };
 
   const filtered = sites.filter(s => {
     if (search && !`${s.site_name} ${s.property_address} ${s.city}`.toLowerCase().includes(search.toLowerCase())) return false;
@@ -45,6 +63,16 @@ export default function HawkLeaseSites() {
 
   return (
     <div className="space-y-4">
+      {upgradeModal && (
+        <UpgradeModal
+          open={!!upgradeModal}
+          onClose={() => setUpgradeModal(null)}
+          gate={upgradeModal.gate}
+          message={upgradeModal.message}
+          upgradeTo={upgradeModal.upgradeTo}
+          currentTier={upgradeModal.currentTierKey}
+        />
+      )}
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px]">
@@ -65,6 +93,9 @@ export default function HawkLeaseSites() {
           {CARRIER_OPTS.map(o => <option key={o}>{o}</option>)}
         </select>
         <span className="text-xs text-muted-foreground">{filtered.length} site{filtered.length !== 1 ? "s" : ""}</span>
+        <Button size="sm" onClick={handleNewSite} className="ml-auto gap-1">
+          <Plus className="w-4 h-4" /> New Site
+        </Button>
       </div>
 
       {loading ? (
