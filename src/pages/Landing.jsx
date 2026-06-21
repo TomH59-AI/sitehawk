@@ -38,7 +38,7 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "Hawk Site", price: "$249/mo", desc: "3-day free trial · 15 Search Rings/month · Targets A, B & C included", cta: "Start Free Trial", highlight: false },
+  { name: "🦅 HawkSite Solo", price: "$299/mo", desc: "3-day free trial · 15 SCIPs/month · Targets A, B & C included", cta: "Start Free Trial", highlight: false },
   { name: "Hawkeyes", price: "$599/mo", desc: "3-day free trial · 40 Search Rings/month · 3 seats · PDF & CSV exports", cta: "Start Free Trial", highlight: true },
   { name: "Hawkeye Apex", price: "Contact us", desc: "Unlimited Search Rings · Unlimited seats · Mailer + skip trace", cta: "Contact Sales", highlight: false },
 ];
@@ -148,7 +148,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">3-day free trial · 2 SCIPs/day · Paid plans from $249/mo</p>
+          <p className="text-xs text-white/30 mt-6">3-day free trial · 2 SCIPs/day · Paid plans from $299/mo</p>
 
           <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-[11px] text-white/50">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
@@ -320,7 +320,7 @@ export default function Landing() {
                 View Paid Plans →
               </Link>
             </div>
-            <p className="text-xs text-white/30 mt-5">3-day free trial · 2 SCIPs/day during trial · Plans from $249/mo</p>
+            <p className="text-xs text-white/30 mt-5">3-day free trial · 2 SCIPs/day during trial · Plans from $299/mo</p>
           </div>
         </div>
       </section>
