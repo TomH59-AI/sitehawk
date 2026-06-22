@@ -1,19 +1,22 @@
 /**
- * Photo3DViewer — Photorealistic 3D Tower Site Visualization
+ * Photo3DViewer — Preliminary Tower Siting Exhibit (Photorealistic 3D)
  * Route: /photo-3d-viewer
  *
  * Loads CesiumJS dynamically from CDN, fetches the Google Maps API key
- * server-side via googleTilesSession, then renders the full 3D scene.
+ * server-side via googleTilesSession, renders the full 3D scene with real
+ * GeoJSON siting overlays from TowerSitingRun.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
-import { ArrowLeft, Box, Loader2, AlertTriangle, Download, Mail } from "lucide-react";
+import { ArrowLeft, Box, Loader2, AlertTriangle, Download, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { googleTilesSession } from "@/functions/googleTilesSession";
 import { base44 } from "@/api/base44Client";
 import CesiumPhoto3DViewer from "@/components/photorealistic3d/CesiumPhoto3DViewer";
 import Photo3DEditPanel from "@/components/photorealistic3d/Photo3DEditPanel";
 import CameraControlBar from "@/components/photorealistic3d/CameraControlBar";
+
+const EXHIBIT_DISCLAIMER = "Preliminary Tower Siting Exhibit - NOT final engineering, NOT a stamped survey, and NOT a final zoning determination.";
 
 const CESIUM_VERSION = "1.122";
 const CESIUM_CDN = `https://cesium.com/downloads/cesiumjs/releases/${CESIUM_VERSION}/Build/Cesium`;
@@ -29,19 +32,18 @@ const DEFAULT_PARAMS = {
   bufferFt: 25,
   showBuffer: true,
   showRFRadii: true,
+  showOverlays: true,
 };
 
 function loadCesium(ionToken) {
   return new Promise((resolve, reject) => {
     if (window.Cesium) { resolve(); return; }
 
-    // CSS
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = `${CESIUM_CDN}/Widgets/widgets.css`;
     document.head.appendChild(link);
 
-    // JS
     const script = document.createElement("script");
     script.src = `${CESIUM_CDN}/Cesium.js`;
     script.onload = () => {
@@ -58,15 +60,16 @@ export default function Photo3DViewer() {
   const location = useLocation();
   const routerState = location.state || {};
 
-  // Params passed from TowerSiter via Generate3DPhotoButton
   const initLat = routerState.lat || null;
   const initLon = routerState.lon || null;
   const initControls = routerState.controls || {};
   const parcelAddress = routerState.parcelAddress || null;
-  const landscapeBuffer = routerState.landscapeBuffer || 0; // from ordinance
+  const landscapeBuffer = routerState.landscapeBuffer || 0;
   const ionToken = routerState.ionToken || null;
+  const sitingGeojson = routerState.sitingGeojson || null;
+  const sitingMeta = routerState.sitingMeta || null;
 
-  const [status, setStatus] = useState("loading"); // loading | cesium | ready | error
+  const [status, setStatus] = useState("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [apiKey, setApiKey] = useState(null);
   const [params, setParams] = useState({
@@ -74,18 +77,18 @@ export default function Photo3DViewer() {
     heightFt: initControls.heightFt || 199,
     compoundW: initControls.compoundW || 75,
     compoundD: initControls.compoundD || 75,
+    towerType: initControls.towerType || "monopole",
   });
   const [treeMaturity, setTreeMaturity] = useState("initial");
   const [autoOrbit, setAutoOrbit] = useState(false);
   const [viewerReady, setViewerReady] = useState(false);
-  const viewerRef = useRef(null); // actual Cesium viewer (set from child)
+  const [savingSnapshot, setSavingSnapshot] = useState(false);
   const orbitRef = useRef(null);
 
   useEffect(() => {
     (async () => {
       setStatus("loading");
       try {
-        // 1. Fetch API key server-side (enforces tier quota)
         const res = await googleTilesSession({});
         const data = res?.data;
 
@@ -104,9 +107,6 @@ export default function Photo3DViewer() {
         setApiKey(data.apiKey);
         setStatus("cesium");
 
-        // 2. Load CesiumJS from CDN
-        const cfg = await base44.integrations.Core.InvokeLLM({ prompt: "ping" }).catch(() => null);
-        // get ion token via publicConfig
         const { loadPublicConfig } = await import("@/lib/publicConfig");
         const pubCfg = await loadPublicConfig().catch(() => ({}));
         const cesiumIonToken = pubCfg?.cesiumIonToken || ionToken || "";
@@ -128,8 +128,6 @@ export default function Photo3DViewer() {
     const Cesium = window.Cesium;
     const heightM = (params.heightFt || 199) * 0.3048;
     const lat = initLat, lon = initLon;
-
-    const dist = heightM * 3;
     const pitch = Cesium.Math.toRadians(-65);
 
     const presetMap = {
@@ -146,6 +144,19 @@ export default function Photo3DViewer() {
     viewer.camera.flyTo({ destination: p.dest, orientation: { heading: p.heading, pitch: p.pitch, roll: 0 }, duration: 2 });
   }, [initLat, initLon, params.heightFt]);
 
+  // ── Center Target ──────────────────────────────────────────────────────────
+  const handleCenterTarget = useCallback(() => {
+    const viewer = window.__cesiumViewer__;
+    if (!viewer || !initLat || !initLon) return;
+    const Cesium = window.Cesium;
+    const heightM = (params.heightFt || 199) * 0.3048;
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(initLon - 0.002, initLat - 0.002, heightM * 2.5),
+      orientation: { heading: Cesium.Math.toRadians(45), pitch: Cesium.Math.toRadians(-25), roll: 0 },
+      duration: 2,
+    });
+  }, [initLat, initLon, params.heightFt]);
+
   // ── Auto-orbit ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const viewer = window.__cesiumViewer__;
@@ -155,18 +166,13 @@ export default function Photo3DViewer() {
       let angle = 0;
       const lat = initLat, lon = initLon;
       const heightM = (params.heightFt || 199) * 0.3048;
-      const orbitR = heightM * 3;
       const tick = () => {
         angle += 0.003;
-        const camLon = lon + Math.cos(angle) * orbitR / 111320;
-        const camLat = lat + Math.sin(angle) * orbitR / 110540;
+        const camLon = lon + Math.cos(angle) * heightM * 3 / 111320;
+        const camLat = lat + Math.sin(angle) * heightM * 3 / 110540;
         viewer.camera.setView({
           destination: Cesium.Cartesian3.fromDegrees(camLon, camLat, heightM * 1.8),
-          orientation: {
-            heading: Cesium.Math.toRadians(angle * 180 / Math.PI + 180),
-            pitch: Cesium.Math.toRadians(-30),
-            roll: 0,
-          },
+          orientation: { heading: Cesium.Math.toRadians(angle * 180 / Math.PI + 180), pitch: Cesium.Math.toRadians(-30), roll: 0 },
         });
         orbitRef.current = requestAnimationFrame(tick);
       };
@@ -177,24 +183,65 @@ export default function Photo3DViewer() {
     return () => { if (orbitRef.current) cancelAnimationFrame(orbitRef.current); };
   }, [autoOrbit, initLat, initLon, params.heightFt]);
 
-  // ── Screenshot ─────────────────────────────────────────────────────────────
-  const handleScreenshot = useCallback(() => {
+  // ── Snapshot: upload + optionally persist to TowerVisualization ────────────
+  const handleScreenshot = useCallback(async () => {
     const viewer = window.__cesiumViewer__;
     if (!viewer) return;
-    viewer.render();
-    const canvas = viewer.scene.canvas;
-    const url = canvas.toDataURL("image/png");
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `sitehawk-3d-${Date.now()}.png`;
-    a.click();
-  }, []);
+    setSavingSnapshot(true);
+    try {
+      viewer.render();
+      const canvas = viewer.scene.canvas;
+
+      // Convert canvas → Blob
+      const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+      if (!blob) throw new Error("Canvas toBlob failed");
+
+      // Upload via UploadFile integration
+      const file = new File([blob], `sitehawk-3d-exhibit-${Date.now()}.png`, { type: "image/png" });
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+
+      // Persist URL to TowerVisualization if we have a siting run link
+      // We write to the most-recent TowerVisualization for this run if available
+      if (sitingMeta?.towerSitingRunId) {
+        const vizRecords = await base44.entities.TowerVisualization.filter(
+          { parcel_id: sitingMeta.towerSitingRunId }, "-created_date", 1
+        ).catch(() => []);
+        if (vizRecords?.length > 0) {
+          const viz = vizRecords[0];
+          const existing = Array.isArray(viz.render_image_urls) ? viz.render_image_urls : [];
+          await base44.entities.TowerVisualization.update(viz.id, {
+            render_image_urls: [...existing, file_url],
+          }).catch(() => {});
+        }
+      }
+
+      // Always also trigger browser download as fallback
+      const a = document.createElement("a");
+      a.href = file_url;
+      a.download = `sitehawk-3d-exhibit-${Date.now()}.png`;
+      a.click();
+    } catch (e) {
+      console.error("Snapshot failed:", e);
+      // Fallback: direct canvas download
+      const viewer2 = window.__cesiumViewer__;
+      if (viewer2) {
+        const url = viewer2.scene.canvas.toDataURL("image/png");
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `sitehawk-3d-exhibit-${Date.now()}.png`;
+        a.click();
+      }
+    } finally {
+      setSavingSnapshot(false);
+    }
+  }, [sitingMeta]);
 
   const handleReset = () => setParams({
     ...DEFAULT_PARAMS,
     heightFt: initControls.heightFt || 199,
     compoundW: initControls.compoundW || 75,
     compoundD: initControls.compoundD || 75,
+    towerType: initControls.towerType || "monopole",
   });
 
   if (!initLat || !initLon) {
@@ -212,22 +259,50 @@ export default function Photo3DViewer() {
     <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#0c1422]">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <Link to="/tower-siter">
-            <Button variant="ghost" size="sm" className="gap-1 text-white/60 hover:text-white hover:bg-white/10">
+            <Button variant="ghost" size="sm" className="gap-1 text-white/60 hover:text-white hover:bg-white/10 shrink-0">
               <ArrowLeft className="w-4 h-4" /> Tower Siter
             </Button>
           </Link>
-          <div className="w-px h-5 bg-white/15" />
-          <Box className="w-4 h-4 text-indigo-400" />
-          <span className="font-heading font-bold text-white text-sm">Photorealistic 3D Viewer</span>
-          {parcelAddress && <span className="text-white/40 text-xs hidden md:inline">— {parcelAddress}</span>}
+          <div className="w-px h-5 bg-white/15 shrink-0" />
+          <Box className="w-4 h-4 text-indigo-400 shrink-0" />
+          <div className="min-w-0">
+            <span className="font-heading font-bold text-white text-sm">Preliminary Tower Siting Exhibit</span>
+            {parcelAddress && <span className="text-white/40 text-xs hidden md:inline ml-2">— {parcelAddress}</span>}
+            {sitingMeta?.jurisdictionName && <span className="text-white/30 text-xs hidden lg:inline ml-1">· {sitingMeta.jurisdictionName}</span>}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="border-white/15 text-white/70 hover:bg-white/10 gap-1.5" onClick={handleScreenshot} disabled={!viewerReady}>
-            <Download className="w-3.5 h-3.5" /> PNG
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/15 text-white/70 hover:bg-white/10 gap-1.5"
+            onClick={handleCenterTarget}
+            disabled={!viewerReady}
+            title="Center on tower location"
+          >
+            <Crosshair className="w-3.5 h-3.5" /> Center Target
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-white/15 text-white/70 hover:bg-white/10 gap-1.5"
+            onClick={handleScreenshot}
+            disabled={!viewerReady || savingSnapshot}
+          >
+            {savingSnapshot
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Download className="w-3.5 h-3.5" />
+            }
+            {savingSnapshot ? "Saving…" : "Save Exhibit"}
           </Button>
         </div>
+      </div>
+
+      {/* Disclaimer banner */}
+      <div className="px-4 py-2 bg-amber-900/30 border-b border-amber-500/30 text-[11px] text-amber-300 text-center font-medium tracking-wide">
+        ⚠ {EXHIBIT_DISCLAIMER}
       </div>
 
       {/* Body */}
@@ -247,15 +322,15 @@ export default function Photo3DViewer() {
           {/* 3D canvas area */}
           <div className="flex-1 relative">
             {status === "loading" && (
-              <div className="absolute inset-0 flex items-center justify-center text-white/60 gap-3">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60 gap-3">
                 <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
-                <span>Fetching session credentials…</span>
+                <span className="text-sm">Fetching session credentials…</span>
               </div>
             )}
             {status === "cesium" && (
-              <div className="absolute inset-0 flex items-center justify-center text-white/60 gap-3">
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60 gap-3">
                 <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
-                <span>Loading CesiumJS engine…</span>
+                <span className="text-sm">Loading CesiumJS engine…</span>
               </div>
             )}
             {status === "error" && errorMsg === "upgrade_required" && (
@@ -263,9 +338,9 @@ export default function Photo3DViewer() {
                 <div className="bg-[#0c1422] border border-white/10 rounded-2xl p-8 max-w-sm text-center space-y-4">
                   <Box className="w-10 h-10 text-indigo-400 mx-auto" />
                   <h2 className="font-heading font-bold text-white text-lg">HawkVision Required</h2>
-                  <p className="text-white/60 text-sm">Photorealistic 3D Visualization requires HawkVision ($399/mo) or higher.</p>
+                  <p className="text-white/60 text-sm">Photorealistic 3D Tower Siting Exhibit requires HawkVision Pro or higher.</p>
                   <Link to="/pricing">
-                    <Button className="w-full bg-indigo-600 hover:bg-indigo-500">Upgrade to HawkVision →</Button>
+                    <Button className="w-full bg-indigo-600 hover:bg-indigo-500">Upgrade to HawkVision Pro →</Button>
                   </Link>
                 </div>
               </div>
@@ -276,6 +351,7 @@ export default function Photo3DViewer() {
                   <AlertTriangle className="w-8 h-8 text-red-400 mx-auto" />
                   <p className="text-white font-semibold">Could not load 3D viewer</p>
                   <p className="text-white/50 text-sm">{errorMsg}</p>
+                  <p className="text-white/30 text-xs">Check that your Google Maps API key is configured and has the Map Tiles API enabled.</p>
                 </div>
               </div>
             )}
@@ -286,6 +362,7 @@ export default function Photo3DViewer() {
                 lon={initLon}
                 params={params}
                 treeMaturity={treeMaturity}
+                sitingGeojson={sitingGeojson}
                 onReady={() => setViewerReady(true)}
                 onError={(e) => { setErrorMsg(e); setStatus("error"); }}
               />
@@ -302,11 +379,27 @@ export default function Photo3DViewer() {
             treeMaturity={treeMaturity}
             setTreeMaturity={setTreeMaturity}
             landscapeBuffer={landscapeBuffer}
+            hasSitingOverlays={!!(sitingGeojson?.parcelBoundary || sitingGeojson?.fallZone || sitingGeojson?.compoundGeojson)}
           />
 
-          {/* Attribution */}
-          <div className="mt-6 pt-4 border-t border-white/10 text-[10px] text-white/30 leading-relaxed">
-            Imagery ©Google. Photorealistic 3D Tiles are served via Google Map Tiles API. Tower, compound and landscape models are parametric and for visualization purposes only — not a structural design or survey.
+          {/* Siting metadata */}
+          {sitingMeta && (
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 space-y-1.5 text-[11px] text-white/50">
+              <p className="font-semibold text-white/70 text-xs uppercase tracking-wider mb-2">Siting Summary</p>
+              {sitingMeta.towerHeightFt && <p>Height: <span className="text-white/80">{sitingMeta.towerHeightFt}′ AGL</span></p>}
+              {sitingMeta.resultClass && <p>Result: <span className="text-white/80">{sitingMeta.resultClass.replace(/_/g, " ")}</span></p>}
+              {sitingMeta.feasible != null && (
+                <p>Feasibility: <span className={sitingMeta.feasible ? "text-emerald-400" : "text-red-400"}>
+                  {sitingMeta.feasible ? "✓ Compliant placement found" : "✗ No compliant placement"}
+                </span></p>
+              )}
+            </div>
+          )}
+
+          {/* Attribution + disclaimer */}
+          <div className="mt-4 pt-3 border-t border-white/10 text-[10px] text-white/30 leading-relaxed space-y-2">
+            <p>Imagery ©Google. Photorealistic 3D Tiles via Google Map Tiles API. Tower, compound and overlay geometries are parametric/deterministic — for visualization only.</p>
+            <p className="text-amber-400/60">{EXHIBIT_DISCLAIMER}</p>
           </div>
         </div>
       </div>

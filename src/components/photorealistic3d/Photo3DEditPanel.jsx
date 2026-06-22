@@ -33,7 +33,7 @@ function NumInput({ value, onChange, min, max, step = 1 }) {
   );
 }
 
-export default function Photo3DEditPanel({ params, onChange, onReset, treeMaturity, setTreeMaturity, landscapeBuffer }) {
+export default function Photo3DEditPanel({ params, onChange, onReset, treeMaturity, setTreeMaturity, landscapeBuffer, hasSitingOverlays }) {
   const set = (key) => (val) => onChange({ ...params, [key]: val });
 
   return (
@@ -160,6 +160,24 @@ export default function Photo3DEditPanel({ params, onChange, onReset, treeMaturi
           <label htmlFor="showBuffer" className="text-xs text-white/70">Show tree ring</label>
         </div>
       </div>
+
+      {/* Siting overlays */}
+      {hasSitingOverlays && (
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2">
+          <p className="text-xs font-semibold text-cyan-400/80 uppercase tracking-wider">Siting Overlays</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="showOverlays"
+              checked={params.showOverlays !== false}
+              onChange={e => set("showOverlays")(e.target.checked)}
+              className="accent-cyan-400"
+            />
+            <label htmlFor="showOverlays" className="text-xs text-white/70">Show parcel / fall zone / compound</label>
+          </div>
+          <p className="text-[10px] text-cyan-400/50 leading-relaxed">Layers from TowerSitingRun: parcel boundary (cyan), buildable area (green dashed), compound (blue), fall zone (orange), conflicts (red).</p>
+        </div>
+      )}
 
       {/* RF radii */}
       <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">

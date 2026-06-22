@@ -431,7 +431,27 @@ export default function TowerSiter() {
                 <Save className="w-3.5 h-3.5 mr-1" /> {savingRun ? "Saving…" : "Save Run"}
               </Button>
               <Generate3DImageButton result={result} runId={savedRunId} controls={controls} parcel={parcel} />
-              <GeneratePhoto3DButton result={result} controls={controls} parcel={parcel} rules={rules} />
+              <GeneratePhoto3DButton
+                result={result}
+                controls={controls}
+                parcel={parcel}
+                rules={rules}
+                sitingRun={{
+                  id: savedRunId,
+                  tower_height_ft: Number(controls.heightFt) || 199,
+                  tower_type: "monopole",
+                  compound_width_ft: Number(controls.compoundW) || 75,
+                  compound_depth_ft: Number(controls.compoundD) || 75,
+                  jurisdiction_name: parcel?.jurisdiction || null,
+                  result_class: resultClass || null,
+                  feasible: !result.collapsed,
+                  parcel_geometry: result.parcel?.geometry || null,
+                  candidate_area_geojson: result.envelope?.geometry ? { type: "Feature", geometry: result.envelope.geometry } : null,
+                  compound_geojson: result.compound?.lonLat?.geometry ? { type: "Feature", geometry: result.compound.lonLat.geometry } : null,
+                  fall_zone_geojson: result.checks?.fallZone?.circle?.geometry ? { type: "Feature", geometry: result.checks.fallZone.circle.geometry } : null,
+                  conflict_layers_geojson: null,
+                }}
+              />
               <Button size="sm" variant="outline" className="w-full border-white/15 text-white/70" onClick={sendToScip}
                 disabled={sitingResult && !sitingResult.feasible}>
                 <Send className="w-3.5 h-3.5 mr-1" /> Send to SCIP
