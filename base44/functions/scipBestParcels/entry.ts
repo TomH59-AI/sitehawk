@@ -15,6 +15,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // Returns: { count_scanned, targets: [ {label, ...parcel fields..., score, score_reasons} x3 ] }
 
 const REALIE_URL = "https://app.realie.ai/api/public/property/location/";
+// Regrid/Supabase proxy — broader parcel coverage than Realie alone (especially small towns).
+const REGRID_SUPABASE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
 const FEMA_URL = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query";
 
 // Residential tokens — only CLEAR residential matches; ambiguous codes are NOT residential.
@@ -234,32 +236,88 @@ Deno.serve(async (req) => {
     if (lat == null || lon == null) return Response.json({ error: "lat and lon required" }, { status: 400 });
 
     const apiKey = Deno.env.get("REALIE_API_KEY");
-    if (!apiKey) return Response.json({ error: "REALIE_API_KEY not set" }, { status: 500 });
+    const supabaseKey = Deno.env.get("HAWK_SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
 
     const radius = Math.min(radius_miles, 2.0);
 
-    // Pull both non-residential filtered and unfiltered — merge, dedupe by richest record.
-    // Also expand to 200 results total to cast a wider net.
-    const urls = [
-      `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150&residential=false`,
-      `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150`,
-    ];
-
     const fieldCount = (p) => Object.values(p).filter((v) => v !== null && v !== undefined && v !== "").length;
     const seen = new Map();
-    for (const url of urls) {
-      const r = await fetch(url, { headers: { Authorization: apiKey } });
-      if (!r.ok) { console.error("Realie fetch failed", r.status, url); continue; }
-      const data = await r.json();
-      const items = data.properties || data.results || (Array.isArray(data) ? data : []);
-      for (const p of items) {
-        const apn = pick(p, "apn", "parcelId", "parcel_id", "parcel_number");
-        const key = apn || `${pick(p, "addressRaw", "address", "fullAddress")}|${pick(p, "latitude", "lat")}`;
-        const prev = seen.get(key);
-        if (!prev || fieldCount(p) > fieldCount(prev)) seen.set(key, p);
+
+    // ── SOURCE 1: Realie location search (direct) ──────────────────────────
+    // Realie has strong coverage in metros but can be sparse in small towns.
+    if (apiKey) {
+      const urls = [
+        `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150&residential=false`,
+        `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150`,
+      ];
+      for (const url of urls) {
+        try {
+          const r = await fetch(url, { headers: { Authorization: apiKey } });
+          if (!r.ok) { console.error("Realie fetch failed", r.status); continue; }
+          const data = await r.json();
+          const items = data.properties || data.results || (Array.isArray(data) ? data : []);
+          for (const p of items) {
+            const apn = pick(p, "apn", "parcelId", "parcel_id", "parcel_number");
+            const key = apn || `${pick(p, "addressRaw", "address", "fullAddress")}|${pick(p, "latitude", "lat")}`;
+            const prev = seen.get(key);
+            if (!prev || fieldCount(p) > fieldCount(prev)) seen.set(key, p);
+          }
+        } catch (e) { console.error("Realie fetch error:", e.message); }
       }
+      console.log(`Realie: ${seen.size} parcels`);
     }
-    console.log(`Realie returned ${seen.size} unique parcels in ring`);
+
+    // ── SOURCE 2: Regrid via Supabase proxy ────────────────────────────────
+    // Regrid has broader coverage, especially small towns / rural counties.
+    // Always query it — results are merged and deduped with Realie by APN.
+    if (supabaseKey) {
+      try {
+        const r = await fetch(REGRID_SUPABASE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: supabaseKey },
+          body: JSON.stringify({ mode: "ring", lat, lon, radius_miles: radius }),
+        });
+        if (r.ok) {
+          const data = await r.json();
+          const items = data.parcels || data.properties || data.results || (Array.isArray(data) ? data : []);
+          let regridAdded = 0;
+          for (const p of items) {
+            // Normalize Regrid field names to match Realie's shape so the scorer below works uniformly.
+            const normalized = {
+              apn: p.apn || p.parcel_id || p.parcelId || null,
+              ownerName: p.owner_name || p.ownerName || null,
+              address: p.parcel_address || p.site_address || p.address || null,
+              addressRaw: p.parcel_address || p.site_address || p.address || null,
+              fullAddress: p.parcel_address || p.site_address || p.address || null,
+              acres: p.acreage != null ? p.acreage : (p.acres != null ? p.acres : null),
+              zoningCode: p.land_use || p.zoning || null,
+              landUse: p.land_use || null,
+              useDescription: p.land_use || null,
+              latitude: p.latitude || null,
+              longitude: p.longitude || null,
+              mailerAddress: p.mailing_address || null,
+              mailingCity: null,
+              mailingState: null,
+              mailingZip5: null,
+              county: p.county || null,
+              state: p.state || null,
+              _source: "regrid",
+            };
+            const key = normalized.apn || `${normalized.addressRaw}|${normalized.latitude}`;
+            const prev = seen.get(key);
+            if (!prev || fieldCount(normalized) > fieldCount(prev)) {
+              seen.set(key, normalized);
+              regridAdded++;
+            }
+          }
+          console.log(`Regrid: ${items.length} parcels, ${regridAdded} new/richer`);
+        } else {
+          console.error("Regrid fetch failed", r.status);
+        }
+      } catch (e) { console.error("Regrid fetch error:", e.message); }
+    }
+
+    console.log(`Combined: ${seen.size} unique parcels in ring`);
 
     // ── FALL ZONE: full vs. relief ──────────────────────────────────────────
     const ordFallFt = parseFeet(fall_zone, tower_height_ft);
