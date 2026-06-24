@@ -2,6 +2,11 @@
   "name": "SearchResult",
   "type": "object",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this site candidate (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "search_id": {
       "type": "string",
       "description": "Reference to SearchHistory record"
@@ -326,18 +331,13 @@
   ],
   "rls": {
     "create": {
-      "created_by": "{{user.email}}",
-      "$or": [
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
+      "created_by": "{{user.email}}"
     },
     "read": {
-      "created_by": "{{user.email}}",
       "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
         {
           "user_condition": {
             "role": "admin"
@@ -346,8 +346,10 @@
       ]
     },
     "update": {
-      "created_by": "{{user.email}}",
       "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
         {
           "user_condition": {
             "role": "admin"
@@ -356,8 +358,10 @@
       ]
     },
     "delete": {
-      "created_by": "{{user.email}}",
       "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
         {
           "user_condition": {
             "role": "admin"
