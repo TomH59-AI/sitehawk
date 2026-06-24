@@ -2,6 +2,11 @@
   "name": "RegridUsage",
   "type": "object",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this usage record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "date": {
       "type": "string",
       "description": "UTC date in YYYY-MM-DD format"

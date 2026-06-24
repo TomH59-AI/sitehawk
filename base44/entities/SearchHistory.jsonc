@@ -2,6 +2,11 @@
   "name": "SearchHistory",
   "type": "object",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this search history entry (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "latitude": {
       "type": "number",
       "description": "Search center latitude"

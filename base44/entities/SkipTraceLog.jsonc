@@ -2,6 +2,11 @@
   "name": "SkipTraceLog",
   "type": "object",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this skip trace log entry (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "candidate_id": {
       "type": "string",
       "description": "Linked SearchResult ID"
