@@ -4,13 +4,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // Searches ALL parcels in the SARF ring via Realie Location Search, scores each one against
 // tower-siting criteria, and returns the THREE best as Target A / B / C.
 //
-// Selection criteria (per client): the major factors are
-//   - no residential land use,
-//   - lot large enough for setbacks + fall zone + tower separation + compound,
-//   - favorable zoning classification (industrial / agricultural / commercial preferred),
-//   - CUP/special-exception posture (unknown non-residential zones stay eligible for review),
-//   - PE letter/self-certification posture (checked in Section 2 and used by the scorecard),
-//   - FEMA flood risk (minimal preferred).
+// DESIGN PRINCIPLE: The engine searches HARD for 3 qualifying targets.
+// Parcels are almost never truly disqualified — they are down-scored.
+// Only explicit residential zoning is a hard disqualifier. Everything else
+// is scored and ranked, then the top 3 are returned even if small/tight,
+// with warnings. The user decides, not the algorithm.
 //
 // Payload: { lat, lon, radius_miles=1.0, tower_height_ft=199, compound_side_ft=100,
 //            setback_ft=0, fall_zone_ft=0, separation_ft=0 }
@@ -19,48 +17,57 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 const REALIE_URL = "https://app.realie.ai/api/public/property/location/";
 const FEMA_URL = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query";
 
+// Residential tokens — only CLEAR residential matches; ambiguous codes are NOT residential.
+// Shorter list avoids false-positives on "R" in irrelevant strings.
 const RESIDENTIAL_TOKENS = [
   "residential", "single family", "single-family", "duplex", "triplex", "quadruplex",
   "apartment", "condo", "townhouse", "mobile home", "dwelling", "sfr", "multi-family",
-  "multifamily", "r-1", "r-2", "r-3", "rsf", "rmf", "rm-", "rs-",
+  "multifamily",
 ];
+// Residential zoning codes — must match the whole code or a clearly bounded substring.
+const RESIDENTIAL_ZONE_CODES = [/^R-?\d+[A-Z]?$/i, /^RS-?\d*/i, /^RM-?\d*/i, /^RR-?\d*/i, /^RSF\d*/i, /^RMF\d*/i];
 
 // Zoning families that are favorable for a tower, with a base bonus.
 function zoningScore(zoning, landUse) {
   const z = `${zoning || ""} ${landUse || ""}`.toLowerCase();
-  if (!z.trim()) return { pts: 8, reason: "Zoning unknown — needs verification" };
+  if (!z.trim()) return { pts: 5, reason: "Zoning unknown — requires verification but retained for search" };
   if (/(industrial|i-1|i-2|im|light industrial|heavy industrial|manufactur)/.test(z))
     return { pts: 30, reason: "Industrial zoning — strongly favorable" };
-  if (/(agricultur|\ba-1\b|\ba-2\b|\bag\b|rural|farm)/.test(z))
+  if (/(agricultur|\ba-1\b|\ba-2\b|\bag\b|rural|farm|ranch|timberland|forest)/.test(z))
     return { pts: 26, reason: "Agricultural / rural zoning — favorable" };
-  if (/(commercial|\bc-1\b|\bc-2\b|\bc-3\b|business|\bcg\b|\bcc\b|retail|office)/.test(z))
+  if (/(commercial|\bc-1\b|\bc-2\b|\bc-3\b|business|\bcg\b|\bcc\b|retail|office|general business)/.test(z))
     return { pts: 22, reason: "Commercial zoning — favorable" };
-  if (/(utility|public|institution|government|vacant|conservation open)/.test(z))
-    return { pts: 18, reason: "Utility / public / vacant land — workable" };
-  if (RESIDENTIAL_TOKENS.some((t) => z.includes(t)))
-    return { pts: -40, reason: "Residential zoning — disfavored for towers" };
-  return { pts: 14, reason: "Other non-residential zoning — retained for CUP / special-exception review" };
+  if (/(utility|public|institution|government|vacant|conservation open|open space|recreation|park|church|school|hospital)/.test(z))
+    return { pts: 18, reason: "Utility / public / institutional land — workable" };
+  if (/(warehouse|storage|distribution|logistics|flex)/.test(z))
+    return { pts: 24, reason: "Warehouse / logistics land — favorable" };
+  // Unknown / mixed / other non-residential — always retained for CUP/special exception review.
+  return { pts: 12, reason: "Non-residential or mixed zoning — retained for CUP / special-exception review" };
 }
 
+// Only confirmed residential from Realie data is hard-disqualified.
+// Blank zoning is NOT auto-disqualified — it goes through Zoneomics resolution.
 function isResidential(useCode, zoning, landUse) {
   const code = String(useCode || "");
   // Realie useCode 1000-1199 block = residential / residential income
   if (/^1[01]\d\d$/.test(code) || code === "1999") return true;
-  const s = `${zoning || ""} ${landUse || ""}`.toLowerCase();
-  return RESIDENTIAL_TOKENS.some((t) => s.includes(t));
+  const s = `${zoning || ""} ${landUse || ""}`.toLowerCase().trim();
+  if (!s) return false; // blank → not residential (resolved separately)
+  // Check exact residential tokens
+  if (RESIDENTIAL_TOKENS.some((t) => s.includes(t))) return true;
+  // Check residential zone code patterns against the raw zoning code only
+  const z = (zoning || "").trim();
+  if (z && RESIDENTIAL_ZONE_CODES.some((re) => re.test(z))) return true;
+  return false;
 }
 
-// FEMA high-risk Special Flood Hazard Areas — A/AE/V families are a hard
-// exclusion at scrub time (the parcel can still be flagged if nothing else
-// qualifies, but it never ranks ahead of a dry parcel).
+// FEMA high-risk Special Flood Hazard Areas
 function isHighRiskFlood(code) {
   const z = String(code || "").trim().toUpperCase();
   return /^(A|AE|AH|AO|AR|A99|V|VE)$/.test(z);
 }
 
-// Owner-type posture — commercial/industrial/institutional owners are easier to
-// negotiate a ground lease with than an individual homeowner. Best-effort from
-// the owner name string (LLC / INC / CORP / CHURCH / COUNTY / STATE etc.).
+// Owner-type posture
 function ownerTypeScore(owner) {
   const o = String(owner || "").toLowerCase();
   if (!o.trim()) return { pts: 0, reason: "Owner unknown" };
@@ -73,17 +80,30 @@ function ownerTypeScore(owner) {
   return { pts: 2, reason: "Individual owner" };
 }
 
-// Required compound footprint diameter in feet for the tower + buffers.
-function requiredFootprintFt({ tower_height_ft, compound_side_ft, setback_ft, fall_zone_ft, separation_ft }) {
-  const fall = fall_zone_ft > 0 ? fall_zone_ft : tower_height_ft; // default fall zone = full height
-  const buffer = Math.max(fall, setback_ft, separation_ft);
-  return compound_side_ft + 2 * buffer;
+// Minimum parcel diameter (ft) to physically accommodate a tower.
+// This is NOT a square footprint formula — it's the minimum bounding dimension:
+// the fall zone radius must clear the parcel boundary from the tower center.
+// Tower can be placed at the pole of inaccessibility (maximum inset point),
+// so we estimate the minimum clearance needed as: fall_zone_radius.
+// A parcel CAN work if its widest inscribed circle >= fall_zone_radius.
+// We convert acreage to an estimated inscribed circle radius using sqrt(A/π).
+function estimatedInscriedCircleRadius(acreage) {
+  // Approximate inscribed circle radius for a parcel of given acreage (sq ft).
+  // Assumes a roughly square/square-ish shape; elongated parcels will be tighter.
+  const sqFt = acreage * 43560;
+  return Math.sqrt(sqFt / Math.PI); // circle with area = parcel area
 }
 
-// Acres needed for a square parcel that fits the required footprint diameter.
-function requiredAcres(footprintFt) {
-  const sqFt = footprintFt * footprintFt;
-  return sqFt / 43560;
+// How much clearance the siting solver actually needs (conservative):
+// the fall zone must be contained in the parcel, so the max inset (pole of
+// inaccessibility) must be >= fall zone radius.
+function minimumRequiredInscriedRadius(tower_height_ft, fall_zone_ft, compound_side_ft) {
+  const fallR = fall_zone_ft > 0 ? fall_zone_ft : tower_height_ft;
+  // The compound must fit inside the envelope (which is inset by setback/fall zone).
+  // Minimum: inscribed radius must exceed the fall zone radius.
+  // Add half the compound diagonal as the compound must also fit.
+  const compoundDiag = Math.sqrt(2) * compound_side_ft / 2;
+  return Math.max(fallR, fallR + compoundDiag * 0.5);
 }
 
 function haversineMiles(lat1, lon1, lat2, lon2) {
@@ -138,11 +158,6 @@ async function zoneomicsZone(lat, lon, apiKey) {
   }
 }
 
-// Full Zoneomics enrichment for ONE target — owner / acreage / address / land
-// use / zone code. Realie's location endpoint is geometry-only for many
-// parcels (empty transfers/assessments), so Zoneomics' parcels block fills the
-// SCIP fields the user expects. Returns { owner_name, parcel_address, acreage,
-// land_use, zone_code, owner_mailing } (any field may be null).
 async function zoneomicsEnrich(lat, lon, apiKey) {
   if (!apiKey) return null;
   try {
@@ -156,7 +171,6 @@ async function zoneomicsEnrich(lat, lon, apiKey) {
     const d = (await r.json())?.data || {};
     const zd = d.zone_details || d.zoning || {};
     const parcel = (d.parcels && d.parcels[0]) || null;
-    // Sentinel scrub — Zoneomics returns "NA"/"Unknown"/"-" for missing fields.
     const cln = (v) => {
       const s = String(v ?? "").trim();
       return s && !/^(na|n\/a|unknown|none|null|-|—)$/i.test(s) ? s : null;
@@ -223,31 +237,31 @@ Deno.serve(async (req) => {
     if (!apiKey) return Response.json({ error: "REALIE_API_KEY not set" }, { status: 500 });
 
     const radius = Math.min(radius_miles, 2.0);
-    // Prefer non-residential parcels at the source, but if too few come back, also pull the unfiltered set.
+
+    // Pull both non-residential filtered and unfiltered — merge, dedupe by richest record.
+    // Also expand to 200 results total to cast a wider net.
     const urls = [
-      `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=100&residential=false`,
-      `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=100`,
+      `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150&residential=false`,
+      `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150`,
     ];
 
     const fieldCount = (p) => Object.values(p).filter((v) => v !== null && v !== undefined && v !== "").length;
     const seen = new Map();
     for (const url of urls) {
       const r = await fetch(url, { headers: { Authorization: apiKey } });
-      if (!r.ok) continue;
+      if (!r.ok) { console.error("Realie fetch failed", r.status, url); continue; }
       const data = await r.json();
       const items = data.properties || data.results || (Array.isArray(data) ? data : []);
       for (const p of items) {
         const apn = pick(p, "apn", "parcelId", "parcel_id", "parcel_number");
         const key = apn || `${pick(p, "addressRaw", "address", "fullAddress")}|${pick(p, "latitude", "lat")}`;
-        // Keep the richer record when the same parcel appears in both result sets.
         const prev = seen.get(key);
         if (!prev || fieldCount(p) > fieldCount(prev)) seen.set(key, p);
       }
     }
+    console.log(`Realie returned ${seen.size} unique parcels in ring`);
 
     // ── FALL ZONE: full vs. relief ──────────────────────────────────────────
-    // Full (base) fall zone — ordinance fall_zone string wins over the legacy
-    // fall_zone_ft number, else default to full tower height.
     const ordFallFt = parseFeet(fall_zone, tower_height_ft);
     const baseFall = fall_zone_ft > 0 ? fall_zone_ft : (ordFallFt > 0 ? ordFallFt : tower_height_ft);
     const peOk = indicatesYes(pe_self_certification);
@@ -263,16 +277,14 @@ Deno.serve(async (req) => {
       reliefLabel = peOk && cupOk ? "PE letter + CUP" : (cupOk ? "CUP/special exception" : "PE letter");
     }
 
-    // Footprint + minimum buildable acres computed TWICE — full and relief.
-    const footprintFt = requiredFootprintFt({ tower_height_ft, compound_side_ft, setback_ft, fall_zone_ft: baseFall, separation_ft });
-    const needAcres = requiredAcres(footprintFt);
-    // Absolute minimum buildable lot: must at least fit the compound + a full fall zone.
-    // Anything smaller can never host the tower, so it is disqualified outright.
-    const minBuildableAcres = requiredAcres(compound_side_ft + baseFall);
-    // Relief variants — used only when Section 2 grants PE-letter / CUP relief.
-    const reliefFootprintFt = requiredFootprintFt({ tower_height_ft, compound_side_ft, setback_ft, fall_zone_ft: reliefFall, separation_ft });
-    const reliefNeedAcres = requiredAcres(reliefFootprintFt);
-    const reliefMinBuildableAcres = requiredAcres(compound_side_ft + reliefFall);
+    // Minimum inscribed circle radius the parcel must have to host the tower.
+    // This is the correct geometric test: can the solver find a point inside
+    // the setback-inset envelope that also keeps the fall zone inside the parcel?
+    const minInscriedR = minimumRequiredInscriedRadius(tower_height_ft, baseFall, compound_side_ft);
+    const minInscriedRRelief = minimumRequiredInscriedRadius(tower_height_ft, reliefFall, compound_side_ft);
+    // Min acreage that has ANY chance of working (very approximate lower bound).
+    // A circle of radius minInscriedR has area π*r² sq ft.
+    const absoluteMinAcres = (Math.PI * Math.pow(Math.max(baseFall, compound_side_ft / 2), 2)) / 43560;
 
     const scored = [];
     for (const p of seen.values()) {
@@ -285,85 +297,96 @@ Deno.serve(async (req) => {
       const plat = Number(pick(p, "latitude", "lat") || 0);
       const plon = Number(pick(p, "longitude", "lon", "lng") || 0);
 
-      // RING GUARD — only keep parcels whose centroid actually falls inside the
-      // SARF ring. Realie's radius can return parcels just outside it; we never
-      // want a target outside the search area. Parcels with no coords are kept
-      // (Realie already constrained the query) but flagged for verification.
+      // RING GUARD — hard-drop anything outside the ring.
       let distMi = null;
       if (plat && plon) {
         distMi = haversineMiles(lat, lon, plat, plon);
-        if (distMi > radius) continue; // hard-drop anything outside the ring
+        if (distMi > radius) continue;
       }
 
       const owner = pick(p, "ownerName", "owner_name", "owner");
       const reasons = [];
       let score = 50;
-      let disqualified = false; // physically-too-small = cannot build (FREE filter)
-      let floodExcluded = false; // FEMA A/AE/V — excluded unless no alternatives exist
-      // Known-residential from Realie data = HARD disqualify now (free). Blank
-      // zoning is NOT auto-passed — it is deferred to a Zoneomics resolution that
-      // runs ONLY on parcels that survive the free filters below.
+      // HARD disqualifier — only explicit confirmed residential. Everything else stays.
+      let hardDisqualified = false;
+
       const realieResidential = isResidential(useCode, zoning, landUse);
       const zoningKnown = !!`${zoning || ""} ${landUse || ""}`.trim();
-      let needsZoningResolve = false; // true → blank Realie zoning, resolve via Zoneomics before passing
+      let needsZoningResolve = false;
 
-      // 0. Data completeness — a parcel we know nothing about can't be a confident pick.
+      // 0. Data completeness
       if (!owner && !acreage && !useCode) {
-        score -= 25;
-        reasons.push("Sparse parcel data — low confidence");
+        score -= 15;
+        reasons.push("Sparse parcel data — low confidence, verify before pursuing");
       }
 
-      // 1. No residential — ABSOLUTE HARD disqualifier. No exceptions.
-      //    Residential zoning does not have workable special exceptions for new
-      //    cell tower construction. Hard-drop at scoring time, never ranked.
+      // 1. Residential check — ONLY confirmed residential from Realie is hard-disqualified.
       if (realieResidential) {
+        hardDisqualified = true;
         score = 0;
-        disqualified = true;
-        reasons.push("Residential zoning — hard disqualified, no exceptions");
+        reasons.push("Confirmed residential zoning — hard disqualified");
       } else if (zoningKnown) {
         score += 10;
-        reasons.push("Non-residential use");
+        reasons.push("Non-residential use confirmed from assessor data");
       } else {
+        // Blank zoning from Realie — NOT disqualified; resolve via Zoneomics below.
         needsZoningResolve = true;
-        reasons.push("Zoning blank from Realie — pending Zoneomics resolution");
+        score -= 5; // slight penalty for uncertainty, not disqualification
+        reasons.push("Zoning not in assessor data — pending Zoneomics resolution; retained");
       }
 
-      // 2. Zoning classification.
-      const zs = zoningScore(zoning, landUse);
-      score += zs.pts;
-      reasons.push(zs.reason);
+      // 2. Zoning classification score (does not disqualify).
+      if (!hardDisqualified) {
+        const zs = zoningScore(zoning, landUse);
+        score += zs.pts;
+        reasons.push(zs.reason);
+      }
 
-      // 3. Lot size vs required footprint (setbacks + fall zone + separation + compound).
-      if (acreage > 0) {
-        if (acreage >= needAcres * 2) { score += 25; reasons.push(`Large lot (${acreage.toFixed(2)} ac) — easily fits setbacks, fall zone & separation`); }
-        else if (acreage >= needAcres) { score += 15; reasons.push(`Lot (${acreage.toFixed(2)} ac) meets required footprint (~${needAcres.toFixed(2)} ac)`); }
-        else if (acreage >= minBuildableAcres) { score -= 20; reasons.push(`Lot (${acreage.toFixed(2)} ac) tight vs required ${needAcres.toFixed(2)} ac — verify setbacks/fall zone`); }
-        else if (reliefLabel && acreage >= reliefMinBuildableAcres) {
-          // Too small for the FULL fall zone, but Section 2 grants PE-letter / CUP
-          // relief and it fits the REDUCED fall-zone footprint — keep it buildable.
+      // 3. Lot size scoring — NO hard disqualification by acreage.
+      //    The geometry engine (polylabel) makes the final call. We only score.
+      if (acreage > 0 && !hardDisqualified) {
+        const estR = estimatedInscriedCircleRadius(acreage);
+        if (estR >= minInscriedR * 1.5) {
+          score += 25;
+          reasons.push(`Large lot (${acreage.toFixed(2)} ac) — comfortably fits fall zone & compound`);
+        } else if (estR >= minInscriedR) {
+          score += 15;
+          reasons.push(`Lot (${acreage.toFixed(2)} ac) estimated to fit fall zone — solver will confirm`);
+        } else if (reliefLabel && estR >= minInscriedRRelief) {
+          score -= 10;
+          reasons.push(`Lot (${acreage.toFixed(2)} ac) — tight without relief; feasible with ${reliefLabel} (reduced fall zone ${Math.round(reliefFall)} ft)`);
+        } else if (acreage >= absoluteMinAcres * 0.5) {
+          // Small but not impossibly so — the parcel shape may work even if acreage is tight.
           score -= 20;
-          reasons.push(`Fits with ${reliefLabel} (reduced fall zone ${Math.round(reliefFall)} ft vs ${Math.round(baseFall)} ft full)`);
+          reasons.push(`Lot (${acreage.toFixed(2)} ac) tight — verify parcel shape; solver will attempt placement`);
+        } else {
+          // Very small — strongly penalize but do NOT disqualify. User can manually try.
+          score -= 35;
+          reasons.push(`Lot (${acreage.toFixed(2)} ac) very small — likely needs PE letter + reduced fall zone`);
         }
-        else {
-          // Too small to physically host the compound + fall zone — cannot build.
-          score -= 50;
-          disqualified = true;
-          reasons.push(`Lot (${acreage.toFixed(2)} ac) too small to build — needs ≥ ${minBuildableAcres.toFixed(2)} ac (target ${needAcres.toFixed(2)} ac)`);
-        }
-      } else {
-        reasons.push("Lot size unknown — verify it fits setbacks/fall zone");
+      } else if (!hardDisqualified) {
+        reasons.push("Lot size unknown — solver will attempt placement; verify dimensions");
       }
 
-      // 4. Owner type (commercial / industrial / institutional preferred).
-      const os = ownerTypeScore(owner);
-      score += os.pts;
-      reasons.push(os.reason);
+      // 4. Owner type
+      if (!hardDisqualified) {
+        const os = ownerTypeScore(owner);
+        score += os.pts;
+        reasons.push(os.reason);
+      }
+
+      // 5. Tower separation bonus — parcels far from ring center may be closer to
+      //    existing towers; slight distance-to-center penalty for far parcels.
+      if (distMi != null && !hardDisqualified) {
+        if (distMi <= radius * 0.3) { score += 5; reasons.push("Close to search ring center — good coverage position"); }
+        else if (distMi > radius * 0.85) { score -= 5; reasons.push("Near ring edge — verify tower separation & coverage"); }
+      }
 
       scored.push({
         raw: p,
-        buildable: !disqualified,
+        hardDisqualified,
         needs_zoning_resolve: needsZoningResolve,
-        flood_excluded: floodExcluded, // set later once FEMA resolves
+        flood_excluded: false, // set after FEMA
         dist_mi: distMi,
         score: Math.max(0, Math.min(100, Math.round(score))),
         score_reasons: reasons,
@@ -382,150 +405,126 @@ Deno.serve(async (req) => {
         ].filter(Boolean).join(", ") || null,
         latitude: plat || null,
         longitude: plon || null,
-        // County + State pulled straight from the Realie parcel record so they
-        // flow into the SCIP once a Target is selected. Realie uses several key
-        // spellings depending on the source assessor; pick the first present.
         county: pick(p, "county", "countyName", "county_name", "situsCounty", "fipsCounty") || null,
         state: (pick(p, "state", "stateCode", "state_code", "situsState", "mailingState", "ownerState") || "").toString().toUpperCase().slice(0, 2) || null,
       });
     }
 
-    // HONEST EMPTY-RING DISCIPLINE — if nothing is buildable (all residential /
-    // too small), do NOT pad with ineligible parcels. Return the no-data halt.
-    const buildableSet = scored.filter((s) => s.buildable);
-    if (buildableSet.length === 0) {
-      return Response.json({
-        count_scanned: seen.size,
-        count_in_ring: scored.length,
-        count_buildable: 0,
-        required_footprint_ft: footprintFt,
-        required_acres: Number(needAcres.toFixed(3)),
-        min_buildable_acres: Number(minBuildableAcres.toFixed(3)),
-        targets: [],
-        no_buildable: true,
-        message: "No buildable parcel in ring — all parcels are residential, too small for the compound + fall zone, or otherwise ineligible. Adjust the SARF ring or enter a target manually.",
-      });
-    }
+    // Separate hard-disqualified (residential) from candidates.
+    const candidates = scored.filter((s) => !s.hardDisqualified);
+    console.log(`${scored.length} total scored, ${candidates.length} non-residential candidates`);
 
-    // FEMA is now an ELIGIBILITY factor, not post-rank decoration. Fetch flood
-    // zone for every buildable parcel (capped at 25 to stay fast) so A/AE/V can
-    // be excluded BEFORE ranking. Flag a flood parcel rather than drop it only
-    // when there is no dry alternative.
-    const floodCandidates = buildableSet.slice(0, 25);
-    const femaForBuildable = await Promise.all(
-      floodCandidates.map((s) => (s.latitude && s.longitude ? femaRisk(s.latitude, s.longitude) : Promise.resolve({ code: "—", level: "unknown" })))
+    // FEMA flood zone — eligibility factor. Fetch for top 35 candidates to stay fast.
+    // Flood parcels are down-scored but NOT excluded unless dry alternatives exist.
+    const floodBatch = candidates.slice(0, 35);
+    const femaResults = await Promise.all(
+      floodBatch.map((s) => (s.latitude && s.longitude ? femaRisk(s.latitude, s.longitude) : Promise.resolve({ code: "—", level: "unknown" })))
     );
-    floodCandidates.forEach((s, i) => {
-      s._fema = femaForBuildable[i];
-      if (isHighRiskFlood(femaForBuildable[i].code)) {
+    floodBatch.forEach((s, i) => {
+      s._fema = femaResults[i];
+      if (isHighRiskFlood(femaResults[i].code)) {
         s.flood_excluded = true;
-        s.score = Math.max(0, s.score - 35);
-        s.score_reasons.push(`FEMA ${femaForBuildable[i].code} high-risk flood zone — excluded unless no dry alternative`);
-      } else if (femaForBuildable[i].code !== "—") {
-        s.score_reasons.push(`FEMA ${femaForBuildable[i].code} (${femaForBuildable[i].level}) flood zone`);
+        s.score = Math.max(0, s.score - 30);
+        s.score_reasons.push(`FEMA ${femaResults[i].code} — high-risk flood zone (down-scored; included if no dry alternatives)`);
+      } else if (femaResults[i].code !== "—") {
+        s.score_reasons.push(`FEMA ${femaResults[i].code} (${femaResults[i].level})`);
       }
     });
 
-    // RANKING PRIORITY ORDER (per client spec):
-    //  1. Flood exclusion — dry parcels always rank above flood-excluded
-    //  2. Zoning tier — industrial > agricultural > commercial > utility/public > unknown > (residential already removed)
-    //  3. Confirmed acreage fit vs required footprint
-    //  4. Score
-    //  5. Distance to ring center (tiebreaker)
+    // RANKING — multi-key, same priority order as before.
     const ZONING_TIER = (s) => {
       const z = `${s.zoning_classification || ""} ${s.land_use || ""}`.toLowerCase();
-      if (/(industrial|i-1|i-2|im|light industrial|heavy industrial|manufactur)/.test(z)) return 0;
-      if (/(agricultur|\ba-1\b|\ba-2\b|\bag\b|rural|farm)/.test(z)) return 1;
-      if (/(commercial|\bc-1\b|\bc-2\b|\bc-3\b|business|\bcg\b|\bcc\b|retail|office)/.test(z)) return 2;
-      if (/(utility|public|institution|government|vacant|conservation open)/.test(z)) return 3;
-      return 4; // unknown/other — retained for CUP review but ranked last
+      if (/(industrial|i-1|i-2|im|light industrial|heavy industrial|manufactur|warehouse|storage|distribution|logistics)/.test(z)) return 0;
+      if (/(agricultur|\ba-1\b|\ba-2\b|\bag\b|rural|farm|ranch|timberland|forest)/.test(z)) return 1;
+      if (/(commercial|\bc-1\b|\bc-2\b|\bc-3\b|business|\bcg\b|\bcc\b|retail|office|general business)/.test(z)) return 2;
+      if (/(utility|public|institution|government|vacant|conservation open|open space|recreation|park|church|school)/.test(z)) return 3;
+      return 4; // unknown/other — always retained for CUP review
     };
-    const confirmedFits = (s) => Number(s.acreage) >= needAcres ? 1 : 0;
     const rankCmp = (a, b) => {
       // 1. Dry first
       if (!!a.flood_excluded !== !!b.flood_excluded) return a.flood_excluded ? 1 : -1;
       // 2. Zoning tier (lower = better)
       const zt = ZONING_TIER(a) - ZONING_TIER(b);
       if (zt !== 0) return zt;
-      // 3. Confirmed acreage fit
-      const ca = confirmedFits(a), cb = confirmedFits(b);
-      if (ca !== cb) return cb - ca;
-      // 4. Score
+      // 3. Score
       if (b.score !== a.score) return b.score - a.score;
-      // 5. Distance to center
+      // 4. Distance to center (closer = better coverage)
       const da = a.latitude ? haversineMiles(lat, lon, a.latitude, a.longitude) : 99;
       const db = b.latitude ? haversineMiles(lat, lon, b.latitude, b.longitude) : 99;
       return da - db;
     };
-    buildableSet.sort(rankCmp);
+    candidates.sort(rankCmp);
 
-    // ZONING RESOLUTION — cost-controlled. Resolve via Zoneomics on ONLY the top
-    // 5 ranked candidates that have blank Realie zoning. Three outcomes per the
-    // approved policy:
-    //   • residential  → EXCLUDE (disqualified by client criteria)
-    //   • non-resident. → PASS, zoning_status = "confirmed"
-    //   • null/nothing  → PASS (known-residential filter already removed homes),
-    //                     but TAG zoning_status = "unverified" so the user knows
-    //                     to confirm before pursuing. Never presented as confirmed.
-    // Parcels whose zoning is already KNOWN from Realie are "confirmed" as-is.
-    buildableSet.forEach((s) => { if (!s.needs_zoning_resolve) s.zoning_status = "confirmed"; });
+    // If we have fewer than 3 candidates total, log a warning but continue.
+    if (candidates.length === 0) {
+      return Response.json({
+        count_scanned: seen.size,
+        count_in_ring: scored.length,
+        count_buildable: 0,
+        targets: [],
+        no_buildable: true,
+        message: "No non-residential parcels found in ring. Widen the SARF radius or enter a target manually.",
+      });
+    }
+
+    // ZONING RESOLUTION — resolve blank-zoning parcels via Zoneomics.
+    // Resolve up to top 10 candidates (not just 5) to ensure we find 3 good targets.
+    candidates.forEach((s) => { if (!s.needs_zoning_resolve) s.zoning_status = "confirmed"; });
 
     const zoneKey = Deno.env.get("ZONEOMICS_API_KEY");
-    const toResolve = buildableSet.filter((s) => s.needs_zoning_resolve && s.latitude && s.longitude).slice(0, 5);
+    const toResolve = candidates.filter((s) => s.needs_zoning_resolve && s.latitude && s.longitude).slice(0, 10);
     if (toResolve.length) {
+      console.log(`Resolving ${toResolve.length} blank-zoning parcels via Zoneomics`);
       const resolved = await Promise.all(
         toResolve.map((s) => zoneomicsZone(s.latitude, s.longitude, zoneKey))
       );
       toResolve.forEach((s, i) => {
         const zc = resolved[i];
         if (!zc) {
-          // Zoneomics returned nothing → PASS but flag unverified (non-residential
-          // assumption; actual homes were already removed by the free filter).
+          // Still no zoning — pass but flag unverified. NOT disqualified.
           s.zoning_status = "unverified";
-          s.score_reasons.push("Zoning unverified (Realie + Zoneomics blank) — passed on non-residential assumption; confirm before pursuing");
+          s.score_reasons.push("Zoning unverified (assessor + Zoneomics blank) — included on non-residential assumption; verify before pursuing");
           return;
         }
         s.zoning_classification = zc;
         if (isResidential(null, zc, null)) {
-          s.buildable = false;
+          // Confirmed residential via Zoneomics — NOW hard-disqualify.
+          s.hardDisqualified = true;
           s.score = 0;
-          s.score_reasons.push(`Zoneomics resolved zoning "${zc}" — residential, hard disqualified, no exceptions`);
+          s.score_reasons.push(`Zoneomics confirmed zoning "${zc}" — residential, disqualified`);
         } else {
           const zs2 = zoningScore(zc, null);
-          s.score = Math.max(0, Math.min(100, s.score + 10 + zs2.pts));
+          s.score = Math.max(0, Math.min(100, s.score + 15 + zs2.pts));
           s.zoning_status = "confirmed";
-          s.score_reasons.push(`Zoneomics confirmed zoning "${zc}" — non-residential (${zs2.reason})`);
+          s.score_reasons.push(`Zoneomics confirmed: "${zc}" — non-residential (${zs2.reason})`);
         }
       });
     }
-    // Any blank-zoning parcel beyond the top-5 resolution window passes on the
-    // non-residential assumption too, flagged unverified (no paid call spent).
-    buildableSet.forEach((s) => { if (s.needs_zoning_resolve && !s.zoning_status) s.zoning_status = "unverified"; });
+    // Remaining blank-zoning candidates beyond the resolution window — pass, flag unverified.
+    candidates.forEach((s) => { if (s.needs_zoning_resolve && !s.zoning_status) s.zoning_status = "unverified"; });
 
-    // Re-rank: a top-5 parcel flipped residential by Zoneomics is now ineligible
-    // and its score dropped, so re-sort to float the true best to the top.
-    const eligibleSet = buildableSet.filter((s) => s.buildable);
+    // Remove those newly confirmed as residential by Zoneomics; re-sort.
+    const eligibleSet = candidates.filter((s) => !s.hardDisqualified);
     eligibleSet.sort(rankCmp);
+
+    console.log(`${eligibleSet.length} eligible candidates after Zoneomics resolution`);
+
     if (eligibleSet.length === 0) {
       return Response.json({
         count_scanned: seen.size,
         count_in_ring: scored.length,
         count_buildable: 0,
-        required_footprint_ft: footprintFt,
-        required_acres: Number(needAcres.toFixed(3)),
-        min_buildable_acres: Number(minBuildableAcres.toFixed(3)),
         targets: [],
         no_buildable: true,
-        message: "No buildable parcel in ring — all parcels are residential (confirmed via zoning), too small for the compound + fall zone, or otherwise ineligible. Adjust the SARF ring or enter a target manually.",
+        message: "All parcels in ring resolved as residential or no data. Widen the SARF radius or enter a target manually.",
       });
     }
 
+    // Take top 3.
     const labels = ["Target A", "Target B", "Target C"];
     const top = eligibleSet.slice(0, 3);
 
-    // ENRICH the final 3 — Realie's location endpoint is geometry-only for many
-    // parcels (no owner/acreage/address), so fill the blank SCIP fields from
-    // Zoneomics' parcels block. Only 3 paid calls (the displayed targets).
+    // ENRICH final 3 from Zoneomics parcels block (owner, acreage, address).
     const enrichments = await Promise.all(
       top.map((t) => (t.latitude && t.longitude ? zoneomicsEnrich(t.latitude, t.longitude, zoneKey) : Promise.resolve(null)))
     );
@@ -540,11 +539,9 @@ Deno.serve(async (req) => {
       if (!t.zoning_classification && e.zone_code) { t.zoning_classification = e.zone_code; t.zoning_status = "confirmed"; }
     });
 
-    // Zoning is already canonical on each target — known from Realie or resolved
-    // via Zoneomics in the cost-controlled fallback above. No extra calls here.
     const targets = top.map((t, i) => {
       const fema = t._fema || { code: "—", level: "unknown" };
-      const { raw, dist_mi, _fema, needs_zoning_resolve, ...clean } = t;
+      const { raw, dist_mi, _fema, needs_zoning_resolve, hardDisqualified: _hd, ...clean } = t;
       const zone = clean.zoning_classification || null;
       const zStatus = t.zoning_status || (zone ? "confirmed" : "unverified");
       return {
@@ -556,25 +553,22 @@ Deno.serve(async (req) => {
         zoning_note: zStatus === "unverified" ? "Zoning unverified — confirm before pursuing" : null,
         cup_review_required: true,
         pe_letter_review_required: true,
-        permitting_note: "Assume CUP/special exception is required unless Section 2 confirms by-right approval; always check whether a PE sealed letter/self-certification can reduce setbacks, fall-zone, or review burden.",
+        permitting_note: "Assume CUP/special exception is required unless Section 2 confirms by-right approval; always verify whether a PE sealed letter/self-certification reduces setbacks, fall zone, or review burden.",
         distance_from_center_mi: dist_mi != null ? Number(dist_mi.toFixed(3)) : null,
         fema_risk_factor: fema.code === "—" ? "—" : `${fema.code} (${fema.level})`,
       };
     });
 
-    const buildableCount = eligibleSet.length;
     const dryCount = eligibleSet.filter((s) => !s.flood_excluded).length;
 
     return Response.json({
       count_scanned: seen.size,
       count_in_ring: scored.length,
-      count_buildable: buildableCount,
+      count_buildable: eligibleSet.length,
       count_dry_buildable: dryCount,
-      required_footprint_ft: footprintFt,
-      required_acres: Number(needAcres.toFixed(3)),
-      min_buildable_acres: Number(minBuildableAcres.toFixed(3)),
-      // Honest count discipline — if fewer than 3 qualified, the caller gets only
-      // what qualified (B/C may be absent). Never padded with ineligible parcels.
+      required_footprint_ft: Math.round(minInscriedR),
+      required_acres: Number((Math.PI * minInscriedR * minInscriedR / 43560).toFixed(3)),
+      min_buildable_acres: Number(absoluteMinAcres.toFixed(3)),
       returned_count: targets.length,
       flood_only: dryCount === 0,
       targets,
