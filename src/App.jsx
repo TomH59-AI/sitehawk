@@ -76,6 +76,7 @@ import HawkLeaseSites from './pages/hawklease/HawkLeaseSites';
 import HawkLeaseSiteDetail from './pages/hawklease/HawkLeaseSiteDetail';
 import HawkLeaseComps from './pages/hawklease/HawkLeaseComps';
 import HawkLeaseReports from './pages/hawklease/HawkLeaseReports';
+import HawkFill from './pages/HawkFill';
 import HawkLaw from './pages/HawkLaw';
 import Billing from './pages/Billing';
 import PricingV2 from './pages/PricingV2';
@@ -151,6 +152,7 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id" element={<ScipDetail />} />
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
+        <Route path="/hawk-fill" element={<HawkFill />} />
         <Route path="/hawk-tracker" element={<HawkTracker />} />
         {/* HawkPerch — feature_tower_siter ships dark: route exists, no nav link */}
         <Route path="/tower-siter" element={<TowerSiter />} />
