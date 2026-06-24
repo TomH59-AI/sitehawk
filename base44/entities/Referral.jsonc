@@ -2,6 +2,11 @@
   "name": "Referral",
   "type": "object",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this referral (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "referrer_email": {
       "type": "string",
       "description": "Email of the user who created the referral link"
@@ -39,25 +44,11 @@
     "referral_code"
   ],
   "rls": {
-    "create": {
-      "$or": [
-        {
-          "referrer_email": "{{user.email}}"
-        },
-        {
-          "user_condition": {
-            "role": "admin"
-          }
-        }
-      ]
-    },
+    "create": true,
     "read": {
       "$or": [
         {
-          "referrer_email": "{{user.email}}"
-        },
-        {
-          "referred_email": "{{user.email}}"
+          "created_by": "{{user.email}}"
         },
         {
           "user_condition": {
@@ -69,7 +60,7 @@
     "update": {
       "$or": [
         {
-          "referrer_email": "{{user.email}}"
+          "created_by": "{{user.email}}"
         },
         {
           "user_condition": {
@@ -81,7 +72,7 @@
     "delete": {
       "$or": [
         {
-          "referrer_email": "{{user.email}}"
+          "created_by": "{{user.email}}"
         },
         {
           "user_condition": {
