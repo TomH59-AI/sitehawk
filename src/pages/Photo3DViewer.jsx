@@ -27,8 +27,8 @@ const DEFAULT_VIEWER_PARAMS = {
   towerType: "monopole",
   heightFt: 199,
   showMicrowave: false,
-  compoundW: 75,
-  compoundD: 75,
+  compoundW: 100,
+  compoundD: 100,
   showGenerator: true,
   showIceBridge: true,
   bufferFt: 25,
@@ -101,13 +101,10 @@ function hydrateFromRun(run) {
   };
 }
 
-/** Validate that we have at least a center lat/lon + some geometry */
+/** Validate that we have at least a center lat/lon — geometry is optional */
 function hasValidGeometry(viewerData) {
   if (!viewerData) return false;
-  if (!viewerData.lat || !viewerData.lon) return false;
-  const g = viewerData.sitingGeojson;
-  if (!g) return false;
-  return !!(g.parcelBoundary || g.compoundGeojson || g.fallZone || g.candidateArea);
+  return !!(viewerData.lat && viewerData.lon);
 }
 
 export default function Photo3DViewer() {
@@ -188,6 +185,7 @@ export default function Photo3DViewer() {
   const [cesiumStatus, setCesiumStatus] = useState("idle"); // idle | loading | cesium | ready | error
   const [tilesError, setTilesError] = useState(null); // non-fatal tile warning
   const [apiKey, setApiKey] = useState(null);
+  const [ionToken, setIonToken] = useState("");
   const [viewerReady, setViewerReady] = useState(false);
   const [savingSnapshot, setSavingSnapshot] = useState(false);
   const [treeMaturity, setTreeMaturity] = useState("initial");
@@ -223,7 +221,8 @@ export default function Photo3DViewer() {
         setCesiumStatus("cesium");
         const { loadPublicConfig } = await import("@/lib/publicConfig");
         const pubCfg = await loadPublicConfig().catch(() => ({}));
-        const cesiumIonToken = pubCfg?.cesiumIonToken || viewerData?.ionToken || "";
+        const cesiumIonToken = pubCfg?.cesiumIonToken || "";
+        setIonToken(cesiumIonToken);
         await loadCesium(cesiumIonToken);
         setCesiumStatus("ready");
       } catch (e) {
@@ -522,6 +521,7 @@ export default function Photo3DViewer() {
             {cesiumStatus === "ready" && (
               <CesiumPhoto3DViewer
                 apiKey={apiKey}
+                ionToken={ionToken}
                 lat={initLat}
                 lon={initLon}
                 params={viewerParams}
@@ -530,8 +530,7 @@ export default function Photo3DViewer() {
                 onReady={() => setViewerReady(true)}
                 onError={(e) => {
                   console.warn("[Photo3DViewer] CesiumPhoto3DViewer error:", e);
-                  setTilesError(e);
-                  // Don't hard-error — show warning banner, keep globe visible
+                  setTilesError(typeof e === "string" ? e : e?.message || "Viewer error");
                 }}
               />
             )}
