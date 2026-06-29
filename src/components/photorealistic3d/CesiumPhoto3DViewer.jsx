@@ -77,6 +77,38 @@ function makeLabelCanvas(text, bgColor = "rgba(0,0,0,0.72)", textColor = "#fffff
   return canvas;
 }
 
+/**
+ * Drone-style auto-framing. Builds a bounding sphere over the parcel + tower
+ * apex and flies the camera to fit it on ANY parcel size.
+ *   FLOOR   = towerM * 1.5  (closer than this clips the tower top)
+ *   CEILING = sphereRadius * 4 (farther than this softens the 3D tiles)
+ */
+function frameSweetSpot(viewer, Cesium, { lon, lat, towerM, parcelRings, isLandowner }) {
+  const pts = [];
+  // parcel ring points
+  (parcelRings || []).forEach(ring => ring.forEach(p => pts.push(p)));
+  // tower base + apex
+  pts.push(Cesium.Cartesian3.fromDegrees(lon, lat, 0));
+  pts.push(Cesium.Cartesian3.fromDegrees(lon, lat, towerM));
+  if (pts.length < 2) return false;
+
+  const sphere = Cesium.BoundingSphere.fromPoints(pts);
+  const margin = isLandowner ? 1.15 : 1.35;
+  const FLOOR = towerM * 1.5;
+  const CEILING = sphere.radius * 4;
+  let range = sphere.radius * 2.4 * margin;
+  range = Math.max(FLOOR, Math.min(CEILING, range));
+
+  const heading = Cesium.Math.toRadians(isLandowner ? 35 : 45);
+  const pitch = Cesium.Math.toRadians(isLandowner ? -15 : -55);
+
+  viewer.camera.flyToBoundingSphere(sphere, {
+    offset: new Cesium.HeadingPitchRange(heading, pitch, range),
+    duration: 2.2,
+  });
+  return true;
+}
+
 export default function CesiumPhoto3DViewer({
   apiKey,
   ionToken,
@@ -289,9 +321,13 @@ export default function CesiumPhoto3DViewer({
 
     // ── 2. Tower shaft ────────────────────────────────────────────────────────
     const bottomRadius = towerType === "self_support" ? 1.5 : towerType === "guyed" ? 0.6 : 0.4;
+    // Landowner mode: tower recedes into the scene ("becomes furniture").
+    const towerColor = isLandowner
+      ? Cesium.Color.fromCssColorString("#9aa6b2").withAlpha(0.55)
+      : Cesium.Color.fromCssColorString("#8899aa");
     add(viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(lon, lat, heightM / 2),
-      cylinder: { length: heightM, topRadius: 0.3, bottomRadius, material: Cesium.Color.fromCssColorString("#8899aa") },
+      cylinder: { length: heightM, topRadius: 0.3, bottomRadius, material: towerColor },
     }));
 
     // Sector antennas
@@ -402,9 +438,13 @@ export default function CesiumPhoto3DViewer({
     if (!isLandowner) addLabel(`Security Compound  ${params.compoundW || 100}′ × ${params.compoundD || 100}′`, lon, lat - halfDLat - latDeg * 4, 2, "rgba(80,120,200,0.85)");
 
     // ── 4. Landscape tree buffer ──────────────────────────────────────────────
-    if (params.showBuffer && bufferM > 0) {
-      const halfW = compoundWM / 2 + bufferM;
-      const halfD = compoundDM / 2 + bufferM;
+    // Landowner mode always gets a mature screen — it's the core of the
+    // "furniture" sell. Site plan only draws trees when a buffer is configured.
+    const drawBuffer = (params.showBuffer && bufferM > 0) || isLandowner;
+    const effBufferM = bufferM > 0 ? bufferM : (isLandowner ? 25 * FT_TO_M : 0);
+    if (drawBuffer && effBufferM > 0) {
+      const halfW = compoundWM / 2 + effBufferM;
+      const halfD = compoundDM / 2 + effBufferM;
       const treePts = [];
       for (let x = -halfW; x <= halfW; x += treeH * 0.9) {
         treePts.push([lon + x * lonDeg, lat + halfD * latDeg]);
@@ -420,9 +460,9 @@ export default function CesiumPhoto3DViewer({
           cylinder: { length: treeH, topRadius: 0, bottomRadius: treeH * 0.35, material: Cesium.Color.fromCssColorString("#2d5a27cc") },
         }));
       });
-      addLabel(
+      if (!isLandowner) addLabel(
         `Landscape Buffer  ${params.bufferFt}′ (${treeMaturity === "mature" ? "5-yr maturity" : "initial planting"})`,
-        lon + (compoundWM / 2 + bufferM + 2) * lonDeg, lat, treeH + 2,
+        lon + (compoundWM / 2 + effBufferM + 2) * lonDeg, lat, treeH + 2,
         "rgba(30,80,30,0.85)", "#a8f0a8"
       );
     }
@@ -452,28 +492,34 @@ export default function CesiumPhoto3DViewer({
 
   useEffect(() => { redrawScene(); }, [redrawScene]);
 
-  // ─── Initial hero camera — cinematic for landowner, overhead for site plan ───
+  // ─── Initial camera — drone auto-framing, fits any parcel size ───────────────
   useEffect(() => {
     if (!viewerRef.current || !lat || !lon) return;
     const Cesium = window.Cesium;
     if (!Cesium) return;
     const heightM = (params.heightFt || 199) * FT_TO_M;
-    if (isLandowner) {
-      // Low cinematic angle — ground-level hero shot
+    const parcelRings = sitingGeojson?.parcelBoundary
+      ? geojsonRingToCartesian(sitingGeojson.parcelBoundary, Cesium, 0.5)
+      : [];
+    const framed = frameSweetSpot(viewerRef.current, Cesium, {
+      lon, lat, towerM: heightM, parcelRings, isLandowner,
+    });
+    // Fallback if no parcel geometry (sphere can't be built from < 2 pts)
+    if (!framed) {
       viewerRef.current.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(lon - 0.0025, lat - 0.0015, heightM * 0.6),
-        orientation: { heading: Cesium.Math.toRadians(35), pitch: Cesium.Math.toRadians(-15), roll: 0 },
-        duration: 2.5,
-      });
-    } else {
-      // High angle — site plan overview showing all overlays
-      viewerRef.current.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(lon - 0.002, lat - 0.002, heightM * 3.5),
-        orientation: { heading: Cesium.Math.toRadians(45), pitch: Cesium.Math.toRadians(-55), roll: 0 },
-        duration: 2,
+        destination: Cesium.Cartesian3.fromDegrees(
+          lon - 0.0025, lat - 0.0015,
+          heightM * (isLandowner ? 0.6 : 3.5)
+        ),
+        orientation: {
+          heading: Cesium.Math.toRadians(isLandowner ? 35 : 45),
+          pitch: Cesium.Math.toRadians(isLandowner ? -15 : -55),
+          roll: 0,
+        },
+        duration: 2.2,
       });
     }
-  }, [lat, lon, params.heightFt, isLandowner]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lat, lon, params.heightFt, isLandowner, sitingGeojson]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={containerRef} className="w-full h-full" style={{ minHeight: 500 }} />;
 }
