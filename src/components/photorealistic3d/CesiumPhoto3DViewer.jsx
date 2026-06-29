@@ -488,7 +488,7 @@ export default function CesiumPhoto3DViewer({
         addLabel(label, lon + rm * lonDeg, lat, 3, color.slice(0, 7) + "cc", "#fff8e0");
       });
     }
-  }, [params, treeMaturity, lat, lon, sitingGeojson]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [params, treeMaturity, lat, lon, sitingGeojson, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { redrawScene(); }, [redrawScene]);
 
@@ -519,7 +519,7 @@ export default function CesiumPhoto3DViewer({
         duration: 2.2,
       });
     }
-  }, [lat, lon, params.heightFt, isLandowner, sitingGeojson]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lat, lon, params.heightFt, viewMode, sitingGeojson]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={containerRef} className="w-full h-full" style={{ minHeight: 500 }} />;
 }
