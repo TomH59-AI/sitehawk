@@ -189,6 +189,7 @@ export default function Photo3DViewer() {
   const [viewerReady, setViewerReady] = useState(false);
   const [savingSnapshot, setSavingSnapshot] = useState(false);
   const [treeMaturity, setTreeMaturity] = useState("initial");
+  const [viewMode, setViewMode] = useState("landowner"); // "landowner" | "siteplan"
   const [autoOrbit, setAutoOrbit] = useState(false);
   const orbitRef = useRef(null);
 
@@ -433,6 +434,20 @@ export default function Photo3DViewer() {
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <div className="flex rounded-lg border border-white/15 overflow-hidden text-xs shrink-0">
+            <button
+              onClick={() => setViewMode("landowner")}
+              className={`px-3 py-1.5 transition-colors ${viewMode === "landowner" ? "bg-indigo-600 text-white" : "text-white/50 hover:bg-white/10"}`}
+            >
+              Landowner View
+            </button>
+            <button
+              onClick={() => setViewMode("siteplan")}
+              className={`px-3 py-1.5 transition-colors ${viewMode === "siteplan" ? "bg-indigo-600 text-white" : "text-white/50 hover:bg-white/10"}`}
+            >
+              Site Plan View
+            </button>
+          </div>
           <Button
             size="sm" variant="outline"
             className="border-white/15 text-white/70 hover:bg-white/10 gap-1.5"
@@ -525,7 +540,8 @@ export default function Photo3DViewer() {
                 lat={initLat}
                 lon={initLon}
                 params={viewerParams}
-                treeMaturity={treeMaturity}
+                treeMaturity={viewMode === "landowner" ? "mature" : treeMaturity}
+                viewMode={viewMode}
                 sitingGeojson={sitingGeojson}
                 onReady={() => setViewerReady(true)}
                 onError={(e) => {

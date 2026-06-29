@@ -84,10 +84,12 @@ export default function CesiumPhoto3DViewer({
   lon,
   params,
   treeMaturity,
+  viewMode = "siteplan", // "landowner" | "siteplan"
   sitingGeojson,
   onReady,
   onError,
 }) {
+  const isLandowner = viewMode === "landowner";
   const containerRef = useRef(null);
   const viewerRef = useRef(null);
   const entitiesRef = useRef([]);
@@ -194,8 +196,8 @@ export default function CesiumPhoto3DViewer({
       }));
     };
 
-    // ── 1. GeoJSON siting overlays with labels ────────────────────────────────
-    if (params.showOverlays !== false && sitingGeojson) {
+    // ── 1. GeoJSON siting overlays with labels (site plan only) ──────────────
+    if (!isLandowner && params.showOverlays !== false && sitingGeojson) {
 
       // Parcel boundary — cyan
       if (sitingGeojson.parcelBoundary) {
@@ -339,8 +341,8 @@ export default function CesiumPhoto3DViewer({
       }));
     }
 
-    // Tower apex label
-    addLabel(
+    // Tower apex label (site plan only)
+    if (!isLandowner) addLabel(
       `${towerType.charAt(0).toUpperCase() + towerType.slice(1)}  ${heightFt}′ AGL`,
       lon + lonDeg * 3, lat, heightM + 5,
       "rgba(30,30,50,0.88)", "#e0eaff"
@@ -365,14 +367,14 @@ export default function CesiumPhoto3DViewer({
       position: Cesium.Cartesian3.fromDegrees(shelterLon, shelterLat, 2),
       box: { dimensions: new Cesium.Cartesian3(10 * FT_TO_M, 12 * FT_TO_M, 4 * FT_TO_M), material: Cesium.Color.fromCssColorString("#778899") },
     }));
-    addLabel("Equipment Shelter", shelterLon, shelterLat, 5.5, "rgba(60,80,110,0.85)");
+    if (!isLandowner) addLabel("Equipment Shelter", shelterLon, shelterLat, 5.5, "rgba(60,80,110,0.85)");
 
     if (params.showGenerator) {
       add(viewer.entities.add({
         position: Cesium.Cartesian3.fromDegrees(lon - halfWLon * 0.5, lat - halfDLat * 0.5, 0.5),
         box: { dimensions: new Cesium.Cartesian3(2, 1, 1.5), material: Cesium.Color.fromCssColorString("#556677") },
       }));
-      addLabel("Generator", lon - halfWLon * 0.5, lat - halfDLat * 0.5, 3.5, "rgba(50,70,100,0.8)");
+      if (!isLandowner) addLabel("Generator", lon - halfWLon * 0.5, lat - halfDLat * 0.5, 3.5, "rgba(50,70,100,0.8)");
     }
 
     if (params.showIceBridge) {
@@ -396,8 +398,8 @@ export default function CesiumPhoto3DViewer({
         width: 2, material: Cesium.Color.fromCssColorString("#aaaaaa99"),
       },
     }));
-    // Compound access label at the bottom fence edge
-    addLabel(`Security Compound  ${params.compoundW || 100}′ × ${params.compoundD || 100}′`, lon, lat - halfDLat - latDeg * 4, 2, "rgba(80,120,200,0.85)");
+    // Compound access label (site plan only)
+    if (!isLandowner) addLabel(`Security Compound  ${params.compoundW || 100}′ × ${params.compoundD || 100}′`, lon, lat - halfDLat - latDeg * 4, 2, "rgba(80,120,200,0.85)");
 
     // ── 4. Landscape tree buffer ──────────────────────────────────────────────
     if (params.showBuffer && bufferM > 0) {
@@ -450,18 +452,28 @@ export default function CesiumPhoto3DViewer({
 
   useEffect(() => { redrawScene(); }, [redrawScene]);
 
-  // ─── Initial hero camera ──────────────────────────────────────────────────────
+  // ─── Initial hero camera — cinematic for landowner, overhead for site plan ───
   useEffect(() => {
     if (!viewerRef.current || !lat || !lon) return;
     const Cesium = window.Cesium;
     if (!Cesium) return;
     const heightM = (params.heightFt || 199) * FT_TO_M;
-    viewerRef.current.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(lon - 0.002, lat - 0.002, heightM * 2.5),
-      orientation: { heading: Cesium.Math.toRadians(45), pitch: Cesium.Math.toRadians(-25), roll: 0 },
-      duration: 2,
-    });
-  }, [lat, lon, params.heightFt]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isLandowner) {
+      // Low cinematic angle — ground-level hero shot
+      viewerRef.current.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(lon - 0.0025, lat - 0.0015, heightM * 0.6),
+        orientation: { heading: Cesium.Math.toRadians(35), pitch: Cesium.Math.toRadians(-15), roll: 0 },
+        duration: 2.5,
+      });
+    } else {
+      // High angle — site plan overview showing all overlays
+      viewerRef.current.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(lon - 0.002, lat - 0.002, heightM * 3.5),
+        orientation: { heading: Cesium.Math.toRadians(45), pitch: Cesium.Math.toRadians(-55), roll: 0 },
+        duration: 2,
+      });
+    }
+  }, [lat, lon, params.heightFt, isLandowner]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={containerRef} className="w-full h-full" style={{ minHeight: 500 }} />;
 }
