@@ -69,7 +69,7 @@ function loadScript(src) {
 
 let mapboxLoadingPromise = null;
 async function ensureMapboxLoaded() {
-  if (window.mapboxgl) return;
+  if (window.mapboxgl?.Map) return;
   if (!mapboxLoadingPromise) {
     mapboxLoadingPromise = (async () => {
       let lastErr;
@@ -77,7 +77,7 @@ async function ensureMapboxLoaded() {
         try {
           injectCss(src.css);
           await loadScript(src.js);
-          if (window.mapboxgl) return;
+          if (window.mapboxgl?.Map) return;
         } catch (e) {
           lastErr = e;
         }
@@ -86,7 +86,10 @@ async function ensureMapboxLoaded() {
       throw lastErr || new Error("Failed to load Mapbox GL JS");
     })();
   }
-  await mapboxLoadingPromise;
+  return mapboxLoadingPromise.catch((e) => {
+    mapboxLoadingPromise = null; // reset on failure so next attempt retries
+    throw e;
+  });
 }
 
 async function resolveToken() {
@@ -192,7 +195,7 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
       } catch (e) {
         return fail(e?.message || "Failed to load Mapbox GL JS — check your network.");
       }
-      if (cancelled || !containerRef.current || !window.mapboxgl) return;
+      if (cancelled || !containerRef.current || !window.mapboxgl?.Map) return;
 
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
 
