@@ -9,7 +9,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  */
 
 const ADMIN_INBOX   = 'tom@sitehawk.com';
-const FROM_DEFAULT  = 'SiteHawk <hello@sitehawk.com>';
+const FROM_DEFAULT  = 'SiteHawk <hello@site-hawk-pro.com>';
 const HAWK_LOGO     = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/skywave-hawk.png';
 
 function esc(s) {
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'subject and body are required' }, { status: 400 });
     }
 
-    const fromAddress = from_label ? `${from_label} <hello@sitehawk.com>` : FROM_DEFAULT;
+    const fromAddress = from_label ? `${from_label} <hello@site-hawk-pro.com>` : FROM_DEFAULT;
 
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',

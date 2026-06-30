@@ -21,7 +21,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  *            trigger notification-type emails (e.g. contact forms).
  */
 
-const FROM_DEFAULT  = 'SiteHawk <hello@sitehawk.com>';
+const FROM_DEFAULT  = 'SiteHawk <hello@site-hawk-pro.com>';
 const ADMIN_INBOX   = 'tom@sitehawk.com';
 const HAWK_LOGO     = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/skywave-hawk.png';
 
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Forbidden: only admins can send marketing or transactional emails' }, { status: 403 });
     }
 
-    const fromAddress = from_name ? `${from_name} <hello@sitehawk.com>` : FROM_DEFAULT;
+    const fromAddress = from_name ? `${from_name} <hello@site-hawk-pro.com>` : FROM_DEFAULT;
     const recipients  = Array.isArray(to) ? to : [to];
 
     const resendRes = await fetch('https://api.resend.com/emails', {
