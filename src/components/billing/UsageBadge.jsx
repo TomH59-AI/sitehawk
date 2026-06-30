@@ -16,7 +16,7 @@ export default function UsageBadge({ className = "" }) {
   const attention = isFree && depleted;
 
   let text;
-  if (unlimited) text = `${label} · Unlimited Rings`;
+  if (unlimited) text = `${label} · Corporate Account`;
   else if (window === "lifetime") text = `${label} · ${remaining} Ring${remaining === 1 ? "" : "s"} left`;
   else text = `${label} · ${used} of ${limit} Rings this month`;
 
