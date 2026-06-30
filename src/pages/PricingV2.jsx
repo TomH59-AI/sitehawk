@@ -162,21 +162,14 @@ export default function PricingV2() {
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>
 
-      {/* Plan cards — 2 column */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 max-w-3xl mx-auto">
-        {PLANS.map(plan => (
-          <PlanCard key={plan.key} plan={plan} onSelect={handleSelect} loading={loading} />
-        ))}
-      </div>
-
-      {/* Enterprise block */}
+      {/* Enterprise / Corporate Users block — shown above plan cards */}
       <div id="hawk-command" className="bg-card border border-border rounded-2xl overflow-hidden">
         <div className="p-8 space-y-2 border-b border-border bg-secondary/30">
           <div className="flex items-start gap-4">
             <Building2 className="w-8 h-8 text-primary shrink-0 mt-1" />
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="font-heading font-bold text-2xl text-foreground">🏢 Hawk Enterprise</h2>
+                <h2 className="font-heading font-bold text-2xl text-foreground">🏢 Hawk Enterprise — Corporate Users</h2>
                 <span className="text-xs font-semibold bg-secondary text-muted-foreground px-3 py-1 rounded-full">Custom Pricing</span>
               </div>
               <p className="text-muted-foreground mt-1 text-sm">For vendor agencies and regional firms.</p>
@@ -186,8 +179,6 @@ export default function PricingV2() {
             Managing a team of specialists? Get admin-level oversight, compliance tools, and pooled data.
           </p>
         </div>
-
-        {/* Enterprise features */}
         <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             "Custom SCIP & Lease Volumes — pooled across your entire team",
@@ -202,11 +193,19 @@ export default function PricingV2() {
             </div>
           ))}
         </div>
-
         <div className="px-8 pb-8">
           <HawkCommandContactForm />
         </div>
       </div>
+
+      {/* Plan cards — 2 column */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 max-w-3xl mx-auto">
+        {PLANS.map(plan => (
+          <PlanCard key={plan.key} plan={plan} onSelect={handleSelect} loading={loading} />
+        ))}
+      </div>
+
+
 
       {/* FAQ */}
       <div className="max-w-2xl mx-auto">

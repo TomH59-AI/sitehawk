@@ -271,7 +271,7 @@ export default function Landing() {
       <section id="pricing" className="py-24 px-6 bg-gradient-to-b from-transparent to-blue-950/10">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Simple Pricing</p>
-          <h2 className="font-heading font-bold text-4xl text-white mb-4">Three Tiers. One Mission.</h2>
+          <h2 className="font-heading font-bold text-4xl text-white mb-4">Simple Pricing. One Mission.</h2>
           <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-cyan-400/30 bg-cyan-400/8 text-cyan-300 text-sm font-semibold mb-6">
             🦅 3-day free trial included with every plan
           </div>
