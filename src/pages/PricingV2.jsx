@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { TIERS } from "@/lib/billingConfig";
 import { hawkBillingCheckout } from "@/functions/hawkBillingCheckout";
 import HawkCommandContactForm from "@/components/billing/HawkCommandContactForm";
+import HawkIcon from "@/components/HawkIcon";
+import { Link } from "react-router-dom";
 
 const PLANS = [
   {
@@ -197,6 +199,29 @@ export default function PricingV2() {
           <HawkCommandContactForm />
         </div>
       </div>
+
+      {/* 3-Day Free Trial Banner */}
+      <Link
+        to="/search"
+        className="block group rounded-2xl border-2 border-dashed border-primary/40 bg-gradient-to-r from-primary/5 via-primary/10 to-accent/5 hover:border-primary/70 hover:from-primary/10 hover:via-primary/15 hover:to-accent/10 transition-all p-6 text-center"
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-3">
+            <HawkIcon size={48} />
+            <div className="text-left">
+              <div className="inline-flex items-center gap-2 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 rounded-full px-3 py-1 text-xs font-bold mb-1">
+                ✨ No credit card required
+              </div>
+              <h3 className="font-heading font-bold text-xl text-foreground">Try SiteHawk Free for 3 Days</h3>
+              <p className="text-sm text-muted-foreground">2 SCIPs/day · Full AI scanning · Airport + cell tower data included</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-heading font-bold text-sm group-hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
+            🦅 Start Your Free Trial Now <ArrowRight className="w-4 h-4" />
+          </div>
+          <p className="text-xs text-muted-foreground">Click to go directly to Site Search — no signup wall.</p>
+        </div>
+      </Link>
 
       {/* Plan cards — 2 column */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 max-w-3xl mx-auto">
