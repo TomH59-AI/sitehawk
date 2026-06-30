@@ -341,7 +341,7 @@ export default function Landing() {
             <Link to="/privacy" className="hover:text-white/60 transition-colors">Privacy</Link>
             <Link to="/refund-policy" className="hover:text-white/60 transition-colors">Refunds</Link>
           </div>
-          <a href="mailto:info@site-hawk-pro.com" className="text-xs text-white/30 hover:text-white/60 transition-colors">info@site-hawk-pro.com</a>
+          <a href="mailto:info@sitehawk.com" className="text-xs text-white/30 hover:text-white/60 transition-colors">info@sitehawk.com</a>
           <p className="text-xs text-white/20">© 2026 SkyWave LLC. All rights reserved. Patent Pending.</p>
         </div>
       </footer>

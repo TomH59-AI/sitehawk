@@ -172,7 +172,7 @@ export default function Terms() {
           <div className="pt-1 space-y-1">
             <p><span className="font-medium text-foreground">SkyWave LLC</span> — Michigan, USA</p>
             <p>Email: <a href={`mailto:${SUPPORT_EMAIL_MAILTO}`} className="text-primary hover:underline">{SUPPORT_EMAIL_DISPLAY}</a></p>
-            <p>Website: <a href="https://skywave-ai.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">skywave-ai.com</a></p>
+            <p>Website: <a href="https://sitehawk.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">sitehawk.com</a></p>
           </div>
         </section>
 

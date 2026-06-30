@@ -2,7 +2,7 @@
  * HawkCommandContactForm — enterprise inquiry form that emails hodgesthomas@outlook.com
  */
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { notifyAdmin } from "@/functions/notifyAdmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CheckCircle2, Send } from "lucide-react";
@@ -20,26 +20,14 @@ export default function HawkCommandContactForm() {
     setLoading(true);
     setError(null);
     try {
-      await base44.integrations.Core.SendEmail({
-        to: "hodgesthomas@outlook.com",
-        from_name: "SiteHawk HawkCommand Inquiry",
+      await notifyAdmin({
         subject: `HawkCommand Enterprise Inquiry — ${form.company || form.name}`,
-        body: `
-New HawkCommand enterprise inquiry from the SiteHawk pricing page.
-
-Company: ${form.company}
-Contact: ${form.name}
-Email: ${form.email}
-Phone: ${form.phone || "—"}
-Expected Monthly SCIPs: ${form.monthly_scips || "—"}
-
-Use Case:
-${form.use_case}
-        `.trim(),
+        body: `New HawkCommand enterprise inquiry from the SiteHawk pricing page.\n\nCompany: ${form.company}\nContact: ${form.name}\nEmail: ${form.email}\nPhone: ${form.phone || "—"}\nExpected Monthly SCIPs: ${form.monthly_scips || "—"}\n\nUse Case:\n${form.use_case}`,
+        reply_to: form.email,
       });
       setSent(true);
     } catch (err) {
-      setError(err.message || "Failed to send. Please email hodgesthomas@outlook.com directly.");
+      setError(err.message || "Failed to send. Please email info@sitehawk.com directly.");
     } finally {
       setLoading(false);
     }

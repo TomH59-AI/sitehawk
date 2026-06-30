@@ -42,7 +42,7 @@ export default function About() {
         </div>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <Globe className="w-4 h-4 text-primary shrink-0" />
-          <a href="https://site-hawk-pro.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">site-hawk-pro.com</a>
+          <a href="https://www.sitehawk.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">sitehawk.com</a>
         </div>
         <p className="text-xs text-muted-foreground/60 mt-2">SkyWave LLC — Michigan, USA</p>
       </div>

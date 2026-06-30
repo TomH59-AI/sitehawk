@@ -13,8 +13,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const days = (d) => (d ? (Date.now() - new Date(d).getTime()) / 86400000 : Infinity);
 
-// Resend sender — uses the verified site-hawk-pro.com domain.
-const CAMPAIGN_FROM = 'SiteHawk <hello@site-hawk-pro.com>';
+// Resend sender — uses the verified sitehawk.com domain.
+const CAMPAIGN_FROM = 'SiteHawk <hello@sitehawk.com>';
 const HAWK_LOGO = 'https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/skywave-hawk.png';
 
 // Send one email via Resend (our verified domain) instead of the shared Base44 sender.
@@ -157,7 +157,7 @@ function renderBody(camp, contact, isMarketing) {
   const unsub = isMarketing
     ? `<p style="font-size:11px;color:#475569;margin-top:14px;">
 You're receiving this because you opted in to SiteHawk updates.
-<a href="mailto:hello@site-hawk-pro.com?subject=Unsubscribe%20${encodeURIComponent(contact.email || '')}" style="color:#00d4ff;">Unsubscribe</a>.
+<a href="mailto:support@sitehawk.com?subject=Unsubscribe%20${encodeURIComponent(contact.email || '')}" style="color:#00d4ff;">Unsubscribe</a>.
 </p>`
     : '';
 
@@ -173,7 +173,7 @@ You're receiving this because you opted in to SiteHawk updates.
         ${bodyHtml}
       </div>
       <div style="background:#111827;border-top:1px solid #1e293b;padding:18px 24px;text-align:center;">
-        <div style="font-size:10px;color:#475569;letter-spacing:0.14em;text-transform:uppercase;">SiteHawk · A SkyWave AI Product</div>
+        <div style="font-size:10px;color:#475569;letter-spacing:0.14em;text-transform:uppercase;">SiteHawk · sitehawk.com</div>
         ${unsub}
       </div>
     </div>
