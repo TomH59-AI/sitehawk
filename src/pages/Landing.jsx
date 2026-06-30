@@ -40,7 +40,6 @@ const FEATURES = [
 const PLANS = [
   { name: "🦅 HawkSite Solo", price: "$299/mo", desc: "3-day free trial · 15 SCIPs/month · Targets A, B & C included", cta: "Start Free Trial", highlight: false },
   { name: "Hawkeyes", price: "$599/mo", desc: "3-day free trial · 40 Search Rings/month · 3 seats · PDF & CSV exports", cta: "Start Free Trial", highlight: true },
-  { name: "Hawkeye Apex", price: "Contact us", desc: "Unlimited Search Rings · Unlimited seats · Mailer + skip trace", cta: "Contact Sales", highlight: false },
 ];
 
 const TESTIMONIALS = [
@@ -277,7 +276,7 @@ export default function Landing() {
             🦅 3-day free trial included with every plan
           </div>
           <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, and the SiteHawk AI Consultant.</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 max-w-2xl mx-auto">
             {PLANS.map((p) => (
               <div key={p.name} className={`rounded-2xl border p-8 flex flex-col items-center gap-4 transition-all ${p.highlight ? "border-blue-500/50 bg-blue-600/10 shadow-2xl shadow-blue-500/10 scale-105" : "border-white/5 bg-white/3"}`}>
                 {p.highlight && <span className="px-3 py-1 rounded-full bg-blue-500 text-white text-xs font-bold">Most Popular</span>}
