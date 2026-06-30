@@ -25,7 +25,6 @@ const BASE_NAV = [
   { path: "/hawk-fill", icon: ClipboardEdit, label: "🪶 HawkFill" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
   { path: "/pricing", icon: CreditCard, label: "Plans" },
-  { path: "/billing", icon: Settings, label: "Billing" },
   { path: "/about", icon: Radio, label: "About" },
 ];
 
