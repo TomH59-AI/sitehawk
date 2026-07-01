@@ -408,33 +408,73 @@ async function fetchNWI(geo) {
   return { ok: true, geojson: styled, data_source: "fws_nwi" };
 }
 
-/** Zoneomics zoning polygons via the v2 boundary endpoint. */
-async function fetchZoneomicsZoning(geo, apiKey) {
-  if (!apiKey) return { ok: false, reason: "no_api_key" };
+/** zone-resolve (Supabase edge fn) — ArcGIS county zoning + FLU. Replaces Zoneomics. */
+async function fetchZoneResolve(geo, zoneResolveAnonKey) {
+  if (!zoneResolveAnonKey) return { ok: false, reason: "no_zone_resolve_key" };
   const [minLng, minLat, maxLng, maxLat] = geo.bbox;
-  // zoneSearch returns zones in a bbox; we hit the center for a single canonical record
-  const url = `https://api.zoneomics.com/v2/zoneDetail?api_key=${apiKey}&lat=${(minLat + maxLat) / 2}&lng=${(minLng + maxLng) / 2}&output_fields=zoning,parcels`;
-  const res = await fetchWithTimeout(url, {}, 15000);
+  const lat = (minLat + maxLat) / 2;
+  const lon = (minLng + maxLng) / 2;
+  const url = "https://vkiwvctpxhbsoeagivnl.supabase.co/functions/v1/zone-resolve";
+  const res = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${zoneResolveAnonKey}`,
+      "apikey": zoneResolveAnonKey,
+    },
+    body: JSON.stringify({ lat, lon }),
+  }, 15000);
   if (!res.ok) return { ok: false, reason: res._err || `http_${res.status}` };
   const data = await res.json();
-  const zone = data?.data?.zone_details;
-  if (!zone) return { ok: true, geojson: null };
-  // Render the zone code as a label-only feature centered on bbox
-  const geojson = {
-    type: "FeatureCollection",
-    features: [{
-      type: "Feature",
-      properties: {
-        zone_code: zone.zone_code, zone_name: zone.zone_name,
-        fill: "#a855f7", "fill-opacity": 0.25, stroke: "#7c3aed", "stroke-width": 2,
-      },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[[minLng, minLat], [maxLng, minLat], [maxLng, maxLat], [minLng, maxLat], [minLng, minLat]]],
-      },
-    }],
+
+  // Extract zoning polygon
+  const zoning = data?.zoning_polygon || data?.zoning || null;
+  let zoningGeojson = null;
+  if (zoning) {
+    // Wrap bare Feature/Geometry in FeatureCollection
+    if (zoning.type === "FeatureCollection") {
+      zoningGeojson = zoning;
+    } else if (zoning.type === "Feature") {
+      zoningGeojson = { type: "FeatureCollection", features: [zoning] };
+    } else if (zoning.type === "Polygon" || zoning.type === "MultiPolygon") {
+      zoningGeojson = { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: zoning }] };
+    }
+    if (zoningGeojson) {
+      // Apply styling
+      zoningGeojson.features = zoningGeojson.features.map((f) => ({
+        ...f,
+        properties: { ...f.properties, fill: "#a855f7", "fill-opacity": 0.25, stroke: "#7c3aed", "stroke-width": 2 },
+      }));
+    }
+  }
+
+  // Extract FLU polygon
+  const flu = data?.flu_polygon || data?.flu?.geojson || null;
+  let fluGeojson = null;
+  if (flu) {
+    if (flu.type === "FeatureCollection") {
+      fluGeojson = flu;
+    } else if (flu.type === "Feature") {
+      fluGeojson = { type: "FeatureCollection", features: [flu] };
+    } else if (flu.type === "Polygon" || flu.type === "MultiPolygon") {
+      fluGeojson = { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: flu }] };
+    }
+    if (fluGeojson) {
+      fluGeojson.features = fluGeojson.features.map((f) => ({
+        ...f,
+        properties: { ...f.properties, fill: "#f59e0b", "fill-opacity": 0.3, stroke: "#d97706", "stroke-width": 2 },
+      }));
+    }
+  }
+
+  const zone_code = data?.zoning?.zone_code || data?.flu?.code || null;
+  return {
+    ok: true,
+    zoningGeojson,
+    fluGeojson,
+    zone_code,
+    data_source: "zone_resolve",
   };
-  return { ok: true, geojson, zone_code: zone.zone_code, data_source: "zoneomics" };
 }
 
 /** FLU — county GIS is jurisdiction-specific; we treat as state-fallback-or-unavailable. */
@@ -513,18 +553,18 @@ async function buildFloodplainMap(ctx) {
 }
 
 async function buildZoningMap(ctx) {
-  const { geo, lat, lng, mapboxToken, base44, jurisdiction, fallbacks, cacheStats } = ctx;
-  let layer = await cacheGet(base44, jurisdiction, "zoneomics_zoning");
-  let data_source = "cache:zoneomics";
+  const { geo, lat, lng, mapboxToken, base44, jurisdiction, fallbacks, cacheStats, zoneResolveResult } = ctx;
+  let layer = await cacheGet(base44, jurisdiction, "zone_resolve_zoning");
+  let data_source = "cache:zone_resolve";
   let zone_code = null;
   if (!layer) {
     cacheStats.misses++;
-    const z = await fetchZoneomicsZoning(geo, Deno.env.get("ZONEOMICS_API_KEY"));
-    if (z.ok && z.geojson) {
-      await cacheSet(base44, jurisdiction, "zoneomics_zoning", z.geojson, z.data_source);
-      layer = { geojson: z.geojson, data_source: z.data_source };
+    const z = zoneResolveResult || await fetchZoneResolve(geo, Deno.env.get("ZONE_RESOLVE_ANON_KEY"));
+    if (z.ok && z.zoningGeojson) {
+      await cacheSet(base44, jurisdiction, "zone_resolve_zoning", z.zoningGeojson, z.data_source);
+      layer = { geojson: z.zoningGeojson, data_source: z.data_source };
       zone_code = z.zone_code;
-      data_source = "zoneomics";
+      data_source = "zone_resolve";
     } else {
       fallbacks.push(`zoning:${z.reason || "no_features"}`);
       console.log(`[INFO] MAP_FALLBACK zoning:${z.reason || "no_features"}`);
@@ -556,26 +596,26 @@ async function buildZoningMap(ctx) {
 }
 
 async function buildFLUMap(ctx) {
-  const { geo, lat, lng, mapboxToken, base44, jurisdiction, state, fallbacks, cacheStats, _force_flu_miss } = ctx;
-  let layer = _force_flu_miss ? null : await cacheGet(base44, jurisdiction, "flu");
-  let data_source = "cache:flu";
+  const { geo, lat, lng, mapboxToken, base44, jurisdiction, state, fallbacks, cacheStats, _force_flu_miss, zoneResolveResult } = ctx;
+  let layer = _force_flu_miss ? null : await cacheGet(base44, jurisdiction, "zone_resolve_flu");
+  let data_source = "cache:zone_resolve_flu";
   if (!layer) {
     cacheStats.misses++;
-    const f = _force_flu_miss
+    const z = _force_flu_miss
       ? { ok: false, reason: "forced_miss" }
-      : await fetchFLU(geo, jurisdiction, state);
-    if (f.ok && f.geojson) {
-      await cacheSet(base44, jurisdiction, "flu", f.geojson, f.data_source);
-      layer = { geojson: f.geojson, data_source: f.data_source };
-      data_source = f.data_source;
+      : (zoneResolveResult || await fetchZoneResolve(geo, Deno.env.get("ZONE_RESOLVE_ANON_KEY")));
+    if (z.ok && z.fluGeojson) {
+      await cacheSet(base44, jurisdiction, "zone_resolve_flu", z.fluGeojson, "zone_resolve");
+      layer = { geojson: z.fluGeojson, data_source: "zone_resolve" };
+      data_source = "zone_resolve_flu";
     } else {
-      fallbacks.push(`flu:${f.reason || "no_features"}`);
-      console.log(`[INFO] MAP_FALLBACK flu:${f.reason || "no_features"}`);
+      fallbacks.push(`flu:${z.reason || "no_features"}`);
+      console.log(`[INFO] MAP_FALLBACK flu:${z.reason || "no_features"}`);
       data_source = "unavailable";
     }
   } else {
     cacheStats.hits++;
-    data_source = layer.data_source === "state_fallback" ? "cache:flu:state_fallback" : "cache:flu";
+    data_source = "cache:zone_resolve_flu";
   }
   let overlays = [];
   if (layer?.geojson) {
@@ -837,11 +877,22 @@ async function buildTargetMaps(target, ctx) {
   const _geo = computeSharedGeo(lat, lng, search_radius_mi);
   console.log(`[INFO] MAP_GEO target=${label} bbox=${JSON.stringify(_geo.bbox)} target_px=${JSON.stringify(_geo.target_px)}`);
 
+  // Pre-fetch zone-resolve once per target so both zoning + FLU maps share the result.
+  // Only needed if neither layer is already in cache.
+  let zoneResolveResult = null;
+  const zoningCached = await cacheGet(base44, jurisdiction, "zone_resolve_zoning");
+  const fluCached = await cacheGet(base44, jurisdiction, "zone_resolve_flu");
+  if (!zoningCached || !fluCached) {
+    zoneResolveResult = await fetchZoneResolve(_geo, Deno.env.get("ZONE_RESOLVE_ANON_KEY"));
+    console.log(`[INFO] ZONE_RESOLVE target=${label} ok=${zoneResolveResult.ok} hasZoning=${!!zoneResolveResult.zoningGeojson} hasFlu=${!!zoneResolveResult.fluGeojson}`);
+  }
+
   const mapCtx = {
     geo: _geo, lat, lng, apn, owner,
     base44, jurisdiction, state, mapboxToken,
     fallbacks, cacheStats,
     _force_flu_miss: ctx._force_flu_miss,
+    zoneResolveResult,
   };
 
   const isTargetA = label === "A";
