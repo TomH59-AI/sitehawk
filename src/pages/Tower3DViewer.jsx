@@ -180,11 +180,13 @@ export default function Tower3DViewer() {
 
           {imageUrl && (
             <div className="space-y-3">
-              <img
-                src={imageUrl}
-                alt="AI tower site illustration"
-                className="w-full rounded-xl border border-border shadow-lg object-cover"
-              />
+              <div className="w-full aspect-[4/3] rounded-xl border border-border shadow-lg overflow-hidden">
+                <img
+                  src={imageUrl}
+                  alt="AI tower site illustration"
+                  className="w-full h-full object-cover scale-110"
+                />
+              </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1 gap-2" onClick={generate} disabled={generating}>
                   <RefreshCw className="w-4 h-4" /> Regenerate
