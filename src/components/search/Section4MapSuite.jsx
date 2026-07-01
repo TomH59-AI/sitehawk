@@ -63,6 +63,7 @@ import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import { scipViewshed } from "@/functions/scipViewshed";
 import ViewshedTiles from "./section4/ViewshedTiles";
+import RowIndicatorStep from "./section4/RowIndicatorStep";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoningGrid, renderFlumPolygon, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
@@ -75,7 +76,7 @@ import { zoneResolve } from "@/functions/zoneResolve";
 import ZoningLegend from "./section4/ZoningLegend";
 import { SOURCE_LABELS } from "@/lib/brandedLabels";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "power", "viewshed", "compliance"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "row", "wind", "fiber", "power", "viewshed", "compliance"];
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, towerHeightFt = 0, sectionData = {}, onRun, onComplete, onData, onClear,
@@ -93,6 +94,8 @@ export default function Section4MapSuite({
   const [powerInfo, setPowerInfo] = useState(null);
   // 2D directional viewshed result ({ aerial_ring_url, tower_height_ft, directions }).
   const [viewshedInfo, setViewshedInfo] = useState(null);
+  const [rowEnrichment, setRowEnrichment] = useState(null);
+  const [rowRingStats, setRowRingStats] = useState(null);
   // Hawk Skip-Trace result for Target A's owner (phones + emails across all sources).
   const [skipTraceInfo, setSkipTraceInfo] = useState(null);
   // Warranty Deed of record for Target A (Realie click lookup). null = no deed found.
@@ -237,7 +240,22 @@ export default function Section4MapSuite({
           lat: srcLat, lon: srcLon, radius_miles: radiusMiles,
         }).catch(() => null);
         const parcels = pres?.data?.parcels || [];
+        // Cache the enrichment for the ROW step (same API call, no extra credit)
+        if (pres?.data?.target_a_enrichment) setRowEnrichment(pres.data.target_a_enrichment);
+        if (pres?.data?.ring_stats) setRowRingStats(pres.data.ring_stats);
         map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey, ringName, srcLat, srcLon, radiusMiles);
+      } else if (step === "row") {
+        // ROW step: data already fetched during the Parcel Map step — no new API call.
+        // If for some reason it's missing, re-fetch now.
+        if (!rowEnrichment) {
+          const pres = await regridParcelRing({
+            lat: srcLat, lon: srcLon, radius_miles: radiusMiles,
+          }).catch(() => null);
+          if (pres?.data?.target_a_enrichment) setRowEnrichment(pres.data.target_a_enrichment);
+          if (pres?.data?.ring_stats) setRowRingStats(pres.data.ring_stats);
+        }
+        onData?.({ regrid_premium: rowEnrichment });
+        map = null; // no Mapbox canvas for this step
       } else if (step === "wind") {
         const wres = await windSpeedLookup({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
         const wind = wres?.data || null;
@@ -525,7 +543,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate thirteen Target A maps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics, Power Grid, 2D Viewshed — then the Section 106 / NEPA compliance report.
+          Generate fourteen Target A maps &amp; data steps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, ROW &amp; Premium Parcel Indicators, Wind Speed, Fiber Optics, Power Grid, 2D Viewshed — then the Section 106 / NEPA compliance report.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -605,29 +623,39 @@ export default function Section4MapSuite({
           loading={loadingStep === "parcel"} done={!!completed.parcel}
           onRun={() => runStep("parcel")} mapRef={refs.parcel} banner={banners.parcel}
         />
+        <RowIndicatorStep
+          index={10}
+          unlocked={active && isUnlocked("row")}
+          loading={loadingStep === "row"}
+          done={!!completed.row}
+          enrichment={rowEnrichment}
+          ringStats={rowRingStats}
+          error={errors.row}
+          onRun={() => runStep("row")}
+        />
         <MapSubStep
-          index={10} title="Wind Speed Map" runLabel="Run Wind Speed Map"
+          index={11} title="Wind Speed Map" runLabel="Run Wind Speed Map"
           spinnerLabel="Generating Target A wind speed map…"
           unlocked={active && isUnlocked("wind")}
           loading={loadingStep === "wind"} done={!!completed.wind}
           onRun={() => runStep("wind")} mapRef={refs.wind} banner={banners.wind}
         />
         <MapSubStep
-          index={11} title="Fiber Optics Map" runLabel="Run Fiber Optics Map"
+          index={12} title="Fiber Optics Map" runLabel="Run Fiber Optics Map"
           spinnerLabel="Finding fiber optics infrastructure near Target A…"
           unlocked={active && isUnlocked("fiber")}
           loading={loadingStep === "fiber"} done={!!completed.fiber}
           onRun={() => runStep("fiber")} mapRef={refs.fiber} banner={banners.fiber}
         />
         <MapSubStep
-          index={12} title="Power Map" runLabel="Run Power Map"
+          index={13} title="Power Map" runLabel="Run Power Map"
           spinnerLabel="Mapping power grid, substations & transmission lines near Target A…"
           unlocked={active && isUnlocked("power")}
           loading={loadingStep === "power"} done={!!completed.power}
           onRun={() => runStep("power")} mapRef={refs.power} banner={banners.power}
         />
         <MapSubStep
-          index={13} title="2D Viewshed Map" runLabel="Run 2D Viewshed Map"
+          index={14} title="2D Viewshed Map" runLabel="Run 2D Viewshed Map"
           spinnerLabel="Generating Target A N/S/E/W viewshed maps & line-of-sight profiles…"
           unlocked={active && isUnlocked("viewshed")}
           loading={loadingStep === "viewshed"} done={!!completed.viewshed}
@@ -645,7 +673,7 @@ export default function Section4MapSuite({
           onRun={runCompliance}
         />
         <DeedStep
-          index={15}
+          index={16}
           unlocked={active && !!completed.compliance}
           loading={loadingStep === "deed"}
           done={!!completed.deed}
@@ -655,7 +683,7 @@ export default function Section4MapSuite({
           onRun={runDeed}
         />
         <SkipTraceStep
-          index={16}
+          index={17}
           unlocked={active && !!completed.deed}
           loading={loadingStep === "skiptrace"}
           done={!!completed.skiptrace}
