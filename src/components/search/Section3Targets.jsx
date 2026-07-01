@@ -26,6 +26,10 @@ import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
 import SectionClearButton from "./SectionClearButton";
+import { regridEnrichTarget, normalizeRegridEnrich, regridFemaLabel } from "@/lib/regridEnrich";
+import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
+import RegridEnrichRows from "@/components/search/regrid/RegridEnrichRows";
+import RegridDemographics from "@/components/search/regrid/RegridDemographics";
 
 const COLS = ["Target A", "Target B", "Target C"];
 
@@ -123,6 +127,23 @@ export default function Section3Targets({
   // site that the whole downstream pipeline runs on.
   const [targets, setTargets] = useState([null, null, null]);
   const [selectedCol, setSelectedCol] = useState(0); // which column is the lead (0 = Target A)
+  // Regrid precision enrichment per target column — ADDITIVE ONLY, never blocks
+  // the base Realie data. Keyed by column index; lib caches by coordinates.
+  const [regrid, setRegrid] = useState([null, null, null]);
+  const [regridLoading, setRegridLoading] = useState([false, false, false]);
+
+  const enrichCol = useCallback(async (colIdx, tLat, tLon) => {
+    setRegridLoading((p) => { const n = [...p]; n[colIdx] = true; return n; });
+    try {
+      const data = await regridEnrichTarget(tLat, tLon);
+      const norm = normalizeRegridEnrich(data);
+      setRegrid((p) => { const n = [...p]; n[colIdx] = norm; return n; });
+    } catch {
+      // Enrichment is additive only — Realie base data stays untouched on failure.
+    } finally {
+      setRegridLoading((p) => { const n = [...p]; n[colIdx] = false; return n; });
+    }
+  }, []);
   const ranRef = useRef(false);
   const emitLeadRef = useRef(null); // latest emitLead, so applyCascade can re-emit without circular deps
 
@@ -249,6 +270,7 @@ export default function Section3Targets({
     setNoData(false);
     setPhoneResults([null, null, null]);
     setPhoneLoading([false, false, false]);
+    setRegrid([null, null, null]);
     try {
       // 1. Realie ring search + ranking + FEMA → best 3 targets. Section 2's
       //    zoning relief posture (CUP / PE-letter / fall-zone / setback) is passed
@@ -280,6 +302,11 @@ export default function Section3Targets({
       found.slice(0, 3).forEach((t, i) => { slots[i] = t; });
       setTargets(slots);
       setSelectedCol(0); // default lead = Target A
+
+      // Regrid precision enrichment — fire per target in parallel, additive only.
+      found.slice(0, 3).forEach((t, i) => {
+        if (t?.latitude != null && t?.longitude != null) enrichCol(i, t.latitude, t.longitude);
+      });
 
       // 2. Multi-source skip-trace cascade per target owner (Enformion → Apify
       //    actors in parallel). Records meta for retry + fires the lookups.
@@ -341,7 +368,7 @@ export default function Section3Targets({
     } finally {
       setLoading(false);
     }
-  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, zoningResult, onTargetAReady, runCascade]);
+  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, zoningResult, onTargetAReady, runCascade, enrichCol]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "targets").
   useEffect(() => {
@@ -475,7 +502,10 @@ export default function Section3Targets({
                         style={{ background: locked ? "#1f4d40" : isLead ? "#2f6b5b" : HEADER_GREEN, minWidth: 220 }}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span>{c}</span>
+                          <span className="inline-flex items-center gap-1.5">
+                            {c}
+                            <RegridSourceBadge enrich={regrid[colIdx]} loading={regridLoading[colIdx]} />
+                          </span>
                           {hasTarget && (
                             locked ? (
                               <span className="inline-flex items-center gap-1 text-[10px] font-semibold normal-case bg-emerald-400/30 px-2 py-0.5 rounded-full">
@@ -538,6 +568,30 @@ export default function Section3Targets({
                             onPick={(v) => setCell("phone", colIdx, v)}
                             onRetry={() => { const m = targetMeta[colIdx]; if (m) runCascade(colIdx, m.owner, m.addr, COLS[colIdx], true); }}
                           />
+                        ) : key === "fema_risk_factor" && regrid[colIdx]?.site_intel?.fema_flood_zone ? (
+                          <div className="px-4 py-2 text-sm text-foreground">
+                            {regridFemaLabel(regrid[colIdx])}
+                            <span className="ml-2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">⚡ Regrid</span>
+                          </div>
+                        ) : key === "zoning_classification" && regrid[colIdx]?.zoning_code_link ? (
+                          <div>
+                            <textarea
+                              rows={1}
+                              value={val}
+                              onChange={(e) => setCell(key, colIdx, e.target.value)}
+                              disabled={locked}
+                              placeholder="—"
+                              className="w-full px-4 py-2 text-sm bg-transparent outline-none resize-y text-foreground focus:bg-emerald-50 dark:focus:bg-emerald-950/30"
+                            />
+                            <a
+                              href={regrid[colIdx].zoning_code_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 mx-4 mb-2 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-emerald-400/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                            >
+                              📜 Ordinance Source
+                            </a>
+                          </div>
                         ) : isPostureRow ? (
                           // Read-only display for compliance posture rows
                           <div className={`px-4 py-2 text-xs leading-snug ${zoningStatusClass || "text-emerald-800 dark:text-emerald-300"}`}>
@@ -559,9 +613,11 @@ export default function Section3Targets({
                   </tr>
                   );
                 })}
+                <RegridEnrichRows enrich={regrid} loading={regridLoading} variant="section3" />
               </tbody>
             </table>
           </div>
+          <RegridDemographics enrich={regrid} cols={COLS} />
           {/* Per-target actions — push this owner to the CRM as a contact */}
           {!noData && (
             <div className="grid border-t border-border" style={{ gridTemplateColumns: "200px repeat(3, minmax(220px, 1fr))" }}>

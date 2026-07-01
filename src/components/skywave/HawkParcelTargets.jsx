@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { scipBestParcels } from "@/functions/scipBestParcels";
 import { Loader2, Crosshair, ChevronRight, Award } from "lucide-react";
@@ -6,6 +6,10 @@ import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
 import { sectionLabel, SECTION_KEYS, resolveScipActiveTarget } from "@/lib/scipTarget";
 import TargetScorecard from "@/components/scip/TargetScorecard";
+import { regridEnrichTarget, normalizeRegridEnrich, regridFemaLabel } from "@/lib/regridEnrich";
+import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
+import RegridEnrichRows from "@/components/search/regrid/RegridEnrichRows";
+import RegridDemographics from "@/components/search/regrid/RegridDemographics";
 
 const ROWS = [
   ["owner_name", "Owner's Name"],
@@ -37,6 +41,23 @@ export default function HawkParcelTargets({ record, onUpdate }) {
   const targets = record.parcel_targets || [];
   const ctx = resolveScipActiveTarget(record);
   const activeIdx = ctx.target_index;
+  // Regrid precision enrichment per target index — ADDITIVE ONLY, never blocks
+  // base Realie data. lib caches by coordinates so re-renders don't re-fetch.
+  const [regrid, setRegrid] = useState({});
+  const [regridLoading, setRegridLoading] = useState({});
+
+  useEffect(() => {
+    targets.forEach((t, i) => {
+      if (!t || t.latitude == null || t.longitude == null) return;
+      if (regrid[i] || regridLoading[i]) return;
+      setRegridLoading((p) => ({ ...p, [i]: true }));
+      regridEnrichTarget(t.latitude, t.longitude)
+        .then((data) => setRegrid((p) => ({ ...p, [i]: normalizeRegridEnrich(data) })))
+        .catch(() => {}) // additive only — Realie data stays as-is
+        .finally(() => setRegridLoading((p) => ({ ...p, [i]: false })));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targets]);
 
   async function generate() {
     setBusy(true);
@@ -57,6 +78,8 @@ export default function HawkParcelTargets({ record, onUpdate }) {
         active_target_index: 0,
         section_target_index: {},
       });
+      setRegrid({});
+      setRegridLoading({});
       onUpdate(updated);
       toast.success(`Found ${res.data.count_scanned} parcels — ranked top 3 targets`);
     } catch {
@@ -124,6 +147,7 @@ export default function HawkParcelTargets({ record, onUpdate }) {
                         {i === activeIdx && <Award className="w-3.5 h-3.5" style={{ color: SKYWAVE.yellow }} />}
                         {t.label}
                         {t.score != null && <span className="ml-1 font-normal opacity-80">· {t.score}</span>}
+                        <RegridSourceBadge enrich={regrid[i]} loading={!!regridLoading[i]} />
                       </span>
                     </th>
                   ))}
@@ -139,14 +163,42 @@ export default function HawkParcelTargets({ record, onUpdate }) {
                         background: i === activeIdx ? "rgba(27,63,174,0.04)" : "transparent",
                         borderBottom: `1px solid ${SKYWAVE.line}`,
                       }}>
-                        {cellValue(t, key) || <span style={{ color: SKYWAVE.muted }}>—</span>}
+                        {key === "fema_risk_factor" && regrid[i]?.site_intel?.fema_flood_zone ? (
+                          <>
+                            {regridFemaLabel(regrid[i])}{" "}
+                            <span className="text-[10px] font-semibold" style={{ color: "#059669" }}>⚡ Regrid</span>
+                          </>
+                        ) : (
+                          cellValue(t, key) || <span style={{ color: SKYWAVE.muted }}>—</span>
+                        )}
+                        {key === "zoning_classification" && regrid[i]?.zoning_code_link && (
+                          <a
+                            href={regrid[i].zoning_code_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                            style={{ border: "1px solid #059669", color: "#059669" }}
+                          >
+                            📜 Ordinance Source
+                          </a>
+                        )}
                       </td>
                     ))}
                   </tr>
                 ))}
+                <RegridEnrichRows
+                  enrich={targets.map((_, i) => regrid[i] || null)}
+                  loading={targets.map((_, i) => !!regridLoading[i])}
+                  variant="skywave"
+                />
               </tbody>
             </table>
           </div>
+
+          <RegridDemographics
+            enrich={targets.map((_, i) => regrid[i] || null)}
+            cols={targets.map((t) => t.label)}
+          />
 
           {targets[activeIdx]?.score_reasons?.length > 0 && (
             <div className="mt-3 text-xs" style={{ color: SKYWAVE.muted }}>
