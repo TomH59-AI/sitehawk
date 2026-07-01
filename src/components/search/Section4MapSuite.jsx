@@ -64,6 +64,7 @@ import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import { scipViewshed } from "@/functions/scipViewshed";
 import ViewshedTiles from "./section4/ViewshedTiles";
 import RowIndicatorStep from "./section4/RowIndicatorStep";
+import RegridLayerToggle from "./section4/RegridLayerToggle";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoningGrid, renderFlumPolygon, renderRegridZoningMap, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
@@ -96,6 +97,9 @@ export default function Section4MapSuite({
   const [viewshedInfo, setViewshedInfo] = useState(null);
   const [rowEnrichment, setRowEnrichment] = useState(null);
   const [rowRingStats, setRowRingStats] = useState(null);
+  // Track whether the Zoning/FLUM maps were drawn with Regrid data (shows layer toggle)
+  const [zoningUsedRegrid, setZoningUsedRegrid] = useState(false);
+  const [flumUsedRegrid, setFlumUsedRegrid] = useState(false);
   // Hawk Skip-Trace result for Target A's owner (phones + emails across all sources).
   const [skipTraceInfo, setSkipTraceInfo] = useState(null);
   // Warranty Deed of record for Target A (Realie click lookup). null = no deed found.
@@ -214,8 +218,10 @@ export default function Section4MapSuite({
 
         // Render: if we have Regrid parcel polygons, use the dedicated renderer
         if (rgFC) {
+          setZoningUsedRegrid(true);
           map = await renderRegridZoningMap(refs.zoning.current, targetA, token, rgFC, zoningLabel2 ? `Zoning: ${zoningLabel2}` : "Zoning Map", "zoning");
         } else {
+          setZoningUsedRegrid(false);
           map = await renderFlumPolygon(refs.zoning.current, targetA, token, zoningPolygon, zoningLabel ? `Zoning: ${zoningLabel}` : "Zoning Map");
         }
       } else if (step === "flum") {
@@ -257,8 +263,10 @@ export default function Section4MapSuite({
 
         // If we have Regrid parcel polygons (no FL GeoPlan polygon), use dedicated renderer
         if (rgFC && !flu?.geojson) {
+          setFlumUsedRegrid(true);
           map = await renderRegridZoningMap(refs.flum.current, targetA, token, rgFC, flumLabel ? `FLUM: ${flumLabel}` : "Future Land Use Map", "flu");
         } else {
+          setFlumUsedRegrid(false);
           map = await renderFlumPolygon(refs.flum.current, targetA, token, fluFeature, flumLabel);
         }
       } else if (step === "wetlands") {
@@ -631,14 +639,16 @@ export default function Section4MapSuite({
           onRun={() => { console.log("[ZONING MAP DIAG] click handler fired"); runStep("zoning"); }}
           mapRef={refs.zoning} banner={banners.zoning} error={errors.zoning}
         >
-          {/* Floating color-coded legend — pulled up to overlay the bottom-left of
-              the 560px map area above (children render after the map in flow).
-              Wrapper is click-through; only the legend itself captures clicks. */}
-          <div className="relative h-0 pointer-events-none">
-            <div className="absolute left-0 z-10 pointer-events-auto" style={{ bottom: 16 + 560 }}>
-              <ZoningLegend districts={zoningLegend} />
-            </div>
-          </div>
+          {zoningUsedRegrid && completed.zoning && (
+            <RegridLayerToggle
+              mapRef={{ current: maps.current["zoning"] }}
+              fieldKey="zoning"
+              zoneInfo={zoneInfo}
+            />
+          )}
+          {!zoningUsedRegrid && zoningLegend.length > 0 && (
+            <ZoningLegend districts={zoningLegend} />
+          )}
         </MapSubStep>
         <MapSubStep
           index={5} title="Future Land Use (FLUM) Map" runLabel="Run FLUM Map"
@@ -646,7 +656,15 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("flum")}
           loading={loadingStep === "flum"} done={!!completed.flum}
           onRun={() => runStep("flum")} mapRef={refs.flum} banner={banners.flum}
-        />
+        >
+          {flumUsedRegrid && completed.flum && (
+            <RegridLayerToggle
+              mapRef={{ current: maps.current["flum"] }}
+              fieldKey="flu"
+              zoneInfo={flumInfo}
+            />
+          )}
+        </MapSubStep>
         <MapSubStep
           index={6} title="Wetlands Map" runLabel="Run Wetlands Map"
           spinnerLabel="Generating Target A wetlands map…"
