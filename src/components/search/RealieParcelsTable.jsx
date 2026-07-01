@@ -1,7 +1,27 @@
 import { useEffect, useState } from "react";
-import { Database, ExternalLink, Loader2, Send } from "lucide-react";
+import { Database, Loader2, Send } from "lucide-react";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import LobMailerModal from "./LobMailerModal";
+import { classifyParcel } from "@/lib/zoneClass";
+
+const ZONE_BADGE = {
+  RES:   { label: 'RES',  cls: 'bg-blue-500/15 text-blue-700 dark:text-blue-400' },
+  COMM:  { label: 'COMM', cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-400' },
+  IND:   { label: 'IND',  cls: 'bg-orange-500/15 text-orange-700 dark:text-orange-400' },
+  AG:    { label: 'AG',   cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' },
+  OS:    { label: 'OS',   cls: 'bg-teal-500/15 text-teal-700 dark:text-teal-400' },
+  OTHER: { label: '—',    cls: 'bg-secondary text-muted-foreground' },
+};
+
+function ZoneBadge({ parcel }) {
+  const cls = parcel.zone_class || classifyParcel(parcel);
+  const { label, cls: style } = ZONE_BADGE[cls] || ZONE_BADGE.OTHER;
+  return (
+    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide ${style}`}>
+      {label}
+    </span>
+  );
+}
 
 export default function RealieParcelsTable({ centerLat, centerLon, searchId }) {
   const [loading, setLoading] = useState(false);
@@ -101,6 +121,7 @@ export default function RealieParcelsTable({ centerLat, centerLon, searchId }) {
                 <th className="px-3 py-2 text-left font-semibold text-foreground">Owner</th>
                 <th className="px-3 py-2 text-left font-semibold text-foreground">Mailing Address</th>
                 <th className="px-3 py-2 text-left font-semibold text-foreground">Acres</th>
+                <th className="px-3 py-2 text-left font-semibold text-foreground">Zone</th>
                 <th className="px-3 py-2 text-left font-semibold text-foreground">Land Use</th>
                 <th className="px-3 py-2 text-right font-semibold text-foreground">Assessed</th>
                 <th className="px-3 py-2 text-left font-semibold text-foreground">Last Sale</th>
@@ -121,6 +142,7 @@ export default function RealieParcelsTable({ centerLat, centerLon, searchId }) {
                   <td className="px-3 py-2 text-foreground font-medium">{p.owner_name || "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">{p.mailing_address || "—"}</td>
                   <td className="px-3 py-2 text-foreground">{p.acreage ?? "—"}</td>
+                  <td className="px-3 py-2"><ZoneBadge parcel={p} /></td>
                   <td className="px-3 py-2 text-muted-foreground">{p.land_use || "—"}</td>
                   <td className="px-3 py-2 text-right text-foreground">
                     {p.assessed_value != null ? `$${Number(p.assessed_value).toLocaleString()}` : "—"}

@@ -15,6 +15,37 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 const SUPABASE_FN_URL =
   "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
 
+// ── zone_class: collapse Realie useCode/zoningCode into one of six stable buckets ──
+const OS_EXPLICIT = new Set([714, 752, 4025, 4027, 4028, 9202]);
+const VACANT_MAP = { 8001:'RES', 8002:'COMM', 8003:'IND', 8004:'OS', 8007:'RES', 8008:'AG', 8009:'OS', 8010:'OS', 8011:'OS' };
+function classifyUseCode(useCode) {
+  if (useCode == null) return null;
+  const n = parseInt(String(useCode).replace(/\D/g, ''), 10);
+  if (!Number.isFinite(n)) return null;
+  if (OS_EXPLICIT.has(n)) return 'OS';
+  if (n >= 8000 && n <= 8017) return VACANT_MAP[n] || 'OTHER';
+  if (n >= 1000 && n <= 1999) return 'RES';
+  if (n >= 2000 && n <= 4999) return 'COMM';
+  if (n >= 5000 && n <= 6599) return 'IND';
+  if (n >= 7000 && n <= 7999) return 'AG';
+  return 'OTHER';
+}
+function classifyZoningString(z) {
+  if (!z) return 'OTHER';
+  const s = String(z).toUpperCase().trim();
+  if (/^(OS|OSC|CON|CONS|CONSERV|OPEN|GREEN|PARK|REC)/.test(s)) return 'OS';
+  if (/^(AG|AGR|A[-\s]?\d|A$|EA|FR|RA[-\s]?\d?)/.test(s)) return 'AG';
+  if (/^(R|SF|MF|MH|TH|DR|MDR|HDR|LDR)/.test(s)) return 'RES';
+  if (/^(C|B|CB|CC|GB|NC|MU|MX|O[-\s]?\d|O$|OF|OP|PO|PD|RT|RETAIL|HOT|HC)/.test(s)) return 'COMM';
+  if (/^(I|M|IL|IH|LI|HI|IND|MFG|IP|BP|LM|GM|W|WH)/.test(s)) return 'IND';
+  return 'OTHER';
+}
+function resolveZoneClass(p) {
+  const byUse = classifyUseCode(p.useCode ?? p.use_code);
+  if (byUse) return byUse;
+  return classifyZoningString(p.zoningCode ?? p.zoning_code ?? p.zoning ?? p.land_use);
+}
+
 // Map a raw v43 parcel onto the shape the frontend already consumes, while
 // passing through every new tax / deed / title field untouched.
 function normalize(p) {
@@ -53,6 +84,8 @@ function normalize(p) {
     longitude: p.longitude ?? p.lon ?? p.lng ?? (p.location?.coordinates?.[0]) ?? null,
     // GeoJSON parcel polygon (Realie returns a MultiPolygon under `geometry`).
     parcel_geometry: p.geometry || p.parcel_geometry || p.parcelGeometry || null,
+    // Zone bucket: RES | COMM | IND | AG | OS | OTHER
+    zone_class: resolveZoneClass(p),
   };
 }
 
