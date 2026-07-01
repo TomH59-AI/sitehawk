@@ -408,6 +408,193 @@ async function fetchNWI(geo) {
   return { ok: true, geojson: styled, data_source: "fws_nwi" };
 }
 
+// ─────────────────────── County ArcGIS registry (fallback) ───────────────────────
+// Known public ArcGIS REST endpoints for county zoning + FLUM, keyed by
+// normalized county name (lowercase, no "county" suffix). Each entry can have
+// zoning_url and/or flu_url — both are optional. These are tried ONLY when
+// zone-resolve returns no polygon for that layer.
+// Field hints tell us which attribute contains the zone code / FLU designation.
+const COUNTY_ARCGIS_REGISTRY = {
+  // ── Florida ──────────────────────────────────────────────────────────────────
+  "hillsborough": {
+    zoning_url: "https://gis.hillsboroughcounty.org/arcgis/rest/services/PublicLayers/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+    flu_url: "https://gis.hillsboroughcounty.org/arcgis/rest/services/PublicLayers/FutureGeneralLandUse/MapServer/0",
+    flu_field: "FLU",
+  },
+  "pinellas": {
+    zoning_url: "https://reflect-pinellas.icad.com/arcgis/rest/services/PinellasCounty/Zoning/MapServer/0",
+    zoning_field: "ZONE_CODE",
+  },
+  "orange": {
+    zoning_url: "https://maps.ocfl.net/arcgis/rest/services/ZoningLayers/MapServer/0",
+    zoning_field: "ZONE_TYPE",
+  },
+  "seminole": {
+    zoning_url: "https://gis.seminolecountyfl.gov/arcgis/rest/services/Planning/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  "volusia": {
+    zoning_url: "https://maps.volusia.org/arcgis/rest/services/PublicAccess/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+    flu_url: "https://services6.arcgis.com/bPOxEaXVnK5hJRGI/arcgis/rest/services/FLU/FeatureServer/0",
+    flu_field: "LNDUSE",
+  },
+  "sarasota": {
+    zoning_url: "https://gis.scgov.net/arcgis/rest/services/GIS/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  "manatee": {
+    zoning_url: "https://www.arcgis.com/home/item.html?id=manatee_zoning_placeholder",
+    zoning_field: "ZONE",
+  },
+  "lee": {
+    zoning_url: "https://maps.leegov.com/arcgis/rest/services/LandRecords/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  "collier": {
+    zoning_url: "https://maps.colliercountyfl.gov/arcgis/rest/services/PublicGIS/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  "brevard": {
+    flu_url: "https://gis.brevardcounty.us/arcgis/rest/services/PlanningZoning/FLU/MapServer/0",
+    flu_field: "FLU_DESC",
+  },
+  "polk": {
+    zoning_url: "https://gis.polk-county.net/arcgis/rest/services/PublicGIS/Zoning/MapServer/0",
+    zoning_field: "ZONE_CLASS",
+  },
+  "osceola": {
+    zoning_url: "https://gis.osceola.org/arcgis/rest/services/OpenData/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  "pasco": {
+    zoning_url: "https://gis.pascocountyfl.net/arcgis/rest/services/PublicFacing/Zoning/MapServer/0",
+    zoning_field: "ZONE",
+  },
+  "st. johns": {
+    zoning_url: "https://www.gis.sjcfl.us/portal_sjcgis/rest/services/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  "flagler": {
+    flu_url: "https://services3.arcgis.com/6BaHyMjTzrjhX1cX/arcgis/rest/services/Bunnell_Future_Land_Use/FeatureServer/0",
+    flu_field: "FLU",
+  },
+  "miami-dade": {
+    zoning_url: "https://gis.mdc.miami-dade.gov/arcgis/rest/services/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  "broward": {
+    zoning_url: "https://gis.broward.org/arcgis/rest/services/BrowardCounty/Zoning/MapServer/0",
+    zoning_field: "ZONE",
+  },
+  "alachua": {
+    zoning_url: "https://gis.alachuacounty.us/arcgis/rest/services/Planning/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  // ── Texas ────────────────────────────────────────────────────────────────────
+  "harris": {
+    zoning_url: "https://services.arcgis.com/su8ic9KbA7PYVxPS/arcgis/rest/services/Harris_County_Zoning/FeatureServer/0",
+    zoning_field: "ZONE",
+  },
+  "tarrant": {
+    zoning_url: "https://maps.tarrantcounty.com/arcgis/rest/services/Public/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  // ── Georgia ──────────────────────────────────────────────────────────────────
+  "gwinnett": {
+    zoning_url: "https://gis.gwinnettcounty.com/arcgis/rest/services/Public/Zoning/MapServer/0",
+    zoning_field: "ZONE",
+  },
+  "fulton": {
+    zoning_url: "https://gis.fultoncountyga.gov/arcgis/rest/services/Zoning/MapServer/0",
+    zoning_field: "ZONING",
+  },
+  // ── North Carolina ───────────────────────────────────────────────────────────
+  "wake": {
+    zoning_url: "https://maps.wakegov.com/arcgis/rest/services/Planning/Zoning/MapServer/0",
+    zoning_field: "ZONE",
+  },
+  "mecklenburg": {
+    zoning_url: "https://gis.mecklenburgcountync.gov/arcgis/rest/services/Planning/Zoning/MapServer/0",
+    zoning_field: "ZONE_TYPE",
+  },
+};
+
+/** Normalize county name for registry lookup: lowercase, strip "county" suffix. */
+function normalizeCounty(name) {
+  return (name || "").toLowerCase().replace(/\s*county\s*$/i, "").trim();
+}
+
+/**
+ * Query a single public ArcGIS REST layer (MapServer or FeatureServer) with a
+ * point geometry. Returns { ok, geojson, zone_code } or { ok: false, reason }.
+ * Uses esriSpatialRelIntersects and outSR=4326 so we always get WGS84 back.
+ */
+async function queryArcGISLayer(layerUrl, lat, lon, zoneField) {
+  const params = new URLSearchParams({
+    geometry: `${lon},${lat}`,
+    geometryType: "esriGeometryPoint",
+    inSR: "4326",
+    outSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    outFields: zoneField || "*",
+    returnGeometry: "true",
+    f: "geojson",
+  });
+  const url = `${layerUrl}/query?${params}`;
+  const res = await fetchWithTimeout(url, {}, 12000);
+  if (!res.ok) return { ok: false, reason: res._err || `http_${res.status}` };
+  let data;
+  try { data = await res.json(); } catch (_) { return { ok: false, reason: "parse_error" }; }
+  if (!data.features || !data.features.length) return { ok: true, geojson: null };
+  const zone_code = zoneField ? (data.features[0]?.properties?.[zoneField] || null) : null;
+  return { ok: true, geojson: { type: "FeatureCollection", features: data.features }, zone_code };
+}
+
+/**
+ * Try the county ArcGIS registry for zoning and/or FLU when zone-resolve
+ * comes back empty. Returns { zoningGeojson, fluGeojson, zone_code } — any
+ * field can be null if no data found.
+ */
+async function fetchCountyArcGIS(lat, lon, county) {
+  const key = normalizeCounty(county);
+  const entry = COUNTY_ARCGIS_REGISTRY[key];
+  if (!entry) return { zoningGeojson: null, fluGeojson: null, zone_code: null };
+
+  const zoningPromise = entry.zoning_url
+    ? queryArcGISLayer(entry.zoning_url, lat, lon, entry.zoning_field)
+    : Promise.resolve({ ok: true, geojson: null });
+
+  const fluPromise = entry.flu_url
+    ? queryArcGISLayer(entry.flu_url, lat, lon, entry.flu_field)
+    : Promise.resolve({ ok: true, geojson: null });
+
+  const [zoningResult, fluResult] = await Promise.all([zoningPromise, fluPromise]);
+
+  const applyZoningStyle = (fc) => fc ? {
+    ...fc,
+    features: fc.features.map((f) => ({
+      ...f,
+      properties: { ...f.properties, fill: "#a855f7", "fill-opacity": 0.25, stroke: "#7c3aed", "stroke-width": 2 },
+    })),
+  } : null;
+
+  const applyFluStyle = (fc) => fc ? {
+    ...fc,
+    features: fc.features.map((f) => ({
+      ...f,
+      properties: { ...f.properties, fill: "#f59e0b", "fill-opacity": 0.3, stroke: "#d97706", "stroke-width": 2 },
+    })),
+  } : null;
+
+  return {
+    zoningGeojson: zoningResult.ok && zoningResult.geojson ? applyZoningStyle(zoningResult.geojson) : null,
+    fluGeojson: fluResult.ok && fluResult.geojson ? applyFluStyle(fluResult.geojson) : null,
+    zone_code: zoningResult.zone_code || null,
+  };
+}
+
 /** zone-resolve (Supabase edge fn) — ArcGIS county zoning + FLU. Replaces Zoneomics. */
 async function fetchZoneResolve(geo, zoneResolveAnonKey) {
   if (!zoneResolveAnonKey) return { ok: false, reason: "no_zone_resolve_key" };
@@ -553,12 +740,13 @@ async function buildFloodplainMap(ctx) {
 }
 
 async function buildZoningMap(ctx) {
-  const { geo, lat, lng, mapboxToken, base44, jurisdiction, fallbacks, cacheStats, zoneResolveResult } = ctx;
+  const { geo, lat, lng, mapboxToken, base44, jurisdiction, county, fallbacks, cacheStats, zoneResolveResult } = ctx;
   let layer = await cacheGet(base44, jurisdiction, "zone_resolve_zoning");
   let data_source = "cache:zone_resolve";
   let zone_code = null;
   if (!layer) {
     cacheStats.misses++;
+    // Primary: zone-resolve (Supabase/ArcGIS)
     const z = zoneResolveResult || await fetchZoneResolve(geo, Deno.env.get("ZONE_RESOLVE_ANON_KEY"));
     if (z.ok && z.zoningGeojson) {
       await cacheSet(base44, jurisdiction, "zone_resolve_zoning", z.zoningGeojson, z.data_source);
@@ -566,9 +754,21 @@ async function buildZoningMap(ctx) {
       zone_code = z.zone_code;
       data_source = "zone_resolve";
     } else {
-      fallbacks.push(`zoning:${z.reason || "no_features"}`);
-      console.log(`[INFO] MAP_FALLBACK zoning:${z.reason || "no_features"}`);
-      data_source = "unavailable";
+      // Fallback: county ArcGIS registry
+      const [minLng, minLat, maxLng, maxLat] = geo.bbox;
+      const cLat = (minLat + maxLat) / 2, cLon = (minLng + maxLng) / 2;
+      const fb = await fetchCountyArcGIS(cLat, cLon, county || jurisdiction);
+      if (fb.zoningGeojson) {
+        await cacheSet(base44, jurisdiction, "zone_resolve_zoning", fb.zoningGeojson, "county_arcgis");
+        layer = { geojson: fb.zoningGeojson, data_source: "county_arcgis" };
+        zone_code = fb.zone_code;
+        data_source = "county_arcgis";
+        console.log(`[INFO] ZONING county_arcgis fallback hit county=${county || jurisdiction}`);
+      } else {
+        fallbacks.push(`zoning:${z.reason || "no_features"}`);
+        console.log(`[INFO] MAP_FALLBACK zoning:${z.reason || "no_features"}`);
+        data_source = "unavailable";
+      }
     }
   } else {
     cacheStats.hits++;
@@ -596,7 +796,7 @@ async function buildZoningMap(ctx) {
 }
 
 async function buildFLUMap(ctx) {
-  const { geo, lat, lng, mapboxToken, base44, jurisdiction, state, fallbacks, cacheStats, _force_flu_miss, zoneResolveResult } = ctx;
+  const { geo, lat, lng, mapboxToken, base44, jurisdiction, county, state, fallbacks, cacheStats, _force_flu_miss, zoneResolveResult } = ctx;
   let layer = _force_flu_miss ? null : await cacheGet(base44, jurisdiction, "zone_resolve_flu");
   let data_source = "cache:zone_resolve_flu";
   if (!layer) {
@@ -609,9 +809,20 @@ async function buildFLUMap(ctx) {
       layer = { geojson: z.fluGeojson, data_source: "zone_resolve" };
       data_source = "zone_resolve_flu";
     } else {
-      fallbacks.push(`flu:${z.reason || "no_features"}`);
-      console.log(`[INFO] MAP_FALLBACK flu:${z.reason || "no_features"}`);
-      data_source = "unavailable";
+      // Fallback: county ArcGIS registry
+      const [minLng, minLat, maxLng, maxLat] = geo.bbox;
+      const cLat = (minLat + maxLat) / 2, cLon = (minLng + maxLng) / 2;
+      const fb = await fetchCountyArcGIS(cLat, cLon, county || jurisdiction);
+      if (fb.fluGeojson) {
+        await cacheSet(base44, jurisdiction, "zone_resolve_flu", fb.fluGeojson, "county_arcgis");
+        layer = { geojson: fb.fluGeojson, data_source: "county_arcgis" };
+        data_source = "county_arcgis_flu";
+        console.log(`[INFO] FLU county_arcgis fallback hit county=${county || jurisdiction}`);
+      } else {
+        fallbacks.push(`flu:${z.reason || "no_features"}`);
+        console.log(`[INFO] MAP_FALLBACK flu:${z.reason || "no_features"}`);
+        data_source = "unavailable";
+      }
     }
   } else {
     cacheStats.hits++;
@@ -889,7 +1100,7 @@ async function buildTargetMaps(target, ctx) {
 
   const mapCtx = {
     geo: _geo, lat, lng, apn, owner,
-    base44, jurisdiction, state, mapboxToken,
+    base44, jurisdiction, county: ctx.county, state, mapboxToken,
     fallbacks, cacheStats,
     _force_flu_miss: ctx._force_flu_miss,
     zoneResolveResult,
@@ -942,6 +1153,7 @@ Deno.serve(async (req) => {
     const {
       targets = [],
       jurisdiction,
+      county = null,
       state,
       search_radius_mi = DEFAULT_RADIUS_MI,
       agent_name = null,
@@ -959,7 +1171,7 @@ Deno.serve(async (req) => {
     const cacheStats = { hits: 0, misses: 0 };
 
     const ctx = {
-      base44, jurisdiction, state, mapboxToken,
+      base44, jurisdiction, county, state, mapboxToken,
       search_radius_mi, fallbacks, cacheStats, agent_name,
       _force_flu_miss,
     };
