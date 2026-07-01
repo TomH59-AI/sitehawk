@@ -16,7 +16,7 @@ const DEMO_SLOTS = [
   { email: "walter.boyanton@crowncastle.com", passcode: "HAWK-DEMO-5514", slot: 3, label: "Walter Boyanton" },
   { email: "heater1157@yahoo.com", passcode: "HAWK-DEMO-2267", slot: 4, label: "Moondog" },
   { email: "Brandt.Dozier@us.amentum.com", passcode: "HAWK-DEMO-9930", slot: 5, label: "Brandt Dozier" },
-  { email: "demo+6@sitehawk.io", passcode: "HAWK-DEMO-4481", slot: 6 },
+  { email: "demo+6@sitehawk.io", passcode: "HAWK-DEMO-4481", slot: 6, label: "Arleth Carbajal — pyramidns.com", trialDays: 7, unlimited: true },
   { email: "demo+7@sitehawk.io", passcode: "HAWK-DEMO-6673", slot: 7 },
   { email: "demo+8@sitehawk.io", passcode: "HAWK-DEMO-1195", slot: 8 },
   { email: "demo+9@sitehawk.io", passcode: "HAWK-DEMO-8824", slot: 9 },
@@ -75,6 +75,23 @@ export default function DemoManager() {
       toast.success("Label saved.");
     } catch (e) {
       toast.error("Failed to save label.");
+    } finally {
+      setSaving(p => ({ ...p, [dbUser.id]: false }));
+    }
+  };
+
+  const applySlotConfig = async (dbUser, slot) => {
+    if (!slot.trialDays && !slot.unlimited) return;
+    setSaving(p => ({ ...p, [dbUser.id]: true }));
+    try {
+      const updates = {};
+      if (slot.trialDays) updates.demo_trial_days = slot.trialDays;
+      if (slot.label) updates.demo_label = slot.label;
+      await base44.entities.User.update(dbUser.id, updates);
+      setDemoUsers(prev => prev.map(u => u.id === dbUser.id ? { ...u, ...updates } : u));
+      toast.success(`Slot ${slot.slot} configured: ${slot.trialDays}-day trial${slot.unlimited ? " · unlimited SCIPs" : ""}.`);
+    } catch (e) {
+      toast.error("Failed to apply config: " + e.message);
     } finally {
       setSaving(p => ({ ...p, [dbUser.id]: false }));
     }
@@ -190,25 +207,51 @@ export default function DemoManager() {
               </div>
               {isRegistered && (() => {
                 const started = dbUser?.demo_trial_started_at;
-                if (!started) return <p className="text-xs text-muted-foreground italic">No SCIPs run yet — trial not started.</p>;
-                const expiresAt = new Date(started).getTime() + 5 * 24 * 60 * 60 * 1000;
+                const trialDays = slot.trialDays || 5;
+                const isUnlimited = slot.unlimited || false;
+                if (!started) return (
+                  <p className="text-xs text-muted-foreground italic">
+                    No SCIPs run yet — trial not started.
+                    {isUnlimited && <span className="ml-1 text-emerald-600 font-semibold">({trialDays}-day trial · unlimited SCIPs)</span>}
+                  </p>
+                );
+                const expiresAt = new Date(started).getTime() + trialDays * 24 * 60 * 60 * 1000;
                 const expired = Date.now() > expiresAt;
                 const daysLeft = Math.max(0, Math.ceil((expiresAt - Date.now()) / 86400000));
                 return (
                   <div className={`text-xs px-3 py-1.5 rounded-lg ${expired ? "bg-red-500/15 text-red-600 dark:text-red-400" : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"}`}>
                     {expired
                       ? `⚠ Demo expired — started ${new Date(started).toLocaleDateString()}, ended ${new Date(expiresAt).toLocaleDateString()}`
-                      : `✓ Trial active — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} left (expires ${new Date(expiresAt).toLocaleDateString()})`}
+                      : `✓ Trial active — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} left (expires ${new Date(expiresAt).toLocaleDateString()})${isUnlimited ? " · unlimited SCIPs" : ""}`}
                   </div>
                 );
               })()}
+
+              {/* Custom trial config badge */}
+              {slot.trialDays && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded-md bg-blue-500/15 text-blue-700 dark:text-blue-400 font-medium">
+                    ⚙️ Custom: {slot.trialDays}-day trial{slot.unlimited ? " · unlimited SCIPs" : ""}
+                  </span>
+                  {isRegistered && dbUser?.demo_trial_days !== slot.trialDays && (
+                    <Button size="sm" variant="outline" className="text-xs h-6 px-2"
+                      disabled={!!saving[dbUser?.id]}
+                      onClick={() => applySlotConfig(dbUser, slot)}>
+                      Apply to user
+                    </Button>
+                  )}
+                  {isRegistered && dbUser?.demo_trial_days === slot.trialDays && (
+                    <span className="text-xs text-emerald-600">✓ Applied</span>
+                  )}
+                </div>
+              )}
 
               {/* Label / notes for this slot */}
               {isRegistered && (
                 <div className="flex items-center gap-2">
                   <Input
                     placeholder="Label (e.g. John Smith — Texas Region)"
-                    defaultValue={dbUser?.demo_label || ""}
+                    defaultValue={dbUser?.demo_label || slot.label || ""}
                     className="text-sm h-8"
                     onBlur={(e) => {
                       const val = e.target.value.trim();

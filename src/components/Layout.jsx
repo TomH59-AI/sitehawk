@@ -42,9 +42,10 @@ export default function Layout() {
       const admin = u?.role === "admin" || u?.email === ADMIN_EMAIL;
       setIsAdmin(admin);
       try { localStorage.setItem("sh_is_admin", admin ? "1" : "0"); } catch {};
-      // Demo expiry: 5 days after first SCIP
+      // Demo expiry: default 5 days, but demo_trial_days on the user can override
       if (u?.role === "demo" && u?.demo_trial_started_at) {
-        const expiresAt = new Date(u.demo_trial_started_at).getTime() + 5 * 24 * 60 * 60 * 1000;
+        const trialDays = u?.demo_trial_days || 5;
+        const expiresAt = new Date(u.demo_trial_started_at).getTime() + trialDays * 24 * 60 * 60 * 1000;
         if (Date.now() > expiresAt) setDemoExpired(true);
       }
       // Also block if admin toggled demo_disabled
@@ -79,7 +80,7 @@ export default function Layout() {
           <div className="text-5xl">🦅</div>
           <h1 className="font-heading font-bold text-2xl text-foreground">Your Demo Has Ended</h1>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            Your 5-day SiteHawk demo has expired. Ready to keep going?<br />
+            Your SiteHawk demo has expired. Ready to keep going?<br />
             Contact your SiteHawk representative or start a plan today.
           </p>
           <a href="mailto:info@sitehawk.com?subject=SiteHawk Demo — Ready to Subscribe"
