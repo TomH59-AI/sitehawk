@@ -12,7 +12,7 @@ const fc = (items) => ({
 // envelope teal dash + 12% fill, fall zone cyan 18%, compound amber 45%,
 // tower white circle / amber stroke, residential circle red dash. Drag the
 // tower to re-site (clamping + recompute happen in the parent).
-export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCircle, towerData, draftPoints, onTowerDrag, onMapClick, clickMode }) {
+export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCircle, towerData, draftPoints, onTowerDrag, onMapClick, clickMode, rowData }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -57,6 +57,9 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
         add("ts-sep-buf-fill", "fill", { "fill-color": "#ef4444", "fill-opacity": 0.08 });
         add("ts-sep-buf-line", "line", { "line-color": "#ef4444", "line-width": 1.5, "line-dasharray": [3, 2] });
         add("ts-sep-pts", "circle", { "circle-radius": 6, "circle-color": "#ef4444", "circle-stroke-color": "#fff", "circle-stroke-width": 1.5 });
+        // Access road ROW indicator
+        add("ts-row-fill", "fill", { "fill-color": "#f97316", "fill-opacity": 0.15 });
+        add("ts-row-line", "line", { "line-color": "#f97316", "line-width": 2.5, "line-dasharray": [4, 2] });
 
         // tower drag
         let dragging = false;
@@ -135,6 +138,13 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
     setData("ts-sep-buf-line", towerData?.buffers || EMPTY);
     setData("ts-sep-pts", towerData?.towerPoints || EMPTY);
   }, [ready, towerData]);
+
+  // Access road ROW indicator — orange dashed outline when access_road data is present
+  useEffect(() => {
+    if (!ready) return;
+    setData("ts-row-fill", rowData?.geometry ? fc([rowData.geometry]) : EMPTY);
+    setData("ts-row-line", rowData?.geometry ? fc([rowData.geometry]) : EMPTY);
+  }, [ready, rowData]);
 
   // manual polygon draft
   useEffect(() => {

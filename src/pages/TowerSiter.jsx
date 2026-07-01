@@ -16,6 +16,7 @@ import { towerSiterParcel } from "@/functions/towerSiterParcel";
 import { towerSiterOrdinance } from "@/functions/towerSiterOrdinance";
 import { towerSiterResidential } from "@/functions/towerSiterResidential";
 import { towerSiterSitings } from "@/functions/towerSiterSitings";
+import { scipExistingConditions } from "@/functions/scipExistingConditions";
 import { useTowerSeparation } from "@/components/towersiter/TowerSeparationLayer";
 
 import ParcelInputPanel from "../components/towersiter/ParcelInputPanel";
@@ -54,6 +55,7 @@ export default function TowerSiter() {
   const [draftPoints, setDraftPoints] = useState([]);
   const [manualRect, setManualRect] = useState({ w: "", d: "" });
   const [pendingPlat, setPendingPlat] = useState(null);
+  const [accessRoad, setAccessRoad] = useState(null); // { road_name, highway_label, road_type, ownership, permit_path, distance_ft }
   const exhibitARef = useRef(null);
 
   useEffect(() => {
@@ -115,8 +117,19 @@ export default function TowerSiter() {
     setResultClass(null);
     setSavedRunId(null);
     resetTowerSep();
+    setAccessRoad(null);
     setClickMode(null);
     setDraftPoints([]);
+    // Fire access road lookup in background — non-blocking
+    const centroidCoords = p.location?.coordinates || [p.geometry?.coordinates?.[0]?.[0]?.[0], p.geometry?.coordinates?.[0]?.[0]?.[1]];
+    if (centroidCoords?.[0] && centroidCoords?.[1]) {
+      scipExistingConditions({ lat: centroidCoords[1], lon: centroidCoords[0] })
+        .then((res) => {
+          const conditions = res?.data?.conditions || res?.conditions;
+          if (conditions?.access_road) setAccessRoad(conditions.access_road);
+        })
+        .catch(() => {}); // non-blocking — never fails the siting
+    }
     if (p.state && p.jurisdiction) {
       try {
         const { data } = await towerSiterOrdinance({ state: p.state, jurisdiction: p.jurisdiction });
@@ -289,6 +302,7 @@ export default function TowerSiter() {
         fall_zone_geojson: result.checks?.fallZone?.circle?.geometry || null,
         candidate_area_geojson: result.envelope?.geometry || null,
         tower_separation_geojson: towerData?.buffers || null,
+        access_road_meta: accessRoad || null,
         status: "completed",
       };
 
@@ -514,17 +528,30 @@ export default function TowerSiter() {
           </div>
 
           {view === "map" && (
-            <SiterMap
-              parcelGeoJSON={parcel?.geometry || null}
-              result={result}
-              leaseLonLat={leaseLonLat}
-              residCircle={residential?.circle || null}
-              towerData={towerData}
-              draftPoints={draftPoints}
-              onTowerDrag={onTowerDrag}
-              onMapClick={handleMapClick}
-              clickMode={clickMode}
-            />
+            <>
+              <SiterMap
+                parcelGeoJSON={parcel?.geometry || null}
+                result={result}
+                leaseLonLat={leaseLonLat}
+                residCircle={residential?.circle || null}
+                towerData={towerData}
+                draftPoints={draftPoints}
+                onTowerDrag={onTowerDrag}
+                onMapClick={handleMapClick}
+                clickMode={clickMode}
+                rowData={accessRoad}
+              />
+              {accessRoad && (
+                <div className="mt-2 px-3 py-2 rounded-lg text-xs flex items-start gap-2" style={{ background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.35)", color: "#f97316" }}>
+                  <span className="text-base leading-none">🛣️</span>
+                  <div>
+                    <span className="font-semibold">{accessRoad.road_name}</span>
+                    <span className="opacity-75"> · {accessRoad.highway_label} · {accessRoad.ownership} · ~{accessRoad.distance_ft} ft</span>
+                    <div className="opacity-80 mt-0.5">{accessRoad.permit_path}</div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {view === "plan" && result && !result.collapsed && (

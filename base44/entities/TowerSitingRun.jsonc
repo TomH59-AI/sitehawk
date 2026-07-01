@@ -152,6 +152,10 @@
       "type": "object",
       "description": "GeoJSON FeatureCollection of all conflict/exclusion layers."
     },
+    "access_road_meta": {
+      "type": "object",
+      "description": "Structured access road / ROW data from the OSM lookup: { road_name, highway_class, highway_label, road_type, ownership, permit_path, distance_ft }."
+    },
     "status": {
       "type": "string",
       "enum": [
