@@ -124,11 +124,39 @@ Deno.serve(async (req) => {
     const token = Deno.env.get("REGRID_API_KEY");
     if (!token) return Response.json({ error: "REGRID_API_KEY not configured" }, { status: 500 });
 
-    const { lat, lon, radius_miles = 0.5 } = await req.json();
+    const { lat, lon, radius_miles = 0.5, mode = "ring" } = await req.json();
     if (lat == null || lon == null) {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
 
+    // ── POINT mode: single parcel lookup at a specific lat/lon ──
+    // Used by the Zoning and FLUM map steps to get Regrid zoning + FLU fields
+    // for Target A without pulling the full ring. No extra credit cost vs ring.
+    if (mode === "point") {
+      const url = new URL("https://app.regrid.com/api/v2/parcels/query");
+      url.searchParams.set("lat", String(lat));
+      url.searchParams.set("lon", String(lon));
+      url.searchParams.set("radius", "100"); // ~100m — just the parcel under the point
+      url.searchParams.set("token", token);
+      url.searchParams.set("limit", "5");
+      url.searchParams.set("return_geometry", "true");
+      url.searchParams.set("return_custom", "true");
+      console.log(`[regridParcelRing/point] lat=${lat} lon=${lon}`);
+      const res = await fetch(url.toString());
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("[regridParcelRing/point] error", res.status, errText.slice(0, 200));
+        return Response.json({ error: `Regrid HTTP ${res.status}` }, { status: 502 });
+      }
+      const data = await res.json();
+      const features = data?.parcels?.features || data?.features || [];
+      const parcels = features.map(normalize);
+      const target = findTargetParcel(parcels, lat, lon) || parcels[0] || null;
+      console.log(`[regridParcelRing/point] zoning=${target?.zoning} flu=${target?.land_use}`);
+      return Response.json({ ok: true, parcel: target, parcels });
+    }
+
+    // ── RING mode (default) ──
     // Regrid radius param is in meters, max 32000m. We cap at 1mi.
     const radiusMeters = Math.min(Number(radius_miles), 1.0) * 1609.34;
 

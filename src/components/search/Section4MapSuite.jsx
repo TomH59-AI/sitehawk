@@ -66,7 +66,7 @@ import ViewshedTiles from "./section4/ViewshedTiles";
 import RowIndicatorStep from "./section4/RowIndicatorStep";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlumPolygon, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlumPolygon, renderRegridZoningMap, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 
 import { zoneResolve } from "@/functions/zoneResolve";
@@ -181,34 +181,86 @@ export default function Section4MapSuite({
         // Emit FEMA factor to the bus — §4 centroid lookup is canonical for FEMA.
         onData?.({ fema: { flood_zone: fz } });
       } else if (step === "zoning") {
-        // Zoneomics removed — use zoneResolve (ArcGIS) directly
-        const zfres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
-        const zoningPolygon = zfres?.data?.zoning_polygon || null;
-        const zoningLabel = zfres?.data?.zoning?.zone_code
+        // Try Regrid first for zoning data (premium plan includes zoning + geometry)
+        const [rgRes, zfres] = await Promise.all([
+          regridParcelRing({ lat: targetA.latitude, lon: targetA.longitude, mode: "point" }).catch(() => null),
+          zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        ]);
+        const rgParcel = rgRes?.data?.parcel || null;
+        const rgParcels = rgRes?.data?.parcels || [];
+        const rgZoning = rgParcel?.zoning || rgParcel?.zoning_description || null;
+        const rgZoningType = rgParcel?.zoning_type || null;
+
+        // Prefer Regrid zoning code, fall back to zoneResolve, then targetA
+        const zoningLabel = rgZoning
+          || zfres?.data?.zoning?.zone_code
           || targetA?.zoning_classification
           || null;
-        const zone = zoningLabel ? { zone_code: zoningLabel, zone_name: null } : null;
+        const zoningLabel2 = rgZoningType ? `${zoningLabel} (${rgZoningType})` : zoningLabel;
+        const zone = zoningLabel ? { zone_code: zoningLabel, zone_name: rgZoningType || null } : null;
         setZoneInfo(zone);
         setZoningLegend([]);
+
+        // Build a FeatureCollection of Regrid parcel polygons colored by zone code
+        const rgFeatures = rgParcels
+          .filter((p) => p.parcel_geometry)
+          .map((p) => ({ type: "Feature", geometry: p.parcel_geometry, properties: { zoning: p.zoning || p.zoning_description || "—", apn: p.apn || "" } }));
+        const rgFC = rgFeatures.length ? { type: "FeatureCollection", features: rgFeatures } : null;
+
+        // Fallback polygon from zoneResolve if Regrid has no geometry
+        const zoningPolygon = rgFC || zfres?.data?.zoning_polygon || null;
         setZoningFallback(zoningPolygon ? null : "No zoning polygon found — verify district with local zoning dept.");
-        if (zoningLabel) onData?.({ zoneomicsDistrict: { zone_code: zoningLabel, zone_name: null } });
-        map = await renderFlumPolygon(refs.zoning.current, targetA, token, zoningPolygon, zoningLabel ? `Zoning: ${zoningLabel}` : "Zoning Map");
+        if (zoningLabel) onData?.({ zoneomicsDistrict: { zone_code: zoningLabel, zone_name: rgZoningType || null } });
+
+        // Render: if we have Regrid parcel polygons, use the dedicated renderer
+        if (rgFC) {
+          map = await renderRegridZoningMap(refs.zoning.current, targetA, token, rgFC, zoningLabel2 ? `Zoning: ${zoningLabel2}` : "Zoning Map", "zoning");
+        } else {
+          map = await renderFlumPolygon(refs.zoning.current, targetA, token, zoningPolygon, zoningLabel ? `Zoning: ${zoningLabel}` : "Zoning Map");
+        }
       } else if (step === "flum") {
-        // Future Land Use map — zoneResolve (ArcGIS / FL GeoPlan) only, no Zoneomics
+        // Future Land Use map — try Regrid land_use field first, then zoneResolve (FL GeoPlan)
         let flum = null;
         let fluFeature = null;
 
-        const fres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
+        const [rgRes, fres] = await Promise.all([
+          regridParcelRing({ lat: targetA.latitude, lon: targetA.longitude, mode: "point" }).catch(() => null),
+          zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        ]);
+        const rgParcel = rgRes?.data?.parcel || null;
+        const rgParcels = rgRes?.data?.parcels || [];
+
+        // zoneResolve FLU (FL GeoPlan) — polygon + code
         const flu = fres?.data?.flu || null;
         fluFeature = flu?.geojson || null;
         if (flu) flum = { code: flu.code, name: flu.label };
 
+        // If no zoneResolve FLU, try Regrid land_use / lbcs fields
+        if (!flum && rgParcel) {
+          const luCode = rgParcel.land_use || rgParcel.lbcs_function || null;
+          if (luCode) flum = { code: luCode, name: rgParcel.zoning_description || null };
+        }
+
+        // Build Regrid parcel polygons as a FLU FeatureCollection fallback
+        const rgFeatures = rgParcels
+          .filter((p) => p.parcel_geometry)
+          .map((p) => ({ type: "Feature", geometry: p.parcel_geometry, properties: { flu: p.land_use || p.zoning_description || "—", apn: p.apn || "" } }));
+        const rgFC = rgFeatures.length ? { type: "FeatureCollection", features: rgFeatures } : null;
+        // Prefer zoneResolve polygon (authoritative), fall back to Regrid polygons
+        if (!fluFeature && rgFC) fluFeature = rgFC;
+
         const flumLabel = flum ? [flum.code, flum.name].filter(Boolean).join(" — ") : "";
         setFlumInfo(flum && (flum.code || flum.name) ? flum : null);
         if (!flum && !fluFeature) {
-          toast.message("No Future Land Use designation found for this location.");
+          toast.message("No Future Land Use designation found for this location. Regrid may not have FLU data for this county.");
         }
-        map = await renderFlumPolygon(refs.flum.current, targetA, token, fluFeature, flumLabel);
+
+        // If we have Regrid parcel polygons (no FL GeoPlan polygon), use dedicated renderer
+        if (rgFC && !flu?.geojson) {
+          map = await renderRegridZoningMap(refs.flum.current, targetA, token, rgFC, flumLabel ? `FLUM: ${flumLabel}` : "Future Land Use Map", "flu");
+        } else {
+          map = await renderFlumPolygon(refs.flum.current, targetA, token, fluFeature, flumLabel);
+        }
       } else if (step === "wetlands") {
         map = await renderWetlands(refs.wetlands.current, targetA, token, srcLat, srcLon, radiusMiles);
       } else if (step === "airport") {

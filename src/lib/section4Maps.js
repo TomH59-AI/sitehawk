@@ -651,6 +651,103 @@ export async function renderFlumPolygon(container, target, token, fluFeature, fl
   });
 }
 
+// ────────────── 4e. REGRID ZONING / FLU PARCEL MAP ──────────────
+// Draw Regrid parcel boundaries color-coded by their zoning or FLU code.
+// Works for BOTH the Zoning map (step 4) and FLUM map (step 5) when Regrid
+// returns parcel geometry. Each unique zone/FLU code gets a deterministic
+// color; Target A is highlighted in brand green; a legend pill sits on the map.
+//   parcelsFC: GeoJSON FeatureCollection — each feature has { zoning | flu } property
+//   labelText: pill label (e.g. "Zoning: A-1" or "FLUM: Residential")
+//   fieldKey:  "zoning" | "flu" — which property to read for coloring
+export async function renderRegridZoningMap(container, target, token, parcelsFC, labelText, fieldKey = "zoning") {
+  const { latitude: lat, longitude: lon, owner } = target;
+  const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 15);
+  map.on("error", (e) => console.error("[REGRID ZONING DIAG] Mapbox error event:", e?.error || e));
+
+  // Build a deterministic color per unique zone code.
+  const codeSet = new Set((parcelsFC?.features || []).map((f) => f.properties?.[fieldKey] || "—"));
+  const palette = {};
+  let hueStep = 0;
+  for (const code of codeSet) {
+    // Spread hues evenly, avoid red (0°) for ROW parcels confusion
+    const h = (30 + hueStep * 137.5) % 360; // golden-angle spread
+    palette[code] = `hsl(${Math.round(h)}, 65%, 55%)`;
+    hueStep++;
+  }
+
+  return new Promise((resolve) => {
+    map.on("load", () => {
+      // 1) All parcels colored by zone code
+      const colored = {
+        type: "FeatureCollection",
+        features: (parcelsFC?.features || []).map((f) => ({
+          ...f,
+          properties: {
+            ...f.properties,
+            _color: palette[f.properties?.[fieldKey] || "—"] || "#888",
+          },
+        })),
+      };
+      map.addSource("s4-rg-zone", { type: "geojson", data: colored });
+      map.addLayer({ id: "s4-rg-zone-fill", type: "fill", source: "s4-rg-zone", paint: { "fill-color": ["get", "_color"], "fill-opacity": 0.4 } });
+      map.addLayer({ id: "s4-rg-zone-line", type: "line", source: "s4-rg-zone", paint: { "line-color": ["get", "_color"], "line-width": 1.5, "line-opacity": 0.85 } });
+
+      // 2) Highlight Target A parcel boundary in brand green
+      const targetGeom = (parcelsFC?.features || []).find((f) => f.properties?.apn === target.apn || f.properties?.apn === target.parcel_id);
+      if (targetGeom) {
+        map.addSource("s4-rg-target", { type: "geojson", data: targetGeom });
+        map.addLayer({ id: "s4-rg-target-line", type: "line", source: "s4-rg-target", paint: { "line-color": BRAND_GREEN, "line-width": 3.5 } });
+      }
+
+      // 3) Hover popup showing zone code + owner
+      const popup = new window.mapboxgl.Popup({ closeButton: false, offset: 8 });
+      map.on("mousemove", "s4-rg-zone-fill", (e) => {
+        const p = e.features?.[0]?.properties || {};
+        map.getCanvas().style.cursor = "pointer";
+        popup.setLngLat(e.lngLat).setHTML(
+          `<div style="font-family:monospace;font-size:11px;line-height:1.4;">` +
+          `<strong>${p.owner || p.apn || "Parcel"}</strong><br/>` +
+          `${fieldKey === "zoning" ? "Zone" : "FLU"}: <strong>${p[fieldKey] || "—"}</strong>` +
+          `${p.apn ? `<br/>APN: ${p.apn}` : ""}</div>`
+        ).addTo(map);
+      });
+      map.on("mouseleave", "s4-rg-zone-fill", () => { map.getCanvas().style.cursor = ""; popup.remove(); });
+
+      // 4) Pill label
+      const el = document.createElement("div");
+      el.textContent = labelText || "—";
+      el.style.cssText = `
+        font: 600 12px/1 ui-sans-serif, system-ui, sans-serif; color:#fff;
+        background:${BRAND_GREEN}; padding:6px 12px; border-radius:9999px;
+        white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.3);
+      `;
+      new window.mapboxgl.Marker({ element: el, anchor: "bottom" }).setLngLat([lon, lat]).addTo(map);
+
+      // 5) Legend pills for each zone code — top-right corner
+      const legendEl = document.createElement("div");
+      legendEl.style.cssText = "position:absolute;top:8px;right:48px;z-index:10;display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;";
+      for (const [code, color] of Object.entries(palette)) {
+        const pill = document.createElement("div");
+        pill.style.cssText = `display:flex;align-items:center;gap:6px;background:rgba(15,23,42,0.85);border-radius:4px;padding:2px 7px;`;
+        const swatch = document.createElement("div");
+        swatch.style.cssText = `width:12px;height:12px;border-radius:2px;background:${color};flex-shrink:0;`;
+        const label = document.createElement("span");
+        label.style.cssText = "font:600 10px/1 monospace;color:#fff;white-space:nowrap;";
+        label.textContent = code;
+        pill.appendChild(swatch);
+        pill.appendChild(label);
+        legendEl.appendChild(pill);
+      }
+      container.style.position = "relative";
+      container.appendChild(legendEl);
+
+      addTowerMarker(map, lat, lon, owner);
+      fitToRing(map, lat, lon, 0.5);
+      resolve(map);
+    });
+  });
+}
+
 // ────────────── 5. WETLANDS ──────────────
 export async function renderWetlands(container, target, token, srcLat, srcLon, radiusMiles = 0.5) {
   const { latitude: lat, longitude: lon, owner } = target;
