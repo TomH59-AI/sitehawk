@@ -1,0 +1,146 @@
+{
+  "name": "FollowUpTracker",
+  "type": "object",
+  "description": "Master Follow-Up Sites tracker. One row per site being pursued. Auto-populated when a target is selected in the SCIP pipeline. Tracks mailer activity, contact info, and status.",
+  "properties": {
+    "pm": {
+      "type": "string",
+      "description": "Project Manager initials or name"
+    },
+    "site_name": {
+      "type": "string",
+      "description": "Site / ring name (e.g. SW-TX-0142)"
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Zoning jurisdiction"
+    },
+    "search_ring_center": {
+      "type": "string",
+      "description": "Lat/lon of the SARF search ring center"
+    },
+    "contact_name": {
+      "type": "string",
+      "description": "Owner / contact person name"
+    },
+    "email": {
+      "type": "string",
+      "description": "Owner email"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Owner phone"
+    },
+    "parcel_address": {
+      "type": "string",
+      "description": "Parcel / site address"
+    },
+    "mailing_address": {
+      "type": "string",
+      "description": "Owner mailing address"
+    },
+    "apn": {
+      "type": "string",
+      "description": "Parcel APN"
+    },
+    "zoning": {
+      "type": "string",
+      "description": "Zoning classification"
+    },
+    "fema_zone": {
+      "type": "string",
+      "description": "FEMA flood zone code"
+    },
+    "acreage": {
+      "type": "number",
+      "description": "Parcel size in acres"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "New Lead",
+        "Mailer Sent",
+        "Contacted",
+        "Interested",
+        "Not Interested",
+        "LOI Issued",
+        "LOI Executed",
+        "Dead"
+      ],
+      "default": "New Lead",
+      "description": "Current outreach status"
+    },
+    "mailers_sent": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of mailers sent to this site"
+    },
+    "last_mailer_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of most recent mailer"
+    },
+    "notes": {
+      "type": "string",
+      "description": "To-Do / follow-up notes"
+    },
+    "scip_record_id": {
+      "type": "string",
+      "description": "Linked ScipRecord id (soft reference)"
+    },
+    "search_id": {
+      "type": "string",
+      "description": "Linked SearchHistory id (soft reference)"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    }
+  },
+  "required": [
+    "site_name"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

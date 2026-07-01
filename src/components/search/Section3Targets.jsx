@@ -24,6 +24,7 @@ import { scipBestParcels } from "@/functions/scipBestParcels";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
+import PushToTrackerButton from "./section3/PushToTrackerButton";
 import SectionClearButton from "./SectionClearButton";
 
 const COLS = ["Target A", "Target B", "Target C"];
@@ -107,6 +108,7 @@ export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
   towerHeightFt = 199, compoundSideFt = 100, ringName = "Search Ring", zoningResult, onRun, onTargetAReady, onData, onClear,
   generatedLabels = [],
+  searchRingCenter = null,
 }) {
   const [grid, setGrid] = useState(emptyGrid);
   const [loading, setLoading] = useState(false);
@@ -567,12 +569,20 @@ export default function Section3Targets({
               {[0, 1, 2].map((colIdx) => (
                 <div key={colIdx} className={`px-3 py-3 border-r border-border last:border-r-0 ${isLocked(colIdx) ? "opacity-50 pointer-events-none" : ""}`}>
                   {targets[colIdx] ? (
-                    <PushTargetCrmButton
-                      ringName={ringName}
-                      targetLabel={COLS[colIdx]}
-                      targetIndex={colIdx}
-                      target={targets[colIdx]}
-                    />
+                    <div className="flex flex-col gap-1.5">
+                      <PushTargetCrmButton
+                        ringName={ringName}
+                        targetLabel={COLS[colIdx]}
+                        targetIndex={colIdx}
+                        target={targets[colIdx]}
+                      />
+                      <PushToTrackerButton
+                        ringName={ringName}
+                        targetLabel={COLS[colIdx]}
+                        target={targets[colIdx]}
+                        searchRingCenter={searchRingCenter}
+                      />
+                    </div>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}

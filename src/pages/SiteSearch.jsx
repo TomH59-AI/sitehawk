@@ -456,6 +456,7 @@ export default function SiteSearch() {
           ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
           zoningResult={zoningResult}
           generatedLabels={generatedLabels}
+          searchRingCenter={[Number(searchCenter.lon), Number(searchCenter.lat)]}
           onRun={() => setPipelineStep("targets")}
           onTargetAReady={(t) => setTargetA(t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : t)}
           onData={mergeSectionData}
