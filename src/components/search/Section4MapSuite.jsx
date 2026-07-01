@@ -68,10 +68,9 @@ import {
 } from "@/lib/section4Maps";
 
 import { zoneResolve } from "@/functions/zoneResolve";
-import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
 
-import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
-import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
+
+
 import ZoningLegend from "./section4/ZoningLegend";
 import { SOURCE_LABELS } from "@/lib/brandedLabels";
 
@@ -178,107 +177,27 @@ export default function Section4MapSuite({
         // Emit FEMA factor to the bus — §4 centroid lookup is canonical for FEMA.
         onData?.({ fema: { flood_zone: fz } });
       } else if (step === "zoning") {
-        console.log("[ZONING MAP DIAG] Run Zoning Map — Target A:", targetA?.latitude, targetA?.longitude, "APN:", targetA?.apn);
-        const key = `${targetA.latitude.toFixed(6)},${targetA.longitude.toFixed(6)}`;
-        const cached = zoningCache.current[key];
-
-        let gridCells, legend, zone, cellLat, cellLng;
-
-        if (cached) {
-          ({ gridCells, legend, zone, cellLat, cellLng } = cached);
-        } else {
-          // Sample a grid of zoneDetail points around Target A — every cell gets
-          // its real district straight from the Zoneomics API.
-          const gres = await zoneomicsZoneGrid({
-            lat: targetA.latitude, lng: targetA.longitude, radius_miles: 0.4, grid: 7,
-          }).catch((e) => { console.error("[ZONING MAP DIAG] zoneGrid threw:", e); return null; });
-
-          const gdata = gres?.data ?? gres;
-          if (gdata?.error) {
-            setLoadingStep(null);
-            setErrors((p) => ({ ...p, zoning: gdata.error.includes("API_KEY") ? `${SOURCE_LABELS.zoneomics} authentication failed — contact support.` : gdata.error }));
-            return;
-          }
-
-          const rawCells = gdata?.cells || [];
-          const districts = gdata?.districts || [];
-          cellLat = gdata?.cell_lat_deg;
-          cellLng = gdata?.cell_lng_deg;
-
-          if (!rawCells.length) {
-            // Zoneomics returned no cells — fall back to zoneResolve ArcGIS polygon.
-            console.log("[ZONING MAP DIAG] Zoneomics returned 0 cells — falling back to zoneResolve");
-            const zfres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
-            const zoningPolygon = zfres?.data?.zoning_polygon || null;
-            const zoningLabel = zfres?.data?.zoning?.zone_code
-              || targetA?.zoning_classification
-              || "Unknown Zone";
-            const fallbackZone = { zone_code: zoningLabel, zone_name: null };
-            setZoneInfo(fallbackZone);
-            setZoningLegend([]);
-            setZoningFallback("No Zoneomics grid coverage — showing zoneResolve (ArcGIS) polygon. Zoning district may vary.");
-            if (zoningLabel !== "Unknown Zone") onData?.({ zoneomicsDistrict: { zone_code: zoningLabel, zone_name: null } });
-            map = await renderFlumPolygon(refs.zoning.current, targetA, token, zoningPolygon, `Zoning: ${zoningLabel}`);
-            zoningCache.current[key] = { gridCells: [], legend: [], zone: fallbackZone, cellLat: 0, cellLng: 0, isFallback: true };
-            setCompleted((prev) => ({ ...prev, zoning: true }));
-            toast.success("Zoning map generated for Target A (ArcGIS fallback).");
-            setLoadingStep(null);
-            return;
-          }
-
-          // Build the API-derived legend (color per district).
-          legend = buildLegend(districts);
-          const colorByCode = Object.fromEntries(legend.map((d) => [d.code, d.color]));
-
-          // Attach the legend color to each grid cell.
-          gridCells = rawCells.map((c) => ({
-            lat: c.lat, lng: c.lng, zone_code: c.zone_code,
-            color: colorByCode[c.zone_code] || swatchColor(normalizeZoneType(c.zone_type, c.zone_code), c.zone_code),
-          }));
-
-          // Target A's own district = the center cell (closest to Target A).
-          const center = rawCells.reduce((best, c) => {
-            const d = Math.hypot(c.lat - targetA.latitude, c.lng - targetA.longitude);
-            return !best || d < best.d ? { d, c } : best;
-          }, null)?.c;
-          zone = center ? { zone_code: center.zone_code, zone_name: center.zone_name, zone_type: center.zone_type } : null;
-
-          zoningCache.current[key] = { gridCells, legend, zone, cellLat, cellLng };
-        }
-
+        // Zoneomics removed — use zoneResolve (ArcGIS) directly
+        const zfres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
+        const zoningPolygon = zfres?.data?.zoning_polygon || null;
+        const zoningLabel = zfres?.data?.zoning?.zone_code
+          || targetA?.zoning_classification
+          || null;
+        const zone = zoningLabel ? { zone_code: zoningLabel, zone_name: null } : null;
         setZoneInfo(zone);
-        // Emit Zoneomics district to the bus (zoning canonical = Zoneomics).
-        if (zone?.zone_code) onData?.({ zoneomicsDistrict: { zone_code: zone.zone_code, zone_name: zone.zone_name || null } });
-        setZoningLegend(legend);
-        setZoningFallback(null);
-        console.log("[ZONING MAP DIAG] legend rendered with", legend.length, "districts /", gridCells.length, "cells");
-
-        // Parcel boundary highlight for Target A (best-effort).
-        const pres = await realieParcelsInRing({
-          lat: targetA.latitude, lon: targetA.longitude, radius_miles: 0.3,
-        }).catch(() => null);
-        const zParcels = pres?.data?.parcels || [];
-
-        map = await renderZoningGrid(refs.zoning.current, targetA, token, gridCells, cellLat, cellLng, zone, zParcels);
+        setZoningLegend([]);
+        setZoningFallback(zoningPolygon ? null : "No zoning polygon found — verify district with local zoning dept.");
+        if (zoningLabel) onData?.({ zoneomicsDistrict: { zone_code: zoningLabel, zone_name: null } });
+        map = await renderFlumPolygon(refs.zoning.current, targetA, token, zoningPolygon, zoningLabel ? `Zoning: ${zoningLabel}` : "Zoning Map");
       } else if (step === "flum") {
-        // Future Land Use map — Zoneomics FLUM first, zoneResolve polygon fallback.
+        // Future Land Use map — zoneResolve (ArcGIS / FL GeoPlan) only, no Zoneomics
         let flum = null;
         let fluFeature = null;
 
-        const zres = await zoneomicsFlumDetails({ lat: targetA.latitude, lng: targetA.longitude }).catch(() => null);
-        const zflum = zres?.data?.flum || null;
-        if (zflum && (zflum.code || zflum.name)) {
-          flum = { code: zflum.code, name: zflum.name, description: zflum.description };
-        }
-
-        // zoneResolve fallback (FL GeoPlan) — gives the actual polygon + a label
-        // when Zoneomics returned nothing for this point.
-        if (!flum || !fluFeature) {
-          const fres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
-          const flu = fres?.data?.flu || null;
-          fluFeature = flu?.geojson || null;
-          if (!flum && flu) flum = { code: flu.code, name: flu.label };
-        }
+        const fres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
+        const flu = fres?.data?.flu || null;
+        fluFeature = flu?.geojson || null;
+        if (flu) flum = { code: flu.code, name: flu.label };
 
         const flumLabel = flum ? [flum.code, flum.name].filter(Boolean).join(" — ") : "";
         setFlumInfo(flum && (flum.code || flum.name) ? flum : null);

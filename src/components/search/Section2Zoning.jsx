@@ -291,9 +291,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       {!loading && !done && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
           Resolve the jurisdiction from the SARF coordinates, then pull the zoning district + telecom tower controls
-          from <span className="font-semibold text-foreground">Zoneomics (paid tier)</span> as the primary source —
-          Realie cross-checks the district, AI fills any gaps. Click{" "}
-          <span className="font-semibold text-foreground">Run Zoning</span> to begin.
+          from <span className="font-semibold text-foreground">Realie parcel data</span> and web-grounded AI research.
+          Click <span className="font-semibold text-foreground">Run Zoning</span> to begin.
         </div>
       )}
 
@@ -328,28 +327,16 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
               )}
             </div>
             <div className="text-xs font-mono text-muted-foreground">
-              Zoneomics: {zoneomics?.ok ? `✓ ${counts.zoneomics} fields` : "✗"}
-              {" | "}Realie: {counts.realie ? `✓ ${counts.realie}` : "—"}
+              Realie: {counts.realie ? `✓ ${counts.realie} fields` : "—"}
               {" | "}AI: {counts.ai} fields
               {" | "}Manual: {counts.manual} fields
             </div>
           </div>
 
-          {/* Zoneomics error banner (PRIMARY source) — key/server issues + retry */}
-          {zoneomics && !zoneomics.ok && (
-            <div className="px-4 py-3 bg-red-50 dark:bg-red-950/20 border-b border-red-300/50 text-sm text-red-800 dark:text-red-200 font-medium flex items-center justify-between gap-3 flex-wrap">
-              <span>Zoneomics (primary) unavailable: {zoneomics.error || `HTTP ${zoneomics.http_status}`} — cascaded to Realie / Notion / AI.</span>
-              <Button onClick={() => runLookup(true)} disabled={loading} size="sm" variant="outline" className="border-red-400 text-red-700 hover:bg-red-100">
-                <RefreshCw className="w-4 h-4 mr-2" /> Retry Zoneomics
-              </Button>
-            </div>
-          )}
-
-          {/* Zoneomics ≠ Realie district conflict */}
+          {/* District conflict between sources */}
           {districtConflict && (
             <div className="px-4 py-2 bg-rose-50 dark:bg-rose-950/20 border-b border-rose-300/50 text-sm text-rose-800 dark:text-rose-200 font-medium">
-              Zoning district conflict — Zoneomics: <span className="font-mono">{districtConflict.zoneomics}</span> ≠ Realie:{" "}
-              <span className="font-mono">{districtConflict.realie}</span>. Both shown in the district field; confirm manually.
+              Zoning district conflict detected — confirm manually.
             </div>
           )}
 

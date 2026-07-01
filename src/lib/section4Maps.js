@@ -1041,23 +1041,9 @@ function parcelCentroid(geometry) {
 }
 
 async function lookupParcelZone(pid, lat, lon, zoneomicsKey) {
-  if (parcelZoneCache.has(pid)) return parcelZoneCache.get(pid);
-  if (!zoneomicsKey || lat == null || lon == null) {
-    parcelZoneCache.set(pid, null);
-    return null;
-  }
-  try {
-    const url = `https://api.zoneomics.com/v2/zoneDetail?api_key=${zoneomicsKey}&lat=${lat}&lng=${lon}&output_fields=zoning`;
-    const res = await fetch(url);
-    const json = res.ok ? await res.json() : null;
-    const zd = json?.data?.data?.zone_details || json?.data?.zone_details || null;
-    const zone = zd?.zone_code ? { zone_code: zd.zone_code, zone_name: zd.zone_name || "" } : null;
-    parcelZoneCache.set(pid, zone);
-    return zone;
-  } catch (_) {
-    parcelZoneCache.set(pid, null);
-    return null;
-  }
+  // Zoneomics disabled — return null (no per-hover API calls)
+  parcelZoneCache.set(pid, null);
+  return null;
 }
 
 function zoneLine(zone) {
