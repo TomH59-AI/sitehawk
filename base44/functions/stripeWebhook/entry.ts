@@ -1,7 +1,16 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import Stripe from 'npm:stripe@14.21.0';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
+
+const PRICE_TO_TIER = {
+  "price_1TksEIIE4fOP88RJtkkAJpF3": "hawk_site",
+  "price_1TksEIIE4fOP88RJjMUrsvGG": "hawk_vision",
+  "price_1Tkq5CIE4fOP88RJPztKWgzB": "hawk_site_law",
+  "price_1Tkq5CIE4fOP88RJGiKdRi82": "hawk_vision_law",
+  "price_1Tkq5CIE4fOP88RJDsmMYlp2": "hawk_site",
+  "price_1Tkq5CIE4fOP88RJBjebsjqG": "hawk_vision",
+};
 const LOB_API_KEY = Deno.env.get('LOB_API_KEY_SECRET');
 
 // Parse a mailing address string into Lob's required fields (best-effort)
@@ -311,12 +320,36 @@ Deno.serve(async (req) => {
         const sub = event.data.object;
         const meta = sub.metadata || {};
         const userEmail = meta.user_email;
-        const planKey = meta.plan_key || meta.plan;
-        if (!userEmail || !planKey) {
-          console.log('subscription.updated: missing user_email or plan_key in metadata, skipping');
+        // Resolve tier from plan_key in metadata OR from the active price ID as fallback
+        const priceId = sub.items?.data?.[0]?.price?.id;
+        const planKey = meta.plan_key || meta.plan || PRICE_TO_TIER[priceId] || 'hawk_site';
+        if (!userEmail) {
+          // Try to resolve user by customer ID
+          try {
+            const customer = await stripe.customers.retrieve(sub.customer);
+            const resolvedEmail = customer.email;
+            if (resolvedEmail) {
+              const resolvedUsers = await base44.asServiceRole.entities.User.filter({ email: resolvedEmail });
+              if (resolvedUsers.length) {
+                const status = sub.status;
+                const updates = { stripe_subscription_id: sub.id, stripe_customer_id: sub.customer };
+                if (status === 'active' || status === 'trialing') {
+                  updates.tier = planKey;
+                  updates.subscription_plan = planKey;
+                  updates.subscription_status = status;
+                } else if (status === 'past_due') {
+                  updates.subscription_status = 'past_due';
+                }
+                await base44.asServiceRole.entities.User.update(resolvedUsers[0].id, updates);
+                console.log(`subscription.updated (by customer): ${resolvedEmail} → tier=${planKey}, status=${status}`);
+              }
+            }
+          } catch (e) {
+            console.log('subscription.updated: could not resolve user by customer, skipping:', e.message);
+          }
           break;
         }
-        const status = sub.status; // trialing | active | past_due | canceled | etc.
+        const status = sub.status;
         const users = await base44.asServiceRole.entities.User.filter({ email: userEmail });
         if (!users.length) { console.error(`subscription.updated: user ${userEmail} not found`); break; }
         const updates = { stripe_subscription_id: sub.id, stripe_customer_id: sub.customer };
@@ -364,16 +397,23 @@ Deno.serve(async (req) => {
       case 'customer.subscription.deleted': {
         const sub = event.data.object;
         const meta = sub.metadata || {};
-        const userEmail = meta.user_email;
-        if (!userEmail) { console.log('subscription.deleted: no user_email in metadata, skipping'); break; }
+        let userEmail = meta.user_email;
+        if (!userEmail) {
+          // Fallback: resolve by customer email
+          try {
+            const customer = await stripe.customers.retrieve(sub.customer);
+            userEmail = customer.email;
+          } catch (e) { /* ignore */ }
+        }
+        if (!userEmail) { console.log('subscription.deleted: no user_email resolved, skipping'); break; }
         const users = await base44.asServiceRole.entities.User.filter({ email: userEmail });
         if (!users.length) { console.error(`subscription.deleted: user ${userEmail} not found`); break; }
         await base44.asServiceRole.entities.User.update(users[0].id, {
-          tier: 'blind',
+          tier: 'free',
           subscription_plan: null,
           subscription_status: 'canceled',
         });
-        console.log(`subscription.deleted: ${userEmail} → downgraded to blind`);
+        console.log(`subscription.deleted: ${userEmail} → downgraded to free`);
         break;
       }
 

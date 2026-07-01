@@ -6,6 +6,15 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import Stripe from 'npm:stripe@14.21.0';
 
+const PRICE_TO_TIER = {
+  "price_1TksEIIE4fOP88RJtkkAJpF3": "hawk_site",
+  "price_1TksEIIE4fOP88RJjMUrsvGG": "hawk_vision",
+  "price_1Tkq5CIE4fOP88RJPztKWgzB": "hawk_site_law",
+  "price_1Tkq5CIE4fOP88RJGiKdRi82": "hawk_vision_law",
+  "price_1Tkq5CIE4fOP88RJDsmMYlp2": "hawk_site",
+  "price_1Tkq5CIE4fOP88RJBjebsjqG": "hawk_vision",
+};
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -45,6 +54,7 @@ Deno.serve(async (req) => {
         metadata: {
           base44_app_id: Deno.env.get('BASE44_APP_ID'),
           user_email: user.email,
+          plan_key: PRICE_TO_TIER[price_id] || 'hawk_site',
         },
       },
     });
