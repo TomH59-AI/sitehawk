@@ -66,8 +66,10 @@ import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoningGrid, renderFlumPolygon, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
+
 import { zoneResolve } from "@/functions/zoneResolve";
 import { buildLegend, swatchColor, normalizeZoneType } from "@/lib/zoningPalette";
+
 import { zoneomicsZoneGrid } from "@/functions/zoneomicsZoneGrid";
 import { zoneomicsFlumDetails } from "@/functions/zoneomicsFlumDetails";
 import ZoningLegend from "./section4/ZoningLegend";
@@ -204,8 +206,23 @@ export default function Section4MapSuite({
           cellLng = gdata?.cell_lng_deg;
 
           if (!rawCells.length) {
+            // Zoneomics returned no cells — fall back to zoneResolve ArcGIS polygon.
+            console.log("[ZONING MAP DIAG] Zoneomics returned 0 cells — falling back to zoneResolve");
+            const zfres = await zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
+            const zoningPolygon = zfres?.data?.zoning_polygon || null;
+            const zoningLabel = zfres?.data?.zoning?.zone_code
+              || targetA?.zoning_classification
+              || "Unknown Zone";
+            const fallbackZone = { zone_code: zoningLabel, zone_name: null };
+            setZoneInfo(fallbackZone);
+            setZoningLegend([]);
+            setZoningFallback("No Zoneomics grid coverage — showing zoneResolve (ArcGIS) polygon. Zoning district may vary.");
+            if (zoningLabel !== "Unknown Zone") onData?.({ zoneomicsDistrict: { zone_code: zoningLabel, zone_name: null } });
+            map = await renderFlumPolygon(refs.zoning.current, targetA, token, zoningPolygon, `Zoning: ${zoningLabel}`);
+            zoningCache.current[key] = { gridCells: [], legend: [], zone: fallbackZone, cellLat: 0, cellLng: 0, isFallback: true };
+            setCompleted((prev) => ({ ...prev, zoning: true }));
+            toast.success("Zoning map generated for Target A (ArcGIS fallback).");
             setLoadingStep(null);
-            setErrors((p) => ({ ...p, zoning: "No zoning districts found for this area." }));
             return;
           }
 
