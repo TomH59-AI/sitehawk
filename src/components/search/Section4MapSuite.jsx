@@ -51,6 +51,7 @@ import SkipTraceStep from "./section4/SkipTraceStep";
 import DeedStep from "./section4/DeedStep";
 import ComplianceStep from "./section4/ComplianceStep";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
+import { regridParcelRing } from "@/functions/regridParcelRing";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -230,9 +231,9 @@ export default function Section4MapSuite({
         onData?.({ tower: { owner: nt.licensee || null, distance_miles: Number(nt.distance_miles), height_ft: nt.overall_height_ft ?? null, source: cres.data?.source || "FCC ASR / OpenCellID" } });
         map = await renderCellTower(refs.celltower.current, targetA, tower, token);
       } else if (step === "parcel") {
-        // Pull every parcel inside the user-selected SARF ring (centered on the
-        // SARF center, not Target A) so we can draw all boundaries in the ring.
-        const pres = await realieParcelsInRing({
+        // Regrid handles the parcel map overlay — Realie handles SARF + Targets.
+        // Regrid credits are spent ONLY here; all other parcel calls stay on Realie.
+        const pres = await regridParcelRing({
           lat: srcLat, lon: srcLon, radius_miles: radiusMiles,
         }).catch(() => null);
         const parcels = pres?.data?.parcels || [];
