@@ -3,6 +3,7 @@ import { Search, MapPin, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RADIUS_OPTIONS } from "./constants";
+import RichnessBadge from "./RichnessBadge";
 
 export default function SearchForm({ onSearch, isLoading, disabled }) {
   const [lat, setLat] = useState("");
@@ -163,6 +164,14 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
             />
           </div>
         </div>
+
+        {/* S.A.I.R. richness gate — shown when both county + state are filled */}
+        {county.trim() && stateCode.trim() && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Data richness:</span>
+            <RichnessBadge state={stateCode.trim().toUpperCase()} county={county.trim()} />
+          </div>
+        )}
 
         {/* Coordinates row */}
         <div data-coach="sarf-coords" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
