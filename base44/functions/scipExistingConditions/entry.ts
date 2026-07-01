@@ -104,6 +104,92 @@ async function publicSafety(lat, lon) {
   };
 }
 
+async function accessRoad(lat, lon) {
+  const endpoints = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+  const query = `[out:json][timeout:20];way["highway"](around:150,${lat},${lon});out tags geom;`;
+  let data = null;
+  for (const ep of endpoints) {
+    try {
+      const res = await fetch(ep, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "SiteHawk/1.0" }, body: new URLSearchParams({ data: query }) });
+      if (res.ok) { data = await res.json(); break; }
+    } catch { /* try next */ }
+  }
+  const SKIP = ["footway", "cycleway", "steps", "pedestrian", "bridleway", "corridor"];
+  const ways = (data?.elements || []).filter((el) => el.tags?.highway && !SKIP.includes(el.tags.highway));
+  if (!ways.length) return null;
+
+  // Nearest way by centroid of its geometry nodes, distance in meters.
+  let best = null;
+  for (const w of ways) {
+    const geom = w.geometry || [];
+    if (!geom.length) continue;
+    const cLat = geom.reduce((s, p) => s + p.lat, 0) / geom.length;
+    const cLon = geom.reduce((s, p) => s + p.lon, 0) / geom.length;
+    const dM = haversineMiles(lat, lon, cLat, cLon) * 1609.344;
+    if (!best || dM < best.dM) best = { way: w, dM };
+  }
+  if (!best) return null;
+
+  const tags = best.way.tags || {};
+  const hw = tags.highway;
+
+  const LABELS = {
+    motorway: "Interstate / Controlled Access Highway",
+    trunk: "US Highway / State Arterial",
+    primary: "State Highway / Primary Arterial",
+    secondary: "State Highway / Primary Arterial",
+    tertiary: "County Road",
+    residential: "Residential Street",
+    unclassified: "Local Road (Unclassified)",
+    service: "Service Road / Private Drive",
+    track: "Service Road / Private Drive",
+    path: "Service Road / Private Drive",
+  };
+  const hwLabel = LABELS[hw] || "Local Road (Unclassified)";
+
+  // Regrid ROW-compatible road_type codes.
+  const TYPES = {
+    motorway: "I", trunk: "U", primary: "S", secondary: "S", tertiary: "C",
+    residential: "M", unclassified: "M", service: "O", track: "O", path: "O",
+  };
+  const roadType = TYPES[hw] || "M";
+
+  const ownership = (tags.access === "private" || hw === "service") ? "Private" : "Public";
+  const roadName = tags.name || tags.ref || hwLabel;
+
+  let permit;
+  if (hw === "motorway") {
+    permit = "FHWA / State DOT encroachment permit required — access from this road class is extremely rare for tower sites";
+  } else if (hw === "trunk" || roadName.startsWith("US ")) {
+    permit = "State DOT encroachment permit required before driveway or access construction";
+  } else if (hw === "primary" || hw === "secondary") {
+    permit = "State or County DOT encroachment permit required";
+  } else if (hw === "tertiary") {
+    permit = "County road — county engineer encroachment/driveway permit required";
+  } else if (hw === "service") {
+    permit = "Service road or private drive — verify ownership; easement or encroachment agreement likely required";
+  } else if (hw === "residential" || hw === "unclassified") {
+    permit = "Local road — municipal or county driveway permit, typically straightforward";
+  } else {
+    permit = "Verify access road authority and applicable permit requirements with the local jurisdiction";
+  }
+
+  const distFt = Math.round(best.dM * 3.28084);
+  const privNote = ownership === "Private" ? " (private access)" : "";
+
+  return {
+    road_name: roadName,
+    highway_class: hw,
+    highway_label: hwLabel,
+    road_type: roadType,
+    ownership,
+    permit_path: permit,
+    distance_ft: distFt,
+    distance_m: Math.round(best.dM),
+    access_notes: `${roadName}${privNote} fronts the parcel approximately ${distFt} ft from the site centroid — ${hwLabel}. ${permit}.`,
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -115,25 +201,24 @@ Deno.serve(async (req) => {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
 
-    const [flood, wet, safety, llmRes] = await Promise.allSettled([
+    const [flood, wet, safety, road, llmRes] = await Promise.allSettled([
       femaFlood(lat, lon),
       wetlands(lat, lon),
       publicSafety(lat, lon),
+      accessRoad(lat, lon),
       base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
         add_context_from_internet: true,
         prompt: `For a cell tower site at latitude ${lat}, longitude ${lon}${parcel_address ? ` (${parcel_address})` : ""}${county ? `, ${county} County` : ""}${state ? `, ${state}` : ""}, determine three site "existing conditions" facts. Use current, authoritative web sources.
 1. Water Management District: the regulatory water management district / agency with jurisdiction over stormwater & water resources at this location (e.g. in FL: SWFWMD, SJRWMD, SFWMD; elsewhere the state/regional equivalent). Give the district name.
 2. Hazardous Waste Concerns: whether there are known EPA/state hazardous-waste, Superfund (CERCLIS/NPL), brownfield, or contamination sites on or immediately near this parcel. Answer "None identified" or describe the concern briefly with the site name.
-3. Access Notes: how the parcel is accessed — nearest public road / right-of-way, whether access appears to be a public road frontage, an easement, or a private driveway. Keep it to one short sentence.
-4. 911 Contact Information: the local 911 / Public Safety Answering Point (PSAP) or county emergency communications center serving this location. Give its name, mailing/street address, and NON-EMERGENCY phone number (never 911). Format as "Name, Address — (xxx) xxx-xxxx". If unknown, say "Requires field verification".
+3. 911 Contact Information: the local 911 / Public Safety Answering Point (PSAP) or county emergency communications center serving this location. Give its name, mailing/street address, and NON-EMERGENCY phone number (never 911). Format as "Name, Address — (xxx) xxx-xxxx". If unknown, say "Requires field verification".
 Be concise and factual. If unknown, say "Requires field verification".`,
         response_json_schema: {
           type: "object",
           properties: {
             water_management_district: { type: "string" },
             hazardous_waste: { type: "string" },
-            access_notes: { type: "string" },
             contact_911: { type: "string" },
           },
         },
@@ -142,6 +227,7 @@ Be concise and factual. If unknown, say "Requires field verification".`,
 
     const llm = llmRes.status === "fulfilled" ? (llmRes.value || {}) : {};
     const sf = safety.status === "fulfilled" ? safety.value : { police: null, fire: null };
+    const rd = road.status === "fulfilled" ? road.value : null;
 
     if (flood.status === "rejected") console.error("FEMA flood failed:", flood.reason?.message || flood.reason);
 
@@ -150,13 +236,22 @@ Be concise and factual. If unknown, say "Requires field verification".`,
       wetland_concerns: wet.status === "fulfilled" ? (wet.value || "Requires verification") : "Requires verification",
       water_management_district: llm.water_management_district || "Requires field verification",
       hazardous_waste: llm.hazardous_waste || "Requires field verification",
-      access_notes: llm.access_notes || "Requires field verification",
+      access_notes: rd ? rd.access_notes : "Requires field verification — OSM road query returned no results for this location",
+      access_road: rd ? {
+        road_name: rd.road_name,
+        highway_class: rd.highway_class,
+        highway_label: rd.highway_label,
+        road_type: rd.road_type,
+        ownership: rd.ownership,
+        permit_path: rd.permit_path,
+        distance_ft: rd.distance_ft,
+      } : null,
       contact_911: llm.contact_911 || "Requires field verification",
       local_police: sf.police || "Requires field verification",
       local_fire: sf.fire || "Requires field verification",
     };
 
-    console.log(`scipExistingConditions for ${lat},${lon} user=${user.email}`);
+    console.log(`scipExistingConditions for ${lat},${lon} user=${user.email} road=${rd?.road_name || "no result"}`);
     return Response.json({ conditions });
   } catch (error) {
     console.error("scipExistingConditions error:", error.message);
