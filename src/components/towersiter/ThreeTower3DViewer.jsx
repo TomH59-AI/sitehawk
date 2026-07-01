@@ -38,6 +38,56 @@ function buildPrompt(render) {
 Property context: ${address}`;
 }
 
+function Chip({ label, value, color = "bg-black/70" }) {
+  return (
+    <div className={`${color} backdrop-blur-sm rounded-lg px-2.5 py-1.5 border border-white/20 shadow-lg`}>
+      <div className="text-[9px] uppercase tracking-wider text-white/50 leading-none mb-0.5">{label}</div>
+      <div className="text-white text-xs font-bold leading-none">{value}</div>
+    </div>
+  );
+}
+
+function DimensionOverlay({ render }) {
+  const heightFt = render?.tower_height_ft;
+  const cwFt = render?.compound_width_ft;
+  const cdFt = render?.compound_depth_ft;
+  const acreage = render?.parcel_acres;
+  // fall zone = tower height (1:1 default)
+  const fallFt = heightFt;
+
+  return (
+    <>
+      {/* Tower height — top-left, near the tower top */}
+      {heightFt && (
+        <div className="absolute top-4 left-4">
+          <Chip label="Tower Height" value={`${heightFt}′ AGL`} color="bg-indigo-900/85" />
+        </div>
+      )}
+
+      {/* Compound dimensions — bottom-left, near the compound */}
+      {cwFt && cdFt && (
+        <div className="absolute bottom-4 left-4">
+          <Chip label="Compound" value={`${cwFt}′ × ${cdFt}′`} color="bg-amber-900/85" />
+        </div>
+      )}
+
+      {/* Fall zone radius — bottom-right */}
+      {fallFt && (
+        <div className="absolute bottom-4 right-4">
+          <Chip label="Fall Zone Radius" value={`${fallFt}′`} color="bg-cyan-900/85" />
+        </div>
+      )}
+
+      {/* Parcel acreage — top-right */}
+      {acreage && (
+        <div className="absolute top-4 right-4">
+          <Chip label="Parcel" value={`${acreage} ac`} color="bg-emerald-900/85" />
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function ThreeTower3DViewer({ render, onClose, onSnapshot }) {
   const [status, setStatus] = useState("idle"); // idle | generating | done | error
   const [imageUrl, setImageUrl] = useState(render?.snapshot_image_url || null);
@@ -137,11 +187,15 @@ export default function ThreeTower3DViewer({ render, onClose, onSnapshot }) {
         )}
 
         {status === "done" && imageUrl && (
-          <img
-            src={imageUrl}
-            alt="AI-generated tower site illustration"
-            className="max-h-full max-w-full object-contain rounded-xl shadow-2xl"
-          />
+          <div className="relative inline-block max-h-full max-w-full">
+            <img
+              src={imageUrl}
+              alt="AI-generated tower site illustration"
+              className="max-h-full max-w-full object-contain rounded-xl shadow-2xl"
+            />
+            {/* Boundary dimension annotations */}
+            <DimensionOverlay render={render} />
+          </div>
         )}
       </div>
 
