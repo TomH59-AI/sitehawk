@@ -6,7 +6,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, Crown, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, Crown, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -25,6 +25,7 @@ const BASE_NAV = [
   { path: "/hawk-lease", icon: FileSignature, label: "🦅 HawkLease" },
   { path: "/hawk-law", icon: Scale, label: "⚖️ Hawk Law" },
   { path: "/hawk-fill", icon: ClipboardEdit, label: "🪶 HawkFill" },
+  { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },
 ];
