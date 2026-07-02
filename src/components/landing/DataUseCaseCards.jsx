@@ -81,7 +81,7 @@ export default function DataUseCaseCards() {
         <div className="text-center mt-10">
           <Link
             to="/search"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#FFC72C] hover:bg-[#FFD75E] text-[#0C1B2E] font-heading font-bold text-sm shadow-lg shadow-[#FFC72C]/20 transition-all"
+            className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#FFC72C] hover:bg-[#FFD75E] text-[#000000] font-heading font-bold text-sm shadow-lg shadow-[#FFC72C]/20 transition-all"
           >
             Run Your Free Scan →
           </Link>
