@@ -223,7 +223,7 @@ async function srcOneApi({ ownerName, street, city, state, zip }, token, diag, e
   if (!token) { diag("Spokeo/one-api", "missing_apify_token", 0); return out; }
   const csz = [city, state, zip].filter(Boolean).join(", ");
   const input = {
-    max_results: 1,
+    max_results: 3,
     name: ownerName && csz ? [`${ownerName}; ${csz}`] : ownerName ? [ownerName] : undefined,
     street_citystatezip: street && csz ? [`${street}; ${csz}`] : undefined,
   };
@@ -242,14 +242,17 @@ async function srcOneApi({ ownerName, street, city, state, zip }, token, diag, e
     return out;
   }
   const items = Array.isArray(res.json) ? res.json : [];
-  const rec = items[0] || {};
-  for (let i = 1; i <= 5; i++) {
-    // "Phone-N Type" = Wireless/LandLine (mobile detection);
-    // "Phone-N Last Reported" = most-recent-use date (recency ranking).
-    pushPhone(out, rec[`Phone-${i}`], "Spokeo", rec[`Phone-${i} Type`], rec[`Phone-${i} Last Reported`]);
+  // Read EVERY returned match, not just the first — owners with common names
+  // often come back as 2-3 records and the right one isn't always first.
+  for (const rec of items.slice(0, 3)) {
+    for (let i = 1; i <= 5; i++) {
+      // "Phone-N Type" = Wireless/LandLine (mobile detection);
+      // "Phone-N Last Reported" = most-recent-use date (recency ranking).
+      pushPhone(out, rec[`Phone-${i}`], "Spokeo", rec[`Phone-${i} Type`], rec[`Phone-${i} Last Reported`]);
+    }
+    // "Email-N" columns carry the owner's reported email addresses.
+    for (let i = 1; i <= 5; i++) pushEmail(emailsOut, rec[`Email-${i}`] || rec[`Email ${i}`], "Spokeo");
   }
-  // "Email-N" columns carry the owner's reported email addresses.
-  for (let i = 1; i <= 5; i++) pushEmail(emailsOut, rec[`Email-${i}`] || rec[`Email ${i}`], "Spokeo");
   diag("Spokeo/one-api", "ok", out.length);
   return out;
 }
@@ -262,7 +265,7 @@ async function srcBrilliantGum({ firstName, lastName, street, city, state, zip }
     searchType: "name",
     firstName: firstName || undefined, lastName: lastName || undefined,
     city: city || undefined, state: state || undefined, street: street || undefined, zip: zip || undefined,
-    sources: ["thatsThem", "radaris", "spokeo"], maxResults: 1,
+    sources: ["thatsThem", "radaris", "spokeo"], maxResults: 3,
     proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ["RESIDENTIAL"], apifyProxyCountry: "US" },
   };
   Object.keys(input).forEach((k) => input[k] === undefined && delete input[k]);
@@ -274,15 +277,17 @@ async function srcBrilliantGum({ firstName, lastName, street, city, state, zip }
 
   if (!res.ok) { diag("WhitePages/brilliant_gum", res.error || `http_${res.status}`, 0); return out; }
   const items = Array.isArray(res.json) ? res.json : [];
-  const rec = items[0] || {};
-  const phones = rec.phones || rec.phoneNumbers || [];
-  for (const p of phones) {
-    const num = p?.number || p?.phone || (typeof p === "string" ? p : null);
-    pushPhone(out, num, "WhitePages", p?.type || p?.lineType, p?.lastReported || p?.date);
-  }
-  const emails = rec.emails || rec.emailAddresses || [];
-  for (const e of emails) {
-    pushEmail(emailsOut, typeof e === "string" ? e : (e?.email || e?.address || e?.value), "WhitePages");
+  // Read every returned match — the correct person isn't always the first record.
+  for (const rec of items.slice(0, 3)) {
+    const phones = rec.phones || rec.phoneNumbers || [];
+    for (const p of phones) {
+      const num = p?.number || p?.phone || (typeof p === "string" ? p : null);
+      pushPhone(out, num, "WhitePages", p?.type || p?.lineType, p?.lastReported || p?.date);
+    }
+    const emails = rec.emails || rec.emailAddresses || [];
+    for (const e of emails) {
+      pushEmail(emailsOut, typeof e === "string" ? e : (e?.email || e?.address || e?.value), "WhitePages");
+    }
   }
   diag("WhitePages/brilliant_gum", "ok", out.length);
   return out;
