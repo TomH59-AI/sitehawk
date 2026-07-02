@@ -61,16 +61,16 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#060E1A] text-white font-body overflow-x-hidden">
+    <div className="min-h-screen bg-[#0C1B2E] text-white font-body overflow-x-hidden">
 
       {/* ── NAV ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#060E1A]/90 backdrop-blur-md">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0C1B2E]/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <HawkIcon size={36} />
             <div>
               <span className="font-heading font-bold text-lg text-white leading-none">SiteHawk</span>
-              <span className="block text-[10px] text-blue-400/70 leading-none tracking-widest uppercase">by SkyWave AI</span>
+              <span className="block text-[10px] text-[#FFC72C]/70 leading-none tracking-widest uppercase">by SkyWave AI</span>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
@@ -84,7 +84,7 @@ export default function Landing() {
             <Link to="/dashboard" className="px-4 py-2 text-sm font-semibold text-white/70 hover:text-white transition-colors">
               Log In
             </Link>
-            <Link to="/pricing" className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold shadow-lg shadow-blue-500/20 transition-all">
+            <Link to="/pricing" className="px-5 py-2 rounded-xl bg-[#FFC72C] hover:bg-[#FFD75E] text-[#0C1B2E] text-sm font-bold shadow-lg shadow-[#FFC72C]/20 transition-all">
               Get Started
             </Link>
           </div>
@@ -93,14 +93,14 @@ export default function Landing() {
           </button>
         </div>
         {menuOpen && (
-          <div className="md:hidden border-t border-white/5 bg-[#060E1A] px-6 py-4 space-y-3 text-sm font-medium">
+          <div className="md:hidden border-t border-white/5 bg-[#0C1B2E] px-6 py-4 space-y-3 text-sm font-medium">
             <a href="#features" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Features</a>
             <a href="#pricing" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Pricing</a>
             <Link to="/crm" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Deal Pipeline</Link>
             <Link to="/hawk-docs" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Document Intelligence</Link>
             <Link to="/about" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>About</Link>
             <Link to="/dashboard" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Log In</Link>
-            <Link to="/pricing" className="block w-full text-center px-5 py-2.5 rounded-xl bg-blue-600 text-white font-bold mt-2" onClick={() => setMenuOpen(false)}>Get Started</Link>
+            <Link to="/pricing" className="block w-full text-center px-5 py-2.5 rounded-xl bg-[#FFC72C] text-[#0C1B2E] font-bold mt-2" onClick={() => setMenuOpen(false)}>Get Started</Link>
           </div>
         )}
       </nav>
@@ -110,21 +110,21 @@ export default function Landing() {
         {/* Full-screen Mapbox satellite map background */}
         <LandingMapBackground />
         {/* Dark overlay so text stays readable over the satellite imagery */}
-        <div className="absolute inset-0 bg-[#060E1A]/75 pointer-events-none" style={{ zIndex: 1 }} />
+        <div className="absolute inset-0 bg-[#0C1B2E]/75 pointer-events-none" style={{ zIndex: 1 }} />
         {/* Glow backdrop */}
         <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }}>
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-blue-600/10 blur-[120px]" />
-          <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] rounded-full bg-cyan-400/5 blur-[80px]" />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-[#FFC72C]/10 blur-[120px]" />
+          <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] rounded-full bg-[#FFC72C]/5 blur-[80px]" />
         </div>
 
         <div className="relative max-w-4xl mx-auto" style={{ zIndex: 3 }}>
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-cyan-400/40 bg-cyan-400/10 text-cyan-300 text-xs font-semibold tracking-wide mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#FFC72C]/40 bg-[#FFC72C]/10 text-[#FFC72C] text-xs font-semibold tracking-wide mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FFC72C] animate-pulse" />
             🦅 3-Day Free Trial — 2 SCIPs/day included
           </div>
 
           <h1 className="font-heading font-bold text-5xl md:text-7xl leading-tight text-white mb-6">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">SiteHawk</span> with AI<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFC72C] to-[#FFE08A]">SiteHawk</span> with AI<br />
             Intelligence Has Landed.
           </h1>
 
@@ -135,7 +135,7 @@ export default function Landing() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/search"
-              className="px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-heading font-bold text-lg shadow-2xl shadow-blue-500/25 transition-all hover:scale-105"
+              className="px-8 py-4 rounded-2xl bg-[#FFC72C] hover:bg-[#FFD75E] text-[#0C1B2E] font-heading font-bold text-lg shadow-2xl shadow-[#FFC72C]/25 transition-all hover:scale-105"
             >
               Start Your Free Trial →
             </Link>
@@ -157,7 +157,7 @@ export default function Landing() {
 
         {/* Hero mockup strip */}
         <div className="relative max-w-5xl mx-auto mt-16" style={{ zIndex: 3 }}>
-          <div className="rounded-2xl border border-white/10 bg-[#0C1B2E] shadow-2xl shadow-black/50 overflow-hidden p-6">
+          <div className="rounded-2xl border border-white/10 bg-[#132A47] shadow-2xl shadow-black/50 overflow-hidden p-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-3 h-3 rounded-full bg-red-500/60" />
               <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
@@ -172,14 +172,14 @@ export default function Landing() {
               ].map((c) => (
                 <div key={c.label} className="rounded-xl border border-white/5 bg-white/5 p-4 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-400">{c.label}</span>
+                    <span className="text-xs font-bold text-[#FFC72C]">{c.label}</span>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">{c.score}%</span>
                   </div>
                   <p className="text-[11px] text-white/40">{c.zoning}</p>
                   <p className="text-xs text-white/70 font-medium">{c.owner}</p>
                   <div className="pt-1 space-y-1 border-t border-white/5">
-                    <p className="text-[10px] text-cyan-400/70">✈ {c.airport}</p>
-                    <p className="text-[10px] text-blue-400/70">📡 {c.tower}</p>
+                    <p className="text-[10px] text-[#FFC72C]/80">✈ {c.airport}</p>
+                    <p className="text-[10px] text-[#FFC72C]/70">📡 {c.tower}</p>
                   </div>
                 </div>
               ))}
@@ -204,15 +204,15 @@ export default function Landing() {
       <section id="features" className="py-24 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Everything You Need</p>
+            <p className="text-xs uppercase tracking-widest text-[#FFC72C] font-bold mb-3">Everything You Need</p>
             <h2 className="font-heading font-bold text-4xl md:text-5xl text-white">The Complete Site Acquisition<br />Intelligence Platform</h2>
             <p className="text-white/40 mt-4 max-w-xl mx-auto">From raw coordinates to a fully-vetted candidate parcel list with owner contact info — in under 3 minutes.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((f) => (
-              <div key={f.title} className="rounded-2xl border border-white/5 bg-white/3 hover:bg-white/5 hover:border-blue-500/20 p-6 transition-all group">
+              <div key={f.title} className="rounded-2xl border border-white/5 bg-white/3 hover:bg-white/5 hover:border-[#FFC72C]/25 p-6 transition-all group">
                 <div className="text-3xl mb-4">{f.icon}</div>
-                <h3 className="font-heading font-bold text-white text-lg mb-2 group-hover:text-blue-300 transition-colors">{f.title}</h3>
+                <h3 className="font-heading font-bold text-white text-lg mb-2 group-hover:text-[#FFC72C] transition-colors">{f.title}</h3>
                 <p className="text-white/40 text-sm leading-relaxed">{f.desc}</p>
               </div>
             ))}
@@ -224,9 +224,9 @@ export default function Landing() {
       <DataUseCaseCards />
 
       {/* ── HOW IT WORKS ── */}
-      <section className="py-24 px-6 bg-gradient-to-b from-transparent to-blue-950/20">
+      <section className="py-24 px-6 bg-gradient-to-b from-transparent to-[#132A47]/60">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Simple 3-Step Process</p>
+          <p className="text-xs uppercase tracking-widest text-[#FFC72C] font-bold mb-3">Simple 3-Step Process</p>
           <h2 className="font-heading font-bold text-4xl text-white mb-16">From Coordinates to Conversation<br />in Under 3 Minutes</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
@@ -235,7 +235,7 @@ export default function Landing() {
               { step: "03", icon: "📞", title: "Contact the Owner", desc: "Use skip trace to get verified contact info and start the acquisition conversation immediately." },
             ].map((s) => (
               <div key={s.step} className="relative">
-                <div className="text-[10px] font-black text-blue-500/40 tracking-widest mb-3">{s.step}</div>
+                <div className="text-[10px] font-black text-[#FFC72C]/50 tracking-widest mb-3">{s.step}</div>
                 <div className="text-4xl mb-4">{s.icon}</div>
                 <h3 className="font-heading font-bold text-white text-xl mb-2">{s.title}</h3>
                 <p className="text-white/40 text-sm leading-relaxed">{s.desc}</p>
@@ -249,7 +249,7 @@ export default function Landing() {
       <section id="testimonials" className="py-24 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">What Professionals Say</p>
+            <p className="text-xs uppercase tracking-widest text-[#FFC72C] font-bold mb-3">What Professionals Say</p>
             <h2 className="font-heading font-bold text-4xl text-white">Built for the Field,<br />Loved by the Team</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -268,31 +268,31 @@ export default function Landing() {
       </section>
 
       {/* ── PRICING ── */}
-      <section id="pricing" className="py-24 px-6 bg-gradient-to-b from-transparent to-blue-950/10">
+      <section id="pricing" className="py-24 px-6 bg-gradient-to-b from-transparent to-[#132A47]/40">
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">Simple Pricing</p>
+          <p className="text-xs uppercase tracking-widest text-[#FFC72C] font-bold mb-3">Simple Pricing</p>
           <h2 className="font-heading font-bold text-4xl text-white mb-4">Simple Pricing. One Mission.</h2>
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-cyan-400/30 bg-cyan-400/8 text-cyan-300 text-sm font-semibold mb-6">
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#FFC72C]/30 bg-[#FFC72C]/10 text-[#FFC72C] text-sm font-semibold mb-6">
             🦅 3-day free trial included with every plan
           </div>
           <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, and the SiteHawk AI Consultant.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 max-w-2xl mx-auto">
             {PLANS.map((p) => (
-              <div key={p.name} className={`rounded-2xl border p-8 flex flex-col items-center gap-4 transition-all ${p.highlight ? "border-blue-500/50 bg-blue-600/10 shadow-2xl shadow-blue-500/10 scale-105" : "border-white/5 bg-white/3"}`}>
-                {p.highlight && <span className="px-3 py-1 rounded-full bg-blue-500 text-white text-xs font-bold">Most Popular</span>}
+              <div key={p.name} className={`rounded-2xl border p-8 flex flex-col items-center gap-4 transition-all ${p.highlight ? "border-[#FFC72C]/50 bg-[#FFC72C]/10 shadow-2xl shadow-[#FFC72C]/10 scale-105" : "border-white/5 bg-white/3"}`}>
+                {p.highlight && <span className="px-3 py-1 rounded-full bg-[#FFC72C] text-[#0C1B2E] text-xs font-bold">Most Popular</span>}
                 <h3 className="font-heading font-bold text-white text-xl">{p.name}</h3>
                 <div className="font-heading font-black text-4xl text-white">{p.price}</div>
                 <p className="text-white/40 text-sm">{p.desc}</p>
                 <Link
                   to="/pricing"
-                  className={`w-full text-center px-6 py-3 rounded-xl font-bold text-sm transition-all mt-2 ${p.highlight ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20" : "border border-white/10 hover:border-white/25 text-white/70 hover:text-white"}`}
+                  className={`w-full text-center px-6 py-3 rounded-xl font-bold text-sm transition-all mt-2 ${p.highlight ? "bg-[#FFC72C] hover:bg-[#FFD75E] text-[#0C1B2E] shadow-lg shadow-[#FFC72C]/20" : "border border-white/10 hover:border-white/25 text-white/70 hover:text-white"}`}
                 >
                   {p.cta}
                 </Link>
               </div>
             ))}
           </div>
-          <Link to="/pricing" className="text-blue-400 hover:text-blue-300 text-sm font-semibold underline underline-offset-4 transition-colors">
+          <Link to="/pricing" className="text-[#FFC72C] hover:text-[#FFD75E] text-sm font-semibold underline underline-offset-4 transition-colors">
             View full feature comparison →
           </Link>
         </div>
@@ -301,14 +301,14 @@ export default function Landing() {
       {/* ── CTA ── */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-950/50 to-[#060E1A] p-12 shadow-2xl shadow-blue-500/5">
+          <div className="rounded-3xl border border-[#FFC72C]/25 bg-gradient-to-br from-[#132A47]/70 to-[#0C1B2E] p-12 shadow-2xl shadow-[#FFC72C]/5">
             <div className="flex justify-center mb-6"><HawkIcon size={64} /></div>
             <h2 className="font-heading font-bold text-4xl text-white mb-4">"When You Need<br />AI Hawk Vision"™</h2>
             <p className="text-white/50 mb-8 leading-relaxed">Stop spending weeks manually researching parcels. SiteHawk gives you the AI vision to find, vet, and contact the right landowner — fast.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 to="/pricing"
-                className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-heading font-bold text-lg shadow-2xl shadow-blue-500/25 transition-all hover:scale-105"
+                className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl bg-[#FFC72C] hover:bg-[#FFD75E] text-[#0C1B2E] font-heading font-bold text-lg shadow-2xl shadow-[#FFC72C]/25 transition-all hover:scale-105"
               >
                 Start Free Trial 🦅
               </Link>

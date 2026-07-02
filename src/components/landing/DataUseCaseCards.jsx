@@ -43,10 +43,10 @@ export default function DataUseCaseCards() {
     <section className="py-24 px-6">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-14">
-          <p className="text-xs uppercase tracking-widest text-blue-400 font-bold mb-3">What You'll Find · How to Find It</p>
+          <p className="text-xs uppercase tracking-widest text-[#FFC72C] font-bold mb-3">What You'll Find · How to Find It</p>
           <h2 className="font-heading font-bold text-4xl md:text-5xl text-white">
             5 Data Layers.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">One Scan.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFC72C] to-[#FFE08A]">One Scan.</span>
           </h2>
           <p className="text-white/40 mt-4 max-w-2xl mx-auto">
             Every Site-Hawk-Pro scan returns these five data layers — fully cross-referenced and ready for your SCIP package.
@@ -57,17 +57,17 @@ export default function DataUseCaseCards() {
           {CARDS.map((c) => (
             <div
               key={c.n}
-              className="rounded-2xl border border-white/5 bg-white/3 hover:bg-white/5 hover:border-cyan-400/30 p-5 flex flex-col transition-all group"
+              className="rounded-2xl border border-white/5 bg-white/3 hover:bg-white/5 hover:border-[#FFC72C]/30 p-5 flex flex-col transition-all group"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-black text-cyan-400/60 tracking-widest font-mono">{c.n}</span>
+                <span className="text-[10px] font-black text-[#FFC72C]/60 tracking-widest font-mono">{c.n}</span>
                 <span className="text-2xl">{c.icon}</span>
               </div>
-              <h3 className="font-heading font-bold text-white text-base mb-2 group-hover:text-cyan-300 transition-colors leading-tight">
+              <h3 className="font-heading font-bold text-white text-base mb-2 group-hover:text-[#FFC72C] transition-colors leading-tight">
                 {c.title}
               </h3>
               <p className="text-[11px] text-white/60 leading-relaxed mb-3">
-                <span className="text-blue-400 font-semibold uppercase tracking-wider text-[9px] block mb-1">You'll Find</span>
+                <span className="text-[#FFC72C] font-semibold uppercase tracking-wider text-[9px] block mb-1">You'll Find</span>
                 {c.finds}
               </p>
               <p className="text-[11px] text-white/45 leading-relaxed mt-auto pt-3 border-t border-white/5">
@@ -81,7 +81,7 @@ export default function DataUseCaseCards() {
         <div className="text-center mt-10">
           <Link
             to="/search"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-heading font-bold text-sm shadow-lg shadow-blue-500/20 transition-all"
+            className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#FFC72C] hover:bg-[#FFD75E] text-[#0C1B2E] font-heading font-bold text-sm shadow-lg shadow-[#FFC72C]/20 transition-all"
           >
             Run Your Free Scan →
           </Link>
