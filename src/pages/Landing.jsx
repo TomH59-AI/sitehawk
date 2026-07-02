@@ -61,10 +61,10 @@ export default function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#000000] text-white font-body overflow-x-hidden">
+    <div className="min-h-screen bg-[#000000] bg-[radial-gradient(ellipse_120%_60%_at_50%_-10%,#232328_0%,#0c0c0e_45%,#000000_75%)] text-white font-body overflow-x-hidden">
 
       {/* ── NAV ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#000000]/90 backdrop-blur-md">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-gradient-to-b from-[#1a1a1e]/95 to-[#050505]/90 backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <HawkIcon size={36} />
@@ -157,7 +157,7 @@ export default function Landing() {
 
         {/* Hero mockup strip */}
         <div className="relative max-w-5xl mx-auto mt-16" style={{ zIndex: 3 }}>
-          <div className="rounded-2xl border border-white/10 bg-[#121212] shadow-2xl shadow-black/50 overflow-hidden p-6">
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#222226] via-[#121214] to-[#0a0a0c] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden p-6">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-3 h-3 rounded-full bg-red-500/60" />
               <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
@@ -301,7 +301,7 @@ export default function Landing() {
       {/* ── CTA ── */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="rounded-3xl border border-[#FFC72C]/25 bg-gradient-to-br from-[#121212]/70 to-[#000000] p-12 shadow-2xl shadow-[#FFC72C]/5">
+          <div className="rounded-3xl border border-[#FFC72C]/25 bg-gradient-to-b from-[#242428] via-[#101012] to-[#000000] p-12 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_25px_50px_-12px_rgba(255,199,44,0.08)]">
             <div className="flex justify-center mb-6"><HawkIcon size={64} /></div>
             <h2 className="font-heading font-bold text-4xl text-white mb-4">"When You Need<br />AI Hawk Vision"™</h2>
             <p className="text-white/50 mb-8 leading-relaxed">Stop spending weeks manually researching parcels. SiteHawk gives you the AI vision to find, vet, and contact the right landowner — fast.</p>
