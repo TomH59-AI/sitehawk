@@ -59,8 +59,37 @@ export function regridFemaLabel(e) {
   return `FEMA Zone: ${zone}${sub ? ` (${sub})` : ""}`;
 }
 
+export function regridFloodComposition(e) {
+  const raw = e?.site_intel?.fema_flood_zone_raw;
+  if (!Array.isArray(raw) || !raw.length) return null;
+  return [...raw]
+    .sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))
+    .map((z) => `${Math.min(100, Math.round(z.percent ?? 0))}% ${z.zone}${z.subtype ? ` (${String(z.subtype).toLowerCase()})` : ""}`)
+    .join(", ");
+}
+
+export function regridSfhaWarning(e) {
+  const raw = e?.site_intel?.fema_flood_zone_raw;
+  if (!Array.isArray(raw)) return null;
+  const sfha = raw.find((z) => /^[AV]/i.test(String(z.zone ?? "")) && (z.percent ?? 0) >= 1);
+  if (!sfha) return null;
+  return `Partial SFHA: Zone ${sfha.zone} covers ~${Math.round(sfha.percent)}% of parcel — verify compound placement outside SFHA`;
+}
+
+export function regridNriLabel(e) {
+  const r = e?.site_intel?.fema_nri_risk_rating;
+  if (!r) return null;
+  return `NRI Hazard Risk: ${r}`;
+}
+
+export function regridFirmDateLabel(e) {
+  const d = e?.site_intel?.fema_flood_zone_date;
+  if (!d) return null;
+  return `FIRM effective ${d}`;
+}
+
 export function regridPowerLabel(e) {
-  const d = e?.site_intel?.transmission_line_distance;
+  const d = e?.site_intel?.transmission_line_distance_ft ?? e?.site_intel?.transmission_line_distance;
   if (d == null || d === "") return null;
   return `⚡ ${Number(d).toLocaleString()} ft to nearest transmission line`;
 }

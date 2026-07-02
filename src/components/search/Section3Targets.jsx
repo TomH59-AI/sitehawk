@@ -26,7 +26,7 @@ import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
 import SectionClearButton from "./SectionClearButton";
-import { regridEnrichTarget, normalizeRegridEnrich, regridFemaLabel } from "@/lib/regridEnrich";
+import { regridEnrichTarget, normalizeRegridEnrich, regridFemaLabel, regridFloodComposition, regridSfhaWarning, regridNriLabel, regridFirmDateLabel } from "@/lib/regridEnrich";
 import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
 import RegridEnrichRows from "@/components/search/regrid/RegridEnrichRows";
 import RegridDemographics from "@/components/search/regrid/RegridDemographics";
@@ -569,9 +569,25 @@ export default function Section3Targets({
                             onRetry={() => { const m = targetMeta[colIdx]; if (m) runCascade(colIdx, m.owner, m.addr, COLS[colIdx], true); }}
                           />
                         ) : key === "fema_risk_factor" && regrid[colIdx]?.site_intel?.fema_flood_zone ? (
-                          <div className="px-4 py-2 text-sm text-foreground">
-                            {regridFemaLabel(regrid[colIdx])}
-                            <span className="ml-2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">⚡ Regrid</span>
+                          <div className="px-4 py-2 text-sm text-foreground space-y-1">
+                            <div>
+                              {regridFemaLabel(regrid[colIdx])}
+                              <span className="ml-2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">⚡ Regrid</span>
+                            </div>
+                            {regridFloodComposition(regrid[colIdx]) && (
+                              <div className="text-xs text-muted-foreground">Composition: {regridFloodComposition(regrid[colIdx])}</div>
+                            )}
+                            {regridSfhaWarning(regrid[colIdx]) && (
+                              <div className="inline-flex items-start gap-1 px-2 py-1 rounded-md bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 text-xs font-semibold">
+                                ⚠ {regridSfhaWarning(regrid[colIdx])}
+                              </div>
+                            )}
+                            {regridNriLabel(regrid[colIdx]) && (
+                              <div className="text-xs text-muted-foreground">{regridNriLabel(regrid[colIdx])}</div>
+                            )}
+                            {regridFirmDateLabel(regrid[colIdx]) && (
+                              <div className="text-xs text-muted-foreground">{regridFirmDateLabel(regrid[colIdx])}</div>
+                            )}
                           </div>
                         ) : key === "zoning_classification" && regrid[colIdx]?.zoning_code_link ? (
                           <div>

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
 import { sectionLabel, SECTION_KEYS, resolveScipActiveTarget } from "@/lib/scipTarget";
 import TargetScorecard from "@/components/scip/TargetScorecard";
-import { regridEnrichTarget, normalizeRegridEnrich, regridFemaLabel } from "@/lib/regridEnrich";
+import { regridEnrichTarget, normalizeRegridEnrich, regridFemaLabel, regridFloodComposition, regridSfhaWarning, regridNriLabel, regridFirmDateLabel } from "@/lib/regridEnrich";
 import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
 import RegridEnrichRows from "@/components/search/regrid/RegridEnrichRows";
 import RegridDemographics from "@/components/search/regrid/RegridDemographics";
@@ -164,10 +164,26 @@ export default function HawkParcelTargets({ record, onUpdate }) {
                         borderBottom: `1px solid ${SKYWAVE.line}`,
                       }}>
                         {key === "fema_risk_factor" && regrid[i]?.site_intel?.fema_flood_zone ? (
-                          <>
-                            {regridFemaLabel(regrid[i])}{" "}
-                            <span className="text-[10px] font-semibold" style={{ color: "#059669" }}>⚡ Regrid</span>
-                          </>
+                          <div className="space-y-1">
+                            <div>
+                              {regridFemaLabel(regrid[i])}{" "}
+                              <span className="text-[10px] font-semibold" style={{ color: "#059669" }}>⚡ Regrid</span>
+                            </div>
+                            {regridFloodComposition(regrid[i]) && (
+                              <div className="text-xs" style={{ color: SKYWAVE.muted }}>Composition: {regridFloodComposition(regrid[i])}</div>
+                            )}
+                            {regridSfhaWarning(regrid[i]) && (
+                              <div className="inline-flex items-start gap-1 px-2 py-1 rounded-md text-xs font-semibold" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                                ⚠ {regridSfhaWarning(regrid[i])}
+                              </div>
+                            )}
+                            {regridNriLabel(regrid[i]) && (
+                              <div className="text-xs" style={{ color: SKYWAVE.muted }}>{regridNriLabel(regrid[i])}</div>
+                            )}
+                            {regridFirmDateLabel(regrid[i]) && (
+                              <div className="text-xs" style={{ color: SKYWAVE.muted }}>{regridFirmDateLabel(regrid[i])}</div>
+                            )}
+                          </div>
                         ) : (
                           cellValue(t, key) || <span style={{ color: SKYWAVE.muted }}>—</span>
                         )}
