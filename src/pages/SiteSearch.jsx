@@ -21,6 +21,7 @@ import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
 import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
 import { round4 } from "@/lib/coords";
+import { runQuietLookups } from "@/lib/quietLookup";
 
 export default function SiteSearch() {
   const { toast } = useToast();
@@ -171,78 +172,30 @@ export default function SiteSearch() {
     return () => { setActiveStep(null); setCompletedSteps([]); };
   }, [setActiveStep, setCompletedSteps]);
 
-  // ── #5 WETLANDS (score-only) ──────────────────────────────────────────────
-  // Quiet wetlandsLookup fired once when Target A resolves. Emits a present/type
-  // value into the bus for the scorecard's Environmental factor ONLY. Draws from
-  // the SAME USFWS NWI MapServer the §4 wetlands map renders, so map and score
-  // cannot contradict each other. Does NOT touch the §4 map render path.
+  // ── QUIET SCORE/COMPLIANCE LOOKUPS (wetlands, historic, species, hazwaste) ─
+  // Fired once when Target A resolves. Previously these four fired in parallel
+  // — on top of Section 3's skip-trace burst that tripped the platform rate
+  // limit ("Rate limit exceeded"). They now run ONE AT A TIME with a gap
+  // between them, and retry with backoff if a rate limit is still hit.
+  // Same sources, same bus keys — score/compliance only, silent on failure.
   useEffect(() => {
     const lat = targetA?.latitude, lon = targetA?.longitude;
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    let cancelled = false;
-    wetlandsLookup({ lat, lon })
-      .then((res) => {
-        if (cancelled) return;
-        const d = res?.data || {};
-        mergeSectionData({ wetlands: { present: !!d.wetlands_present, type: d.wetland_type || (d.wetland_types?.[0] ?? null) } });
-      })
-      .catch(() => {}); // score-only; silent failure → scorecard shows "no data"
-    return () => { cancelled = true; };
-  }, [targetA?.latitude, targetA?.longitude]);
-
-  // ── HISTORIC SITES (compliance) ───────────────────────────────────────────
-  // Quiet NPS National Register lookup fired once when Target A resolves. Emits a
-  // historic-sites-within-0.5-mi count into the bus so the Section 4 compliance
-  // pre-screen can auto-flag the Section 106 historic trigger. Score/compliance
-  // only — silent failure → trigger stays manual.
-  useEffect(() => {
-    const lat = targetA?.latitude, lon = targetA?.longitude;
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    let cancelled = false;
-    historicSitesLookup({ lat, lon })
-      .then((res) => {
-        if (cancelled) return;
-        const d = res?.data || {};
-        mergeSectionData({ historic: { present: !!d.historic_present, count: d.historic_count || 0, site_names: d.site_names || [] } });
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [targetA?.latitude, targetA?.longitude]);
-
-  // ── LISTED SPECIES HABITAT (compliance) ──────────────────────────────────
-  // Quiet USFWS critical-habitat lookup fired once when Target A resolves. Emits
-  // a present/count value into the bus so the compliance pre-screen can auto-flag
-  // the 47 CFR 1.1307 listed-species trigger. Score/compliance only.
-  useEffect(() => {
-    const lat = targetA?.latitude, lon = targetA?.longitude;
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    let cancelled = false;
-    usfwsSpeciesLookup({ lat, lon })
-      .then((res) => {
-        if (cancelled) return;
-        const d = res?.data || {};
-        mergeSectionData({ species: { present: !!d.species_present, count: d.species_count || 0, names: d.species_names || [] } });
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [targetA?.latitude, targetA?.longitude]);
-
-  // ── HAZARDOUS WASTE / SUPERFUND (compliance) ─────────────────────────────
-  // Quiet EPA "Cleanups in my Community" lookup fired once when Target A resolves.
-  // Emits a present/count value into the bus so the compliance pre-screen can
-  // auto-flag the 47 CFR 1.1307 hazardous-waste trigger. Score/compliance only.
-  useEffect(() => {
-    const lat = targetA?.latitude, lon = targetA?.longitude;
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    let cancelled = false;
-    epaHazWasteLookup({ lat, lon })
-      .then((res) => {
-        if (cancelled) return;
-        const d = res?.data || {};
-        mergeSectionData({ hazwaste: { present: !!d.hazwaste_present, count: d.hazwaste_count || 0, npl_count: d.npl_count || 0, site_names: d.site_names || [] } });
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
+    const cancel = runQuietLookups(
+      [
+        ["wetlands", () => wetlandsLookup({ lat, lon })],
+        ["historic", () => historicSitesLookup({ lat, lon })],
+        ["species", () => usfwsSpeciesLookup({ lat, lon })],
+        ["hazwaste", () => epaHazWasteLookup({ lat, lon })],
+      ],
+      (name, d) => {
+        if (name === "wetlands") mergeSectionData({ wetlands: { present: !!d.wetlands_present, type: d.wetland_type || (d.wetland_types?.[0] ?? null) } });
+        else if (name === "historic") mergeSectionData({ historic: { present: !!d.historic_present, count: d.historic_count || 0, site_names: d.site_names || [] } });
+        else if (name === "species") mergeSectionData({ species: { present: !!d.species_present, count: d.species_count || 0, names: d.species_names || [] } });
+        else if (name === "hazwaste") mergeSectionData({ hazwaste: { present: !!d.hazwaste_present, count: d.hazwaste_count || 0, npl_count: d.npl_count || 0, site_names: d.site_names || [] } });
+      }
+    );
+    return cancel;
   }, [targetA?.latitude, targetA?.longitude]);
 
   useEffect(() => {

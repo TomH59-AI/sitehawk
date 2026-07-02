@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import { scipBestParcels } from "@/functions/scipBestParcels";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
+import { withRateLimitRetry } from "@/lib/quietLookup";
 import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
@@ -243,7 +244,7 @@ export default function Section3Targets({
     }
     setPhoneLoading((p) => { const n = [...p]; n[colIdx] = true; return n; });
     try {
-      const res = await skipTraceCascade({ owner_name: owner, mailing_address: addr, target_label: label });
+      const res = await withRateLimitRetry(() => skipTraceCascade({ owner_name: owner, mailing_address: addr, target_label: label }));
       const data = res?.data ?? res;
       cascadeCache.set(key, data);
       applyCascade(colIdx, data);
