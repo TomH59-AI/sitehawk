@@ -8,7 +8,7 @@ import { base44 } from "@/api/base44Client";
 // display-only (real enforcement lives in the backend 402).
 // Comped accounts: email → lifetime free SCIP grant (mirrors the backend gate).
 export const COMP_GRANTS = {
-  "jsuriano@pyramidns.com": { limit: 25, window: "lifetime", label: "🦅 Comped — 25 SCIPs" },
+  "jsuriano@pyramidns.com": { limit: Infinity, window: "lifetime", label: "🦅 Comped — Unlimited" },
 };
 
 export const TIER_CONFIG = {

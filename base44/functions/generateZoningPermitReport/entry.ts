@@ -29,7 +29,9 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // Comped accounts: email → lifetime free SCIP grant. Overrides the tier quota
 // when it's more generous. Emails must be lowercase.
 const COMP_GRANTS = {
-  'jsuriano@pyramidns.com': { limit: 25, window: 'lifetime' },
+  // TEMP full comp — unlimited while onboarding this account. To turn off,
+  // remove this line (or set a finite limit).
+  'jsuriano@pyramidns.com': { limit: Infinity, window: 'lifetime' },
 };
 
 const QUOTA = {

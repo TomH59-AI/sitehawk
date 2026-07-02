@@ -15,6 +15,8 @@
 
 export const TESTER_EMAILS = [
   "hodges.thomas@gmail.com",
+  // TEMP comped account — remove after onboarding week to re-enable billing for him.
+  "jsuriano@pyramidns.com",
 ];
 
 export const TESTER_TIER = "hawk_command";

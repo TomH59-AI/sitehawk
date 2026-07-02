@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { TIERS, isAdmin, GATE_UPGRADE } from "@/lib/billingConfig";
+import { getEffectiveTier } from "@/lib/testAccess";
 
 let cachedUser = null;
 let cacheTs = 0;
@@ -35,7 +36,8 @@ export function useBilling() {
     getUser().then(u => { setUser(u); setLoading(false); });
   }, []);
 
-  const tierKey = user?.tier || "free";
+  // Tester/comped emails resolve to the unlimited tier; everyone else uses their real tier.
+  const tierKey = user ? getEffectiveTier(user) : "free";
   const tier = TIERS[tierKey] || TIERS.free;
   const admin = user ? isAdmin(user.email) : false;
 
