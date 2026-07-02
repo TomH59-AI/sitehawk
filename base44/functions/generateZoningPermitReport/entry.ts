@@ -26,6 +26,12 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 //   hawk_site     → 15 / calendar month
 //   hawkeyes      → 40 / calendar month
 //   hawkeye_apex  → unlimited
+// Comped accounts: email → lifetime free SCIP grant. Overrides the tier quota
+// when it's more generous. Emails must be lowercase.
+const COMP_GRANTS = {
+  'jsuriano@pyramidns.com': { limit: 25, window: 'lifetime' },
+};
+
 const QUOTA = {
   free:              { limit: 0,        window: 'lifetime' },
   trialing:          { limit: 2,        window: 'day' },
@@ -468,9 +474,15 @@ Deno.serve(async (req) => {
           });
         }
       } else {
-        // Standard tier quota gate
+        // Standard tier quota gate (comp grants override when more generous)
         const tier = QUOTA[user.tier] ? user.tier : 'free';
-        const { limit, window } = QUOTA[tier];
+        let { limit, window } = QUOTA[tier];
+        const comp = COMP_GRANTS[(user.email || '').toLowerCase()];
+        if (comp && (limit === 0 || (limit !== Infinity && comp.limit > limit))) {
+          limit = comp.limit;
+          window = comp.window;
+          console.log(`[HAWKSCIP GATE] COMP GRANT active user=${user.email} limit=${limit} window=${window}`);
+        }
 
         if (!alreadySpentHere && limit !== Infinity) {
           const query = { user_email: user.email };

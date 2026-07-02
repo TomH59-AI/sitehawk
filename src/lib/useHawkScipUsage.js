@@ -6,6 +6,11 @@ import { base44 } from "@/api/base44Client";
 // site_key) at Run Zoning. Trialing = 2/day for 7-day trial; paid tiers reset
 // monthly; hawkeye_apex is unlimited. Mirrors server-side quota rules — this is
 // display-only (real enforcement lives in the backend 402).
+// Comped accounts: email → lifetime free SCIP grant (mirrors the backend gate).
+export const COMP_GRANTS = {
+  "jsuriano@pyramidns.com": { limit: 25, window: "lifetime", label: "🦅 Comped — 25 SCIPs" },
+};
+
 export const TIER_CONFIG = {
   free:             { label: "Free",                  limit: 0,        window: "lifetime" },
   trialing:         { label: "Trial",                 limit: 2,        window: "day" },
@@ -44,7 +49,11 @@ export function useHawkScipUsage() {
 
       // Demo role always gets unlimited access regardless of tier field
       const tierKey = (user.role === "demo") ? "demo" : (TIER_CONFIG[user.tier] ? user.tier : "free");
-      const cfg = TIER_CONFIG[tierKey];
+      let cfg = TIER_CONFIG[tierKey];
+      const comp = COMP_GRANTS[(user.email || "").toLowerCase()];
+      if (comp && (cfg.limit === 0 || (cfg.limit !== Infinity && comp.limit > cfg.limit))) {
+        cfg = { label: comp.label, limit: comp.limit, window: comp.window };
+      }
 
       let used = 0;
       if (cfg.limit !== Infinity) {
