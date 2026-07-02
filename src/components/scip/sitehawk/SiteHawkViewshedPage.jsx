@@ -24,12 +24,12 @@ export default function SiteHawkViewshedPage({ viewshed, targetLabel, page }) {
       page={page}
       footerNote="Each transparent colored wedge is the antenna azimuth sector over real terrain (© Mapbox satellite). Use the clear / obstructed read-out to verify line-of-sight above the tree line and re-aim azimuths as needed. Field verification recommended."
     >
-      <div className="grid grid-cols-2 gap-3" style={{ height: "8.1in" }}>
+      <div className="grid grid-cols-2 gap-3" style={{ height: "100%", gridTemplateRows: "1fr 1fr" }}>
         {directions.map((d) => (
-          <div key={d.short} className="rounded-lg overflow-hidden flex flex-col" style={{ border: `2px solid ${HAWK.blue}` }}>
+          <div key={d.short} className="rounded-lg overflow-hidden flex flex-col" style={{ border: `2px solid ${HAWK.blue}`, minHeight: 0 }}>
             <div
               className="px-2 py-1 flex items-center justify-between text-white text-[9pt] font-bold"
-              style={{ background: d.color, ...EXACT }}
+              style={{ background: d.color, flexShrink: 0, ...EXACT }}
             >
               <span>{d.label}</span>
               <span className="text-[7.5pt] px-1.5 py-0.5 rounded-full font-mono" style={{ background: "rgba(0,0,0,0.28)", ...EXACT }}>
@@ -40,7 +40,7 @@ export default function SiteHawkViewshedPage({ viewshed, targetLabel, page }) {
               src={d.map_url}
               alt={`${d.label} viewshed`}
               crossOrigin="anonymous"
-              style={{ width: "100%", flex: 1, objectFit: "cover" }}
+              style={{ width: "100%", flex: 1, minHeight: 0, objectFit: "cover", display: "block" }}
             />
           </div>
         ))}

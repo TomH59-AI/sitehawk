@@ -117,12 +117,14 @@ export default function SiteHawkScipDoc({ record }) {
         page={next()}
         footerNote="Basemap © Mapbox · © OpenStreetMap. Gold ring = selected search radius; green tower = Target A."
       >
-        <div className="rounded-lg overflow-hidden" style={{ height: "7.6in", border: `2px solid ${HAWK.blue}` }}>
-          {r.sarf_map ? (
-            <img src={r.sarf_map} alt="SARF Map" style={{ width: "100%", height: "100%", objectFit: "cover" }} crossOrigin="anonymous" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-[10pt]" style={{ background: HAWK.bg, color: HAWK.muted }}>SARF map not available</div>
-          )}
+        <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div className="rounded-lg overflow-hidden" style={{ width: "100%", aspectRatio: "1000 / 720", border: `2px solid ${HAWK.blue}`, background: HAWK.bg }}>
+            {r.sarf_map ? (
+              <img src={r.sarf_map} alt="SARF Map" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} crossOrigin="anonymous" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[10pt]" style={{ background: HAWK.bg, color: HAWK.muted }}>SARF map not available</div>
+            )}
+          </div>
         </div>
       </HawkScipSection>
 
@@ -219,12 +221,14 @@ export default function SiteHawkScipDoc({ record }) {
           page={next()}
           footerNote="Aerial/topo/parcel © Mapbox · Flood Risk Layer · SiteHawk Wetlands Intelligence · Wind per ASCE 7-22 · airport & cell tower shown crow-flies. Field verification recommended."
         >
-          <div className="rounded-lg overflow-hidden h-full" style={{ height: "8.1in", border: `2px solid ${HAWK.blue}` }}>
-            {urlOf(url) ? (
-              <img src={urlOf(url)} alt={title} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-[10pt]" style={{ background: HAWK.bg, color: HAWK.muted }}>Not generated</div>
-            )}
+          <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div className="rounded-lg overflow-hidden" style={{ width: "100%", aspectRatio: "1000 / 720", border: `2px solid ${HAWK.blue}`, background: HAWK.bg }}>
+              {urlOf(url) ? (
+                <img src={urlOf(url)} alt={title} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[10pt]" style={{ background: HAWK.bg, color: HAWK.muted }}>Not generated</div>
+              )}
+            </div>
           </div>
         </HawkScipSection>
       ))}
