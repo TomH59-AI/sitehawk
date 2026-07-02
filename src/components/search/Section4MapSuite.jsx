@@ -97,6 +97,8 @@ export default function Section4MapSuite({
   const [viewshedInfo, setViewshedInfo] = useState(null);
   const [rowEnrichment, setRowEnrichment] = useState(null);
   const [rowRingStats, setRowRingStats] = useState(null);
+  // Full ring parcels (with geometry) cached from the Parcel Map pull — feeds the ROW map.
+  const [rowParcels, setRowParcels] = useState([]);
   // Track whether the Zoning/FLUM maps were drawn with Regrid data (shows layer toggle)
   const [zoningUsedRegrid, setZoningUsedRegrid] = useState(false);
   const [flumUsedRegrid, setFlumUsedRegrid] = useState(false);
@@ -300,9 +302,10 @@ export default function Section4MapSuite({
           lat: srcLat, lon: srcLon, radius_miles: radiusMiles,
         }).catch(() => null);
         const parcels = pres?.data?.parcels || [];
-        // Cache the enrichment for the ROW step (same API call, no extra credit)
+        // Cache the enrichment + parcels for the ROW step (same API call, no extra credit)
         if (pres?.data?.target_a_enrichment) setRowEnrichment(pres.data.target_a_enrichment);
         if (pres?.data?.ring_stats) setRowRingStats(pres.data.ring_stats);
+        if (parcels.length) setRowParcels(parcels);
         map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey, ringName, srcLat, srcLon, radiusMiles);
       } else if (step === "row") {
         // ROW step: data already fetched during the Parcel Map step — no new API call.
@@ -313,6 +316,7 @@ export default function Section4MapSuite({
           }).catch(() => null);
           if (pres?.data?.target_a_enrichment) setRowEnrichment(pres.data.target_a_enrichment);
           if (pres?.data?.ring_stats) setRowRingStats(pres.data.ring_stats);
+          if (pres?.data?.parcels?.length) setRowParcels(pres.data.parcels);
         }
         onData?.({ regrid_premium: rowEnrichment });
         map = null; // no Mapbox canvas for this step
@@ -700,6 +704,8 @@ export default function Section4MapSuite({
           done={!!completed.row}
           enrichment={rowEnrichment}
           ringStats={rowRingStats}
+          parcels={rowParcels}
+          targetA={targetA}
           error={errors.row}
           onRun={() => runStep("row")}
         />

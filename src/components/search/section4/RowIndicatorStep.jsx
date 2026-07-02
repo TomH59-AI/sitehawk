@@ -13,6 +13,7 @@
 import { Lock, Sparkles, RefreshCw, AlertTriangle, Building2, TreePine, Zap, Map, BarChart2, Layers, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "../HawkFlightSpinner";
+import RowMap from "./RowMap";
 
 const BRAND_GREEN = "#628C83";
 
@@ -55,7 +56,7 @@ function fmtDist(m) {
 }
 
 export default function RowIndicatorStep({
-  index, unlocked, loading, done, enrichment, ringStats, error, onRun,
+  index, unlocked, loading, done, enrichment, ringStats, parcels = [], targetA, error, onRun,
 }) {
   if (!unlocked) {
     return (
@@ -153,6 +154,9 @@ export default function RowIndicatorStep({
               </span>
             </div>
           )}
+
+          {/* ROW map — right-of-way polygons drawn from the same ring pull */}
+          <RowMap parcels={parcels} targetA={targetA} />
 
           {/* ROW & Stacked */}
           <Section icon={AlertCircle} title="ROW & Stacked Parcel Indicators">
