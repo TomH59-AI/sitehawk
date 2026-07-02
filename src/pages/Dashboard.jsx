@@ -130,10 +130,10 @@ export default function Dashboard() {
           </div>
         </div>
         <Link to="/search">
-          <Button className="gap-2 font-heading font-semibold">
-            <Search className="w-4 h-4" />
-            New Scan
-            <ArrowRight className="w-4 h-4" />
+          <Button size="lg" className="gap-3 font-heading font-bold text-base md:text-lg h-14 px-8 uppercase tracking-wide">
+            <Search className="w-5 h-5" />
+            Start Your Journey Here
+            <ArrowRight className="w-5 h-5" />
           </Button>
         </Link>
       </div>
