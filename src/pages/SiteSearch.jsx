@@ -13,6 +13,8 @@ import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section9Colocation from "../components/search/Section9Colocation";
 import Section8Propagation from "../components/search/Section8Propagation";
 import Section5TowerSiter from "../components/search/Section5TowerSiter";
+import Section6Proximity from "../components/search/Section6Proximity";
+import Section7Infrastructure from "../components/search/Section7Infrastructure";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
@@ -52,12 +54,14 @@ export default function SiteSearch() {
   const [generatedLabels, setGeneratedLabels] = useState([]);
   // True once all ten Section 4 maps are complete (Wind is now map #10) — unlocks Section 7.
   const [mapsComplete, setMapsComplete] = useState(false);
+  // True once Section 6 (proximity/wind) is complete — unlocks Section 7.
+  const [proximityComplete, setProximityComplete] = useState(false);
   // ── PER-SECTION CLEAR / REMOUNT ───────────────────────────────────────────
   // Each pipeline section is remounted (state wiped) by bumping its key here.
   // Clearing a section also rolls back the parent readiness flags for it AND
   // every section downstream, so the pipeline correctly re-locks after it.
   const [clearKeys, setClearKeys] = useState({
-    sarf: 0, zoning: 0, targets: 0, maps: 0, propagation: 0,
+    sarf: 0, zoning: 0, targets: 0, maps: 0, proximity: 0, infrastructure: 0, propagation: 0,
   });
   const bumpKeys = (steps) =>
     setClearKeys((prev) => {
@@ -111,7 +115,7 @@ export default function SiteSearch() {
   // Ordered pipeline steps (sarf is Section 1, always present). Section 8
   // (propagation) is standalone — it gates nothing, so clearing it only remounts
   // itself and does not roll back any other section.
-  const PIPELINE_ORDER = ["zoning", "targets", "maps"];
+  const PIPELINE_ORDER = ["zoning", "targets", "maps", "proximity", "infrastructure"];
 
   // Clear ONE section and everything downstream of it: remount those sections
   // (wipes their internal state) and roll back the parent readiness flags so the
@@ -131,6 +135,7 @@ export default function SiteSearch() {
     if (affected.includes("zoning")) setZoningReady(false);
     if (affected.includes("targets")) setTargetA(null);
     if (affected.includes("maps")) setMapsComplete(false);
+    if (affected.includes("proximity")) setProximityComplete(false);
 
     // Drop bus data emitted by the cleared sections so the scorecard can't read stale values.
     setSectionData({});
@@ -144,11 +149,12 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setMapsComplete(false);
+    setProximityComplete(false);
     setSectionData({});
     setSearchCenter(null);
     setGeneratedLabels([]);
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps", "propagation"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "proximity", "infrastructure", "propagation"]);
   };
 
   // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
@@ -162,10 +168,11 @@ export default function SiteSearch() {
     if (zoningReady) done.push("zoning");
     if (targetA) done.push("targets");
     if (mapsComplete) done.push("maps");
+    if (proximityComplete) done.push("proximity");
     // tower_siter is available once targetA resolves — mark unlocked in sidebar
     if (targetA) done.push("tower_siter");
     setCompletedSteps(done);
-  }, [sarfReady, zoningReady, targetA, mapsComplete, setCompletedSteps]);
+  }, [sarfReady, zoningReady, targetA, mapsComplete, proximityComplete, setCompletedSteps]);
 
   // Clear the sidebar pipeline when leaving Site Search.
   useEffect(() => {
@@ -229,6 +236,7 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setMapsComplete(false);
+    setProximityComplete(false);
     setSectionData({});
     // Normalize the SARF center to 4 decimals (~11 m) at the single entry point.
     // Every downstream fetch / cache key / emit reads off this rounded center.
@@ -461,6 +469,36 @@ export default function SiteSearch() {
           onClear={() => clearFrom("propagation")}
           targetA={targetA}
           towerHeightFt={searchParams.tower_height_ft || 150}
+          onData={mergeSectionData}
+        />
+      )}
+
+      {/* SECTION 6 — PROXIMITY & ENVIRONMENT (Wind). Locked until Section 4's
+          map suite is complete; fires only on its own Run button. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section6Proximity
+          key={`proximity-${clearKeys.proximity}`}
+          unlocked={!!(mapsComplete && targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          active={pipelineStep === "proximity"}
+          onClear={() => clearFrom("proximity")}
+          targetA={targetA}
+          onRun={() => setPipelineStep("proximity")}
+          onComplete={() => setProximityComplete(true)}
+          onData={mergeSectionData}
+        />
+      )}
+
+      {/* SECTION 7 — INFRASTRUCTURE (Fiber Optics & Power Grid). Locked until
+          Section 6 completes; feeds the fiber factor the SCIP nudge checks. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <Section7Infrastructure
+          key={`infrastructure-${clearKeys.infrastructure}`}
+          unlocked={!!(proximityComplete && targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          active={pipelineStep === "infrastructure"}
+          onClear={() => clearFrom("infrastructure")}
+          targetA={targetA}
+          radiusMiles={searchParams.radius_miles}
+          onRun={() => setPipelineStep("infrastructure")}
           onData={mergeSectionData}
         />
       )}
