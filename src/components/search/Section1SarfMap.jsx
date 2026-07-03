@@ -38,6 +38,8 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import ParcelLinesToggle from "@/components/maps/ParcelLinesToggle";
+import ParcelIdentifyCard from "@/components/maps/ParcelIdentifyCard";
+import { queryParcelAt, highlightParcel } from "@/lib/regridParcelTiles";
 
 // Primary + fallback CDNs. The api.mapbox.com CDN can be blocked/rate-limited
 // inside the editor iframe, so we fall back to jsDelivr then unpkg.
@@ -130,10 +132,12 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   const timeoutRef = useRef(null);
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0); // bumped by Retry
+  const [clickedParcel, setClickedParcel] = useState(null); // { lat, lng, headline }
 
   useEffect(() => {
     let cancelled = false;
     setError(null);
+    setClickedParcel(null);
 
     function clearTimeoutSafe() {
       if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
@@ -258,6 +262,18 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
         onReady?.();
       });
 
+      // Parcel click-to-identify — only fires when the Parcel Lines layer is on.
+      map.on("click", (e) => {
+        const feat = queryParcelAt(map, e.point);
+        if (!feat) return;
+        highlightParcel(map, feat);
+        setClickedParcel({
+          lat: e.lngLat.lat,
+          lng: e.lngLat.lng,
+          headline: feat.properties?.headline || feat.properties?.address || null,
+        });
+      });
+
       mapRef.current = map;
     }
 
@@ -296,6 +312,19 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
       <div className="absolute top-3 left-3 z-10">
         <ParcelLinesToggle mapRef={mapRef} />
       </div>
+      {clickedParcel && (
+        <div className="absolute top-3 right-14 z-10">
+          <ParcelIdentifyCard
+            lat={clickedParcel.lat}
+            lng={clickedParcel.lng}
+            headline={clickedParcel.headline}
+            onClose={() => {
+              highlightParcel(mapRef.current, null);
+              setClickedParcel(null);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
