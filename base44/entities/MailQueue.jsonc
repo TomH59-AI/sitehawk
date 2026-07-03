@@ -1,0 +1,184 @@
+{
+  "name": "MailQueue",
+  "type": "object",
+  "description": "Mail queue \u2014 staging table between the target-skill ring candidate finder (10-deep) and the Lob Phase 2 mailer send. One row per (ring_id, apn_raw, state); never double-mail an owner for the same ring. Upserts must not overwrite rows past 'staged' status.",
+  "properties": {
+    "ring_id": {
+      "type": "string",
+      "description": "SARF ring or search identifier."
+    },
+    "ring_center_lat": {
+      "type": "number"
+    },
+    "ring_center_lon": {
+      "type": "number"
+    },
+    "search_radius_mi": {
+      "type": "number",
+      "default": 0.5
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter state code \u2014 part of the parcel dedupe key."
+    },
+    "apn_raw": {
+      "type": "string",
+      "description": "Raw APN \u2014 part of the parcel dedupe key (mirrors parcel_cache convention)."
+    },
+    "parcel_address": {
+      "type": "string"
+    },
+    "parcel_lat": {
+      "type": "number"
+    },
+    "parcel_lon": {
+      "type": "number"
+    },
+    "acreage": {
+      "type": "number"
+    },
+    "zoning": {
+      "type": "string"
+    },
+    "fema_zone": {
+      "type": "string"
+    },
+    "ladder_score": {
+      "type": "number",
+      "description": "Compliance ladder score 0-100."
+    },
+    "ladder_rung": {
+      "type": "string",
+      "enum": [
+        "199",
+        "150",
+        "120",
+        "100",
+        "FAIL"
+      ],
+      "description": "Compliance ladder rung (max tower height class)."
+    },
+    "ladder_source": {
+      "type": "string",
+      "enum": [
+        "ordinance",
+        "default"
+      ],
+      "default": "default"
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B"
+      ],
+      "description": "A = top 3 (strong letter), B = bench 4-10 ('may qualify')."
+    },
+    "owner_name": {
+      "type": "string"
+    },
+    "mail_street": {
+      "type": "string"
+    },
+    "mail_city": {
+      "type": "string"
+    },
+    "mail_state": {
+      "type": "string"
+    },
+    "mail_zip": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "staged",
+        "verified",
+        "sent",
+        "returned",
+        "responded",
+        "opted_out",
+        "dead"
+      ],
+      "default": "staged",
+      "description": "Lob lifecycle status."
+    },
+    "lob_letter_id": {
+      "type": "string",
+      "description": "Lob object id after send."
+    },
+    "lob_verified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "CASS/NCOA verification pass timestamp."
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "responded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source_skill": {
+      "type": "string",
+      "default": "target-skill"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "ring_id",
+    "state",
+    "apn_raw",
+    "tier"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

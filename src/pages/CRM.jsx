@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import SyncToGoogleSheetButton from "@/components/crm/SyncToGoogleSheetButton";
 import CRMExportButton from "@/components/crm/CRMExportButton";
 import TargetPostcardModal from "@/components/crm/TargetPostcardModal";
+import MailQueuePanel from "@/components/crm/MailQueuePanel";
 
 const STAGES = ["prospect", "contacted", "interested", "negotiating", "signed", "lost"];
 const STAGE_COLORS = {
@@ -30,6 +31,7 @@ export default function CRM() {
   const [showPostcards, setShowPostcards] = useState(false);
   // When set, opens the postcard modal scoped to a single deal (per-lead mailer).
   const [postcardDeals, setPostcardDeals] = useState(null);
+  const [view, setView] = useState("pipeline"); // "pipeline" | "mail_queue"
 
   useEffect(() => {
     loadData();
@@ -108,6 +110,25 @@ export default function CRM() {
         <TargetPostcardModal deals={postcardDeals} onClose={() => setPostcardDeals(null)} />
       )}
 
+      {/* View tabs */}
+      <div className="flex gap-2 border-b border-border">
+        {[["pipeline", "Deal Pipeline"], ["mail_queue", "Mail Queue"]].map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`px-4 py-2 text-sm font-heading font-semibold border-b-2 -mb-px transition-colors ${
+              view === key ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === "mail_queue" ? (
+        <MailQueuePanel />
+      ) : (
+      <>
       {/* Pipeline summary bar */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {STAGES.map(s => (
@@ -295,6 +316,8 @@ export default function CRM() {
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
