@@ -83,6 +83,7 @@ async function runCloudRF({ apiKey, lat, lon, heightM, frequencyMhz, txPowerDbm,
   return {
     png_url: data.PNG_Mercator || data.PNG_WGS84 || null,
     bounds: data.bounds || null,
+    key: Array.isArray(data.key) ? data.key : null,
     area_covered_sq_km: data.area || null,
     max_range_km: data.coverage?.range || null,
   };

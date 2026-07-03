@@ -2,15 +2,19 @@
  * SECTION 8 — HAWK RF PROPAGATION VISION (Target A)
  * Standalone. Does NOT gate any other section. One "Generate Propagation Map"
  * button → UnwiredLabs carrier scan + per-carrier CloudRF (serial) → render.
- * Fixed 1-mile analysis radius. Target A coords from Section 3. Tower height
- * from Section 1 (default 150 ft). Recompute re-runs CloudRF for the current
- * carrier only (no carrier rescan). Result memoized by inputs.
+ * Fixed 1-mile analysis radius. Target A coords from Section 3.
+ *
+ * Mapping: ALL carrier coverages render as independent toggleable raster
+ * layers on one Mapbox map — per-carrier show/hide, overlay opacity slider,
+ * 3D terrain mode, and satellite/streets base. Legend uses the exact CloudRF
+ * color key of the active carrier.
  */
 import { useEffect, useRef, useState } from "react";
-import { Satellite, RefreshCw, AlertTriangle, Radio } from "lucide-react";
+import { RefreshCw, AlertTriangle, Radio } from "lucide-react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import PropagationLegend from "./section8/PropagationLegend";
+import PropagationLayerToggles from "./section8/PropagationLayerToggles";
 import SectionClearButton from "./SectionClearButton";
 import { section8Propagation } from "@/functions/section8Propagation";
 
@@ -41,6 +45,15 @@ const STYLES = {
   streets: "mapbox://styles/mapbox/streets-v12",
 };
 
+// CloudRF bounds: [north, east, south, west] or {north,...}. Normalize.
+function normBounds(b) {
+  let north, south, east, west;
+  if (Array.isArray(b)) { [north, east, south, west] = b; }
+  else if (b) { ({ north, south, east, west } = b); }
+  return [north, south, east, west].every(Number.isFinite) ? { north, south, east, west } : null;
+}
+const layerId = (name) => `rf-${String(name).replace(/[^a-z0-9]/gi, "_")}`;
+
 export default function Section8Propagation({ unlocked, targetA, towerHeightFt = 150, onData, onClear }) {
   const lat = targetA?.latitude;
   const lon = targetA?.longitude;
@@ -49,13 +62,19 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
   const [status, setStatus] = useState("idle"); // idle | running | done | error
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null); // backend detect response
-  const [activeCarrier, setActiveCarrier] = useState(null); // carrier_name
+  const [activeCarrier, setActiveCarrier] = useState(null); // carrier for cockpit/stats/legend
+  const [visible, setVisible] = useState({}); // carrier_name → bool (layer shown)
+  const [opacity, setOpacity] = useState(0.6);
+  const [terrain3D, setTerrain3D] = useState(false);
   const [txPower, setTxPower] = useState(43);
   const [heightFt, setHeightFt] = useState(towerHeightFt || 150);
   const [base, setBase] = useState("satellite");
+  const [mapReady, setMapReady] = useState(0); // bumped after each map "load"
 
   const containerRef = useRef(null);
   const mapRef = useRef(null);
+  const visibleRef = useRef(visible);
+  const opacityRef = useRef(opacity);
   // Memo cache keyed by inputs so re-Generate with same inputs is instant.
   const cacheRef = useRef({});
 
@@ -63,13 +82,21 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
 
   const activeCoverage = result?.coverages?.find((c) => c.carrier_name === activeCarrier) || null;
 
+  // Initialize per-carrier visibility (all usable layers ON) for a fresh result.
+  function initFromResult(data) {
+    const vis = {};
+    data.coverages.forEach((c) => { vis[c.carrier_name] = !!c.png_url; });
+    setVisible(vis);
+    setActiveCarrier(data.coverages.find((c) => c.png_url)?.carrier_name || null);
+  }
+
   async function handleGenerate() {
     if (!coordsOk) return;
     const key = `${lat},${lon},${heightFt},${txPower}`;
     if (cacheRef.current[key]) {
       const cached = cacheRef.current[key];
       setResult(cached);
-      setActiveCarrier(cached.coverages.find((c) => c.png_url)?.carrier_name || null);
+      initFromResult(cached);
       setStatus("done");
       return;
     }
@@ -85,7 +112,7 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
       if (!data?.success) throw new Error(data?.error || "Propagation run failed");
       cacheRef.current[key] = data;
       setResult(data);
-      setActiveCarrier(data.coverages.find((c) => c.png_url)?.carrier_name || null);
+      initFromResult(data);
       // Emit propagation summary to the bus (bonus context, not a weighted factor).
       onData?.({ propagation: { carrier_count: data.carrier_count ?? (data.coverages?.length || 0) } });
       setStatus("done");
@@ -127,11 +154,11 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
     }
   }
 
-  // Render / refresh the Mapbox map whenever the active coverage or base changes.
+  // Build the Mapbox map with ONE raster layer per carrier coverage.
   useEffect(() => {
     let cancelled = false;
     async function draw() {
-      if (status !== "done" || !activeCoverage?.png_url || !coordsOk) return;
+      if (status !== "done" || !result || !coordsOk) return;
       const cfg = await loadPublicConfig();
       const token = cfg?.mapboxAccessToken;
       if (!token || cancelled) return;
@@ -145,30 +172,44 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
         style: STYLES[base],
         center: [lon, lat],
         zoom: 13.5,
+        pitch: 0,
       });
-      map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
+      map.addControl(new window.mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+      map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-right");
 
       map.on("load", () => {
         if (cancelled) return;
-        const b = activeCoverage.bounds;
-        // CloudRF bounds: [north, east, south, west] or {north,...}. Normalize.
-        let north, south, east, west;
-        if (Array.isArray(b)) { [north, east, south, west] = b; }
-        else if (b) { north = b.north; south = b.south; east = b.east; west = b.west; }
-        if ([north, south, east, west].every(Number.isFinite)) {
-          map.addSource("rf-overlay", {
+        let union = null;
+        for (const c of result.coverages) {
+          if (!c.png_url) continue;
+          const nb = normBounds(c.bounds);
+          if (!nb) continue;
+          const id = layerId(c.carrier_name);
+          map.addSource(id, {
             type: "image",
-            url: activeCoverage.png_url,
-            coordinates: [[west, north], [east, north], [east, south], [west, south]],
+            url: c.png_url,
+            coordinates: [[nb.west, nb.north], [nb.east, nb.north], [nb.east, nb.south], [nb.west, nb.south]],
           });
-          map.addLayer({ id: "rf-overlay-layer", type: "raster", source: "rf-overlay", paint: { "raster-opacity": 0.6 } });
-          map.fitBounds([[west, south], [east, north]], { padding: 50, duration: 0 });
+          map.addLayer({
+            id, type: "raster", source: id,
+            paint: { "raster-opacity": opacityRef.current, "raster-fade-duration": 0 },
+            layout: { visibility: visibleRef.current[c.carrier_name] ? "visible" : "none" },
+          });
+          union = union
+            ? {
+                north: Math.max(union.north, nb.north), south: Math.min(union.south, nb.south),
+                east: Math.max(union.east, nb.east), west: Math.min(union.west, nb.west),
+              }
+            : nb;
         }
+        if (union) map.fitBounds([[union.west, union.south], [union.east, union.north]], { padding: 50, duration: 0 });
 
         // Target A tower marker (brand green).
         const el = document.createElement("div");
         el.style.cssText = `width:18px;height:18px;border-radius:50%;background:${BRAND_GREEN};border:3px solid #fff;box-shadow:0 0 0 2px ${BRAND_GREEN},0 0 12px ${BRAND_GREEN}cc;`;
         new window.mapboxgl.Marker({ element: el, anchor: "center" }).setLngLat([lon, lat]).addTo(map);
+
+        setMapReady((n) => n + 1);
       });
 
       mapRef.current = map;
@@ -176,7 +217,51 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
     draw().catch((e) => console.warn("Section8 map draw failed:", e?.message || e));
     return () => { cancelled = true; mapRef.current?.remove?.(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, activeCarrier, base, activeCoverage?.png_url]);
+  }, [status, base, result?.generated_at]);
+
+  // Layer visibility toggles → setLayoutProperty (no map rebuild).
+  useEffect(() => {
+    visibleRef.current = visible;
+    const map = mapRef.current;
+    if (!map || !result) return;
+    result.coverages.forEach((c) => {
+      const id = layerId(c.carrier_name);
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible[c.carrier_name] ? "visible" : "none");
+    });
+  }, [visible, mapReady, result]);
+
+  // Overlay opacity → setPaintProperty (no map rebuild).
+  useEffect(() => {
+    opacityRef.current = opacity;
+    const map = mapRef.current;
+    if (!map || !result) return;
+    result.coverages.forEach((c) => {
+      const id = layerId(c.carrier_name);
+      if (map.getLayer(id)) map.setPaintProperty(id, "raster-opacity", opacity);
+    });
+  }, [opacity, mapReady, result]);
+
+  // 3D terrain toggle → Mapbox DEM + pitch (no map rebuild).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (terrain3D) {
+      if (!map.getSource("s8-dem")) {
+        map.addSource("s8-dem", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+      }
+      map.setTerrain({ source: "s8-dem", exaggeration: 1.4 });
+      map.easeTo({ pitch: 60, duration: 800 });
+    } else {
+      map.setTerrain(null);
+      map.easeTo({ pitch: 0, duration: 800 });
+    }
+  }, [terrain3D, mapReady]);
+
+  const toggleCarrier = (name) => setVisible((v) => ({ ...v, [name]: !v[name] }));
+  const selectCarrier = (name) => {
+    setActiveCarrier(name);
+    setVisible((v) => ({ ...v, [name]: true })); // selecting always shows the layer
+  };
 
   // ── Locked state ──
   if (!unlocked) {
@@ -196,7 +281,7 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
         <div>
           <div className="text-[10px] font-mono tracking-[0.3em]" style={{ color: BRAND_GREEN }}>SECTION 5 · CLOUDRF</div>
           <h2 className="font-heading font-bold text-lg text-foreground">HAWK RF PROPAGATION VISION — TARGET A</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">1-mile CloudRF coverage simulation across area carriers</p>
+          <p className="text-xs text-muted-foreground mt-0.5">1-mile CloudRF coverage simulation · toggle carrier layers, opacity & 3D terrain</p>
         </div>
         {status !== "idle" && onClear && <SectionClearButton onClear={onClear} />}
       </div>
@@ -238,46 +323,35 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
         {status === "done" && result && (
           <div className="space-y-4">
             {/* Map + floating controls */}
-            <div className="relative rounded-xl overflow-hidden border border-border" style={{ minHeight: 480 }}>
-              <div ref={containerRef} className="w-full" style={{ minHeight: 480 }} />
+            <div className="relative rounded-xl overflow-hidden border border-border" style={{ minHeight: 520 }}>
+              <div ref={containerRef} className="w-full" style={{ minHeight: 520 }} />
 
-              {/* Carrier chips + base toggle (top-left) */}
-              <div className="absolute top-3 left-3 z-10 flex flex-col gap-2 max-w-[60%]">
-                <div className="flex flex-wrap gap-1.5 p-1.5 rounded-lg bg-[#0C1B2E]/90 backdrop-blur border border-[#628C83]/40">
-                  {result.coverages.map((c) => (
-                    <button
-                      key={c.carrier_name}
-                      onClick={() => setActiveCarrier(c.carrier_name)}
-                      disabled={!c.png_url}
-                      className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors disabled:opacity-40"
-                      style={c.carrier_name === activeCarrier
-                        ? { background: BRAND_GREEN, color: "#fff" }
-                        : { background: "transparent", color: "#cbd5e1", border: "1px solid #334155" }}
-                      title={`${c.carrier_name} · ${c.band}`}
-                    >
-                      {c.carrier_name}
-                    </button>
-                  ))}
-                </div>
-                <div className="inline-flex rounded-lg overflow-hidden border border-[#628C83]/40 bg-[#0C1B2E]/90 backdrop-blur w-fit">
-                  {["satellite", "streets"].map((b) => (
-                    <button key={b} onClick={() => setBase(b)}
-                      className="px-3 py-1 text-[11px] font-semibold capitalize"
-                      style={base === b ? { background: BRAND_GREEN, color: "#fff" } : { color: "#cbd5e1" }}>
-                      {b === "satellite" ? <span className="flex items-center gap-1"><Satellite className="w-3 h-3" /> Satellite</span> : "Streets"}
-                    </button>
-                  ))}
-                </div>
+              {/* Layer toggle panel (top-left) */}
+              <div className="absolute top-3 left-3 z-10">
+                <PropagationLayerToggles
+                  coverages={result.coverages}
+                  visible={visible}
+                  onToggle={toggleCarrier}
+                  activeCarrier={activeCarrier}
+                  onSelect={selectCarrier}
+                  opacity={opacity}
+                  onOpacity={setOpacity}
+                  terrain3D={terrain3D}
+                  onTerrain={setTerrain3D}
+                  base={base}
+                  onBase={setBase}
+                />
               </div>
 
-              {/* Legend (bottom-left) */}
-              <div className="absolute bottom-3 left-3 z-10"><PropagationLegend /></div>
+              {/* Legend (bottom-left) — exact CloudRF color key of active carrier */}
+              <div className="absolute bottom-3 left-3 z-10"><PropagationLegend colorKey={activeCoverage?.key} /></div>
 
               {/* Tweak controls (bottom-right) */}
-              <div className="absolute bottom-3 right-3 z-10 rounded-lg bg-[#0C1B2E]/90 backdrop-blur border border-[#628C83]/40 p-2.5 text-white space-y-2 w-44">
+              <div className="absolute bottom-8 right-3 z-10 rounded-lg bg-[#0C1B2E]/90 backdrop-blur border border-[#628C83]/40 p-2.5 text-white space-y-2 w-44">
                 <div className="text-[10px] font-mono tracking-[0.2em] text-[#628C83] mb-0.5">RF COCKPIT</div>
                 {activeCoverage && (
                   <div className="rounded bg-[#0a1422] border border-[#334155] px-2 py-1.5 space-y-0.5 text-[10px] font-mono">
+                    <div className="flex justify-between"><span className="text-white/50">CARRIER</span><span className="truncate">{activeCoverage.carrier_name}</span></div>
                     <div className="flex justify-between"><span className="text-white/50">FREQ</span><span>{activeCoverage.frequency_mhz} MHz</span></div>
                     <div className="flex justify-between"><span className="text-white/50">BAND</span><span>{activeCoverage.band}</span></div>
                     <div className="flex justify-between"><span className="text-white/50">AGL</span><span>{heightFt} ft</span></div>
