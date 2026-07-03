@@ -37,6 +37,7 @@
  */
 import { memo, useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import ParcelLinesToggle from "@/components/maps/ParcelLinesToggle";
 
 // Primary + fallback CDNs. The api.mapbox.com CDN can be blocked/rate-limited
 // inside the editor iframe, so we fall back to jsDelivr then unpkg.
@@ -290,8 +291,11 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   }
 
   return (
-    <div className="rounded-xl overflow-hidden border border-border" style={{ minHeight: "600px" }}>
+    <div className="relative rounded-xl overflow-hidden border border-border" style={{ minHeight: "600px" }}>
       <div ref={containerRef} className="w-full" style={{ width: "100%", height: "600px" }} />
+      <div className="absolute top-3 left-3 z-10">
+        <ParcelLinesToggle mapRef={mapRef} />
+      </div>
     </div>
   );
 }

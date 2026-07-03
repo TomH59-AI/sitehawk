@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import ParcelLinesToggle from "@/components/maps/ParcelLinesToggle";
 
 const EMPTY = { type: "FeatureCollection", features: [] };
 const fc = (items) => ({
@@ -159,6 +160,9 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
   return (
     <div className="relative w-full h-full min-h-[420px] rounded-xl overflow-hidden border border-white/10">
       <div ref={containerRef} className="absolute inset-0" />
+      <div className="absolute bottom-2 left-2 z-10">
+        <ParcelLinesToggle mapRef={mapRef} />
+      </div>
       {clickMode && (
         <div className="absolute top-2 left-2 z-10 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-semibold shadow">
           {clickMode === "parcel" ? "Click a parcel to load it" : clickMode === "rectCenter" ? "Click to place the rectangle center" : clickMode === "platAnchor" ? "Click to anchor the reconstructed plat" : "Click to add polygon points"}
