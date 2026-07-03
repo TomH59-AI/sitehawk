@@ -10,6 +10,7 @@ import { hawkBillingCheckout } from "@/functions/hawkBillingCheckout";
 import { Button } from "@/components/ui/button";
 import { CreditCard, CheckCircle2, AlertTriangle, ExternalLink, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import DeleteAccountSection from "@/components/billing/DeleteAccountSection";
 
 const STATUS_BADGE = {
   active: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
@@ -189,6 +190,9 @@ export default function Billing() {
           </div>
         </div>
       )}
+
+      {/* Danger zone */}
+      <DeleteAccountSection />
     </div>
   );
 }

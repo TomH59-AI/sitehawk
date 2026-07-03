@@ -98,4 +98,8 @@
     -webkit-user-drag: none;
     user-select: none;
   }
+
+  button, nav {
+    @apply select-none;
+  }
 }

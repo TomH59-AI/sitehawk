@@ -1,4 +1,5 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import MobileTabBar from "./MobileTabBar";
 import HubSpotSidebarConnect from "./sidebar/HubSpotSidebarConnect";
 import AppFooter from "./AppFooter";
 import AppErrorBoundary from "./AppErrorBoundary";
@@ -6,7 +7,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, Crown, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack } from "lucide-react";
+import { Sun, Moon, ChevronLeft, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, Crown, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -32,6 +33,9 @@ const BASE_NAV = [
 
 export default function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  // Sub-route = path with more than one segment (e.g. /scip/123) → show Back on mobile.
+  const isSubRoute = location.pathname.split("/").filter(Boolean).length > 1;
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggle } = useTheme();
   const [isAdmin, setIsAdmin] = useState(() => {
@@ -95,7 +99,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen flex bg-background font-body">
+    <div className="min-h-screen flex bg-background font-body pb-[env(safe-area-inset-bottom)]">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-sidebar fixed inset-y-0 left-0 z-30">
         <div className="p-6 border-b border-border">
@@ -176,11 +180,17 @@ export default function Layout() {
       </aside>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-sidebar border-b border-border z-30 flex items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2">
-          <HawkIcon size={32} />
-          <span className="font-heading font-bold text-foreground">SiteHawk</span>
-        </Link>
+      <div className="lg:hidden fixed top-0 left-0 right-0 min-h-16 pt-[env(safe-area-inset-top)] bg-sidebar border-b border-border z-30 flex items-center justify-between px-4">
+        {isSubRoute ? (
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm font-medium text-foreground py-2 -ml-1">
+            <ChevronLeft className="w-5 h-5" /> Back
+          </button>
+        ) : (
+          <Link to="/" className="flex items-center gap-2">
+            <HawkIcon size={32} />
+            <span className="font-heading font-bold text-foreground">SiteHawk</span>
+          </Link>
+        )}
         <div className="flex items-center gap-1">
           <UsageBadge className="mr-1" />
           <RestartTourButton />
@@ -232,7 +242,7 @@ export default function Layout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 flex flex-col min-h-screen">
+      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 pb-20 lg:pb-0 flex flex-col min-h-screen">
         <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex-1">
           <AppErrorBoundary>
             <Outlet />
@@ -240,6 +250,7 @@ export default function Layout() {
         </div>
         <AppFooter />
       </main>
+      <MobileTabBar />
       <HawkBotWidget />
       <SARFCoachTour />
     </div>
