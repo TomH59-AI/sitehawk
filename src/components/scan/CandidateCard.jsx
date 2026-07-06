@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { skipTrace } from "@/functions/skipTrace";
 import RFCoveragePanel from "./RFCoveragePanel";
 import OwnerMailerCard from "./OwnerMailerCard";
+import SiteShowcaseSection from "./SiteShowcaseSection";
 
 const PAID_TIERS = ["hawk_site", "hawkeyes", "hawk_sight", "hawkeye_20", "hawkeye_apex"];
 
@@ -326,6 +327,9 @@ export default function CandidateCard({ result, rank, isSelected, userTier, cont
           </button>
         )}
       </div>
+
+      {/* Site Showcase */}
+      <SiteShowcaseSection candidate={result} />
 
       {/* RF Coverage Modal */}
       {showRFCoverage && (
