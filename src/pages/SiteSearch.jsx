@@ -13,7 +13,6 @@ import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section9Colocation from "../components/search/Section9Colocation";
 import Section8Propagation from "../components/search/Section8Propagation";
 import Section5TowerSiter from "../components/search/Section5TowerSiter";
-import Section7Infrastructure from "../components/search/Section7Infrastructure";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
@@ -58,7 +57,7 @@ export default function SiteSearch() {
   // Clearing a section also rolls back the parent readiness flags for it AND
   // every section downstream, so the pipeline correctly re-locks after it.
   const [clearKeys, setClearKeys] = useState({
-    sarf: 0, zoning: 0, targets: 0, maps: 0, infrastructure: 0, propagation: 0,
+    sarf: 0, zoning: 0, targets: 0, maps: 0, propagation: 0,
   });
   const bumpKeys = (steps) =>
     setClearKeys((prev) => {
@@ -112,7 +111,7 @@ export default function SiteSearch() {
   // Ordered pipeline steps (sarf is Section 1, always present). Section 8
   // (propagation) is standalone — it gates nothing, so clearing it only remounts
   // itself and does not roll back any other section.
-  const PIPELINE_ORDER = ["zoning", "targets", "maps", "infrastructure"];
+  const PIPELINE_ORDER = ["zoning", "targets", "maps"];
 
   // Clear ONE section and everything downstream of it: remount those sections
   // (wipes their internal state) and roll back the parent readiness flags so the
@@ -149,7 +148,7 @@ export default function SiteSearch() {
     setSearchCenter(null);
     setGeneratedLabels([]);
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps", "infrastructure", "propagation"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "propagation"]);
   };
 
   // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
@@ -466,22 +465,6 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* SECTION 7 — INFRASTRUCTURE (Fiber Optics & Power Grid). Locked until
-          Section 4's map suite completes (Wind is map #10 there); feeds the
-          fiber factor the SCIP nudge checks. */}
-      {coordsReady && sarfReady && zoningReady && (
-        <Section7Infrastructure
-          key={`infrastructure-${clearKeys.infrastructure}`}
-          unlocked={!!(mapsComplete && targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
-          active={pipelineStep === "infrastructure"}
-          onClear={() => clearFrom("infrastructure")}
-          targetA={targetA}
-          radiusMiles={searchParams.radius_miles}
-          onRun={() => setPipelineStep("infrastructure")}
-          onData={mergeSectionData}
-        />
-      )}
-
       {/* SECTION 5 — TOWER SITER. Unlocks when Target A is resolved.
           Passes Target A coords + zoning rules so the parcel pre-loads. */}
       {coordsReady && sarfReady && zoningReady && (
@@ -501,29 +484,6 @@ export default function SiteSearch() {
           SCIP (and pick pages from their printer) without scrolling back up. */}
       {coordsReady && (
         <div className="flex flex-col items-center gap-3 pt-4 pb-6 border-t border-border">
-          {/* Nudge: warn if Section 7 (infrastructure) hasn't been run yet */}
-          {targetA && !sectionData?.fiber && (
-            <div className="w-full max-w-xl rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 flex items-start gap-3">
-              <span className="text-amber-500 text-lg shrink-0">⚠</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                  Fiber &amp; Power maps not yet run
-                </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                  Fiber Optics (Map 11) and Power Grid (Map 12) data won't be in your SCIP. Scroll up and run those maps first for a complete report.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  const el = document.querySelector("[data-section='map-suite']");
-                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-400 transition-colors whitespace-nowrap"
-              >
-                ↑ Go to Maps
-              </button>
-            </div>
-          )}
           <p className="text-sm text-muted-foreground text-center">
             Finished the pipeline? Generate the full SiteHawk SCIP — then Print / Save PDF and choose which pages to print.
           </p>
