@@ -105,6 +105,16 @@
   }
 
   /* Pure-white typed text in form fields on dark backdrops for maximum legibility */
+  input.bg-secondary,
+  textarea.bg-secondary,
+  select.bg-secondary {
+    color: #FFFFFF;
+    caret-color: #FFFFFF;
+  }
+  input.bg-secondary::placeholder,
+  textarea.bg-secondary::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+  }
   .dark input,
   .dark textarea,
   .dark select {

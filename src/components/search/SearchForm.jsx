@@ -66,7 +66,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               placeholder="e.g. Nikola Tesla"
               value={agentName}
               onChange={(e) => setAgentName(e.target.value)}
-              className="bg-secondary border-border"
+              className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
             />
           </div>
           <div data-coach="sarf-ring">
@@ -76,7 +76,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               placeholder="e.g. Site A — Tampa I-75"
               value={ringName}
               onChange={(e) => setRingName(e.target.value)}
-              className="bg-secondary border-border"
+              className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
               required
             />
           </div>
@@ -94,7 +94,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               placeholder="e.g. 150"
               value={towerHeight}
               onChange={(e) => setTowerHeight(e.target.value)}
-              className="bg-secondary border-border"
+              className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
             />
           </div>
         </div>
@@ -150,7 +150,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               placeholder="e.g. Hillsborough"
               value={county}
               onChange={(e) => setCounty(e.target.value)}
-              className="bg-secondary border-border"
+              className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
             />
           </div>
           <div>
@@ -160,7 +160,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               placeholder="e.g. FL"
               value={stateCode}
               onChange={(e) => setStateCode(e.target.value)}
-              className="bg-secondary border-border"
+              className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
             />
           </div>
         </div>
@@ -183,7 +183,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               placeholder="e.g. 33.4484"
               value={lat}
               onChange={(e) => setLat(e.target.value)}
-              className="bg-secondary border-border"
+              className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
             />
           </div>
           <div>
@@ -194,7 +194,7 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               placeholder="e.g. -112.0740"
               value={lon}
               onChange={(e) => setLon(e.target.value)}
-              className="bg-secondary border-border"
+              className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
             />
           </div>
         </div>
