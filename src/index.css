@@ -32,7 +32,7 @@
     --chart-5: 210 40% 98%;           /* #F8FAFC */
     --radius: 0.75rem;
     --sidebar-background: 217 33% 17%;   /* #1E293B */
-    --sidebar-foreground: 210 40% 98%;
+    --sidebar-foreground: 0 0% 100%;     /* pure white */
     --sidebar-primary: 202 100% 50%;     /* #00A3FF */
     --sidebar-primary-foreground: 217 33% 12%;
     --sidebar-accent: 217 33% 23%;
@@ -46,11 +46,11 @@
 
   .dark {
     --background: 217 33% 10%;        /* deep slate */
-    --foreground: 210 40% 98%;        /* #F8FAFC */
+    --foreground: 0 0% 100%;          /* pure white */
     --card: 217 33% 15%;
-    --card-foreground: 210 40% 98%;
+    --card-foreground: 0 0% 100%;
     --popover: 217 33% 15%;
-    --popover-foreground: 210 40% 98%;
+    --popover-foreground: 0 0% 100%;
     --primary: 202 100% 50%;          /* #00A3FF pops on dark */
     --primary-foreground: 217 33% 10%;
     --secondary: 217 33% 22%;
@@ -70,7 +70,7 @@
     --chart-4: 202 100% 70%;
     --chart-5: 217 33% 40%;
     --sidebar-background: 217 33% 8%;
-    --sidebar-foreground: 210 40% 98%;
+    --sidebar-foreground: 0 0% 100%;  /* pure white */
     --sidebar-primary: 202 100% 50%;
     --sidebar-primary-foreground: 217 33% 10%;
     --sidebar-accent: 217 33% 14%;
@@ -102,5 +102,17 @@
 
   button, nav {
     @apply select-none;
+  }
+
+  /* Pure-white typed text in form fields on dark backdrops for maximum legibility */
+  .dark input,
+  .dark textarea,
+  .dark select {
+    color: #FFFFFF;
+    caret-color: #FFFFFF;
+  }
+  .dark input::placeholder,
+  .dark textarea::placeholder {
+    color: rgba(255, 255, 255, 0.55);
   }
 }
