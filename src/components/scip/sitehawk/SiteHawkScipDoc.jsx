@@ -4,6 +4,7 @@ import HawkScipSection, { HawkWatermark } from "../HawkScipSection";
 import SiteHawkInfoTable from "./SiteHawkInfoTable";
 import SiteHawkViewshedPage from "./SiteHawkViewshedPage";
 import SiteHawkDeedPage from "./SiteHawkDeedPage";
+import SiteHawkTowerSiterPage from "./SiteHawkTowerSiterPage";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
 
@@ -276,6 +277,9 @@ export default function SiteHawkScipDoc({ record }) {
           {z.notes && <SiteHawkInfoTable heading="Zoning Notes" rows={[["Notes", z.notes]]} />}
         </HawkScipSection>
       )}
+
+      {/* ─────────── TOWER SITER EXHIBIT — FINAL PAGE ─────────── */}
+      <SiteHawkTowerSiterPage record={r} page={next()} />
     </div>
   );
 }
