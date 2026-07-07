@@ -5,6 +5,7 @@ import PermitApplications from "../components/hawkdoc/PermitApplications";
 import LeaseAnalysis from "../components/hawklaw/LeaseAnalysis";
 import RedlineCounter from "../components/hawklaw/redline/RedlineCounter";
 import HawkLawDisclaimerBanner from "../components/hawklaw/HawkLawDisclaimerBanner";
+import HawkFetchModule from "../components/hawkfetch/HawkFetchModule";
 
 // Unified Hawk Document Intelligence hub:
 //  · Permit Applications — upload zoning/permit app, AI fills, Q&A, e-sign, print
@@ -25,6 +26,14 @@ export default function HawkDocs() {
         </div>
       </div>
 
+      {/* HawkFetch — standalone permit-application finder. Upload CTA jumps to the Permit Applications upload flow. */}
+      <HawkFetchModule
+        onUploadCta={() => {
+          setTab("permits");
+          setTimeout(() => document.getElementById("hawkdocs-permits")?.scrollIntoView({ behavior: "smooth" }), 100);
+        }}
+      />
+
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6">
           <TabsTrigger value="permits"><ScanLine className="w-4 h-4 mr-1.5" /> Permit Applications</TabsTrigger>
@@ -32,7 +41,7 @@ export default function HawkDocs() {
           <TabsTrigger value="redline"><GitCompareArrows className="w-4 h-4 mr-1.5" /> Redline Counter</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="permits"><PermitApplications /></TabsContent>
+        <TabsContent value="permits"><div id="hawkdocs-permits"><PermitApplications /></div></TabsContent>
 
         <TabsContent value="lease">
           <HawkLawDisclaimerBanner />

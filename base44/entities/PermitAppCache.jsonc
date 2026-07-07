@@ -1,0 +1,38 @@
+{
+  "name": "PermitAppCache",
+  "type": "object",
+  "description": "HawkFetch \u2014 app-wide cache of official zoning/permit application resources per US jurisdiction. Keyed by (state, jurisdiction lowercase-trimmed). One InvokeLLM discovery per jurisdiction is stored here and reused across all users for 90 days. Not user-scoped.",
+  "properties": {
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase state code."
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "Jurisdiction name, lowercase-trimmed (cache key)."
+    },
+    "payload": {
+      "type": "object",
+      "description": "The HawkFetch result: { portal_url, portal_vendor, online_submission, application_forms: [{title, url, form_type}], fee_schedule_url, planning_dept_url, dept_contact: {phone, email, address}, confidence, notes }."
+    },
+    "last_verified": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the payload was last fetched from live sources."
+    }
+  },
+  "required": [
+    "state",
+    "jurisdiction"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
