@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import * as turf from "@turf/turf";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import { setbackBandGeometry } from "@/lib/towerSitingRules";
 import ParcelLinesToggle from "@/components/maps/ParcelLinesToggle";
 
 const EMPTY = { type: "FeatureCollection", features: [] };
@@ -9,11 +11,105 @@ const fc = (items) => ({
   features: (items || []).filter(Boolean).map((g) => (g.type === "Feature" ? g : { type: "Feature", properties: {}, geometry: g.geometry ?? g })),
 });
 
-// Live Exhibit B view — Mapbox satellite-streets-v12. Parcel white 2.5px,
-// envelope teal dash + 12% fill, fall zone cyan 18%, compound amber 45%,
-// tower white circle / amber stroke, residential circle red dash. Drag the
-// tower to re-site (clamping + recompute happen in the parent).
-export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCircle, towerData, draftPoints, onTowerDrag, onMapClick, clickMode, rowData }) {
+// Live Exhibit B view — Mapbox satellite-streets-v12.
+//   Parcel white 2.5px · buildable envelope EMERALD dash + 15% fill (GREEN = yes)
+//   Setback band RED 14% fill w/ per-edge distance labels (RED = no build)
+//   Fall zone cyan (flips red when it is the failing check) · compound amber
+//   Tower = canvas-drawn monopole icon, color-coded live green/yellow/red by
+//   liveSiting.tier as you drag · live dimension line tower → nearest property
+//   line with real-time clearance in feet · verdict badge + legend overlays.
+// Drag (mouse + touch) re-sites the tower — clamping + recompute happen in the
+// parent. RULE-DRIVEN ONLY: every number rendered comes from the engine result.
+const TIER_COLORS = { go: "#10b981", caution: "#f59e0b", no: "#ef4444" };
+const TIER_TEXT = { go: "#6ee7b7", caution: "#fcd34d", no: "#fca5a5" };
+const TIER_BG = { go: "rgba(6,78,59,0.92)", caution: "rgba(120,53,15,0.92)", no: "rgba(127,29,29,0.92)" };
+const TIER_GLYPH = { go: "✔", caution: "⚠", no: "✖" };
+
+// ── Canvas-drawn monopole tower icon (white halo + tier color) ──────────────
+function towerIconImage(color) {
+  const s = 96;
+  const cv = document.createElement("canvas");
+  cv.width = s; cv.height = s;
+  const ctx = cv.getContext("2d");
+  const draw = (col, lw) => {
+    ctx.strokeStyle = col;
+    ctx.lineWidth = lw;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(48, 88); ctx.lineTo(48, 18); // mast
+    ctx.moveTo(30, 24); ctx.lineTo(66, 24); // antenna platform bar
+    ctx.moveTo(33, 12); ctx.lineTo(33, 32); // left antenna panel
+    ctx.moveTo(48, 8); ctx.lineTo(48, 30);  // center antenna panel
+    ctx.moveTo(63, 12); ctx.lineTo(63, 32); // right antenna panel
+    ctx.moveTo(36, 88); ctx.lineTo(60, 88); // base
+    ctx.stroke();
+  };
+  draw("#ffffff", 13); // halo pass — readable on any satellite imagery
+  draw(color, 6);
+  return ctx.getImageData(0, 0, s, s);
+}
+
+// ── Setback distance labels — midpoints of the major parcel edges, pulled
+//    inward so they sit inside the red no-build band ─────────────────────────
+function setbackLabelFC(parcelFeat, envelopeFeat, setbackFt) {
+  try {
+    if (!parcelFeat || !envelopeFeat || !Number.isFinite(setbackFt) || setbackFt <= 0) return EMPTY;
+    const g = parcelFeat.geometry ?? parcelFeat;
+    const ring = g.type === "MultiPolygon" ? g.coordinates[0][0] : g.coordinates[0];
+    if (!ring?.length) return EMPTY;
+    const envLine = turf.polygonToLine(envelopeFeat);
+    const envLines = envLine.type === "FeatureCollection" ? envLine.features : [envLine];
+    const edges = [];
+    for (let i = 0; i < ring.length - 1; i++) {
+      const a = ring[i], b = ring[i + 1];
+      const lenFt = turf.distance(turf.point(a), turf.point(b), { units: "feet" });
+      edges.push({ mid: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], lenFt });
+    }
+    edges.sort((x, y) => y.lenFt - x.lenFt);
+    const feats = [];
+    for (const e of edges.slice(0, 6)) {
+      if (e.lenFt < Math.max(setbackFt * 0.8, 40)) continue; // skip clutter on short edges
+      let inner = e.mid, best = Infinity;
+      for (const l of envLines) {
+        const np = turf.nearestPointOnLine(l, turf.point(e.mid), { units: "feet" });
+        if (np.properties.dist < best) { best = np.properties.dist; inner = np.geometry.coordinates; }
+      }
+      feats.push({
+        type: "Feature",
+        properties: { label: `${Math.round(setbackFt)}′ SETBACK` },
+        geometry: { type: "Point", coordinates: [(e.mid[0] + inner[0]) / 2, (e.mid[1] + inner[1]) / 2] },
+      });
+    }
+    return { type: "FeatureCollection", features: feats };
+  } catch { return EMPTY; }
+}
+
+// ── Live dimension: tower → nearest point on the property line ──────────────
+function clearanceDim(parcelFeat, towerLonLat) {
+  try {
+    const line = turf.polygonToLine(parcelFeat);
+    const lines = line.type === "FeatureCollection" ? line.features : [line];
+    let best = null, bestD = Infinity;
+    for (const l of lines) {
+      const np = turf.nearestPointOnLine(l, turf.point(towerLonLat), { units: "feet" });
+      if (np.properties.dist < bestD) { bestD = np.properties.dist; best = np.geometry.coordinates; }
+    }
+    if (!best || !Number.isFinite(bestD)) return { line: EMPTY, label: EMPTY };
+    return {
+      line: fc([{ type: "LineString", coordinates: [towerLonLat, best] }]),
+      label: {
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature",
+          properties: { label: `${Math.round(bestD)}′ to line` },
+          geometry: { type: "Point", coordinates: [(towerLonLat[0] + best[0]) / 2, (towerLonLat[1] + best[1]) / 2] },
+        }],
+      },
+    };
+  } catch { return { line: EMPTY, label: EMPTY }; }
+}
+
+export default function SiterMap({ parcelGeoJSON, result, liveSiting, leaseLonLat, residCircle, towerData, draftPoints, onTowerDrag, onMapClick, clickMode, rowData }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -36,24 +132,29 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
       });
       map.addControl(new window.mapboxgl.NavigationControl({ showCompass: false }), "top-right");
       map.on("load", () => {
+        // Tier-colored monopole icons — drawn once, swapped live via icon-image
+        map.addImage("tower-go", towerIconImage(TIER_COLORS.go), { pixelRatio: 2 });
+        map.addImage("tower-caution", towerIconImage(TIER_COLORS.caution), { pixelRatio: 2 });
+        map.addImage("tower-no", towerIconImage(TIER_COLORS.no), { pixelRatio: 2 });
+
         const add = (id, type, paint, layout = {}) => {
           map.addSource(id, { type: "geojson", data: EMPTY });
           map.addLayer({ id, type, source: id, paint, layout });
         };
-        add("ts-env-fill", "fill", { "fill-color": "#14b8a6", "fill-opacity": 0.12 });
-        add("ts-fall-fill", "fill", { "fill-color": "#22d3ee", "fill-opacity": 0.18 });
+
+        // fills (bottom of stack)
+        add("ts-band-fill", "fill", { "fill-color": "#ef4444", "fill-opacity": 0.14 });
+        add("ts-env-fill", "fill", { "fill-color": "#10b981", "fill-opacity": 0.15 });
+        add("ts-fall-fill", "fill", { "fill-color": ["match", ["get", "state"], "fail", "#ef4444", "#22d3ee"], "fill-opacity": 0.18 });
         add("ts-compound-fill", "fill", { "fill-color": "#f59e0b", "fill-opacity": 0.45 });
+        // lines
         add("ts-parcel-line", "line", { "line-color": "#ffffff", "line-width": 2.5 });
-        add("ts-env-line", "line", { "line-color": "#14b8a6", "line-width": 2, "line-dasharray": [2, 2] });
-        add("ts-fall-line", "line", { "line-color": "#22d3ee", "line-width": 1.5 });
+        add("ts-env-line", "line", { "line-color": "#10b981", "line-width": 2, "line-dasharray": [2, 2] });
+        add("ts-fall-line", "line", { "line-color": ["match", ["get", "state"], "fail", "#ef4444", "#22d3ee"], "line-width": 1.5 });
         add("ts-lease-line", "line", { "line-color": "#f59e0b", "line-width": 1.5, "line-dasharray": [3, 2] });
         add("ts-resid-line", "line", { "line-color": "#ef4444", "line-width": 2, "line-dasharray": [2, 2] });
         add("ts-draft-line", "line", { "line-color": "#60a5fa", "line-width": 2, "line-dasharray": [1, 1] });
         add("ts-draft-pts", "circle", { "circle-radius": 4, "circle-color": "#60a5fa", "circle-stroke-color": "#fff", "circle-stroke-width": 1 });
-        add("ts-tower", "circle", {
-          "circle-radius": 8, "circle-color": "#ffffff",
-          "circle-stroke-color": "#f59e0b", "circle-stroke-width": 3,
-        });
         // Tower separation layers
         add("ts-sep-buf-fill", "fill", { "fill-color": "#ef4444", "fill-opacity": 0.08 });
         add("ts-sep-buf-line", "line", { "line-color": "#ef4444", "line-width": 1.5, "line-dasharray": [3, 2] });
@@ -61,9 +162,33 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
         // Access road ROW indicator
         add("ts-row-fill", "fill", { "fill-color": "#f97316", "fill-opacity": 0.15 });
         add("ts-row-line", "line", { "line-color": "#f97316", "line-width": 2.5, "line-dasharray": [4, 2] });
+        // Live clearance dimension line (tower → nearest property line)
+        add("ts-dim-line", "line", { "line-color": "#10b981", "line-width": 1.5, "line-dasharray": [1, 1.5] });
+        // Setback distance labels — sit inside the red no-build band
+        add("ts-setback-labels", "symbol",
+          { "text-color": "#fecaca", "text-halo-color": "#450a0a", "text-halo-width": 1.4 },
+          { "text-field": ["get", "label"], "text-size": 11, "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"], "text-letter-spacing": 0.05, "text-allow-overlap": true });
+        // Live clearance readout label
+        add("ts-dim-label", "symbol",
+          { "text-color": "#6ee7b7", "text-halo-color": "#0b1220", "text-halo-width": 1.5 },
+          { "text-field": ["get", "label"], "text-size": 12, "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"], "text-offset": [0, -0.9], "text-allow-overlap": true });
+        // Tower icon — topmost; keeps layer id "ts-tower" so drag bindings hold
+        add("ts-tower", "symbol", {}, {
+          "icon-image": ["coalesce", ["get", "icon"], "tower-go"],
+          "icon-size": 1,
+          "icon-anchor": "bottom",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        });
 
-        // tower drag
+        // tower drag — mouse
         let dragging = false;
+        const endDrag = () => {
+          if (!dragging) return;
+          dragging = false;
+          map.dragPan.enable();
+          map.getCanvas().style.cursor = "";
+        };
         map.on("mousedown", "ts-tower", (e) => {
           e.preventDefault();
           dragging = true;
@@ -74,14 +199,24 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
           if (!dragging) return;
           cbRef.current.onTowerDrag?.([e.lngLat.lng, e.lngLat.lat]);
         });
-        map.on("mouseup", () => {
-          if (!dragging) return;
-          dragging = false;
-          map.dragPan.enable();
-          map.getCanvas().style.cursor = "";
-        });
+        map.on("mouseup", endDrag);
         map.on("mouseenter", "ts-tower", () => { map.getCanvas().style.cursor = "grab"; });
         map.on("mouseleave", "ts-tower", () => { if (!dragging) map.getCanvas().style.cursor = ""; });
+
+        // tower drag — touch (single finger)
+        map.on("touchstart", "ts-tower", (e) => {
+          if (e.points && e.points.length !== 1) return;
+          e.preventDefault();
+          dragging = true;
+          map.dragPan.disable();
+        });
+        map.on("touchmove", (e) => {
+          if (!dragging || !e.lngLat) return;
+          e.preventDefault();
+          cbRef.current.onTowerDrag?.([e.lngLat.lng, e.lngLat.lat]);
+        });
+        map.on("touchend", endDrag);
+        map.on("touchcancel", endDrag);
 
         map.on("click", (e) => {
           if (cbRef.current.clickMode) cbRef.current.onMapClick?.([e.lngLat.lng, e.lngLat.lat]);
@@ -111,20 +246,44 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
     }
   }, [ready, parcelGeoJSON]);
 
-  // engine result layers
+  // engine result layers — recompute per drag tick; tier drives the live colors
   useEffect(() => {
     if (!ready) return;
+    const m = mapRef.current;
+    const tier = liveSiting?.tier || "go";
+
     setData("ts-env-fill", result?.envelope ? fc([result.envelope]) : EMPTY);
     setData("ts-env-line", result?.envelope ? fc([result.envelope]) : EMPTY);
+
+    // Red no-build band = parcel minus buildable envelope (single source of truth)
+    const band = result?.parcel && result?.envelope ? setbackBandGeometry(result.parcel, result.envelope) : null;
+    setData("ts-band-fill", band ? fc([band]) : EMPTY);
+
     const fall = result?.checks?.fallZone?.circle;
-    setData("ts-fall-fill", fall ? fc([fall]) : EMPTY);
-    setData("ts-fall-line", fall ? fc([fall]) : EMPTY);
+    const fallState = result?.checks?.fallZone?.status === "fail" ? "fail" : "ok";
+    const fallFC = fall
+      ? { type: "FeatureCollection", features: [{ type: "Feature", properties: { state: fallState }, geometry: fall.geometry ?? fall }] }
+      : EMPTY;
+    setData("ts-fall-fill", fallFC);
+    setData("ts-fall-line", fallFC);
+
     setData("ts-compound-fill", result?.compound?.lonLat ? fc([result.compound.lonLat]) : EMPTY);
     setData("ts-lease-line", leaseLonLat ? fc([leaseLonLat]) : EMPTY);
+
     setData("ts-tower", result?.towerLonLat
-      ? fc([{ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: result.towerLonLat } }])
+      ? { type: "FeatureCollection", features: [{ type: "Feature", properties: { icon: `tower-${tier}` }, geometry: { type: "Point", coordinates: result.towerLonLat } }] }
       : EMPTY);
-  }, [ready, result, leaseLonLat]);
+
+    setData("ts-setback-labels", setbackLabelFC(result?.parcel, result?.envelope, result?.setback));
+
+    const dim = result?.parcel && result?.towerLonLat ? clearanceDim(result.parcel, result.towerLonLat) : { line: EMPTY, label: EMPTY };
+    setData("ts-dim-line", dim.line);
+    setData("ts-dim-label", dim.label);
+    try {
+      m?.setPaintProperty("ts-dim-line", "line-color", TIER_COLORS[tier]);
+      m?.setPaintProperty("ts-dim-label", "text-color", TIER_TEXT[tier]);
+    } catch { /* paint update is cosmetic — never fail the render */ }
+  }, [ready, result, leaseLonLat, liveSiting]);
 
   // residential separation circle (active after Confirm on HawkVision+)
   useEffect(() => {
@@ -157,9 +316,42 @@ export default function SiterMap({ parcelGeoJSON, result, leaseLonLat, residCirc
       : EMPTY);
   }, [ready, draftPoints]);
 
+  const tier = liveSiting?.tier || "go";
+
   return (
     <div className="relative w-full h-full min-h-[420px] rounded-xl overflow-hidden border border-white/10">
       <div ref={containerRef} className="absolute inset-0" />
+
+      {/* Live verdict badge — tier-colored, updates every drag tick */}
+      {liveSiting && (
+        <div
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-lg text-[12px] font-bold shadow-lg flex items-center gap-2 max-w-[92%]"
+          style={{ background: TIER_BG[tier], border: `1px solid ${TIER_COLORS[tier]}`, color: TIER_TEXT[tier] }}
+        >
+          <span className="text-sm leading-none">{TIER_GLYPH[tier]}</span>
+          <span>
+            {liveSiting.tierLabel}
+            {liveSiting.clearanceFt != null && liveSiting.requiredFt != null && (
+              <span className="font-semibold opacity-90"> · {liveSiting.clearanceFt}′ clear / {liveSiting.requiredFt}′ req</span>
+            )}
+            {(liveSiting.reasons?.[0] || liveSiting.conditions?.[0]) && (
+              <span className="block font-medium opacity-85 text-[11px]">{liveSiting.reasons?.[0] || liveSiting.conditions?.[0]}</span>
+            )}
+          </span>
+        </div>
+      )}
+
+      {/* Legend */}
+      {result && !result.collapsed && (
+        <div className="absolute bottom-2 right-2 z-10 rounded-lg bg-black/70 border border-white/15 px-2.5 py-2 space-y-1 text-[10px] font-semibold text-white/85 shadow-lg">
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: "rgba(16,185,129,0.6)" }} /> Buildable area</div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: "rgba(239,68,68,0.55)" }} /> Setback — no build</div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: "rgba(34,211,238,0.6)" }} /> Fall zone</div>
+          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: "rgba(245,158,11,0.7)" }} /> Compound / lease</div>
+          <div className="pt-0.5 text-white/50 font-medium">Drag the tower to test placement</div>
+        </div>
+      )}
+
       <div className="absolute bottom-2 left-2 z-10">
         <ParcelLinesToggle mapRef={mapRef} />
       </div>
