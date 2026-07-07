@@ -154,37 +154,6 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Hero mockup strip */}
-        <div className="relative max-w-5xl mx-auto mt-16" style={{ zIndex: 3 }}>
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#222226] via-[#121214] to-[#0a0a0c] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_25px_50px_-12px_rgba(0,0,0,0.8)] overflow-hidden p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-red-500/60" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
-              <div className="w-3 h-3 rounded-full bg-green-500/60" />
-              <span className="ml-3 text-xs text-white/30 font-mono">sitehawk — site acquisition scan</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
-              {[
-                { label: "Candidate 1", score: 94, zoning: "C-2 Commercial", owner: "Sunrise Logistics LLC", airport: "TPA · 4.2 mi", tower: "Verizon Macro · 0.3 mi" },
-                { label: "Candidate 2", score: 78, zoning: "I-1 Industrial", owner: "Coastal Properties Trust", airport: "PIE · 6.8 mi", tower: "AT&T Macro · 0.7 mi" },
-                { label: "Candidate 3", score: 61, zoning: "A-1 Agricultural", owner: "Hernandez Family LLC", airport: "TPA · 5.1 mi", tower: "T-Mobile Small Cell · 1.1 mi" },
-              ].map((c) => (
-                <div key={c.label} className="rounded-xl border border-white/5 bg-white/5 p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#00A3FF]">{c.label}</span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">{c.score}%</span>
-                  </div>
-                  <p className="text-[11px] text-white/40">{c.zoning}</p>
-                  <p className="text-xs text-white/70 font-medium">{c.owner}</p>
-                  <div className="pt-1 space-y-1 border-t border-white/5">
-                    <p className="text-[10px] text-[#00A3FF]/80">✈ {c.airport}</p>
-                    <p className="text-[10px] text-[#00A3FF]/70">📡 {c.tower}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* ── LOGOS / SOCIAL PROOF ── */}
