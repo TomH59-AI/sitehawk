@@ -18,7 +18,7 @@ function extendBounds(bounds, coords) {
   coords.forEach((c) => extendBounds(bounds, c));
 }
 
-export default function RowMap({ parcels = [], targetA }) {
+export default function RowMap({ parcels = [], targetA, corridor = null }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [error, setError] = useState(null);
@@ -71,6 +71,12 @@ export default function RowMap({ parcels = [], targetA }) {
           map.addLayer({ id: "row-parcel-lines", type: "line", source: "row-all-parcels", paint: { "line-color": "#e2e8f0", "line-width": 1, "line-opacity": 0.7 } });
           map.addLayer({ id: "row-fill", type: "fill", source: "row-row-parcels", paint: { "fill-color": "#ef4444", "fill-opacity": 0.35 } });
           map.addLayer({ id: "row-line", type: "line", source: "row-row-parcels", paint: { "line-color": "#ef4444", "line-width": 2 } });
+
+          // Inferred ROW corridor frontage — amber dashed line along Target A's road frontage
+          if (corridor?.found && corridor.frontage_fc?.features?.length) {
+            map.addSource("row-corridor", { type: "geojson", data: corridor.frontage_fc });
+            map.addLayer({ id: "row-corridor-line", type: "line", source: "row-corridor", paint: { "line-color": "#f59e0b", "line-width": 4, "line-dasharray": [2, 1.5] } });
+          }
 
           if (center) new mapboxgl.Marker({ color: "#22d3ee" }).setLngLat(center).addTo(map);
 
@@ -125,6 +131,7 @@ export default function RowMap({ parcels = [], targetA }) {
         </div>
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-500/60 border border-red-500" /> ROW parcel</span>
+          {corridor?.found && <span className="flex items-center gap-1"><span className="w-4 h-0.5 bg-amber-500" style={{ borderTop: "2px dashed #f59e0b" }} /> Inferred ROW frontage (~{corridor.estimated_row_width_ft} ft)</span>}
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border border-slate-300" /> Parcel boundary</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-cyan-400" /> Target A</span>
         </div>

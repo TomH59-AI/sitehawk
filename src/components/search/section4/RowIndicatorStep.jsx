@@ -10,10 +10,12 @@
  * line distance, census/QOZ, ll_uuid.
  */
 
+import { useMemo } from "react";
 import { Lock, Sparkles, RefreshCw, AlertTriangle, Building2, TreePine, Zap, Map, BarChart2, Layers, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "../HawkFlightSpinner";
 import RowMap from "./RowMap";
+import { inferRowCorridor } from "@/lib/rowCorridor";
 
 const BRAND_GREEN = "#628C83";
 
@@ -58,6 +60,11 @@ function fmtDist(m) {
 export default function RowIndicatorStep({
   index, unlocked, loading, done, enrichment, ringStats, parcels = [], targetA, error, onRun,
 }) {
+  // Parcel-gap ROW inference — computed from geometry already fetched, zero new API calls.
+  const corridor = useMemo(
+    () => (done && parcels.length ? inferRowCorridor(parcels, targetA) : null),
+    [done, parcels, targetA]
+  );
   if (!unlocked) {
     return (
       <div className="rounded-xl border border-border bg-muted/40 overflow-hidden opacity-60 select-none">
@@ -155,12 +162,32 @@ export default function RowIndicatorStep({
             </div>
           )}
 
+          {/* Inferred ROW corridor banner — parcel-gap analysis */}
+          {corridor?.found && (
+            <div className="px-4 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-300/50 text-sm text-amber-800 dark:text-amber-200">
+              <span className="font-semibold">Inferred ROW corridor at Target A frontage:</span>{" "}
+              <span className="font-mono font-bold">~{corridor.estimated_row_width_ft} ft wide</span>
+              {" "}· <span className="font-mono">{corridor.frontage_ft} ft</span> of road frontage detected
+              {" "}· <span className="font-mono">{corridor.shared_pct}%</span> of boundary is shared lot lines
+              <div className="text-[11px] opacity-80 mt-0.5">{corridor.note}</div>
+            </div>
+          )}
+          {corridor && !corridor.found && (
+            <div className="px-4 py-2.5 rounded-lg bg-muted/40 border border-border text-sm text-muted-foreground">
+              No road-width parcel gap detected on Target A's boundary — the parcel may be landlocked
+              or fully surrounded by adjoining lots. Check the deed of record (Step 16) for access easements.
+            </div>
+          )}
+
           {/* ROW map — right-of-way polygons drawn from the same ring pull */}
-          <RowMap parcels={parcels} targetA={targetA} />
+          <RowMap parcels={parcels} targetA={targetA} corridor={corridor} />
 
           {/* ROW & Stacked */}
           <Section icon={AlertCircle} title="ROW & Stacked Parcel Indicators">
             <Badge label="ROW Flag" value={rowVal} color={rowColor} />
+            {corridor?.found && (
+              <Badge label="Inferred ROW Width" value={`~${corridor.estimated_row_width_ft} ft`} color="amber" />
+            )}
             <Badge label="Stacked Parcel" value={stackedVal} color={stackedColor} />
             {e.ll_uuid && <Badge label="Regrid UUID (ll_uuid)" value={String(e.ll_uuid).slice(0, 14) + "…"} color="blue" />}
             {e.path && <Badge label="Regrid Path" value={e.path} color="default" />}
