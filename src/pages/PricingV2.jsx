@@ -74,8 +74,7 @@ function PlanCard({ plan, onSelect, loading }) {
         <h2 className="font-heading font-bold text-xl text-foreground">{plan.name}</h2>
         <p className="text-sm text-muted-foreground mt-0.5 mb-3">{plan.tagline}</p>
         <div className="flex items-end gap-1">
-          <span className="text-4xl font-bold text-foreground">${tier.monthly_usd}</span>
-          <span className="text-muted-foreground text-sm mb-1.5">/ month</span>
+          <span className="text-2xl font-bold text-foreground">Based on Customer Usage</span>
         </div>
         <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{plan.description}</p>
       </div>

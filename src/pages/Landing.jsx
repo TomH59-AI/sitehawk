@@ -38,8 +38,7 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "🦅 HawkSite Solo", price: "$299/mo", desc: "3-day free trial · 15 SCIPs/month · Targets A, B & C included", cta: "Start Free Trial", highlight: false },
-  { name: "Hawkeyes", price: "$599/mo", desc: "3-day free trial · 40 Search Rings/month · 3 seats · PDF & CSV exports", cta: "Start Free Trial", highlight: true },
+  { name: "🦅 SiteHawk", price: "Based on Customer Usage", desc: "3-day free trial · AI scanning, airport proximity, cell tower analysis & the SiteHawk AI Consultant included", cta: "Start Free Trial", highlight: true },
 ];
 
 const TESTIMONIALS = [
@@ -147,7 +146,7 @@ export default function Landing() {
             </Link>
           </div>
 
-          <p className="text-xs text-white/30 mt-6">3-day free trial · 2 SCIPs/day · Paid plans from $299/mo</p>
+          <p className="text-xs text-white/30 mt-6">3-day free trial · 2 SCIPs/day · Pricing based on customer usage</p>
 
           <div className="mt-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-[11px] text-white/50">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
@@ -276,12 +275,11 @@ export default function Landing() {
             🦅 3-day free trial included with every plan
           </div>
           <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, and the SiteHawk AI Consultant.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 gap-6 mb-10 max-w-md mx-auto">
             {PLANS.map((p) => (
-              <div key={p.name} className={`rounded-2xl border p-8 flex flex-col items-center gap-4 transition-all ${p.highlight ? "border-[#00A3FF]/50 bg-[#00A3FF]/10 shadow-2xl shadow-[#00A3FF]/10 scale-105" : "border-white/5 bg-white/3"}`}>
-                {p.highlight && <span className="px-3 py-1 rounded-full bg-[#00A3FF] text-white text-xs font-bold">Most Popular</span>}
+              <div key={p.name} className={`rounded-2xl border p-8 flex flex-col items-center gap-4 transition-all ${p.highlight ? "border-[#00A3FF]/50 bg-[#00A3FF]/10 shadow-2xl shadow-[#00A3FF]/10" : "border-white/5 bg-white/3"}`}>
                 <h3 className="font-heading font-bold text-white text-xl">{p.name}</h3>
-                <div className="font-heading font-black text-4xl text-white">{p.price}</div>
+                <div className="font-heading font-black text-3xl text-white">{p.price}</div>
                 <p className="text-white/40 text-sm">{p.desc}</p>
                 <Link
                   to="/pricing"
@@ -319,7 +317,7 @@ export default function Landing() {
                 View Paid Plans →
               </Link>
             </div>
-            <p className="text-xs text-white/30 mt-5">3-day free trial · 2 SCIPs/day during trial · Plans from $299/mo</p>
+            <p className="text-xs text-white/30 mt-5">3-day free trial · 2 SCIPs/day during trial · Pricing based on customer usage</p>
           </div>
         </div>
       </section>
