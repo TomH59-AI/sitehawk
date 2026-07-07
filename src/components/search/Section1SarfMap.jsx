@@ -271,6 +271,7 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
           lat: e.lngLat.lat,
           lng: e.lngLat.lng,
           headline: feat.properties?.headline || feat.properties?.address || null,
+          geometry: feat.geometry || null, // fired over to the panel so Zoom-to-Fit knows where to fly
         });
       });
 
@@ -318,6 +319,8 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
             lat={clickedParcel.lat}
             lng={clickedParcel.lng}
             headline={clickedParcel.headline}
+            geometry={clickedParcel.geometry}
+            mapRef={mapRef}
             onClose={() => {
               highlightParcel(mapRef.current, null);
               setClickedParcel(null);

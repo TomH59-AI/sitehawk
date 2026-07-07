@@ -1,13 +1,41 @@
 import { useEffect, useState } from "react";
-import { X, Loader2, MapPin, User, Ruler, Hash, Mail } from "lucide-react";
+import { X, Loader2, MapPin, User, Ruler, Hash, Mail, Maximize2 } from "lucide-react";
 import { parcelFullLookup } from "@/functions/parcelFullLookup";
+
+// Collect every [lon, lat] pair from any GeoJSON geometry.
+function collectCoords(geom, out = []) {
+  if (!geom) return out;
+  const walk = (c) => {
+    if (typeof c[0] === "number") out.push(c);
+    else c.forEach(walk);
+  };
+  if (geom.coordinates) walk(geom.coordinates);
+  return out;
+}
 
 /**
  * Floating card shown after clicking a parcel on the map.
  * Shows the tile's headline instantly, then enriches with a light
  * owner/APN/acreage lookup at the clicked point.
  */
-export default function ParcelIdentifyCard({ lat, lng, headline, onClose }) {
+export default function ParcelIdentifyCard({ lat, lng, headline, geometry, mapRef, onClose }) {
+  // Buttery smooth 3D camera zoom to the clicked parcel's boundary.
+  const zoomToFit = () => {
+    const map = mapRef?.current;
+    if (!map) return;
+    const coords = collectCoords(geometry);
+    if (coords.length >= 2) {
+      const lons = coords.map((c) => c[0]);
+      const lats = coords.map((c) => c[1]);
+      map.fitBounds(
+        [[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
+        { padding: 80, duration: 1800, pitch: 50, bearing: -15, essential: true }
+      );
+    } else {
+      map.flyTo({ center: [lng, lat], zoom: 17.5, pitch: 50, bearing: -15, duration: 1800, essential: true });
+    }
+  };
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -62,6 +90,14 @@ export default function ParcelIdentifyCard({ lat, lng, headline, onClose }) {
           </>
         ) : (
           <p className="text-[11px] text-white/40 italic">No parcel record found at this point.</p>
+        )}
+        {mapRef && (
+          <button
+            onClick={zoomToFit}
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition-colors"
+          >
+            <Maximize2 className="w-3 h-3" /> Zoom to Fit
+          </button>
         )}
         <p className="text-[9px] text-white/30 font-mono pt-1 border-t border-white/10">
           {lat.toFixed(6)}, {lng.toFixed(6)}
