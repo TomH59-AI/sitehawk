@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-
 const CARDS = [
   {
     n: "01",
@@ -76,15 +74,6 @@ export default function DataUseCaseCards() {
               </p>
             </div>
           ))}
-        </div>
-
-        <div className="text-center mt-10">
-          <Link
-            to="/search"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-[#FFC72C] hover:bg-[#FFD75E] text-[#000000] font-heading font-bold text-sm shadow-lg shadow-[#FFC72C]/20 transition-all"
-          >
-            Run Your Free Scan →
-          </Link>
         </div>
       </div>
     </section>
