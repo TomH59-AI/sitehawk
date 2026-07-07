@@ -30,7 +30,7 @@ export function propertyLineClearanceFt(parcel, towerLonLat) {
  *   compoundW, compoundD, reasons: string[]
  * }}
  */
-export function computeLiveSiting({ result, rules, compoundW, compoundD, separationCheck, residential }) {
+export function computeLiveSiting({ result, rules, compoundW, compoundD, separationCheck, residential, peAvailable = null, peApplied = false, unverified = false }) {
   if (!result || result.collapsed) return null;
 
   const reasons = [];
@@ -77,9 +77,49 @@ export function computeLiveSiting({ result, rules, compoundW, compoundD, separat
   }
 
   const feasible = reasons.length === 0;
+
+  // ── Tri-state tier for the live map (green / yellow / red) ────────────────
+  // GO      — every check passes clean, rules verified, no PE dependency.
+  // CAUTION — conditionally buildable: fall zone fixable via a PE-certified
+  //           engineered fall radius, placement passes only because a PE
+  //           radius is applied, or the ordinance rules are unverified.
+  // NO      — a hard check fails (setback, height cap, compound fit,
+  //           separations, or fall zone with no PE path).
+  // RULE-DRIVEN ONLY — no thresholds are invented here.
+  const hardFail =
+    c.height?.status === "fail" ||
+    c.setback?.status === "fail" ||
+    c.compound?.status === "fail" ||
+    separationCheck?.status === "fail" ||
+    residential?.result?.status === "fail";
+  const fallFail = c.fallZone?.status === "fail";
+  const pePossible = peAvailable !== false; // null/unknown → conservatively "possibly"
+
+  const conditions = [];
+  let tier;
+  if (hardFail) {
+    tier = "no";
+  } else if (fallFail) {
+    tier = pePossible ? "caution" : "no";
+    if (pePossible) conditions.push("A PE-certified engineered fall radius could permit this placement — enable the PE toggle.");
+  } else if (peApplied) {
+    tier = "caution";
+    conditions.push("Placement relies on a PE-certified engineered fall radius.");
+  } else if (unverified) {
+    tier = "caution";
+    conditions.push("Ordinance rules are unverified for this jurisdiction — confirm before committing.");
+  } else {
+    tier = "go";
+  }
+
+  const TIER_LABEL = { go: "Buildable here", caution: "Possibly buildable", no: "Cannot build here" };
+
   return {
     feasible,
     verdict: feasible ? "May work" : "Will not work here",
+    tier,
+    tierLabel: TIER_LABEL[tier],
+    conditions,
     clearanceFt,
     requiredFt,
     fallRadiusFt: result.fallRadius != null ? Math.round(result.fallRadius) : null,
