@@ -17,7 +17,7 @@ function num(v) {
 // Parse "420 x 380" style boundary/compound strings → { width_ft, depth_ft }.
 function parseDims(s) {
   if (!s) return { width_ft: null, depth_ft: null };
-  const m = String(s).replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*[x×'’]+\s*(\d+(?:\.\d+)?)/i);
+  const m = String(s).replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*[x\u00d7'\u2019]+\s*(\d+(?:\.\d+)?)/i);
   return m ? { width_ft: Number(m[1]), depth_ft: Number(m[2]) } : { width_ft: null, depth_ft: null };
 }
 
