@@ -216,7 +216,7 @@ export default function PricingV2() {
             </div>
           </div>
           <div className="flex items-center gap-2 mt-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-heading font-bold text-sm group-hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
-            🦅 Start Your Free Trial Now <ArrowRight className="w-4 h-4" />
+            🦅 Get Started Now <ArrowRight className="w-4 h-4" />
           </div>
           <p className="text-xs text-muted-foreground">Click to go directly to Site Search — no signup wall.</p>
         </div>

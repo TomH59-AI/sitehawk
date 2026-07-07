@@ -38,7 +38,7 @@ const FEATURES = [
 ];
 
 const PLANS = [
-  { name: "🦅 SiteHawk", price: "Based on Customer Usage", desc: "3-day free trial · AI scanning, airport proximity, cell tower analysis & the SiteHawk AI Consultant included", cta: "Start Free Trial", highlight: true },
+  { name: "🦅 SiteHawk", price: "Based on Customer Usage", desc: "3-day free trial · AI scanning, airport proximity, cell tower analysis & the SiteHawk AI Consultant included", cta: "Get Started", highlight: true },
 ];
 
 const TESTIMONIALS = [
@@ -136,7 +136,7 @@ export default function Landing() {
               to="/search"
               className="px-8 py-4 rounded-2xl bg-[#00A3FF] hover:bg-[#0056B3] text-white font-heading font-bold text-lg shadow-2xl shadow-[#00A3FF]/25 transition-all hover:scale-105"
             >
-              Start Your Free Trial →
+              Get Started →
             </Link>
             <Link
               to="/dashboard"
@@ -308,7 +308,7 @@ export default function Landing() {
                 to="/pricing"
                 className="inline-flex items-center gap-2 px-10 py-4 rounded-2xl bg-[#00A3FF] hover:bg-[#0056B3] text-white font-heading font-bold text-lg shadow-2xl shadow-[#00A3FF]/25 transition-all hover:scale-105"
               >
-                Start Free Trial 🦅
+                Get Started 🦅
               </Link>
               <Link
                 to="/pricing"
