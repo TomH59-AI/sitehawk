@@ -27,7 +27,7 @@ import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
 import SectionClearButton from "./SectionClearButton";
-import { regridEnrichTarget, normalizeRegridEnrich, regridFemaLabel, regridFloodComposition, regridSfhaWarning, regridNriLabel, regridFirmDateLabel } from "@/lib/regridEnrich";
+import { regridEnrichTarget, normalizeRegridEnrich, regridZoningLabel, regridFemaLabel, regridFloodComposition, regridSfhaWarning, regridNriLabel, regridFirmDateLabel } from "@/lib/regridEnrich";
 import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
 import RegridEnrichRows from "@/components/search/regrid/RegridEnrichRows";
 import RegridDemographics from "@/components/search/regrid/RegridDemographics";
@@ -139,6 +139,26 @@ export default function Section3Targets({
       const data = await regridEnrichTarget(tLat, tLon);
       const norm = normalizeRegridEnrich(data);
       setRegrid((p) => { const n = [...p]; n[colIdx] = norm; return n; });
+      // Zoning backfill — Realie often omits zoning_classification; fill the
+      // empty cell (and target record) from Regrid. Never overwrites data.
+      const zl = regridZoningLabel(norm);
+      if (zl) {
+        setGrid((prev) => {
+          if ((prev.zoning_classification?.[colIdx] || "").trim()) return prev;
+          const next = { ...prev, zoning_classification: [...prev.zoning_classification] };
+          next.zoning_classification[colIdx] = zl;
+          return next;
+        });
+        setTargets((prev) => {
+          const t = prev[colIdx];
+          if (!t || (t.zoning_classification || "").trim()) return prev;
+          const n = [...prev];
+          n[colIdx] = { ...t, zoning_classification: zl };
+          return n;
+        });
+        // Re-emit the lead so the backfilled zoning flows downstream.
+        setTimeout(() => { if (colIdx === selectedColRef.current) emitLeadRef.current?.(colIdx); }, 0);
+      }
     } catch {
       // Enrichment is additive only — Realie base data stays untouched on failure.
     } finally {
@@ -147,6 +167,7 @@ export default function Section3Targets({
   }, []);
   const ranRef = useRef(false);
   const emitLeadRef = useRef(null); // latest emitLead, so applyCascade can re-emit without circular deps
+  const selectedColRef = useRef(0); // latest selectedCol for async callbacks (zoning backfill)
 
   // Emit a chosen target column up to the pipeline as the lead site. Reuses the
   // already-computed target record — no new lookups, no business-logic change.
@@ -189,6 +210,7 @@ export default function Section3Targets({
 
   // Keep the ref pointed at the latest emitLead for applyCascade to use.
   useEffect(() => { emitLeadRef.current = emitLead; }, [emitLead]);
+  useEffect(() => { selectedColRef.current = selectedCol; }, [selectedCol]);
 
   // Keep the active lead column aligned with the ladder once targets are loaded.
   // The current working target is the next un-generated column (nextCol); if all

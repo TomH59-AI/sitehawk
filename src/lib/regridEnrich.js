@@ -42,6 +42,9 @@ export function normalizeRegridEnrich(raw) {
   const p = raw.parcel || raw.result || raw;
   return {
     data_source: raw.data_source || p.data_source || null,
+    zoning: p.zoning || p.site_intel?.zoning || null,
+    zoning_description: p.zoning_description || p.site_intel?.zoning_description || null,
+    zoning_type: p.zoning_type || p.site_intel?.zoning_type || null,
     zoning_code_link: p.zoning_code_link || raw.zoning_code_link || null,
     site_intel: p.site_intel || raw.site_intel || null,
     lbcs: p.lbcs || raw.lbcs || null,
@@ -51,6 +54,13 @@ export function normalizeRegridEnrich(raw) {
 
 export const isRegridSource = (e) =>
   e?.data_source === "regrid" || e?.data_source === "regrid-cache";
+
+// "AG-1 — Agricultural District (Agriculture)" style label from Regrid zoning fields.
+export function regridZoningLabel(e) {
+  if (!e?.zoning && !e?.zoning_description) return null;
+  const base = [e.zoning, e.zoning_description].filter(Boolean).join(" — ");
+  return e.zoning_type && e.zoning_type !== e.zoning_description ? `${base} (${e.zoning_type})` : base;
+}
 
 export function regridFemaLabel(e) {
   const zone = e?.site_intel?.fema_flood_zone;
