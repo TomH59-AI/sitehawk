@@ -113,25 +113,63 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, leaseLonLa
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
+  const [mapError, setMapError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
   const cbRef = useRef({ onTowerDrag, onMapClick, clickMode });
   cbRef.current = { onTowerDrag, onMapClick, clickMode };
 
   useEffect(() => {
     let cancelled = false;
+    let loadTimeout = null;
+    setMapError(null);
+    const fail = (msg) => {
+      if (cancelled) return;
+      if (loadTimeout) { clearTimeout(loadTimeout); loadTimeout = null; }
+      console.warn("[SITER MAP] FAIL:", msg);
+      setMapError(msg);
+    };
     (async () => {
-      await ensureMapboxLoaded();
-      const cfg = await loadPublicConfig();
+      try {
+        await ensureMapboxLoaded();
+      } catch (e) {
+        return fail(e?.message || "Failed to load Mapbox GL JS — check your network.");
+      }
+      let cfg;
+      try {
+        cfg = await loadPublicConfig();
+      } catch (e) {
+        return fail(`Could not load MapBox token — ${e?.message || "config request failed"}.`);
+      }
       if (cancelled || !containerRef.current) return;
-      window.mapboxgl.accessToken = cfg.mapboxAccessToken;
-      const map = new window.mapboxgl.Map({
-        container: containerRef.current,
-        style: "mapbox://styles/mapbox/satellite-streets-v12",
-        center: [-80.8895, 35.7805],
-        zoom: 15,
-        preserveDrawingBuffer: true,
-      });
+      const token = cfg?.mapboxAccessToken;
+      if (!token) return fail("MapBox token missing — set MAPBOX_API_KEY in Base44 secrets.");
+      if (String(token).startsWith("sk.")) return fail("Wrong token type — need a public pk. token, not a secret sk. token.");
+      window.mapboxgl.accessToken = token;
+      // Guard: if "load" never fires (bad token/network), surface an error instead of a blank panel.
+      loadTimeout = setTimeout(() => fail("Map failed to load — check token and network."), 15000);
+      let map;
+      try {
+        map = new window.mapboxgl.Map({
+          container: containerRef.current,
+          style: "mapbox://styles/mapbox/satellite-streets-v12",
+          center: [-80.8895, 35.7805],
+          zoom: 15,
+          preserveDrawingBuffer: true,
+        });
+      } catch (e) {
+        return fail(`Map init error — ${e?.message || "could not construct map"}.`);
+      }
+      mapRef.current = map;
       map.addControl(new window.mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+      map.on("error", (e) => {
+        const status = e?.error?.status;
+        if (status === 401 || status === 403) {
+          fail("MapBox token rejected — regenerate a public token at account.mapbox.com.");
+        }
+      });
       map.on("load", () => {
+        if (loadTimeout) { clearTimeout(loadTimeout); loadTimeout = null; }
+        if (cancelled) return;
         // Tier-colored monopole icons — drawn once, swapped live via icon-image
         map.addImage("tower-go", towerIconImage(TIER_COLORS.go), { pixelRatio: 2 });
         map.addImage("tower-caution", towerIconImage(TIER_COLORS.caution), { pixelRatio: 2 });
@@ -222,12 +260,18 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, leaseLonLa
           if (cbRef.current.clickMode) cbRef.current.onMapClick?.([e.lngLat.lng, e.lngLat.lat]);
         });
 
-        mapRef.current = map;
         setReady(true);
       });
     })();
-    return () => { cancelled = true; mapRef.current?.remove(); mapRef.current = null; };
-  }, []);
+    return () => {
+      cancelled = true;
+      if (loadTimeout) clearTimeout(loadTimeout);
+      mapRef.current?.remove();
+      mapRef.current = null;
+      setReady(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt]);
 
   const setData = (id, data) => mapRef.current?.getSource(id)?.setData(data || EMPTY);
 
@@ -320,7 +364,21 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, leaseLonLa
 
   return (
     <div className="relative w-full h-full min-h-[420px] rounded-xl overflow-hidden border border-white/10">
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="absolute inset-0" style={{ width: "100%", height: "100%", minHeight: "420px" }} />
+
+      {/* Map failure state — no more silent blank panel */}
+      {mapError && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-slate-950/90 p-6 text-center">
+          <div className="text-sm font-bold text-red-300">Siting map failed to load</div>
+          <p className="text-xs text-red-200/80 max-w-sm">{mapError}</p>
+          <button
+            onClick={() => setAttempt((a) => a + 1)}
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-500"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Live verdict badge — tier-colored, updates every drag tick */}
       {liveSiting && (
