@@ -99,6 +99,9 @@ export default function TowerSiter() {
       compoundD: Number(controls.compoundD) || 75,
       separationCheck,
       residential,
+      peAvailable: (normalizedRules || rules)?.pe_fall_zone_allowed ?? null,
+      peApplied: !!result.peApplied,
+      unverified: !!result.unverified,
     });
   }, [result, rules, controls.heightFt, controls.compoundW, controls.compoundD, separationCheck, residential]);
 
@@ -567,6 +570,7 @@ export default function TowerSiter() {
               <SiterMap
                 parcelGeoJSON={parcel?.geometry || null}
                 result={result}
+                liveSiting={liveSiting}
                 leaseLonLat={leaseLonLat}
                 residCircle={residential?.circle || null}
                 towerData={towerData}
