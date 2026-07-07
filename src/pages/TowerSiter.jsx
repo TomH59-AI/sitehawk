@@ -11,6 +11,8 @@ import { recompute, makeFrame, polygonFromFrame, compoundRect, polygonFromCalls 
 import { siterEntitlements, DEMO_PARCEL } from "@/lib/towerSiterAccess";
 import { svgToPngDownload, svgToPdfDownload, exportExhibitB } from "@/lib/towerSiterExports";
 import { classifyResult, normalizeOrdinanceRules, getResultMeta } from "@/lib/towerSiterResult";
+import { computeLiveSiting, setbackBandGeometry } from "@/lib/towerSitingRules";
+import LiveSitingVerdict from "@/components/towersiter/LiveSitingVerdict";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { towerSiterParcel } from "@/functions/towerSiterParcel";
 import { towerSiterOrdinance } from "@/functions/towerSiterOrdinance";
@@ -85,6 +87,20 @@ export default function TowerSiter() {
       return { collapsed: true, banner: "Could not compute a placement on this boundary — check the parcel geometry." };
     }
   }, [parcel, rules, controls, towerOverride, ent.peAllowed]);
+
+  // Live drag verdict — recomputes on every drag tick since `result` recomputes.
+  const liveSiting = useMemo(() => {
+    if (!result || result.collapsed) return null;
+    const normalizedRules = normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199);
+    return computeLiveSiting({
+      result,
+      rules: normalizedRules || rules,
+      compoundW: Number(controls.compoundW) || 75,
+      compoundD: Number(controls.compoundD) || 75,
+      separationCheck,
+      residential,
+    });
+  }, [result, rules, controls.heightFt, controls.compoundW, controls.compoundD, separationCheck, residential]);
 
   const leaseLonLat = useMemo(() => {
     if (!result || result.collapsed) return null;
@@ -290,17 +306,27 @@ export default function TowerSiter() {
         existing_towers_used: towerData?.towers || [],
         siting_result: {
           towerLonLat: result.towerLonLat,
-          clearanceFt: result.clearanceFt,
+          clearanceFt: liveSiting?.clearanceFt ?? result.clearanceFt,
           setback: result.setback,
           fallRadius: result.fallRadius,
           checks: result.checks,
           towerSeparation: separationCheck,
+          verdict: liveSiting?.verdict || null,
+          reasons: liveSiting?.reasons || [],
         },
         result_class: rc,
-        feasible: !result.collapsed && Object.values(result.checks || {}).every((c) => c === true || c?.status !== "fail"),
+        feasible: liveSiting ? liveSiting.feasible : (!result.collapsed && Object.values(result.checks || {}).every((c) => c === true || c?.status !== "fail")),
         compound_geojson: result.compound?.lonLat?.geometry || null,
         fall_zone_geojson: result.checks?.fallZone?.circle?.geometry || null,
         candidate_area_geojson: result.envelope?.geometry || null,
+        property_setback_geojson: setbackBandGeometry(result.parcel, result.envelope),
+        conflict_layers_geojson: {
+          type: "FeatureCollection",
+          features: [
+            ...(towerData?.buffers?.features || []),
+            ...(residential?.circle ? [residential.circle] : []),
+          ],
+        },
         tower_separation_geojson: towerData?.buffers || null,
         access_road_meta: accessRoad || null,
         status: "completed",
@@ -490,6 +516,15 @@ export default function TowerSiter() {
                 <b>Proposed location only.</b> This siting is an auto-generated estimate and may not satisfy all requirements of the local governing authority. Verify setbacks, height limits, fall zones, and compound dimensions with your jurisdiction before submission.
               </span>
             </div>
+          )}
+
+          {result && !result.collapsed && (
+            <LiveSitingVerdict
+              live={liveSiting}
+              jurisdiction={parcel?.jurisdiction}
+              rules={normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199) || rules}
+              unverified={result.unverified}
+            />
           )}
 
           {result && !result.collapsed && (
