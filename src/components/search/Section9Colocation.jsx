@@ -16,6 +16,7 @@ import SectionClearButton from "./SectionClearButton";
 import { colocationOpportunities } from "@/functions/colocationOpportunities";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { ensureMapboxLoaded } from "@/lib/section4Maps";
+import { getOwnerHQ } from "./colocation/towerOwnerHQ";
 
 const HEADER_COLOR = "#1e3a5f";
 const RADIUS_MILES = 3;
@@ -55,11 +56,8 @@ function buildPopupHtml(t) {
     <div style="min-width:220px;max-width:280px;padding:10px;font-family:system-ui,sans-serif;font-size:13px">
       <div style="font-weight:700;font-size:14px;margin-bottom:6px;word-break:break-word">${t.owner || "Unknown Owner"}</div>
       <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 7px;border-radius:4px;background:${s.bg};color:#fff;font-weight:600;margin-bottom:6px">${s.icon} ${t.structure_label || t.structure_type || s.label}</span>
+      ${getOwnerHQ(t.owner) ? `<div style="margin:3px 0"><b>Headquarters:</b> ${getOwnerHQ(t.owner)}</div>` : ""}
       ${t.height_ft != null ? `<div style="margin:3px 0"><b>Height:</b> ${t.height_ft} ft AGL</div>` : ""}
-      ${t.radio_types?.length ? `<div style="margin:3px 0"><b>Radio:</b> ${t.radio_types.join(", ")}</div>` : ""}
-      ${t.carriers?.length ? `<div style="margin:3px 0"><b>Carriers:</b> ${t.carriers.join(", ")}</div>` : ""}
-      ${t.range_m != null ? `<div style="margin:3px 0"><b>Range:</b> ${t.range_m.toLocaleString()} m</div>` : ""}
-      ${t.full_address ? `<div style="margin:3px 0"><b>Address:</b> ${t.full_address}</div>` : ""}
       <div style="margin:3px 0;font-family:monospace;font-size:11px;color:#64748b">${coordStr}</div>
       ${t.asrn ? `<div style="margin:3px 0"><b>ASR#:</b> ${t.asrn}</div>` : ""}
       <div style="margin:3px 0"><b>Distance:</b> ${t.distance_miles} mi</div>
@@ -167,7 +165,9 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
     setScanMeta(null);
     try {
       const res = await colocationOpportunities({ lat: srcLat, lon: srcLon, radius_miles: RADIUS_MILES });
-      const list = res?.data?.towers || [];
+      // Only actual cellular towers (monopole, lattice, guyed, self-support) —
+      // exclude rooftops, utility poles, water tanks and signal-only OCID points.
+      const list = (res?.data?.towers || []).filter((t) => t.structure_category === "tower");
       const meta = {
         fcc_count: res?.data?.fcc_count ?? 0,
         ocid_count: res?.data?.ocid_count ?? 0,
@@ -276,15 +276,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
                     )}
                   </p>
                 )}
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                  <span>Pin color = structure type:</span>
-                  {Object.entries(STRUCT_STYLES).filter(([k]) => !["other","unknown"].includes(k)).map(([, s]) => (
-                    <span key={s.label} className="inline-flex items-center gap-1">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 inline-block" style={{ background: s.bg }} />
-                      <span>{s.icon} {s.label}</span>
-                    </span>
-                  ))}
-                </div>
+                <p className="opacity-80">📡 Showing registered cellular towers only (monopole, lattice, guyed, self-support) — rooftops, utility structures and signal-only points excluded.</p>
               </div>
 
               {/* Mapbox map */}
@@ -295,7 +287,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="text-white text-xs" style={{ background: HEADER_COLOR }}>
-                      {["#","Owner / Operator","Structure","Ht (ft)","Radio / Freq","Carriers","Address","Coordinates","Distance","Source"].map((h) => (
+                      {["#","Owner / Operator","Headquarters","Tower Type","Ht (ft)","Coordinates","Distance"].map((h) => (
                         <th key={h} className="px-3 py-2 text-left font-semibold whitespace-nowrap border border-white/10">{h}</th>
                       ))}
                     </tr>
@@ -316,33 +308,19 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
                             </a>
                           )}
                         </td>
+                        <td className="px-3 py-2 border border-border text-xs">
+                          {getOwnerHQ(t.owner) || "—"}
+                        </td>
                         <td className="px-3 py-2 border border-border">
                           <StructureBadge category={t.structure_category || "unknown"} label={t.structure_label || t.structure_type || "Unknown"} />
                         </td>
                         <td className="px-3 py-2 border border-border font-mono text-center">
                           {t.height_ft != null ? `${t.height_ft}'` : "—"}
                         </td>
-                        <td className="px-3 py-2 border border-border">
-                          {t.radio_types?.length ? t.radio_types.join(", ") : "—"}
-                          {t.range_m != null && (
-                            <div className="text-[10px] text-muted-foreground">{t.range_m.toLocaleString()} m range</div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 border border-border">
-                          {t.carriers?.length ? t.carriers.join(", ") : "—"}
-                        </td>
-                        <td className="px-3 py-2 border border-border text-xs">
-                          {t.full_address || (t.city ? `${t.city}${t.state ? ", " + t.state : ""}` : "—")}
-                        </td>
                         <td className="px-3 py-2 border border-border font-mono text-[11px] whitespace-nowrap">
                           {t.latitude?.toFixed(5)}, {t.longitude?.toFixed(5)}
                         </td>
                         <td className="px-3 py-2 border border-border font-mono text-center">{t.distance_miles} mi</td>
-                        <td className="px-3 py-2 border border-border">
-                          <span className="inline-block text-[10px] px-1.5 py-0.5 rounded font-semibold text-white" style={{ background: SOURCE_COLORS[t.source] || "#64748b" }}>
-                            {t.source}
-                          </span>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
