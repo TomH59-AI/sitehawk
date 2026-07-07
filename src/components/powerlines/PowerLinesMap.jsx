@@ -13,12 +13,15 @@ import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
 import { arcgisPointFeatures } from "@/functions/arcgisPointFeatures";
 
+// Voltage-based line color (step scale)
 const LINE_COLOR_EXPR = [
-  "case",
-  [">=", ["to-number", ["get", "VOLTAGE"], 0], 500], "#ef4444",
-  [">=", ["to-number", ["get", "VOLTAGE"], 0], 230], "#f97316",
-  [">=", ["to-number", ["get", "VOLTAGE"], 0], 100], "#eab308",
-  "#22d3ee",
+  "step",
+  ["coalesce", ["to-number", ["get", "VOLTAGE"]], -1],
+  "#999999",      // unknown / negative
+  0,   "#2c7fb8", // < 100
+  100, "#41ab5d", // 100–299
+  300, "#f16913", // 300–499
+  500, "#cb181d", // 500+
 ];
 
 export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, initialCenter, showCellTowers = false, onTowerCountChange }) {
@@ -54,7 +57,7 @@ export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, in
       window.mapboxgl.accessToken = token;
       const map = new window.mapboxgl.Map({
         container: containerRef.current,
-        style: "mapbox://styles/mapbox/dark-v11",
+        style: "mapbox://styles/mapbox/light-v11",
         center: initialCenter || [-98.5, 39.5],
         zoom: initialCenter ? 9 : 4,
       });
@@ -65,13 +68,24 @@ export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, in
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
         });
+        // White halo under the colored lines for readability on the light basemap
+        map.addLayer({
+          id: "hifld-lines-halo",
+          type: "line",
+          source: "hifld-lines",
+          paint: {
+            "line-color": "#ffffff",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 2.5, 12, 5],
+            "line-opacity": 0.5,
+          },
+        });
         map.addLayer({
           id: "hifld-lines-layer",
           type: "line",
           source: "hifld-lines",
           paint: {
             "line-color": LINE_COLOR_EXPR,
-            "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.6, 10, 2.2, 14, 3.5],
+            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1, 12, 3],
             "line-opacity": 0.9,
           },
         });
@@ -87,8 +101,26 @@ export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, in
           if (!f) return;
           onSelect?.(f.properties, [e.lngLat.lng, e.lngLat.lat]);
         });
-        map.on("mouseenter", "hifld-lines-hit", () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", "hifld-lines-hit", () => (map.getCanvas().style.cursor = ""));
+        // Hover popup — voltage / owner / type / status
+        const hoverPopup = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+        map.on("mousemove", "hifld-lines-hit", (e) => {
+          map.getCanvas().style.cursor = "pointer";
+          const p = e.features?.[0]?.properties || {};
+          hoverPopup
+            .setLngLat(e.lngLat)
+            .setHTML(
+              `<strong>Transmission Line</strong><br>
+               Voltage: ${p.VOLTAGE ?? "N/A"} kV<br>
+               Owner: ${p.OWNER ?? "N/A"}<br>
+               Type: ${p.TYPE ?? "N/A"}<br>
+               Status: ${p.STATUS ?? "N/A"}`
+            )
+            .addTo(map);
+        });
+        map.on("mouseleave", "hifld-lines-hit", () => {
+          map.getCanvas().style.cursor = "";
+          hoverPopup.remove();
+        });
 
         // Cell tower layer (HIFLD Cellular_Towers)
         map.addSource("cell-towers", {
@@ -214,15 +246,16 @@ export default function PowerLinesMap({ ownerFilter, onSelect, onCountChange, in
           LOADING SEGMENTS…
         </div>
       )}
-      <div className="absolute bottom-3 left-3 bg-black/70 text-white text-[10px] font-mono px-2 py-1.5 rounded space-y-0.5">
-        <div className="text-cyan-300 mb-1">VOLTAGE CLASS</div>
-        <div><span className="inline-block w-3 h-1 bg-[#ef4444] mr-1.5 align-middle" />≥ 500 kV</div>
-        <div><span className="inline-block w-3 h-1 bg-[#f97316] mr-1.5 align-middle" />≥ 230 kV</div>
-        <div><span className="inline-block w-3 h-1 bg-[#eab308] mr-1.5 align-middle" />≥ 100 kV</div>
-        <div><span className="inline-block w-3 h-1 bg-[#22d3ee] mr-1.5 align-middle" />&lt; 100 kV</div>
+      <div className="absolute bottom-5 left-5 bg-white text-slate-800 text-[13px] px-3.5 py-2.5 rounded-lg shadow-md leading-relaxed">
+        <strong>Transmission Voltage (kV)</strong><br />
+        <span style={{ color: "#2c7fb8" }}>▬</span> &lt; 100&nbsp;&nbsp;
+        <span style={{ color: "#41ab5d" }}>▬</span> 100–299&nbsp;&nbsp;
+        <span style={{ color: "#f16913" }}>▬</span> 300–499&nbsp;&nbsp;
+        <span style={{ color: "#cb181d" }}>▬</span> 500+&nbsp;&nbsp;
+        <span style={{ color: "#999" }}>▬</span> Unknown
         {showCellTowers && (
-          <div className="pt-1 mt-1 border-t border-white/20">
-            <div><span className="inline-block w-2 h-2 rounded-full bg-[#a855f7] mr-1.5 align-middle" />Cell Tower</div>
+          <div className="pt-1 mt-1 border-t border-slate-200 text-xs">
+            <span className="inline-block w-2 h-2 rounded-full bg-[#a855f7] mr-1.5 align-middle" />Cell Tower
           </div>
         )}
       </div>
