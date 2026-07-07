@@ -3,7 +3,9 @@ import { base44 } from "@/api/base44Client";
 import { point, booleanPointInPolygon, circle as turfCircle } from "@turf/turf";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Layers, CheckCircle2, Download, Printer, AlertOctagon, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Layers, CheckCircle2, Download, Printer, AlertOctagon, FileText, ChevronDown, ChevronUp, Map } from "lucide-react";
+import { computeLiveSiting } from "@/lib/towerSitingRules";
+import LiveSitingVerdict from "@/components/towersiter/LiveSitingVerdict";
 import { recompute, makeFrame, compoundRect } from "@/lib/towerSiterEngine";
 import { siterEntitlements } from "@/lib/towerSiterAccess";
 import { svgToPngDownload, svgToPdfDownload, exportExhibitB } from "@/lib/towerSiterExports";
@@ -55,6 +57,7 @@ export default function Section5TowerSiter({
   const [towerOverride, setTowerOverride] = useState(null);
   const [residential, setResidential] = useState(null);
   const [upgrade, setUpgrade] = useState(null);
+  const [view, setView] = useState("map"); // "map" (interactive Mapbox) | "plan" (Exhibit A)
   const [snapshotUrl, setSnapshotUrl] = useState(null);
   const [snapshotRefresh, setSnapshotRefresh] = useState(0);
   const exhibitARef = useRef(null);
@@ -158,6 +161,20 @@ export default function Section5TowerSiter({
     try { if (!booleanPointInPolygon(point(lonLat), result.parcel)) return; } catch { return; }
     setTowerOverride(lonLat);
   }, [result?.parcel]);
+
+  // Live drag verdict — recomputes on every drag tick (fall zone, compound and
+  // setback geometry already move with the tower via recompute()).
+  const liveSiting = useMemo(() => {
+    if (!result || result.collapsed) return null;
+    return computeLiveSiting({
+      result,
+      rules,
+      compoundW: Number(controls.compoundW) || 75,
+      compoundD: Number(controls.compoundD) || 75,
+      separationCheck: null,
+      residential,
+    });
+  }, [result, rules, controls.compoundW, controls.compoundD, residential]);
 
   const confirmPlacement = async () => {
     if (!result || result.collapsed) return;
@@ -275,6 +292,15 @@ export default function Section5TowerSiter({
           )}
 
           {result && !result.collapsed && (
+            <LiveSitingVerdict
+              live={liveSiting}
+              jurisdiction={parcel?.jurisdiction || targetA?.jurisdiction}
+              rules={rules}
+              unverified={result.unverified}
+            />
+          )}
+
+          {result && !result.collapsed && (
             <ComplianceChips checks={result.checks} residential={residential} residentialAllowed={ent.residentialCheck} />
           )}
 
@@ -310,19 +336,61 @@ export default function Section5TowerSiter({
               )}
             </div>
 
-            {/* Plan Sheet — always shown */}
+            {/* Interactive map / plan sheet */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs text-white/50">
-                <FileText className="w-3.5 h-3.5" /> Plan Sheet (Exhibit A)
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant={view === "map" ? "default" : "outline"} className={view === "map" ? "" : "border-white/15 text-white/70"} onClick={() => setView("map")}>
+                  <Map className="w-3.5 h-3.5 mr-1" /> Interactive Map
+                </Button>
+                <Button size="sm" variant={view === "plan" ? "default" : "outline"} className={view === "plan" ? "" : "border-white/15 text-white/70"} onClick={() => setView("plan")} disabled={!result || result.collapsed}>
+                  <FileText className="w-3.5 h-3.5 mr-1" /> Plan Sheet (Exhibit A)
+                </Button>
               </div>
-              {result && !result.collapsed
-                ? <ExhibitA ref={exhibitARef} result={result} controls={controls} meta={exhibitMeta} watermark={ent.watermark} />
-                : (
+
+              {view === "map" && (
+                parcel?.geometry ? (
+                  <>
+                    <div className="h-[480px]">
+                      <SiterMap
+                        parcelGeoJSON={parcel.geometry}
+                        result={result}
+                        leaseLonLat={leaseLonLat}
+                        residCircle={residential?.circle || null}
+                        towerData={null}
+                        draftPoints={[]}
+                        onTowerDrag={onTowerDrag}
+                        onMapClick={null}
+                        clickMode={null}
+                        rowData={null}
+                      />
+                    </div>
+                    <p className="text-[11px] text-white/40">
+                      🖱 Drag the tower pin (white/amber circle) to test other base locations on the parcel — the fall zone, compound, lease area and setback clearances all move and recompute live.
+                    </p>
+                  </>
+                ) : (
                   <div className="rounded-xl border border-white/10 bg-white/5 flex items-center justify-center h-48 text-white/30 text-sm">
-                    {parcel ? "Adjust controls to compute a compliant placement." : "Load parcel boundary to generate the plan sheet."}
+                    Load parcel boundary to open the interactive map.
                   </div>
                 )
-              }
+              )}
+
+              {view === "plan" && (
+                result && !result.collapsed
+                  ? <ExhibitA ref={exhibitARef} result={result} controls={controls} meta={exhibitMeta} watermark={ent.watermark} />
+                  : (
+                    <div className="rounded-xl border border-white/10 bg-white/5 flex items-center justify-center h-48 text-white/30 text-sm">
+                      {parcel ? "Adjust controls to compute a compliant placement." : "Load parcel boundary to generate the plan sheet."}
+                    </div>
+                  )
+              )}
+
+              {/* keep ExhibitA mounted (hidden) so exports work from map view */}
+              {view !== "plan" && result && !result.collapsed && (
+                <div className="hidden" aria-hidden="true">
+                  <ExhibitA ref={exhibitARef} result={result} controls={controls} meta={exhibitMeta} watermark={ent.watermark} />
+                </div>
+              )}
             </div>
           </div>
         </div>
