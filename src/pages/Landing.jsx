@@ -37,10 +37,6 @@ const FEATURES = [
   },
 ];
 
-const PLANS = [
-  { name: "🦅 SiteHawk", price: "Based on Customer Usage", desc: "3-day free trial · AI scanning, airport proximity, cell tower analysis & the SiteHawk AI Consultant included", cta: "Get Started", highlight: true },
-];
-
 const TESTIMONIALS = [
   { quote: "SiteHawk cut our site acquisition cycle from 6 weeks to 3 days. The AI parcel scoring alone is worth 10x the subscription.", name: "Director of RF Engineering", company: "Regional Tower Operator" },
   { quote: "The skip trace integration is a game changer. We went from cold data to a live owner conversation in under an hour.", name: "Senior Site Acquisition Manager", company: "Telecom Infrastructure Co." },
@@ -74,7 +70,7 @@ export default function Landing() {
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
             <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+            <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link to="/crm" className="hover:text-white transition-colors">Deal Pipeline</Link>
             <Link to="/hawk-docs" className="hover:text-white transition-colors">Document Intelligence</Link>
             <Link to="/about" className="hover:text-white transition-colors">About</Link>
@@ -94,7 +90,7 @@ export default function Landing() {
         {menuOpen && (
           <div className="md:hidden border-t border-white/5 bg-[#000000] px-6 py-4 space-y-3 text-sm font-medium">
             <a href="#features" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Features</a>
-            <a href="#pricing" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Pricing</a>
+            <Link to="/pricing" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Pricing</Link>
             <Link to="/crm" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Deal Pipeline</Link>
             <Link to="/hawk-docs" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Document Intelligence</Link>
             <Link to="/about" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>About</Link>
@@ -230,36 +226,6 @@ export default function Landing() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── PRICING ── */}
-      <section id="pricing" className="py-24 px-6 bg-gradient-to-b from-transparent to-[#121212]/40">
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs uppercase tracking-widest text-[#00A3FF] font-bold mb-3">Simple Pricing</p>
-          <h2 className="font-heading font-bold text-4xl text-white mb-4">Simple Pricing. One Mission.</h2>
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full border border-[#00A3FF]/30 bg-[#00A3FF]/10 text-[#00A3FF] text-sm font-semibold mb-6">
-            🦅 3-day free trial included with every plan
-          </div>
-          <p className="text-white/40 mb-12">All paid plans include AI scanning, airport proximity, cell tower analysis, and the SiteHawk AI Consultant.</p>
-          <div className="grid grid-cols-1 gap-6 mb-10 max-w-md mx-auto">
-            {PLANS.map((p) => (
-              <div key={p.name} className={`rounded-2xl border p-8 flex flex-col items-center gap-4 transition-all ${p.highlight ? "border-[#00A3FF]/50 bg-[#00A3FF]/10 shadow-2xl shadow-[#00A3FF]/10" : "border-white/5 bg-white/3"}`}>
-                <h3 className="font-heading font-bold text-white text-xl">{p.name}</h3>
-                <div className="font-heading font-black text-3xl text-white">{p.price}</div>
-                <p className="text-white/40 text-sm">{p.desc}</p>
-                <Link
-                  to="/pricing"
-                  className={`w-full text-center px-6 py-3 rounded-xl font-bold text-sm transition-all mt-2 ${p.highlight ? "bg-[#00A3FF] hover:bg-[#0056B3] text-white shadow-lg shadow-[#00A3FF]/20" : "border border-white/10 hover:border-white/25 text-white/70 hover:text-white"}`}
-                >
-                  {p.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-          <Link to="/pricing" className="text-[#00A3FF] hover:text-[#FFFFFF] text-sm font-semibold underline underline-offset-4 transition-colors">
-            View full feature comparison →
-          </Link>
         </div>
       </section>
 
