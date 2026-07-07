@@ -20,6 +20,7 @@ import { historicSitesLookup } from "@/functions/historicSitesLookup";
 import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
 import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
+import ExportSvpButton from "../components/search/ExportSvpButton";
 import { round4 } from "@/lib/coords";
 import { runQuietLookups } from "@/lib/quietLookup";
 
@@ -313,6 +314,15 @@ export default function SiteSearch() {
               zoningResult={zoningResult}
               sectionData={sectionData}
               onGenerated={handleScipGenerated}
+            />
+          )}
+          {coordsReady && (
+            <ExportSvpButton
+              searchCenter={searchCenter}
+              searchParams={searchParams}
+              targetA={targetA}
+              zoningResult={zoningResult}
+              sectionData={sectionData}
             />
           )}
           {coordsReady && (
