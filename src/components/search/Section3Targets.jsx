@@ -112,7 +112,7 @@ function targetToColumn(t) {
 
 export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
-  towerHeightFt = 199, compoundSideFt = 100, ringName = "Search Ring", zoningResult, towerSiting, onRun, onTargetAReady, onData, onClear,
+  towerHeightFt = 199, compoundSideFt = 100, ringName = "Search Ring", zoningResult, towerSiting, onRun, onTargetAReady, onAllTargets, onData, onClear,
   generatedLabels = [],
   searchRingCenter = null,
 }) {
@@ -326,6 +326,9 @@ export default function Section3Targets({
       found.slice(0, 3).forEach((t, i) => { slots[i] = t; });
       setTargets(slots);
       setSelectedCol(0); // default lead = Target A
+      // Additive: expose ALL three targets so B and C can run their own
+      // fully isolated pipelines. Does not change the Target A lead flow.
+      onAllTargets?.(slots);
 
       // Regrid precision enrichment — fire per target in parallel, additive only.
       found.slice(0, 3).forEach((t, i) => {

@@ -13,6 +13,7 @@ import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section9Colocation from "../components/search/Section9Colocation";
 import Section8Propagation from "../components/search/Section8Propagation";
 import Section5TowerSiter from "../components/search/Section5TowerSiter";
+import TargetLanePipeline from "../components/search/TargetLanePipeline";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
@@ -47,6 +48,10 @@ export default function SiteSearch() {
   const [zoningResult, setZoningResult] = useState(null);
   // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
   const [targetA, setTargetA] = useState(null);
+  // ALL three targets from Section 3 (additive) — feed the isolated B/C lanes.
+  const [allTargets, setAllTargets] = useState([null, null, null]);
+  // Which independent target lanes are open. Each lane owns its own state.
+  const [lanesOpen, setLanesOpen] = useState({ B: false, C: false });
   // SEQUENTIAL SCIP LADDER — which target labels have a generated SCIP
   // ("Target A"/"Target B"/"Target C"). Persisted per search ring so a refresh
   // never resets the ladder. Locking one target unlocks the next in Section 3.
@@ -130,7 +135,7 @@ export default function SiteSearch() {
 
     // Roll back readiness flags from the cleared step onward.
     if (affected.includes("zoning")) setZoningReady(false);
-    if (affected.includes("targets")) setTargetA(null);
+    if (affected.includes("targets")) { setTargetA(null); setAllTargets([null, null, null]); setLanesOpen({ B: false, C: false }); }
     if (affected.includes("maps")) setMapsComplete(false);
 
     // Drop bus data emitted by the cleared sections so the scorecard can't read stale values.
@@ -144,6 +149,8 @@ export default function SiteSearch() {
     setSarfReady(false);
     setZoningReady(false);
     setTargetA(null);
+    setAllTargets([null, null, null]);
+    setLanesOpen({ B: false, C: false });
     setMapsComplete(false);
     setSectionData({});
     setSearchCenter(null);
@@ -229,6 +236,8 @@ export default function SiteSearch() {
     setSarfReady(false);
     setZoningReady(false);
     setTargetA(null);
+    setAllTargets([null, null, null]);
+    setLanesOpen({ B: false, C: false });
     setMapsComplete(false);
     setSectionData({});
     // Normalize the SARF center to 4 decimals (~11 m) at the single entry point.
@@ -423,6 +432,7 @@ export default function SiteSearch() {
           searchRingCenter={[Number(searchCenter.lon), Number(searchCenter.lat)]}
           onRun={() => setPipelineStep("targets")}
           onTargetAReady={(t) => setTargetA(t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : t)}
+          onAllTargets={(slots) => setAllTargets(slots.map((t) => (t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : null)))}
           onData={mergeSectionData}
         />
       )}
@@ -488,6 +498,70 @@ export default function SiteSearch() {
           zoningResult={zoningResult}
           towerHeightFt={searchParams.tower_height_ft || 150}
           onData={mergeSectionData}
+        />
+      )}
+
+      {/* INDEPENDENT TARGET B / C PIPELINES — additive. Target A above stays the
+          default; each lane below is a fully isolated pipeline run (own maps,
+          siting, compliance, propagation, exports) for that target only. */}
+      {coordsReady && sarfReady && zoningReady && (allTargets[1] || allTargets[2]) && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+          <div className="font-heading font-bold text-foreground">Independent Target Pipelines</div>
+          <p className="text-xs text-muted-foreground">
+            Run Target B or Target C through the full pipeline separately — each keeps its own maps, siting, and exports, fully isolated from Target A and from each other.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {allTargets[1] && (
+              <button
+                onClick={() => setLanesOpen((p) => ({ ...p, B: !p.B }))}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                  lanesOpen.B
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/20"
+                }`}
+              >
+                {lanesOpen.B ? "▼ Target B Pipeline (open)" : "Run Target B"}
+              </button>
+            )}
+            {allTargets[2] && (
+              <button
+                onClick={() => setLanesOpen((p) => ({ ...p, C: !p.C }))}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                  lanesOpen.C
+                    ? "bg-violet-600 text-white border-violet-600"
+                    : "bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/40 hover:bg-violet-500/20"
+                }`}
+              >
+                {lanesOpen.C ? "▼ Target C Pipeline (open)" : "Run Target C"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {coordsReady && sarfReady && zoningReady && lanesOpen.B && allTargets[1] && (
+        <TargetLanePipeline
+          laneLabel="B"
+          target={allTargets[1]}
+          zoningResult={zoningResult}
+          srcLat={Number(searchCenter.lat)}
+          srcLon={Number(searchCenter.lon)}
+          radiusMiles={searchParams.radius_miles}
+          ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
+          towerHeightFt={searchParams.tower_height_ft || 150}
+        />
+      )}
+
+      {coordsReady && sarfReady && zoningReady && lanesOpen.C && allTargets[2] && (
+        <TargetLanePipeline
+          laneLabel="C"
+          target={allTargets[2]}
+          zoningResult={zoningResult}
+          srcLat={Number(searchCenter.lat)}
+          srcLon={Number(searchCenter.lon)}
+          radiusMiles={searchParams.radius_miles}
+          ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
+          towerHeightFt={searchParams.tower_height_ft || 150}
         />
       )}
 
