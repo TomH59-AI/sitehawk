@@ -1,0 +1,65 @@
+{
+  "name": "RealieLookupLog",
+  "type": "object",
+  "description": "HawkFit Map \u2014 audit log of Realie property lookups (query, mode, outcome). API key never leaves the backend.",
+  "properties": {
+    "query_type": {
+      "type": "string",
+      "enum": [
+        "address",
+        "parcel_id",
+        "coordinates"
+      ]
+    },
+    "query": {
+      "type": "object",
+      "description": "The lookup parameters sent (address/state, parcelId/county, or lat/lon)."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "found",
+        "not_found",
+        "error"
+      ]
+    },
+    "matched_address": {
+      "type": "string",
+      "description": "Address of the matched property, if found."
+    },
+    "error_message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "query_type",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

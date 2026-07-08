@@ -1,0 +1,91 @@
+{
+  "name": "SiteTarget",
+  "type": "object",
+  "description": "HawkFit Map \u2014 a Target A property looked up via Realie. Holds normalized parcel details + geometry used for tower-fit analysis.",
+  "properties": {
+    "address": {
+      "type": "string",
+      "description": "Situs address of the parcel."
+    },
+    "parcel_id": {
+      "type": "string",
+      "description": "APN / parcel identifier."
+    },
+    "owner": {
+      "type": "string",
+      "description": "Parcel owner name."
+    },
+    "acreage": {
+      "type": "number",
+      "description": "Parcel size in acres."
+    },
+    "zoning": {
+      "type": "string",
+      "description": "Zoning code / classification."
+    },
+    "jurisdiction": {
+      "type": "string",
+      "description": "City/county jurisdiction label."
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "parcel_geometry": {
+      "type": "object",
+      "description": "GeoJSON Polygon/MultiPolygon of the parcel boundary (if available)."
+    },
+    "source": {
+      "type": "string",
+      "default": "realie",
+      "description": "Data source of the lookup."
+    }
+  },
+  "required": [
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

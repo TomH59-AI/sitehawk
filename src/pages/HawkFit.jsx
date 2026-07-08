@@ -1,0 +1,129 @@
+import { useState, useMemo, useCallback } from "react";
+import { Button } from "@/components/ui/button";
+import { Save, Loader2, Crosshair } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { computeFit } from "@/lib/hawkfitGeometry";
+import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
+import { saveTowerScenario } from "@/functions/saveTowerScenario";
+import HawkFitMap from "@/components/hawkfit/HawkFitMap";
+import PropertyLookupForm from "@/components/hawkfit/PropertyLookupForm";
+import SiteTargetSummary from "@/components/hawkfit/SiteTargetSummary";
+import TowerControls from "@/components/hawkfit/TowerControls";
+import FitStatusPanel from "@/components/hawkfit/FitStatusPanel";
+import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
+import ExportMapButton from "@/components/hawkfit/ExportMapButton";
+
+// HawkFit Map — interactive tower-siting: Realie property lookup, parcel
+// outline, draggable tower, live fall zone + compound + feasibility status.
+export default function HawkFit() {
+  const { toast } = useToast();
+  const [siteTarget, setSiteTarget] = useState(null);
+  const [towerLngLat, setTowerLngLat] = useState(null);
+  const [controls, setControls] = useState({ heightFt: 199, widthFt: 100, depthFt: 100 });
+  const [layers, setLayers] = useState({ parcel: true, fallZone: true, compound: true });
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+
+  const fit = useMemo(() => {
+    if (!towerLngLat) return null;
+    return computeFit({
+      parcelGeometry: siteTarget?.parcel_geometry || null,
+      towerLngLat,
+      heightFt: controls.heightFt,
+      widthFt: controls.widthFt,
+      depthFt: controls.depthFt,
+      zoning: siteTarget?.zoning || null,
+    });
+  }, [siteTarget, towerLngLat, controls]);
+
+  const handleLookup = async (query) => {
+    setLookupBusy(true);
+    try {
+      const res = await lookupRealieProperty(query);
+      const target = res.data.target;
+      setSiteTarget(target);
+      setTowerLngLat([target.longitude, target.latitude]);
+      toast({ title: "Property loaded", description: target.address || "Target A ready — drag the tower pin." });
+    } catch (e) {
+      toast({
+        title: "Lookup failed",
+        description: e?.response?.data?.error || e.message,
+        variant: "destructive",
+      });
+    }
+    setLookupBusy(false);
+  };
+
+  const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
+  const handleControlChange = (key, value) => setControls((c) => ({ ...c, [key]: value }));
+  const handleLayerToggle = (key, value) => setLayers((l) => ({ ...l, [key]: value }));
+
+  const handleSave = async () => {
+    setSaveBusy(true);
+    try {
+      const res = await saveTowerScenario({
+        site_target: siteTarget,
+        scenario: {
+          name: siteTarget.address || siteTarget.parcel_id || "Tower Scenario",
+          tower_lat: towerLngLat[1],
+          tower_lon: towerLngLat[0],
+          tower_height_ft: controls.heightFt,
+          compound_width_ft: controls.widthFt,
+          compound_depth_ft: controls.depthFt,
+          fit_status: fit.status,
+          fit_reasons: fit.reasons,
+        },
+      });
+      // Remember the saved SiteTarget id so re-saves don't duplicate it.
+      setSiteTarget((t) => ({ ...t, id: res.data.site_target_id }));
+      toast({ title: "Scenario saved", description: "Tower placement and fit status stored." });
+    } catch (e) {
+      toast({ title: "Save failed", description: e?.response?.data?.error || e.message, variant: "destructive" });
+    }
+    setSaveBusy(false);
+  };
+
+  return (
+    <div className="h-[calc(100vh-8rem)] min-h-[560px] flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <Crosshair className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="font-heading font-bold text-2xl text-foreground">HawkFit Map</h1>
+          <p className="text-sm text-muted-foreground">Look up a Target A property and test tower placement live.</p>
+        </div>
+      </div>
+
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 min-h-0">
+        <div className="space-y-4 overflow-y-auto pr-1">
+          <PropertyLookupForm onLookup={handleLookup} busy={lookupBusy} />
+          {siteTarget && (
+            <>
+              <SiteTargetSummary target={siteTarget} />
+              <TowerControls {...controls} onChange={handleControlChange} />
+              <FitStatusPanel fit={fit} />
+              <LayerTogglePanel layers={layers} onToggle={handleLayerToggle} />
+              <div className="space-y-2">
+                <Button onClick={handleSave} disabled={saveBusy || !fit} className="w-full">
+                  {saveBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Tower Scenario
+                </Button>
+                <ExportMapButton siteTarget={siteTarget} towerLngLat={towerLngLat} fit={fit} disabled={!fit} />
+              </div>
+            </>
+          )}
+        </div>
+        <div className="min-h-[420px]">
+          <HawkFitMap
+            siteTarget={siteTarget}
+            towerLngLat={towerLngLat}
+            onTowerMove={handleTowerMove}
+            fit={fit}
+            layers={layers}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

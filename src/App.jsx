@@ -78,6 +78,7 @@ import HawkLeaseSiteDetail from './pages/hawklease/HawkLeaseSiteDetail';
 import HawkLeaseComps from './pages/hawklease/HawkLeaseComps';
 import HawkLeaseReports from './pages/hawklease/HawkLeaseReports';
 import HawkFill from './pages/HawkFill';
+import HawkFit from './pages/HawkFit';
 import HawkForms from './pages/HawkForms';
 import HawkLaw from './pages/HawkLaw';
 import FollowUpTrackerPage from './pages/FollowUpTrackerPage';
@@ -159,6 +160,8 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
         <Route path="/hawk-fill" element={<HawkFill />} />
+        {/* HawkFit Map — interactive tower-siting with Realie lookup */}
+        <Route path="/hawkfit-map" element={<HawkFit />} />
         <Route path="/hawk-forms" element={<HawkForms />} />
         <Route path="/hawk-tracker" element={<HawkTracker />} />
         {/* Simplified read-only tracker view for pilot clients */}

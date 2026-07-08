@@ -1,0 +1,65 @@
+{
+  "name": "MapExport",
+  "type": "object",
+  "description": "HawkFit Map \u2014 a generated static map exhibit (parcel + fall zone + compound + tower) for a TowerScenario.",
+  "properties": {
+    "tower_scenario_id": {
+      "type": "string"
+    },
+    "site_target_id": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Mapbox static exhibit image URL."
+    },
+    "style": {
+      "type": "string",
+      "default": "satellite-streets-v12"
+    }
+  },
+  "required": [
+    "image_url"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

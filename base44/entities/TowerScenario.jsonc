@@ -1,0 +1,97 @@
+{
+  "name": "TowerScenario",
+  "type": "object",
+  "description": "HawkFit Map \u2014 one saved proposed-tower placement on a SiteTarget parcel, with its feasibility result embedded.",
+  "properties": {
+    "site_target_id": {
+      "type": "string",
+      "description": "Linked SiteTarget id."
+    },
+    "name": {
+      "type": "string",
+      "description": "Scenario label."
+    },
+    "tower_lat": {
+      "type": "number"
+    },
+    "tower_lon": {
+      "type": "number"
+    },
+    "tower_height_ft": {
+      "type": "number",
+      "default": 199
+    },
+    "compound_width_ft": {
+      "type": "number",
+      "default": 100
+    },
+    "compound_depth_ft": {
+      "type": "number",
+      "default": 100
+    },
+    "fit_status": {
+      "type": "string",
+      "enum": [
+        "works",
+        "fails",
+        "needs_review"
+      ],
+      "description": "Feasibility verdict at save time."
+    },
+    "fit_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Why the verdict was reached."
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "tower_lat",
+    "tower_lon"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
