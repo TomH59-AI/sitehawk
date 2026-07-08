@@ -7,7 +7,7 @@ import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, ChevronLeft, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, Crown, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack } from "lucide-react";
+import { Sun, Moon, ChevronLeft, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -61,7 +61,6 @@ export default function Layout() {
 
   const adminExtra = isAdmin
     ? [
-        { path: "/demo-manager", icon: Crown, label: "Demo Manager" },
         { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" },
         { path: "/send-update", icon: Send, label: "Send Update" },
         { path: "/mail-orders", icon: Mail, label: "Mail Orders" },

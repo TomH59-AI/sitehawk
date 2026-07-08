@@ -69,7 +69,6 @@ import HawkTracker from './pages/HawkTracker';
 import TowerSiter from './pages/TowerSiter';
 import Tower3DViewer from './pages/Tower3DViewer';
 import Photo3DViewer from './pages/Photo3DViewer';
-import DemoManager from './pages/DemoManager';
 import HawkLease from './pages/HawkLease';
 import HawkLeaseDashboard from './pages/hawklease/HawkLeaseDashboard';
 import HawkLeaseSites from './pages/hawklease/HawkLeaseSites';
@@ -164,7 +163,6 @@ const AuthenticatedApp = () => {
         <Route path="/tower-siter" element={<TowerSiter />} />
         <Route path="/tower-3d-viewer" element={<Tower3DViewer />} />
         <Route path="/photo-3d-viewer" element={<Photo3DViewer />} />
-        <Route path="/demo-manager" element={<DemoManager />} />
         {/* HawkLease */}
         <Route path="/hawk-lease" element={<HawkLease />}>
           <Route index element={<HawkLeaseDashboard />} />
