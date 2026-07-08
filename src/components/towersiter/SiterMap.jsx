@@ -115,8 +115,10 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsF
   const [ready, setReady] = useState(false);
   const [mapError, setMapError] = useState(null);
   const [attempt, setAttempt] = useState(0);
-  const cbRef = useRef({ onTowerDrag, onMapClick, clickMode });
-  cbRef.current = { onTowerDrag, onMapClick, clickMode };
+  // Tap-to-place mode — subscriber taps anywhere and the tower moves there.
+  const [moveMode, setMoveMode] = useState(false);
+  const cbRef = useRef({ onTowerDrag, onMapClick, clickMode, moveMode });
+  cbRef.current = { onTowerDrag, onMapClick, clickMode, moveMode };
 
   useEffect(() => {
     let cancelled = false;
@@ -220,6 +222,16 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsF
         add("ts-dim-label", "symbol",
           { "text-color": "#6ee7b7", "text-halo-color": "#0b1220", "text-halo-width": 1.5 },
           { "text-field": ["get", "label"], "text-size": 12, "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"], "text-offset": [0, -0.9], "text-allow-overlap": true });
+        // Large invisible grab zone around the tower — makes dragging easy on
+        // trackpads and touch (the skinny icon alone is a tiny hit target)
+        add("ts-tower-hit", "circle", {
+          "circle-radius": 34,
+          "circle-color": "#ffffff",
+          "circle-opacity": 0.01,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 1.5,
+          "circle-stroke-opacity": 0.35,
+        });
         // Tower icon — topmost; keeps layer id "ts-tower" so drag bindings hold
         add("ts-tower", "symbol", {}, {
           "icon-image": ["coalesce", ["get", "icon"], "tower-go"],
@@ -237,27 +249,31 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsF
           map.dragPan.enable();
           map.getCanvas().style.cursor = "";
         };
-        map.on("mousedown", "ts-tower", (e) => {
+        const startDrag = (e) => {
           e.preventDefault();
           dragging = true;
           map.dragPan.disable();
           map.getCanvas().style.cursor = "grabbing";
-        });
+        };
+        map.on("mousedown", "ts-tower", startDrag);
+        map.on("mousedown", "ts-tower-hit", startDrag);
         map.on("mousemove", (e) => {
           if (!dragging) return;
           cbRef.current.onTowerDrag?.([e.lngLat.lng, e.lngLat.lat]);
         });
         map.on("mouseup", endDrag);
-        map.on("mouseenter", "ts-tower", () => { map.getCanvas().style.cursor = "grab"; });
-        map.on("mouseleave", "ts-tower", () => { if (!dragging) map.getCanvas().style.cursor = ""; });
+        map.on("mouseenter", "ts-tower-hit", () => { map.getCanvas().style.cursor = "grab"; });
+        map.on("mouseleave", "ts-tower-hit", () => { if (!dragging) map.getCanvas().style.cursor = ""; });
 
         // tower drag — touch (single finger)
-        map.on("touchstart", "ts-tower", (e) => {
+        const startTouchDrag = (e) => {
           if (e.points && e.points.length !== 1) return;
           e.preventDefault();
           dragging = true;
           map.dragPan.disable();
-        });
+        };
+        map.on("touchstart", "ts-tower", startTouchDrag);
+        map.on("touchstart", "ts-tower-hit", startTouchDrag);
         map.on("touchmove", (e) => {
           if (!dragging || !e.lngLat) return;
           e.preventDefault();
@@ -267,6 +283,9 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsF
         map.on("touchcancel", endDrag);
 
         map.on("click", (e) => {
+          // Tap-to-place: move the tower to wherever the user clicks/taps.
+          // Parent clamps to the parcel, so off-parcel taps are simply ignored.
+          if (cbRef.current.moveMode) { cbRef.current.onTowerDrag?.([e.lngLat.lng, e.lngLat.lat]); return; }
           if (cbRef.current.clickMode) cbRef.current.onMapClick?.([e.lngLat.lng, e.lngLat.lat]);
         });
 
@@ -284,6 +303,12 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsF
   }, [attempt]);
 
   const setData = (id, data) => mapRef.current?.getSource(id)?.setData(data || EMPTY);
+
+  // Crosshair cursor while tap-to-place is active
+  useEffect(() => {
+    const c = mapRef.current?.getCanvas();
+    if (c) c.style.cursor = moveMode ? "crosshair" : "";
+  }, [moveMode]);
 
   // parcel + fit bounds
   useEffect(() => {
@@ -324,9 +349,11 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsF
     setData("ts-compound-fill", result?.compound?.lonLat ? fc([result.compound.lonLat]) : EMPTY);
     setData("ts-lease-line", leaseLonLat ? fc([leaseLonLat]) : EMPTY);
 
-    setData("ts-tower", result?.towerLonLat
+    const towerFC = result?.towerLonLat
       ? { type: "FeatureCollection", features: [{ type: "Feature", properties: { icon: `tower-${tier}` }, geometry: { type: "Point", coordinates: result.towerLonLat } }] }
-      : EMPTY);
+      : EMPTY;
+    setData("ts-tower", towerFC);
+    setData("ts-tower-hit", towerFC);
 
     setData("ts-setback-labels", setbackLabelFC(result?.parcel, result?.envelope, result?.setback));
 
@@ -424,6 +451,25 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsF
           <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: "rgba(34,211,238,0.6)" }} /> Fall zone</div>
           <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm shrink-0" style={{ background: "rgba(245,158,11,0.7)" }} /> Compound / lease</div>
           <div className="pt-0.5 text-white/50 font-medium">Drag the tower to test placement</div>
+        </div>
+      )}
+
+      {/* Move Tower — big obvious toggle for subscribers who can't find the drag */}
+      {result && !result.collapsed && onTowerDrag && (
+        <button
+          onClick={() => setMoveMode((m) => !m)}
+          className={`absolute top-2 right-12 z-10 px-3 py-1.5 rounded-lg text-[12px] font-bold shadow-lg border transition-colors ${
+            moveMode
+              ? "bg-blue-600 border-blue-400 text-white"
+              : "bg-black/70 border-white/20 text-white/90 hover:bg-black/85"
+          }`}
+        >
+          {moveMode ? "✕ Done Moving" : "📍 Move Tower"}
+        </button>
+      )}
+      {moveMode && (
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-lg bg-blue-600/95 text-white text-[11px] font-semibold shadow-lg text-center max-w-[92%]">
+          Tap anywhere on the parcel to move the tower there — measurements and the pass/fail verdict update instantly. You can also drag the tower pin directly.
         </div>
       )}
 
