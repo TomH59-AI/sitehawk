@@ -26,6 +26,7 @@ import { withRateLimitRetry } from "@/lib/quietLookup";
 import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
+import ExportTargetJsonButton from "./section3/ExportTargetJsonButton";
 import SectionClearButton from "./SectionClearButton";
 import { regridEnrichTarget, normalizeRegridEnrich, regridZoningLabel, regridFemaLabel, regridFloodComposition, regridSfhaWarning, regridNriLabel, regridFirmDateLabel } from "@/lib/regridEnrich";
 import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
@@ -676,6 +677,12 @@ export default function Section3Targets({
                         targetLabel={COLS[colIdx]}
                         target={targets[colIdx]}
                         searchRingCenter={searchRingCenter}
+                      />
+                      <ExportTargetJsonButton
+                        target={targets[colIdx]}
+                        targetLabel={COLS[colIdx]}
+                        ringName={ringName}
+                        phone={grid.phone[colIdx]}
                       />
                     </div>
                   ) : (
