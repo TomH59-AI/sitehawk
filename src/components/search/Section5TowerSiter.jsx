@@ -31,6 +31,7 @@ export default function Section5TowerSiter({
   targetA,       // resolved Target A from Section 3
   zoningResult,  // zoning result from Section 2 (carries max_height, setback rules)
   towerHeightFt, // default from search params
+  onData,        // shared data bus — publishes live sited values (additive only)
 }) {
   const [user, setUser] = useState(null);
   const ent = useMemo(() => siterEntitlements(user), [user]);
@@ -175,6 +176,33 @@ export default function Section5TowerSiter({
       residential,
     });
   }, [result, rules, controls.compoundW, controls.compoundD, residential]);
+
+  // Publish the CURRENT live sited values to the shared bus (towerSiting key)
+  // so downstream consumers (e.g. the Section 3 JSON export) read live values,
+  // not parcel defaults. Additive only — changes no siting behavior.
+  const onDataRef = useRef(onData);
+  onDataRef.current = onData;
+  useEffect(() => {
+    if (!result || result.collapsed || !liveSiting) return;
+    onDataRef.current?.({
+      towerSiting: {
+        tower_height_ft: Number(controls.heightFt) || null,
+        fall_zone_radius_ft: liveSiting.fallRadiusFt ?? null,
+        engineered_fall_radius_ft: controls.peToggle && controls.peRadiusFt !== "" ? Number(controls.peRadiusFt) : null,
+        pe_letter_enabled: !!controls.peToggle,
+        compound_width_ft: Number(controls.compoundW) || null,
+        compound_depth_ft: Number(controls.compoundD) || null,
+        lease_area_ft: `${Number(controls.leaseW) || 100} x ${Number(controls.leaseD) || 100}`,
+        property_line_clearance_ft: liveSiting.clearanceFt ?? null,
+        clearance_required_ft: liveSiting.requiredFt ?? null,
+        zoning_setback_ft: result.setback != null ? Math.round(result.setback) : null,
+        placement_status: liveSiting.tierLabel || null,
+        jurisdiction: parcel?.jurisdiction || null,
+        latitude: result.towerLonLat?.[1] ?? null,
+        longitude: result.towerLonLat?.[0] ?? null,
+      },
+    });
+  }, [result, liveSiting, controls.leaseW, controls.leaseD, parcel?.jurisdiction]);
 
   const confirmPlacement = async () => {
     if (!result || result.collapsed) return;

@@ -112,7 +112,7 @@ function targetToColumn(t) {
 
 export default function Section3Targets({
   unlocked, active, lat, lon, radiusMiles = 0.5,
-  towerHeightFt = 199, compoundSideFt = 100, ringName = "Search Ring", zoningResult, onRun, onTargetAReady, onData, onClear,
+  towerHeightFt = 199, compoundSideFt = 100, ringName = "Search Ring", zoningResult, towerSiting, onRun, onTargetAReady, onData, onClear,
   generatedLabels = [],
   searchRingCenter = null,
 }) {
@@ -682,7 +682,8 @@ export default function Section3Targets({
                         target={targets[colIdx]}
                         targetLabel={COLS[colIdx]}
                         ringName={ringName}
-                        phone={grid.phone[colIdx]}
+                        zoningResult={zoningResult}
+                        towerSiting={towerSiting}
                       />
                     </div>
                   ) : (

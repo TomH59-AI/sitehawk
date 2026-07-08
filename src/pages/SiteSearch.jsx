@@ -418,6 +418,7 @@ export default function SiteSearch() {
           compoundSideFt={parseInt(String(searchParams.compound_size || "100x100").split("x")[0], 10) || 100}
           ringName={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
           zoningResult={zoningResult}
+          towerSiting={sectionData.towerSiting}
           generatedLabels={generatedLabels}
           searchRingCenter={[Number(searchCenter.lon), Number(searchCenter.lat)]}
           onRun={() => setPipelineStep("targets")}
@@ -486,6 +487,7 @@ export default function SiteSearch() {
           targetA={targetA}
           zoningResult={zoningResult}
           towerHeightFt={searchParams.tower_height_ft || 150}
+          onData={mergeSectionData}
         />
       )}
 
