@@ -67,6 +67,7 @@ import HawkDocShareView from './pages/HawkDocShareView';
 import SubscriberCRM from './pages/SubscriberCRM';
 import PlansSelection from './pages/PlansSelection';
 import HawkTracker from './pages/HawkTracker';
+import PilotTracker from './pages/PilotTracker';
 import TowerSiter from './pages/TowerSiter';
 import Tower3DViewer from './pages/Tower3DViewer';
 import Photo3DViewer from './pages/Photo3DViewer';
@@ -160,6 +161,8 @@ const AuthenticatedApp = () => {
         <Route path="/hawk-fill" element={<HawkFill />} />
         <Route path="/hawk-forms" element={<HawkForms />} />
         <Route path="/hawk-tracker" element={<HawkTracker />} />
+        {/* Simplified read-only tracker view for pilot clients */}
+        <Route path="/pilot-tracker" element={<PilotTracker />} />
         <Route path="/follow-up-tracker" element={<FollowUpTrackerPage />} />
         <Route path="/tower-fit-exhibit" element={<TowerFitExhibit />} />
         {/* HawkPerch — feature_tower_siter ships dark: route exists, no nav link */}
