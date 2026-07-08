@@ -15,10 +15,11 @@
 
 export const TESTER_EMAILS = [
   "hodges.thomas@gmail.com",
-  // TEMP comped account — remove to re-enable billing for him.
-  // Both spellings covered so whichever email Joe signs in with gets full free access.
+  // ── PYRAMID NS 30-DAY PAID PILOT (started 2026-07-08, remove ~2026-08-07) ──
+  // Call sign: HAWK — Jay Suriano (the boss). Both spellings covered.
   "jsuriano@pyramidns.com",
   "jsuriano@pyramidns.co",
+  // Call signs FALCON + OSPREY reserved for Jay's two teammates — add their emails here.
 ];
 
 export const TESTER_TIER = "hawk_command";
