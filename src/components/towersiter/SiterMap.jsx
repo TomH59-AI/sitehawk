@@ -109,7 +109,7 @@ function clearanceDim(parcelFeat, towerLonLat) {
   } catch { return { line: EMPTY, label: EMPTY }; }
 }
 
-export default function SiterMap({ parcelGeoJSON, result, liveSiting, leaseLonLat, residCircle, towerData, draftPoints, onTowerDrag, onMapClick, clickMode, rowData }) {
+export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsFC, leaseLonLat, residCircle, towerData, draftPoints, onTowerDrag, onMapClick, clickMode, rowData }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -182,6 +182,16 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, leaseLonLa
 
         // fills (bottom of stack)
         add("ts-band-fill", "fill", { "fill-color": "#ef4444", "fill-opacity": 0.14 });
+        // Regrid building footprints — red when a residential structure edge
+        // violates the separation rule, light otherwise
+        add("ts-bld-fill", "fill", {
+          "fill-color": ["match", ["get", "state"], "violate", "#ef4444", "#e2e8f0"],
+          "fill-opacity": ["match", ["get", "state"], "violate", 0.45, 0.25],
+        });
+        add("ts-bld-line", "line", {
+          "line-color": ["match", ["get", "state"], "violate", "#ef4444", "#cbd5e1"],
+          "line-width": 1.5,
+        });
         add("ts-env-fill", "fill", { "fill-color": "#10b981", "fill-opacity": 0.15 });
         add("ts-fall-fill", "fill", { "fill-color": ["match", ["get", "state"], "fail", "#ef4444", "#22d3ee"], "fill-opacity": 0.18 });
         add("ts-compound-fill", "fill", { "fill-color": "#f59e0b", "fill-opacity": 0.45 });
@@ -334,6 +344,13 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, leaseLonLa
     if (!ready) return;
     setData("ts-resid-line", residCircle ? fc([residCircle]) : EMPTY);
   }, [ready, residCircle]);
+
+  // Regrid building footprints — recolored per drag tick via feature `state`
+  useEffect(() => {
+    if (!ready) return;
+    setData("ts-bld-fill", buildingsFC || EMPTY);
+    setData("ts-bld-line", buildingsFC || EMPTY);
+  }, [ready, buildingsFC]);
 
   // tower separation buffers + points
   useEffect(() => {

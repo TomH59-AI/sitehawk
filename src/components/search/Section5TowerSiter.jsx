@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { point, booleanPointInPolygon, circle as turfCircle } from "@turf/turf";
+import { point, booleanPointInPolygon, circle as turfCircle, polygonToLine, pointToLineDistance } from "@turf/turf";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Layers, CheckCircle2, Download, Printer, AlertOctagon, FileText, ChevronDown, ChevronUp, Map } from "lucide-react";
@@ -14,6 +14,7 @@ import { towerSiterParcel } from "@/functions/towerSiterParcel";
 import { towerSiterOrdinance } from "@/functions/towerSiterOrdinance";
 import { towerSiterResidential } from "@/functions/towerSiterResidential";
 import { towerSiterSitings } from "@/functions/towerSiterSitings";
+import { regridBuildingFootprints } from "@/functions/regridBuildingFootprints";
 import SiterControls from "@/components/towersiter/SiterControls";
 import ComplianceChips from "@/components/towersiter/ComplianceChips";
 import SiterMap from "@/components/towersiter/SiterMap";
@@ -57,6 +58,9 @@ export default function Section5TowerSiter({
   const [userAdjustedHeight, setUserAdjustedHeight] = useState(false);
   const [towerOverride, setTowerOverride] = useState(null);
   const [residential, setResidential] = useState(null);
+  // Regrid Premium building footprints near the tower (additive — falls back
+  // to the point-based residential check when the add-on isn't available).
+  const [footprints, setFootprints] = useState(null);
   const [upgrade, setUpgrade] = useState(null);
   const [view, setView] = useState("map"); // "map" (interactive Mapbox) | "plan" (Exhibit A)
   const [snapshotUrl, setSnapshotUrl] = useState(null);
@@ -134,6 +138,23 @@ export default function Section5TowerSiter({
     }
   };
 
+  // Fetch building footprints once the parcel is loaded. Silent on failure —
+  // the existing point-based residential check remains the fallback.
+  useEffect(() => {
+    if (!parcel?.geometry) { setFootprints(null); return; }
+    const lat = targetA?.latitude, lon = targetA?.longitude;
+    if (lat == null || lon == null) return;
+    let cancelled = false;
+    const sep = Number(rules?.residential_separation_ft) || 0;
+    regridBuildingFootprints({ lat, lon, radius_ft: Math.max(sep + 200, 600) })
+      .then(({ data }) => {
+        if (!cancelled && data?.buildings?.features?.length) setFootprints(data.buildings);
+      })
+      .catch(() => {}); // add-on not enabled or lookup failed — fallback stays active
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parcel?.geometry, rules?.residential_separation_ft]);
+
   const result = useMemo(() => {
     if (!parcel?.geometry) return null;
     try {
@@ -204,11 +225,48 @@ export default function Section5TowerSiter({
     });
   }, [result, liveSiting, controls.leaseW, controls.leaseD, parcel?.jurisdiction]);
 
+  // Footprint-verified separation — measures tower → nearest EDGE of each
+  // building polygon (not a point), recomputed as the tower moves.
+  const buildingCheck = useMemo(() => {
+    if (!footprints?.features?.length || !result?.towerLonLat || result.collapsed) return null;
+    const sep = Number(rules?.residential_separation_ft) || null;
+    const pt = point(result.towerLonLat);
+    const features = footprints.features.map((f) => {
+      let dFt = Infinity;
+      try {
+        const line = polygonToLine(f);
+        const lines = line.type === "FeatureCollection" ? line.features : [line];
+        for (const l of lines) {
+          const d = pointToLineDistance(pt, l, { units: "feet" });
+          if (d < dFt) dFt = d;
+        }
+      } catch { /* skip bad geometry */ }
+      const violate = !!(sep && f.properties?.residential && dFt < sep);
+      return { ...f, properties: { ...f.properties, distance_ft: Math.round(dFt), state: violate ? "violate" : "ok" } };
+    });
+    const violations = features
+      .filter((f) => f.properties.state === "violate")
+      .sort((a, b) => a.properties.distance_ft - b.properties.distance_ft);
+    return { fc: { type: "FeatureCollection", features }, violations, sep };
+  }, [footprints, result, rules?.residential_separation_ft]);
+
   const confirmPlacement = async () => {
     if (!result || result.collapsed) return;
     const sep = rules?.residential_separation_ft;
     if (!sep) { setResidential({ result: { status: "skip", label: "No residential separation rule on file" } }); return; }
     const key = result.towerLonLat.map((v) => v.toFixed(5)).join(",");
+    // Prefer the footprint-verified check when Regrid building footprints loaded.
+    if (buildingCheck) {
+      const viol = buildingCheck.violations;
+      setResidential({
+        key,
+        result: viol.length
+          ? { status: "fail", label: `Residential structure edge within ${sep}′ (nearest ${viol[0].properties.distance_ft}′) — footprint-verified`, offendingAddress: viol[0].properties.parcel_address }
+          : { status: "pass", label: `No residential structure edges within ${sep}′ — footprint-verified` },
+        circle: turfCircle(result.towerLonLat, sep, { units: "feet", steps: 64 }),
+      });
+      return;
+    }
     if (residential?.key === key && residential.result) return;
     setResidential({ key, loading: true });
     try {
@@ -382,6 +440,8 @@ export default function Section5TowerSiter({
                       <SiterMap
                         parcelGeoJSON={parcel.geometry}
                         result={result}
+                        liveSiting={liveSiting}
+                        buildingsFC={buildingCheck?.fc || null}
                         leaseLonLat={leaseLonLat}
                         residCircle={residential?.circle || null}
                         towerData={null}
