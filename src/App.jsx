@@ -47,6 +47,7 @@ import Pricing from './pages/Pricing';
 import About from './pages/About';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
+import PrivacyPolicyPublic from './pages/PrivacyPolicyPublic';
 import ScanResults from './pages/ScanResults';
 import SendUpdate from './pages/SendUpdate';
 import MailOrders from './pages/MailOrders';
@@ -130,6 +131,8 @@ const AuthenticatedApp = () => {
       <Route path="/" element={<Landing />} />
       <Route path="/scip-share" element={<SCIPShareView />} />
       <Route path="/hawk-doc-share" element={<HawkDocShareView />} />
+      {/* PUBLIC privacy policy — required URL for Apple App Store / createPlus */}
+      <Route path="/privacy-policy" element={<PrivacyPolicyPublic />} />
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />
