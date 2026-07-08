@@ -115,3 +115,26 @@ export function regridLbcsLabel(e) {
   if (!parts.length) return null;
   return `🏗 ${parts.join(" · ")}`;
 }
+
+// LBCS Ownership — who owns the parcel class (private, government, utility, religious…).
+// Changes the outreach playbook before any mailer goes out.
+export function regridOwnershipLabel(e) {
+  const v = e?.lbcs?.ownership_desc || e?.lbcs?.ownership_description || null;
+  if (!v) return null;
+  return `🏛 ${v}`;
+}
+
+// Top 1–2 NRI hazard drivers (e.g. "Wind: Very High · Wildfire: Low").
+// Accepts either an array of {hazard/name, rating} objects or plain strings.
+export function regridNriDriversLabel(e) {
+  const si = e?.site_intel || {};
+  const raw = si.fema_nri_top_hazards || si.fema_nri_hazards || si.nri_hazards || null;
+  if (!Array.isArray(raw) || !raw.length) return null;
+  const parts = raw.slice(0, 2).map((h) => {
+    if (typeof h === "string") return h;
+    const name = h.hazard || h.name || h.type;
+    const rating = h.rating || h.risk_rating || h.rating_desc;
+    return [name, rating].filter(Boolean).join(": ");
+  }).filter(Boolean);
+  return parts.length ? `🌪 ${parts.join(" · ")}` : null;
+}

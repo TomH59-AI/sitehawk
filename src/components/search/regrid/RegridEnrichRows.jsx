@@ -1,10 +1,12 @@
 import { Loader2 } from "lucide-react";
-import { regridPowerLabel, regridElevationLabel, regridLbcsLabel } from "@/lib/regridEnrich";
+import { regridPowerLabel, regridElevationLabel, regridLbcsLabel, regridOwnershipLabel, regridNriDriversLabel } from "@/lib/regridEnrich";
 
 const EXTRA_ROWS = [
   ["Power Proximity", regridPowerLabel],
   ["Ground Elevation", regridElevationLabel],
   ["LBCS Land Use", regridLbcsLabel],
+  ["LBCS Ownership", regridOwnershipLabel],
+  ["NRI Hazard Drivers", regridNriDriversLabel],
 ];
 
 /**
