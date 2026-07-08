@@ -20,6 +20,8 @@ export const TESTER_EMAILS = [
   "jsuriano@pyramidns.com",
   "jsuriano@pyramidns.co",
   // Call signs FALCON + OSPREY reserved for Jay's two teammates — add their emails here.
+  // ── COREY MILAN 30-DAY PILOT (started 2026-07-08, remove ~2026-08-07) ──
+  "cmilan@nbcllc.com",
 ];
 
 export const TESTER_TIER = "hawk_command";

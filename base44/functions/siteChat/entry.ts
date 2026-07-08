@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     const tier = user.tier || 'blind';
     const isAdmin = user.role === 'admin';
     // Comped pilot accounts (mirrors src/lib/testAccess.js TESTER_EMAILS)
-    const COMPED_EMAILS = ['hodges.thomas@gmail.com', 'jsuriano@pyramidns.com', 'jsuriano@pyramidns.co'];
+    const COMPED_EMAILS = ['hodges.thomas@gmail.com', 'jsuriano@pyramidns.com', 'jsuriano@pyramidns.co', 'cmilan@nbcllc.com'];
     const isComped = COMPED_EMAILS.includes((user.email || '').toLowerCase());
     if (!isAdmin && !isComped && (tier === 'blind' || tier === 'free')) {
       return Response.json({ error: 'Upgrade required' }, { status: 403 });
