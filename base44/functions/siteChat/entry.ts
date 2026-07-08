@@ -48,7 +48,10 @@ Deno.serve(async (req) => {
 
     const tier = user.tier || 'blind';
     const isAdmin = user.role === 'admin';
-    if (!isAdmin && (tier === 'blind' || tier === 'free')) {
+    // Comped pilot accounts (mirrors src/lib/testAccess.js TESTER_EMAILS)
+    const COMPED_EMAILS = ['hodges.thomas@gmail.com', 'jsuriano@pyramidns.com', 'jsuriano@pyramidns.co'];
+    const isComped = COMPED_EMAILS.includes((user.email || '').toLowerCase());
+    if (!isAdmin && !isComped && (tier === 'blind' || tier === 'free')) {
       return Response.json({ error: 'Upgrade required' }, { status: 403 });
     }
 
@@ -122,9 +125,12 @@ User question: ${message}
 
 Respond as HawkBot — concise, professional, telecom-industry savvy. If live data was provided, cite it directly. If web search was used, say so briefly.`;
 
+    // Model selection: web search is only supported by the Gemini Pro model,
+    // so use it when we need live internet context; otherwise use Claude Opus
+    // (top reasoning model) to answer from the live pipeline data.
     const response = await base44.integrations.Core.InvokeLLM({
       prompt,
-      model: "claude_opus_4_8",
+      model: toolContext ? "claude_opus_4_8" : "gemini_3_1_pro",
       add_context_from_internet: !toolContext, // only web-search if no live data
     });
 
