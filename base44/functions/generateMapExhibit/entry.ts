@@ -9,12 +9,9 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const token =
-      Deno.env.get("MAPBOX_ACCESS_TOKEN") ||
-      Deno.env.get("VITE_MAPBOX_ACCESS_TOKEN") ||
-      Deno.env.get("VITE_MAPBOX_TOKEN") ||
-      Deno.env.get("VITE_SITEHAWK_MAPBOX_TOKEN") ||
-      Deno.env.get("MAPBOX_API_KEY");
+    // Token fallback chain — first configured name wins.
+    const tokenNames = ["MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_ACCESS_TOKEN", "VITE_MAPBOX_TOKEN", "VITE_SITEHAWK_MAPBOX_TOKEN", "MAPBOX_API_KEY"];
+    const token = tokenNames.map((n) => Deno.env.get(n)).find(Boolean);
     if (!token) {
       return Response.json({ error: "Unable to create image_url: no Mapbox token configured (MAPBOX_ACCESS_TOKEN / MAPBOX_API_KEY)." }, { status: 500 });
     }
