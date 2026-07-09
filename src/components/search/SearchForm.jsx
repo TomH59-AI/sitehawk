@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, MapPin, Crosshair } from "lucide-react";
+import { Search, MapPin, Crosshair, Locate } from "lucide-react";
+import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RADIUS_OPTIONS } from "./constants";
@@ -15,6 +16,47 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
   const [compound, setCompound] = useState("100x100");
   const [county, setCounty] = useState("");
   const [stateCode, setStateCode] = useState("");
+  const [addressQuery, setAddressQuery] = useState("");
+  const [resolving, setResolving] = useState(false);
+  const [resolveMsg, setResolveMsg] = useState(null); // { ok, text }
+
+  // Resolve an address or parcel ID to coordinates via Realie.
+  const handleResolveAddress = async () => {
+    const q = addressQuery.trim();
+    if (!q) return;
+    const st = stateCode.trim().toUpperCase();
+    if (!st) {
+      setResolveMsg({ ok: false, text: "Enter the State (below) so Realie knows where to look." });
+      return;
+    }
+    // Heuristic: entries with a space are addresses; compact IDs are parcel IDs.
+    const isParcelId = !q.includes(" ");
+    if (isParcelId && !county.trim()) {
+      setResolveMsg({ ok: false, text: "Parcel ID lookups also need the County (below)." });
+      return;
+    }
+    setResolving(true);
+    setResolveMsg(null);
+    try {
+      const payload = isParcelId
+        ? { parcelId: q, state: st, county: county.trim() }
+        : { address: q, state: st, ...(county.trim() ? { county: county.trim() } : {}) };
+      const { data } = await lookupRealieProperty(payload);
+      const t = data?.target;
+      if (t?.latitude != null && t?.longitude != null) {
+        setLat(Number(t.latitude).toFixed(6));
+        setLon(Number(t.longitude).toFixed(6));
+        setResolveMsg({ ok: true, text: `Found: ${t.address || q} → ${Number(t.latitude).toFixed(5)}, ${Number(t.longitude).toFixed(5)}` });
+      } else {
+        setResolveMsg({ ok: false, text: "Property found but no coordinates returned." });
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error || "No property found for that query.";
+      setResolveMsg({ ok: false, text: msg });
+    } finally {
+      setResolving(false);
+    }
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -96,6 +138,40 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
               onChange={(e) => setTowerHeight(e.target.value)}
               className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
             />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Address or Parcel ID <span className="text-muted-foreground/60">(optional — finds coordinates)</span>
+            </label>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="e.g. 123 Main St, Tampa — or APN"
+                value={addressQuery}
+                onChange={(e) => setAddressQuery(e.target.value)}
+                className="bg-secondary border-border text-white caret-white placeholder:text-white/50"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleResolveAddress}
+                disabled={!addressQuery.trim() || resolving}
+                className="gap-1.5 shrink-0"
+                title="Look up coordinates via Realie"
+              >
+                {resolving ? (
+                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                ) : (
+                  <Locate className="w-4 h-4" />
+                )}
+                Find
+              </Button>
+            </div>
+            {resolveMsg && (
+              <p className={`text-[11px] mt-1 ${resolveMsg.ok ? "text-emerald-500" : "text-destructive"}`}>
+                {resolveMsg.text}
+              </p>
+            )}
           </div>
         </div>
 
