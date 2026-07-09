@@ -33,12 +33,15 @@ export function isTester(user) {
 
 // Returns the tier string to use for gating logic.
 // Testers always get the top-tier ("hawkeye_apex").
+// Demo-role users get FULL access during their window — the shutdown is
+// handled by the campaign cutoff / trial clock in Layout, not by gates.
 export function getEffectiveTier(user) {
   if (isTester(user)) return TESTER_TIER;
+  if (user?.role === "demo") return TESTER_TIER;
   return user?.tier || "free";
 }
 
 // True if user should bypass all limits / paywalls.
 export function hasUnlimitedAccess(user) {
-  return isTester(user) || user?.role === "admin";
+  return isTester(user) || user?.role === "admin" || user?.role === "demo";
 }

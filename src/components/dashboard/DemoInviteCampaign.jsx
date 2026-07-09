@@ -9,20 +9,21 @@ import { Megaphone, Send, Loader2, CheckCircle2, AlertTriangle } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { inviteDemoCampaign } from "@/functions/inviteDemoCampaign";
+import { DEMO_CAMPAIGN_ENDS_LABEL } from "@/lib/demoCampaign";
 
-const DEFAULT_SUBJECT = "You've Got 3 Days of Full AI Hawk Vision — On Me";
+const DEFAULT_SUBJECT = "You've Got Full AI Hawk Vision — Everything Unlocked, On Me";
 
 function defaultLetter(name) {
   const greet = name ? `Hi ${name},` : "Hi,";
   return `${greet}
 
-I just gave you full VIP access to SiteHawk — the AI-powered cell tower site acquisition platform.
+I just gave you full VIP access to SiteHawk — the AI-powered cell tower site acquisition platform. No limits, no locked features — the whole platform is yours.
 
-For the next 3 days, everything is unlocked. Run a real search ring, watch the AI scan every parcel, rank the best tower targets, pull the zoning, skip-trace the owners, and generate a carrier-ready SCIP package in minutes — work that normally takes a team weeks.
+Your access runs until ${DEMO_CAMPAIGN_ENDS_LABEL}. Run a real search ring, watch the AI scan every parcel, rank the best tower targets, pull the zoning, skip-trace the owners, and generate a carrier-ready SCIP package in minutes — work that normally takes a team weeks.
 
 Just accept the invite in the email from Base44, log in, and hit "Start Your Journey Here."
 
-Your access closes automatically after 3 days. When you see what AI Hawk Vision can do for your pipeline, call me directly and we'll talk pricing:
+When the window closes, your access shuts off automatically. When you see what AI Hawk Vision can do for your pipeline, call me directly and we'll talk pricing:
 
 Tom Hodges
 📞 248-787-1888
@@ -71,7 +72,7 @@ export default function DemoInviteCampaign() {
         <div>
           <h2 className="font-heading font-bold text-base text-foreground leading-tight">Demo Campaign Invites</h2>
           <p className="text-xs text-muted-foreground">
-            Admin only · Invitee gets 3 days of full access from first login, then auto-shutdown with your number for pricing.
+            Admin only · Invitees get FULL unrestricted access until {DEMO_CAMPAIGN_ENDS_LABEL}, then auto-shutdown with your number for pricing.
           </p>
         </div>
       </div>

@@ -14,6 +14,7 @@ import UsageBadge from "./billing/UsageBadge";
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
+import { isDemoCampaignOver } from "@/lib/demoCampaign";
 
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 
@@ -60,6 +61,8 @@ export default function Layout() {
       }
       // Also block if admin toggled demo_disabled
       if (u?.role === "demo" && u?.demo_disabled) setDemoExpired(true);
+      // Campaign hard cutoff — every demo locks when the campaign window ends
+      if (u?.role === "demo" && isDemoCampaignOver()) setDemoExpired(true);
     });
   }, []);
 
