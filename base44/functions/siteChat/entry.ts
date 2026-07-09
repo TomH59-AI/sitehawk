@@ -125,12 +125,11 @@ User question: ${message}
 
 Respond as HawkBot — concise, professional, telecom-industry savvy. If live data was provided, cite it directly. If web search was used, say so briefly.`;
 
-    // Model selection: web search is only supported by the Gemini Pro model,
-    // so use it when we need live internet context; otherwise use Claude Opus
-    // (top reasoning model) to answer from the live pipeline data.
+    // Model selection: Gemini Flash for speed — it supports web search and is
+    // fast enough for chat. Heavy reasoning models made answers feel slow.
     const response = await base44.integrations.Core.InvokeLLM({
       prompt,
-      model: toolContext ? "claude_opus_4_8" : "gemini_3_1_pro",
+      model: "gemini_3_flash",
       add_context_from_internet: !toolContext, // only web-search if no live data
     });
 
