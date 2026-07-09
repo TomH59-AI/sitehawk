@@ -104,7 +104,11 @@
     "demo_trial_started_at": {
       "type": "string",
       "format": "date-time",
-      "description": "ISO datetime when the demo user ran their first SCIP. The 5-day demo window starts from this timestamp."
+      "description": "ISO datetime when the demo clock started (first login for campaign invites). The demo window runs from this timestamp."
+    },
+    "demo_trial_days": {
+      "type": "number",
+      "description": "Length of this demo user's trial window in days. Campaign invites get 3; legacy demos default to 5."
     }
   },
   "required": [

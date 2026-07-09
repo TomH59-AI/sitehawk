@@ -11,6 +11,7 @@ import HowToUseInstructions from "../components/dashboard/HowToUseInstructions";
 import WorkflowIndex from "../components/dashboard/WorkflowIndex";
 import TargetASummaryTable from "../components/dashboard/TargetASummaryTable";
 import ReferralBanner from "../components/referral/ReferralBanner";
+import DemoInviteCampaign from "../components/dashboard/DemoInviteCampaign";
 import { getEffectiveTier } from "@/lib/testAccess";
 
 const TIER_LIMITS = {
@@ -140,6 +141,9 @@ export default function Dashboard() {
 
       {/* Refer & earn — give 5 / get 5 growth loop */}
       <ReferralBanner />
+
+      {/* ADMIN — 3-day demo campaign invites with personal letter */}
+      {user?.role === "admin" && <DemoInviteCampaign />}
 
       {/* Schedule a call with Tom */}
       <a

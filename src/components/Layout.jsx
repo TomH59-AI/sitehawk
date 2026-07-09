@@ -48,6 +48,10 @@ export default function Layout() {
       const admin = u?.role === "admin" || u?.email === ADMIN_EMAIL;
       setIsAdmin(admin);
       try { localStorage.setItem("sh_is_admin", admin ? "1" : "0"); } catch {};
+      // Campaign demo: start the trial clock at FIRST login (3-day window)
+      if (u?.role === "demo" && !u?.demo_trial_started_at) {
+        base44.auth.updateMe({ demo_trial_started_at: new Date().toISOString(), demo_trial_days: 3 }).catch(() => {});
+      }
       // Demo expiry: default 5 days, but demo_trial_days on the user can override
       if (u?.role === "demo" && u?.demo_trial_started_at) {
         const trialDays = u?.demo_trial_days || 5;
@@ -85,13 +89,19 @@ export default function Layout() {
           <div className="text-5xl">🦅</div>
           <h1 className="font-heading font-bold text-2xl text-foreground">Your Demo Has Ended</h1>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            Your SiteHawk demo has expired. Ready to keep going?<br />
-            Contact your SiteHawk representative or start a plan today.
+            You've seen the wonders of AI Hawk Vision at work.<br />
+            Ready to keep it? Call Tom directly for pricing.
           </p>
-          <a href="mailto:info@sitehawk.com?subject=SiteHawk Demo — Ready to Subscribe"
-            className="inline-block mt-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-heading font-bold text-sm hover:bg-primary/90 transition-colors">
-            Contact SiteHawk →
-          </a>
+          <div className="space-y-2">
+            <a href="tel:2487871888"
+              className="block px-6 py-3 rounded-xl bg-primary text-primary-foreground font-heading font-bold text-sm hover:bg-primary/90 transition-colors">
+              📞 Call Tom — 248-787-1888
+            </a>
+            <a href="mailto:tomhodges@onairs.com?subject=SiteHawk Demo — Ready to Talk Pricing"
+              className="block px-6 py-3 rounded-xl border border-primary/30 text-primary font-heading font-bold text-sm hover:bg-primary/10 transition-colors">
+              ✉️ tomhodges@onairs.com
+            </a>
+          </div>
         </div>
       </div>
     );
