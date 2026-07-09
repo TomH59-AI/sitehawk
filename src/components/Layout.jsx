@@ -113,7 +113,7 @@ export default function Layout() {
             <UsageBadge />
           </div>
         </div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto min-h-0">
+        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto min-h-0 sidebar-scroll">
           {navItems.map((item) => {
             const isActive = item.path === "/dashboard"
             ? location.pathname === item.path
@@ -122,7 +122,7 @@ export default function Layout() {
               <div key={item.path}>
                 <Link
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActive
                       ? "bg-primary/10 text-primary border border-primary/20"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -133,7 +133,7 @@ export default function Layout() {
                 </Link>
                 {/* On Site Search, mirror the live pipeline right under the menu item */}
                 {item.path === "/search" && location.pathname === "/search" && (
-                  <div className="mt-2 mb-1 max-h-64 overflow-y-auto">
+                  <div className="mt-1 mb-1 max-h-40 overflow-y-auto sidebar-scroll">
                     <PipelineSidebarNav />
                   </div>
                 )}
@@ -141,7 +141,7 @@ export default function Layout() {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-border space-y-1">
+        <div className="p-3 border-t border-border space-y-0.5">
           <HubSpotSidebarConnect />
           <div className="border-t border-border/50 my-1" />
           <div className="flex items-center justify-end pb-1">
@@ -149,28 +149,28 @@ export default function Layout() {
           </div>
           <button
             onClick={toggle}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
           >
             {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             {theme === "dark" ? "Light Mode" : "Dark Mode"}
           </button>
           <Link
             to="/billing"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
           >
             <Settings className="w-4 h-4" />
             Billing
           </Link>
           <Link
             to="/about"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
           >
             <Info className="w-4 h-4" />
             About
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
           >
             <LogOut className="w-4 h-4" />
             Sign Out

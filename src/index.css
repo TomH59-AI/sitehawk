@@ -125,4 +125,24 @@
   .dark textarea::placeholder {
     color: rgba(255, 255, 255, 0.55);
   }
+
+  /* Sidebar nav — always-visible thin scrollbar so menu items below the fold
+     (Hawk Tracker and beyond) are never mistaken for missing/blank. */
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background: hsl(var(--sidebar-border));
+    border-radius: 3px;
+  }
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--sidebar-ring) / 0.5);
+  }
 }
