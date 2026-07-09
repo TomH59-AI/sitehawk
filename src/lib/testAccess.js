@@ -13,6 +13,8 @@
 // `getEffectiveTier(user)` and `isTester(user)` from this file.
 // ============================================================
 
+import { isDemoCampaignOver } from "@/lib/demoCampaign";
+
 export const TESTER_EMAILS = [
   "hodges.thomas@gmail.com",
   // ── PYRAMID NS 30-DAY PAID PILOT (started 2026-07-08, remove ~2026-08-07) ──
@@ -38,10 +40,14 @@ export function isTester(user) {
 export function getEffectiveTier(user) {
   if (isTester(user)) return TESTER_TIER;
   if (user?.role === "demo") return TESTER_TIER;
+  // ── CAMPAIGN WINDOW: EVERYONE gets full access until the cutoff ──
+  // Anyone who signs up from the normal site rides free until the campaign
+  // ends (see src/lib/demoCampaign.js), then reverts to their real tier.
+  if (!isDemoCampaignOver()) return TESTER_TIER;
   return user?.tier || "free";
 }
 
 // True if user should bypass all limits / paywalls.
 export function hasUnlimitedAccess(user) {
-  return isTester(user) || user?.role === "admin" || user?.role === "demo";
+  return isTester(user) || user?.role === "admin" || user?.role === "demo" || !isDemoCampaignOver();
 }
