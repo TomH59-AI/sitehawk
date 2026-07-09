@@ -578,11 +578,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Take top 3.
-    const labels = ["Target A", "Target B", "Target C"];
-    const top = eligibleSet.slice(0, 3);
+    // Take top 3 pipeline targets + next 2 as standalone ALTERNATES (Target D & E).
+    const labels = ["Target A", "Target B", "Target C", "Target D", "Target E"];
+    const top = eligibleSet.slice(0, 5);
 
-    // ENRICH final 3 from Zoneomics parcels block (owner, acreage, address).
+    // ENRICH final 5 from Zoneomics parcels block (owner, acreage, address).
     const enrichments = await Promise.all(
       top.map((t) => (t.latitude && t.longitude ? zoneomicsEnrich(t.latitude, t.longitude, zoneKey) : Promise.resolve(null)))
     );
@@ -597,7 +597,7 @@ Deno.serve(async (req) => {
       if (!t.zoning_classification && e.zone_code) { t.zoning_classification = e.zone_code; t.zoning_status = "confirmed"; }
     });
 
-    const targets = top.map((t, i) => {
+    const allRanked = top.map((t, i) => {
       const fema = t._fema || { code: "—", level: "unknown" };
       const { raw, dist_mi, _fema, needs_zoning_resolve, hardDisqualified: _hd, ...clean } = t;
       const zone = clean.zoning_classification || null;
@@ -617,6 +617,10 @@ Deno.serve(async (req) => {
       };
     });
 
+    // Split: A/B/C feed the pipeline; D/E are alternates only (never in pipeline).
+    const targets = allRanked.slice(0, 3);
+    const alternates = allRanked.slice(3, 5).map((t) => ({ ...t, is_alternate: true }));
+
     const dryCount = eligibleSet.filter((s) => !s.flood_excluded).length;
 
     return Response.json({
@@ -630,6 +634,7 @@ Deno.serve(async (req) => {
       returned_count: targets.length,
       flood_only: dryCount === 0,
       targets,
+      alternates,
     });
   } catch (error) {
     console.error("scipBestParcels error:", error.message);

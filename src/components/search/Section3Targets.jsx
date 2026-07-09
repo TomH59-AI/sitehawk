@@ -27,6 +27,7 @@ import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
 import ExportTargetJsonButton from "./section3/ExportTargetJsonButton";
+import Section3Alternates from "./section3/Section3Alternates";
 import SectionClearButton from "./SectionClearButton";
 import { regridEnrichTarget, normalizeRegridEnrich, regridZoningLabel, regridFemaLabel, regridFloodComposition, regridSfhaWarning, regridNriLabel, regridFirmDateLabel } from "@/lib/regridEnrich";
 import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
@@ -128,6 +129,8 @@ export default function Section3Targets({
   // Full target objects (A/B/C) kept so the user can choose any one as the lead
   // site that the whole downstream pipeline runs on.
   const [targets, setTargets] = useState([null, null, null]);
+  // Alternate parcels (Target D & E) — display only, NEVER fed to the pipeline.
+  const [alternates, setAlternates] = useState([]);
   const [selectedCol, setSelectedCol] = useState(0); // which column is the lead (0 = Target A)
   // Regrid precision enrichment per target column — ADDITIVE ONLY, never blocks
   // the base Realie data. Keyed by column index; lib caches by coordinates.
@@ -309,6 +312,7 @@ export default function Section3Targets({
         setback: z?.setback ?? null,
       });
       const found = res.data?.targets || [];
+      setAlternates(res.data?.alternates || []);
       setScanStats({
         scanned: res.data?.count_in_ring ?? res.data?.count_scanned ?? 0,
         required_acres: res.data?.required_acres ?? null,
@@ -696,6 +700,8 @@ export default function Section3Targets({
               ))}
             </div>
           )}
+          {/* ALTERNATE TARGETS D & E — standalone backup intel, not in pipeline */}
+          {!noData && <Section3Alternates alternates={alternates} />}
         </>
       )}
     </div>
