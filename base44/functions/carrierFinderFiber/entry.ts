@@ -18,7 +18,7 @@ const CF_ENDPOINT = "http://api.carrierfinder.net/api.py";
 
 function buildUrl(params) {
   const userid = Deno.env.get("CF_USERID");
-  const key = Deno.env.get("CF_KEY");
+  const key = Deno.env.get("CARRIERFINDER_API_KEY") || Deno.env.get("CF_KEY");
   const qs = new URLSearchParams({ ...params, userid, key });
   return `${CF_ENDPOINT}?${qs.toString()}`;
 }
