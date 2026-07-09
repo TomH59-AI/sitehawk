@@ -13,6 +13,7 @@ import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section9Colocation from "../components/search/Section9Colocation";
 import Section8Propagation from "../components/search/Section8Propagation";
 import Section5TowerSiter from "../components/search/Section5TowerSiter";
+import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
 import TargetLanePipeline from "../components/search/TargetLanePipeline";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
@@ -498,6 +499,18 @@ export default function SiteSearch() {
           zoningResult={zoningResult}
           towerHeightFt={searchParams.tower_height_ft || 150}
           onData={mergeSectionData}
+        />
+      )}
+
+      {/* HAWKFIT MAP — deterministic fit checks AFTER the Tower Siter /
+          Preliminary Tower Siting Exhibit. Consumes the SAME active Target A
+          (ScipRecord.parcel_targets → SearchResult → TowerSitingRun →
+          TowerVisualization → Tower3DRender) and refreshes when it changes. */}
+      {coordsReady && sarfReady && zoningReady && (
+        <HawkFitPipelineSection
+          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
+          targetA={targetA}
+          towerHeightFt={searchParams.tower_height_ft || 150}
         />
       )}
 

@@ -79,7 +79,15 @@ Deno.serve(async (req) => {
       return Response.json({ found: false, error: "No property found for that query." }, { status: 404 });
     }
 
-    const target = normalize(raw, state);
+    let target = normalize(raw, state);
+    // Persist a SiteTarget (live schema fields only) when coordinates resolved.
+    if (target.latitude != null && target.longitude != null) {
+      const data = {};
+      for (const [k, v] of Object.entries(target)) {
+        if (v != null && v !== "") data[k] = v;
+      }
+      target = await base44.entities.SiteTarget.create(data);
+    }
     await base44.entities.RealieLookupLog.create({
       query_type: queryType, query, status: "found", matched_address: target.address || undefined,
     });

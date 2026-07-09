@@ -5,7 +5,7 @@ import { generateMapExhibit } from "@/functions/generateMapExhibit";
 import { useToast } from "@/components/ui/use-toast";
 
 // HawkFit Map — generates a static map exhibit and opens it in a new tab.
-export default function ExportMapButton({ siteTarget, towerLngLat, fit, disabled }) {
+export default function ExportMapButton({ siteTarget, towerLngLat, fit, disabled, scenarioId }) {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
@@ -19,6 +19,7 @@ export default function ExportMapButton({ siteTarget, towerLngLat, fit, disabled
         fall_zone: fit?.fallZone || null,
         compound: fit?.compound || null,
         site_target_id: siteTarget?.id || null,
+        tower_scenario_id: scenarioId || null,
       });
       window.open(res.data.image_url, "_blank");
     } catch (e) {

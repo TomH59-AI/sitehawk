@@ -20,7 +20,12 @@ export function buildCompound(lngLat, widthFt, depthFt) {
   return turf.polygon([[nw, ne, se, sw, nw]]);
 }
 
+// Deterministic containment: turf.booleanWithin for Polygon parcels, with a
+// per-vertex fallback (equivalent for these convex shapes) for MultiPolygons.
 function allVerticesInside(feature, parcelFeature) {
+  if (parcelFeature.geometry?.type === "Polygon") {
+    try { return turf.booleanWithin(feature, parcelFeature); } catch { /* fall through */ }
+  }
   const coords = feature.geometry.coordinates[0];
   return coords.every((c) => turf.booleanPointInPolygon(turf.point(c), parcelFeature));
 }
