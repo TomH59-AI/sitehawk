@@ -18,8 +18,13 @@ function ensurePrintStyles() {
   style.id = PRINT_STYLE_ID;
   style.textContent = `
     @media print {
-      html, body { width: 8.5in; margin: 0 !important; padding: 0 !important; }
+      html, body { width: 8.5in; height: auto !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
       body * { visibility: hidden !important; }
+      .no-print { display: none !important; }
+      /* Un-trap the doc from the fixed, scroll-clipped preview overlay so
+         EVERY page flows and breaks exactly on 8.5x11 boundaries. */
+      .scip-print-overlay { position: static !important; inset: auto !important; overflow: visible !important; background: none !important; }
+      .scip-print-overlay > div { display: block !important; padding: 0 !important; margin: 0 !important; min-height: 0 !important; }
       #sitehawk-scip-doc, #sitehawk-scip-doc * { visibility: visible !important; }
       #sitehawk-scip-doc {
         position: absolute;
@@ -33,7 +38,10 @@ function ensurePrintStyles() {
         page-break-inside: avoid;
         break-inside: avoid;
         width: 8.5in !important;
-        height: 11in;
+        height: 11in !important;
+        max-height: 11in !important;
+        margin: 0 !important;
+        box-shadow: none !important;
         overflow: hidden;
         box-sizing: border-box;
         transform: none !important;
@@ -163,7 +171,7 @@ export default function PrintSiteHawkScipButton({ scipId, scip, variant = "toolb
       </button>
 
       {open && record && (
-        <div className="fixed inset-0 z-[100] bg-black/70 overflow-auto" onClick={() => setOpen(false)}>
+        <div className="scip-print-overlay fixed inset-0 z-[100] bg-black/70 overflow-auto" onClick={() => setOpen(false)}>
           <div className="min-h-full flex flex-col items-center py-8 px-4" onClick={(e) => e.stopPropagation()}>
             <div className="no-print sticky top-0 z-10 w-full max-w-[8.5in] flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-lg" style={{ background: "#0C1B2E" }}>
               <span className="font-heading font-bold text-white">SiteHawk SCIP — Preview</span>
