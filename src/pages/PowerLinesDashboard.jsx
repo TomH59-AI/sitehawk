@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Zap, Search, Radio } from "lucide-react";
 import PowerLinesMap from "../components/powerlines/PowerLinesMap";
 import PowerLineDetailsPanel from "../components/powerlines/PowerLineDetailsPanel";
+import PowerLineAdvisorChat from "../components/powerlines/PowerLineAdvisorChat";
 
 export default function PowerLinesDashboard() {
   const [ownerInput, setOwnerInput] = useState("");
@@ -101,6 +102,9 @@ export default function PowerLinesDashboard() {
           onClose={() => setSelected(null)}
         />
       </div>
+
+      {/* AI advisor — transmission line proximity implications for tower builds */}
+      <PowerLineAdvisorChat />
 
       <div className="text-[10px] font-mono text-muted-foreground tracking-wider text-center pt-2">
         SOURCE · HIFLD US ELECTRIC POWER TRANSMISSION LINES FEATURESERVER · ZOOM ≥ 5 TO LOAD
