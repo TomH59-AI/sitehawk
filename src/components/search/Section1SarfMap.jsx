@@ -39,7 +39,15 @@ import { memo, useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import ParcelLinesToggle from "@/components/maps/ParcelLinesToggle";
 import ParcelIdentifyCard from "@/components/maps/ParcelIdentifyCard";
-import { queryParcelAt, highlightParcel } from "@/lib/regridParcelTiles";
+import { queryParcelAt, highlightParcel, setParcelLinesVisible, PARCEL_LINES_LAYER_ID } from "@/lib/regridParcelTiles";
+
+// Basemap options — Streets is the colorful, high-detail default; the others
+// are one-click visual swaps. Switching NEVER touches coordinates or workflow state.
+const BASEMAP_STYLES = {
+  streets:           { label: "🗺 Streets",     style: "mapbox://styles/mapbox/streets-v12" },
+  satellite_streets: { label: "🛰 Sat Streets", style: "mapbox://styles/mapbox/satellite-streets-v12" },
+  satellite:         { label: "🛰 Satellite",   style: "mapbox://styles/mapbox/satellite-v9" },
+};
 
 // Primary + fallback CDNs. The api.mapbox.com CDN can be blocked/rate-limited
 // inside the editor iframe, so we fall back to jsDelivr then unpkg.
@@ -124,6 +132,18 @@ function buildCircle(lat, lon, radiusMiles, steps = 64) {
   return { type: "Feature", geometry: { type: "Polygon", coordinates: [coords] }, properties: {} };
 }
 
+// (Re)adds the SARF ring source + layers. Idempotent — used on first load and
+// after every basemap switch (setStyle wipes custom layers, never the camera).
+function addRingLayers(map, lat, lon, radiusMiles) {
+  ["sarf-ring-fill", "sarf-ring-line"].forEach((id) => { if (map.getLayer(id)) map.removeLayer(id); });
+  if (map.getSource("sarf-ring")) map.removeSource("sarf-ring");
+  const ring = buildCircle(lat, lon, radiusMiles);
+  map.addSource("sarf-ring", { type: "geojson", data: ring });
+  map.addLayer({ id: "sarf-ring-fill", type: "fill", source: "sarf-ring", paint: { "fill-color": "#ef4444", "fill-opacity": 0.06 } });
+  map.addLayer({ id: "sarf-ring-line", type: "line", source: "sarf-ring", paint: { "line-color": "#ef4444", "line-width": 3 } });
+  return ring;
+}
+
 function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -133,6 +153,25 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   const [error, setError] = useState(null);
   const [attempt, setAttempt] = useState(0); // bumped by Retry
   const [clickedParcel, setClickedParcel] = useState(null); // { lat, lng, headline }
+  const [basemap, setBasemap] = useState("streets"); // colorful Streets is the default
+  const basemapRef = useRef("streets");
+
+  // Visual-only basemap swap: setStyle preserves center/zoom/bearing/pitch and
+  // DOM markers. We only re-add the ring layers (and parcel lines if they were on).
+  // Coordinates, Target A, and all workflow state are never touched.
+  const switchBasemap = (key) => {
+    const map = mapRef.current;
+    if (!map || key === basemapRef.current) return;
+    basemapRef.current = key;
+    setBasemap(key);
+    const parcelOn = !!map.getLayer(PARCEL_LINES_LAYER_ID) &&
+      map.getLayoutProperty(PARCEL_LINES_LAYER_ID, "visibility") !== "none";
+    map.setStyle(BASEMAP_STYLES[key].style);
+    map.once("style.load", () => {
+      if (Number.isFinite(lat) && Number.isFinite(lon)) addRingLayers(map, lat, lon, radiusMiles);
+      if (parcelOn) setParcelLinesVisible(map, true).catch(() => {});
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -219,7 +258,7 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
         console.log("[SARF DIAG] constructing mapboxgl.Map()");
         map = new window.mapboxgl.Map({
           container: containerRef.current,
-          style: "mapbox://styles/mapbox/satellite-streets-v12",
+          style: BASEMAP_STYLES[basemapRef.current].style,
           center: [lon, lat],
           zoom: 13,
         });
@@ -244,10 +283,7 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
         if (cancelled) return;
         console.log("[SARF DIAG] map 'load' event — render OK");
         clearTimeoutSafe();
-        const ring = buildCircle(lat, lon, radiusMiles);
-        map.addSource("sarf-ring", { type: "geojson", data: ring });
-        map.addLayer({ id: "sarf-ring-fill", type: "fill", source: "sarf-ring", paint: { "fill-color": "#ef4444", "fill-opacity": 0.06 } });
-        map.addLayer({ id: "sarf-ring-line", type: "line", source: "sarf-ring", paint: { "line-color": "#ef4444", "line-width": 3 } });
+        const ring = addRingLayers(map, lat, lon, radiusMiles);
 
         placeMarker(map);
 
@@ -310,7 +346,22 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   return (
     <div className="relative rounded-xl overflow-hidden border border-border" style={{ minHeight: "600px" }}>
       <div ref={containerRef} className="w-full" style={{ width: "100%", height: "600px" }} />
-      <div className="absolute top-3 left-3 z-10">
+      <div className="absolute top-3 left-3 z-10 flex items-center gap-2 flex-wrap">
+        <div className="flex rounded-lg overflow-hidden border border-white/15 shadow-lg text-[11px] font-semibold">
+          {Object.entries(BASEMAP_STYLES).map(([key, { label }]) => (
+            <button
+              key={key}
+              onClick={() => switchBasemap(key)}
+              className={`px-2.5 py-1.5 transition-all ${
+                basemap === key
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-slate-900/85 text-white/80 hover:text-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <ParcelLinesToggle mapRef={mapRef} />
       </div>
       {clickedParcel && (

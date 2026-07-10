@@ -5,6 +5,13 @@ import CesiumViewer from "./CesiumViewer";
 import { loadPublicConfig } from "@/lib/publicConfig";
 const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 const STREETS_STYLE = "mapbox://styles/mapbox/streets-v12";
+const SATELLITE_ONLY_STYLE = "mapbox://styles/mapbox/satellite-v9";
+// One-click basemap options — visual background only; never touches coordinates.
+const BASEMAPS = [
+  { key: "streets",           label: "🗺 Streets",     style: STREETS_STYLE },
+  { key: "satellite_streets", label: "🛰 Sat Streets", style: SATELLITE_STYLE },
+  { key: "satellite",         label: "🛰 Satellite",   style: SATELLITE_ONLY_STYLE },
+];
 const METERS_PER_MILE = 1609.344;
 
 function getScoreColor(score) {
@@ -117,7 +124,8 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [mapStyle, setMapStyle] = useState("satellite");
+  const [mapStyle, setMapStyle] = useState("streets");
+  const skipFitRef = useRef(false); // basemap switch must never move the camera
   const [mapboxReady, setMapboxReady] = useState(false);
   const [mapboxToken, setMapboxToken] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -148,7 +156,7 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
     mapboxgl.accessToken = mapboxToken;
     const map = new mapboxgl.Map({
       container: mapContainer.current,
-      style: SATELLITE_STYLE,
+      style: STREETS_STYLE,
       center: [centerLon, centerLat],
       zoom: 13,
       preserveDrawingBuffer: true,
@@ -281,17 +289,26 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
       bounds.extend([r.longitude, r.latitude]);
     });
 
-    // Fit bounds to the 1.0-mile ring so all three rings are always visible
-    outerGeo.geometry.coordinates[0].forEach((pt) => bounds.extend(pt));
-    map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+    // Fit bounds to the 1.0-mile ring so all three rings are always visible —
+    // but NOT after a basemap switch, which must preserve the camera exactly.
+    if (skipFitRef.current) {
+      skipFitRef.current = false;
+    } else {
+      outerGeo.geometry.coordinates[0].forEach((pt) => bounds.extend(pt));
+      map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+    }
   }, [mapLoaded, results, centerLat, centerLon, filteredResultIds, radiusMiles]);
 
-  const toggleStyle = () => {
-    if (!mapRef.current) return;
-    const next = mapStyle === "satellite" ? "streets" : "satellite";
-    setMapStyle(next);
+  // Visual-only basemap swap: setStyle preserves center/zoom/bearing/pitch and
+  // markers; overlays re-add via the mapLoaded effects. Coordinates untouched.
+  const switchBasemap = (key) => {
+    if (!mapRef.current || key === mapStyle) return;
+    const target = BASEMAPS.find((b) => b.key === key);
+    if (!target) return;
+    setMapStyle(key);
     setMapLoaded(false);
-    mapRef.current.setStyle(next === "satellite" ? SATELLITE_STYLE : STREETS_STYLE);
+    skipFitRef.current = true;
+    mapRef.current.setStyle(target.style);
     mapRef.current.once("style.load", () => setMapLoaded(true));
   };
 
@@ -406,26 +423,19 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
         {/* Style toggle */}
         {centerLat && !loading && (
           <div className="absolute top-3 left-3 z-10 flex rounded-lg overflow-hidden border border-border shadow text-xs font-semibold">
-            <button
-              onClick={() => mapStyle !== "satellite" && toggleStyle()}
-              className={`px-3 py-1.5 transition-all ${
-                mapStyle === "satellite"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card/90 backdrop-blur text-muted-foreground hover:bg-card"
-              }`}
-            >
-              🛰 Satellite
-            </button>
-            <button
-              onClick={() => mapStyle !== "streets" && toggleStyle()}
-              className={`px-3 py-1.5 transition-all ${
-                mapStyle === "streets"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-card/90 backdrop-blur text-muted-foreground hover:bg-card"
-              }`}
-            >
-              🗺 Streets
-            </button>
+            {BASEMAPS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => switchBasemap(key)}
+                className={`px-3 py-1.5 transition-all ${
+                  mapStyle === key
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card/90 backdrop-blur text-muted-foreground hover:bg-card"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         )}
 
