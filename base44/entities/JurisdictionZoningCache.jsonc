@@ -3,6 +3,11 @@
   "type": "object",
   "description": "App-wide, jurisdiction-level cache of telecom (cell tower) zoning + permitting requirements. Keyed by (state_code, jurisdiction_name_normalized, jurisdiction_type). One Zoneomics/zoning fetch per jurisdiction is stored once here and reused across every SCIP, user, and session. District-specific zoning rows are kept per zoning_district under district_reports so jurisdiction-wide telecom rules can be reused while district rules are tracked separately. NOT user-scoped \u2014 readable/writable by any signed-in user so the cache works across the whole app.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "state_code": {
       "type": "string",
       "description": "Two-letter uppercase state code (e.g. FL)."

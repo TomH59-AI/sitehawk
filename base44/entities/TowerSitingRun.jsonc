@@ -3,6 +3,11 @@
   "type": "object",
   "description": "HawkPerch \u2014 one preliminary 2D tower siting run. Stores the parcel, ordinance rules, solver inputs, and full geometry result. NOT a stamped survey, zoning determination, or final tower location.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "scip_record_id": {
       "type": "string",
       "description": "Linked ScipRecord id (optional)."

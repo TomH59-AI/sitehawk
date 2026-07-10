@@ -3,6 +3,11 @@
   "type": "object",
   "description": "A public, read-only snapshot of a SCIP for sharing via link/email.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "share_id": {
       "type": "string",
       "description": "Short random ID used in the public URL"

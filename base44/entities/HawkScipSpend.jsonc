@@ -3,6 +3,11 @@
   "type": "object",
   "description": "One row per HawkSCIP spent. A HawkSCIP is consumed when a user runs Zoning (generateZoningPermitReport) on a site for the first time. Counting rows is the quota: free tier = lifetime count; paid tiers = count since the start of the current calendar month. Idempotent per site_key so re-running Zoning on the same site does NOT double-charge.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "user_email": {
       "type": "string",
       "description": "Email of the user who spent the HawkSCIP."

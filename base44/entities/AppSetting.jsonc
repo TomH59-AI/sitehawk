@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Per-user app-level settings (key/value). Used to remember things like the Google Sheets spreadsheet ID for the permitting pipeline sync.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "key": {
       "type": "string",
       "description": "Setting key (e.g. 'permitting_pipeline_sheet_id')"

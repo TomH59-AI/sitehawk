@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Boilerplate clause library powering Hawk Law analysis. Each record represents a known lease clause pattern with favorability scoring, red flag severity, counter-suggestion language, and plain-English explainer for landlords.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "clause_category": {
       "type": "string",
       "enum": [

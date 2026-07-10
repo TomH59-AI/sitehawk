@@ -3,6 +3,11 @@
   "type": "object",
   "description": "AI-generated elevation and cross-section renders for a candidate site.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "jurisdiction_id": {
       "type": "string",
       "description": "Linked Jurisdiction record id"

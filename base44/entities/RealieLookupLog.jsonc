@@ -3,6 +3,11 @@
   "type": "object",
   "description": "HawkFit Map \u2014 audit log of Realie property lookups (query, mode, outcome). API key never leaves the backend.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "query_type": {
       "type": "string",
       "enum": [

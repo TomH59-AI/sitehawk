@@ -3,6 +3,11 @@
   "type": "object",
   "description": "SkyWave SCIP Step 1 \u2014 Site Acquisition & Search Ring record. Drives the printable SCIP document.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "agent_name": {
       "type": "string",
       "description": "Agent full name (max 80 chars)"

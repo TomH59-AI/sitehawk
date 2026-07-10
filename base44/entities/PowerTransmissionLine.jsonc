@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Aggregated US electric power transmission line connections (HIFLD-derived). Source: powerlines_llm_connections_aggregated.csv (82,066 rows). No lat/lon \u2014 use for owner/voltage/substation lookups, not proximity queries.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "from": {
       "type": "string",
       "description": "Originating substation, tap, or named endpoint"

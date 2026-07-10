@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Cleaned US cellular sites directory (SkyWave/SWCellID-derived). Each row is an existing cell site with ASR number, coordinates, market/cluster, and E911 address used for nearest-tower and coverage analysis.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "asr_number": {
       "type": "number",
       "description": "ASR (Antenna Structure Registration) number / row index."

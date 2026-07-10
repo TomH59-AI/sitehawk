@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Hawk Compliance \u2014 a Section 106 / NEPA regulatory clearance record for one cell tower site project. Anchored to a ScipRecord (scipRecordId). Tracks NEPA categorical-exclusion screening (47 CFR 1.1307), SHPO state-level historic review, and THPO tribal consultation as a live workflow with a 30-day FCC NPA shot clock. Pre-screened from data the SiteSearch pipeline already collected on the linked ScipRecord. Analysis / workflow tracking, not legal advice.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "scipRecordId": {
       "type": "string",
       "description": "Linked ScipRecord id \u2014 the site project this compliance record tracks. One record per ScipRecord."

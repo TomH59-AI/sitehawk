@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Directory of US electric power providers (utilities, co-ops, municipals) with contact info and coordinates. Joined with PowerTransmissionLine to surface the provider name + phone for a search area.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "NAME": {
       "type": "string",
       "description": "Provider / utility company name"

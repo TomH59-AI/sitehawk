@@ -3,6 +3,11 @@
   "type": "object",
   "description": "911 Master PSAP (Public Safety Answering Point) Registry. Source: 911_Master_PSAP_Registry.csv. Used to identify the nearest 911 dispatch / public-safety answering point for a site.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "psap_id": {
       "type": "string",
       "description": "PSAP ID from the FCC registry."

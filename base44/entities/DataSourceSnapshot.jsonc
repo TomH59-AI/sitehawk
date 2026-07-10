@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Append-only audit record of one external-data fetch/refresh for a SCIP section. DataSourceSnapshot is the source of truth for SCIP data freshness and history; ScipRecord keeps only lightweight current-status fields for fast UI badges. Each fetch/refresh of a section creates a NEW snapshot (never updated in place except to flip is_current=false when superseded). Old completed SCIPs reference the snapshot IDs they used so they never silently change when newer data is fetched later. Notion is an optional human-readable mirror only; raw_response stays here.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "scip_record_id": {
       "type": "string",
       "description": "The ScipRecord this snapshot belongs to."

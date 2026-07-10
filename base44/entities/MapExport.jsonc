@@ -3,6 +3,11 @@
   "type": "object",
   "description": "HawkFit Map \u2014 a generated static map exhibit (parcel + fall zone + compound + tower) for a TowerScenario.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "tower_scenario_id": {
       "type": "string"
     },

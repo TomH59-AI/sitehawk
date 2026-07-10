@@ -3,6 +3,11 @@
   "type": "object",
   "description": "GenerateSiteVisualization run \u2014 stores Realie parcel metadata, Notion-derived zoning compliance flags, the user's clicked compound center, and the final Replicate-rendered visualization image URLs for landowner presentations.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "parcel_id": {
       "type": "string",
       "description": "Linked SearchResult.id if originated from a saved scan parcel (optional)."

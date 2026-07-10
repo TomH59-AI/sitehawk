@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Active negotiation session for Hawk Law. One per uploaded lease analysis. Tracks triage result, clause-by-clause review, negotiation rounds, redline state, risk assessment, and attorney export. Sessions can be standalone or linked to a HawkLeaseSite.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "hawklease_site_id": {
       "type": "string",
       "description": "Optional FK to HawkLeaseSite \u2014 sessions can run standalone"

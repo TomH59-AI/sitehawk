@@ -3,6 +3,11 @@
   "type": "object",
   "description": "HawkFit Map \u2014 a Target A property looked up via Realie. Holds normalized parcel details + geometry used for tower-fit analysis.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "address": {
       "type": "string",
       "description": "Situs address of the parcel."

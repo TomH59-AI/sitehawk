@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Hawk Document Intelligence \u2014 an uploaded zoning or building-permit application that SiteHawk reads, explains, and fills. AI extracts every form field, explains what it asks for, pre-fills from a chosen SCIP record, and the user completes the rest via Q&A. The completed application can be e-signed, printed, and shared via a public read-only link.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "doc_name": {
       "type": "string",
       "description": "User label for the document (e.g. 'Hillsborough County Tower CUP Application')."

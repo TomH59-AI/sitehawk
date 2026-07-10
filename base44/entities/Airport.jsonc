@@ -3,6 +3,11 @@
   "type": "object",
   "description": "US airport directory (FAA/OurAirports-derived). 76,398 airports/heliports with coordinates for nearest-airport proximity lookups from a Target A tower location.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "airport_callnumber": {
       "type": "string",
       "description": "Airport call letters / identifier (e.g. '00A', 'JFK')."

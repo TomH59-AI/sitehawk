@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Normalized Virginia parcel data from the VGIN statewide parcel service for Site-Hawk Pro.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "state": {
       "type": "string",
       "default": "VA",

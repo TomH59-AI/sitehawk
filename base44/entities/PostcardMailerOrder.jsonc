@@ -3,6 +3,11 @@
   "type": "object",
   "description": "A paid Postcard Mailer Pack order tied to one ScipRecord. Recipients are the SCIP's parcel_targets (Target A/B/C) plus up to 2 optional extra already-evaluated parcels. Lob postcards are created server-side only after payment is confirmed; Lob postcard IDs/statuses are stored per recipient. Never stores Lob credentials.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "scip_record_id": {
       "type": "string",
       "description": "The ScipRecord this mailer order belongs to."

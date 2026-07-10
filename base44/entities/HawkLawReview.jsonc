@@ -3,6 +3,11 @@
   "type": "object",
   "description": "HawkLaw \u2014 AI lease analysis for telecom ground leases. The user picks ONE side (landlord or carrier/tenant) per lease and it is HARD-LOCKED on this record: once analyzed, the other side's playbook can never be viewed for this lease, so a user cannot negotiate against themselves. Analysis is NOT legal advice. A new lease = a new record = a fresh side pick.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "lease_name": {
       "type": "string",
       "description": "User-provided label for the lease (e.g. 'Boyer Ground Lease - Marion Samson 75')."

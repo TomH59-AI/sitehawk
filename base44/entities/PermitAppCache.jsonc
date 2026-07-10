@@ -3,6 +3,11 @@
   "type": "object",
   "description": "HawkFetch \u2014 app-wide cache of official zoning/permit application resources per US jurisdiction. Keyed by (state, jurisdiction lowercase-trimmed). One InvokeLLM discovery per jurisdiction is stored here and reused across all users for 90 days. Not user-scoped.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "state": {
       "type": "string",
       "description": "Two-letter uppercase state code."

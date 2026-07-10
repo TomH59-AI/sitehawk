@@ -3,6 +3,11 @@
   "type": "object",
   "description": "Generate 3D Image run \u2014 the Cesium-rendered exaggerated 3D parcel preview produced AFTER the Tower Siter (TowerSitingRun / Target A). Shows the to-scale parcel boundary, an exaggerated monopole tower, and a user-selected landscaped buffered compound, for landowner persuasion. Carries a not-to-scale disclaimer.",
   "properties": {
+    "description": {
+      "type": "string",
+      "description": "Optional description or notes for this record (up to 1000 characters).",
+      "maxLength": 1000
+    },
     "tower_siting_run_id": {
       "type": "string",
       "description": "The TowerSitingRun (Target A / Tower Siter output) this 3D preview was generated from."
