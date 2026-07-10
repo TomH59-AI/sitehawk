@@ -10,7 +10,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 const firstEnv = (names) => {
   for (const n of names) {
     const v = Deno.env.get(n);
-    if (v) return v;
+    if (v && v.trim()) return v.trim();
   }
   return null;
 };
