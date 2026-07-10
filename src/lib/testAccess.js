@@ -17,13 +17,11 @@ import { isDemoCampaignOver } from "@/lib/demoCampaign";
 
 export const TESTER_EMAILS = [
   "hodges.thomas@gmail.com",
-  // ── PYRAMID NS 30-DAY PAID PILOT (started 2026-07-08, remove ~2026-08-07) ──
-  // Call sign: HAWK — Jay Suriano (the boss). Both spellings covered.
+  "tomhodges@onairs.org",
+  // ── PYRAMID NS — PAID FULL-APEX ACCESS ($1,200/mo each, started 2026-07-10) ──
+  "jcuttone@pyramidns.com",
+  "rhanson@pyramidns.com",
   "jsuriano@pyramidns.com",
-  "jsuriano@pyramidns.co",
-  // Call signs FALCON + OSPREY reserved for Jay's two teammates — add their emails here.
-  // ── COREY MILAN 30-DAY PILOT (started 2026-07-08, remove ~2026-08-07) ──
-  "cmilan@nbcllc.com",
 ];
 
 export const TESTER_TIER = "hawk_command";
