@@ -33,6 +33,7 @@ const COMP_GRANTS = {
   'jcuttone@pyramidns.com': { limit: Infinity, window: 'lifetime' },
   'rhanson@pyramidns.com': { limit: Infinity, window: 'lifetime' },
   'jsuriano@pyramidns.com': { limit: Infinity, window: 'lifetime' },
+  'cfazio@pyramidns.com': { limit: Infinity, window: 'lifetime' },
 };
 
 const QUOTA = {

@@ -22,6 +22,7 @@ export const TESTER_EMAILS = [
   "jcuttone@pyramidns.com",
   "rhanson@pyramidns.com",
   "jsuriano@pyramidns.com",
+  "cfazio@pyramidns.com",
 ];
 
 export const TESTER_TIER = "hawk_command";
