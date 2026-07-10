@@ -48,7 +48,7 @@ export default function Snapshot3DGallery({ towerId, snapshotUrl, refreshKey }) 
       <div className="flex items-center justify-between px-3 py-2 border-b border-indigo-200 dark:border-indigo-800">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
           <Camera className="w-3.5 h-3.5" />
-          3D Tower Concept (HawkPerch)
+          Tower Concept (HawkPerch)
         </div>
         <div className="flex items-center gap-3">
           {viewerUrl && (
@@ -56,9 +56,9 @@ export default function Snapshot3DGallery({ towerId, snapshotUrl, refreshKey }) 
               href={viewerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+              className="inline-flex items-center gap-1 text-[11px] text-indigo-600/70 dark:text-indigo-400/70 hover:underline"
             >
-              <Box className="w-3 h-3" /> Open 3D Viewer
+              <Box className="w-3 h-3" /> 3D view (optional)
             </a>
           )}
           <a

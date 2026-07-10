@@ -53,28 +53,43 @@ export default function Preview3DButton({ threeD, onRenderSaved }) {
 
   return (
     <>
-      <Button variant="outline" className="w-full gap-2" onClick={() => setOpen(true)}>
-        <Box className="w-4 h-4" /> 3D Preview
-      </Button>
-      {rec?.viewer_html_url ? (
-        <a
-          href={rec.viewer_html_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-primary hover:underline"
-        >
-          Open 3D Viewer <ExternalLink className="w-3 h-3" />
+      {/* 2D snapshot is the default visual */}
+      {rec?.snapshot_image_url ? (
+        <a href={rec.snapshot_image_url} target="_blank" rel="noreferrer" className="block">
+          <img
+            src={rec.snapshot_image_url}
+            alt="Tower site exhibit (2D)"
+            className="w-full rounded-lg border object-cover"
+            style={{ maxHeight: 220 }}
+          />
         </a>
-      ) : rec?.snapshot_image_url ? (
-        <a
-          href={rec.snapshot_image_url}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-        >
-          View saved snapshot <ExternalLink className="w-3 h-3" />
-        </a>
-      ) : null}
+      ) : (
+        <Button variant="outline" className="w-full gap-2" onClick={() => setOpen(true)}>
+          <Box className="w-4 h-4" /> Generate Preview
+        </Button>
+      )}
+      {/* 3D stays available as a small optional link */}
+      <div className="flex items-center justify-center gap-4">
+        {rec?.viewer_html_url && (
+          <a
+            href={rec.viewer_html_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            <Box className="w-3 h-3" /> 3D view (optional) <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+        {rec?.snapshot_image_url && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            Regenerate
+          </button>
+        )}
+      </div>
       {open && (
         <ThreeTower3DViewer render={render} onClose={() => setOpen(false)} onSnapshot={handleSnapshot} />
       )}
