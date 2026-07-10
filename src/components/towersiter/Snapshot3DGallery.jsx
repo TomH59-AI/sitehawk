@@ -4,7 +4,6 @@
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Link } from "react-router-dom";
 import { Camera, ExternalLink, Box } from "lucide-react";
 import { format } from "date-fns";
 
@@ -53,12 +52,14 @@ export default function Snapshot3DGallery({ towerId, snapshotUrl, refreshKey }) 
         </div>
         <div className="flex items-center gap-3">
           {viewerUrl && (
-            <Link
-              to={viewerUrl}
+            <a
+              href={viewerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
             >
               <Box className="w-3 h-3" /> Open 3D Viewer
-            </Link>
+            </a>
           )}
           <a
             href={url}

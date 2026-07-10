@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { Box, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { base44 } from "@/api/base44Client";
@@ -58,12 +57,14 @@ export default function Preview3DButton({ threeD, onRenderSaved }) {
         <Box className="w-4 h-4" /> 3D Preview
       </Button>
       {rec?.viewer_html_url ? (
-        <Link
-          to={rec.viewer_html_url}
+        <a
+          href={rec.viewer_html_url}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-primary hover:underline"
         >
           Open 3D Viewer <ExternalLink className="w-3 h-3" />
-        </Link>
+        </a>
       ) : rec?.snapshot_image_url ? (
         <a
           href={rec.snapshot_image_url}
