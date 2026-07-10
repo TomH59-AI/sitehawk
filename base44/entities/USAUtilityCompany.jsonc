@@ -1,0 +1,47 @@
+{
+  "name": "USAUtilityCompany",
+  "type": "object",
+  "description": "USA Utility Companies \u2014 EIA-derived directory of US electric utility companies by ZIP code (2020), with service type, ownership, and commercial/industrial/residential rates ($/kWh).",
+  "properties": {
+    "zip": {
+      "type": "string",
+      "description": "5-digit ZIP code served."
+    },
+    "eiaid": {
+      "type": "string",
+      "description": "EIA utility ID."
+    },
+    "utility_name": {
+      "type": "string",
+      "description": "Utility company name."
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter state code."
+    },
+    "service_type": {
+      "type": "string",
+      "description": "Service type (e.g. Bundled, Delivery, Energy)."
+    },
+    "ownership": {
+      "type": "string",
+      "description": "Ownership type (e.g. Investor Owned, Cooperative, Municipal)."
+    },
+    "comm_rate": {
+      "type": "number",
+      "description": "Commercial rate in $/kWh."
+    },
+    "ind_rate": {
+      "type": "number",
+      "description": "Industrial rate in $/kWh."
+    },
+    "res_rate": {
+      "type": "number",
+      "description": "Residential rate in $/kWh."
+    }
+  },
+  "required": [
+    "zip",
+    "utility_name"
+  ]
+}
