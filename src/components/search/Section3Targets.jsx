@@ -28,6 +28,7 @@ import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
 import ExportTargetJsonButton from "./section3/ExportTargetJsonButton";
 import Section3Alternates from "./section3/Section3Alternates";
+import ConnectivityPanel from "./section3/ConnectivityPanel";
 import SectionClearButton from "./SectionClearButton";
 import { regridEnrichTarget, normalizeRegridEnrich, regridZoningLabel, regridFemaLabel, regridFloodComposition, regridSfhaWarning, regridNriLabel, regridFirmDateLabel } from "@/lib/regridEnrich";
 import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
@@ -700,6 +701,8 @@ export default function Section3Targets({
               ))}
             </div>
           )}
+          {/* CONNECTIVITY — CarrierFinder fiber/telco intel per target (additive, display-only) */}
+          {!noData && <ConnectivityPanel targets={targets} />}
           {/* ALTERNATE TARGETS D & E — standalone backup intel, not in pipeline */}
           {!noData && <Section3Alternates alternates={alternates} />}
         </>
