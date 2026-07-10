@@ -4,7 +4,8 @@
  */
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Camera, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Camera, ExternalLink, Box } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Snapshot3DGallery({ towerId, snapshotUrl, refreshKey }) {
@@ -13,20 +14,22 @@ export default function Snapshot3DGallery({ towerId, snapshotUrl, refreshKey }) 
   // refreshKey: bump this to force a re-check after a new snapshot is saved
 
   const [url, setUrl] = useState(snapshotUrl || null);
+  const [viewerUrl, setViewerUrl] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setUrl(snapshotUrl || null);
   }, [snapshotUrl, refreshKey]);
 
-  // If no URL was passed directly, try fetching from the entity
+  // Fetch the record for the viewer link (and snapshot if not passed directly)
   useEffect(() => {
-    if (url || !towerId) return;
-    setLoading(true);
+    if (!towerId) return;
+    if (!url) setLoading(true);
     base44.entities.Tower3DRender.filter({ id: towerId })
       .then((rows) => {
         const rec = rows?.[0];
-        if (rec?.snapshot_image_url) setUrl(rec.snapshot_image_url);
+        if (rec?.snapshot_image_url) setUrl((u) => u || rec.snapshot_image_url);
+        if (rec?.viewer_html_url) setViewerUrl(rec.viewer_html_url);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -48,14 +51,24 @@ export default function Snapshot3DGallery({ towerId, snapshotUrl, refreshKey }) 
           <Camera className="w-3.5 h-3.5" />
           3D Tower Concept (HawkPerch)
         </div>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-        >
-          <ExternalLink className="w-3 h-3" /> Open full size
-        </a>
+        <div className="flex items-center gap-3">
+          {viewerUrl && (
+            <Link
+              to={viewerUrl}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              <Box className="w-3 h-3" /> Open 3D Viewer
+            </Link>
+          )}
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+          >
+            <ExternalLink className="w-3 h-3" /> Open full size
+          </a>
+        </div>
       </div>
 
       {/* Image */}

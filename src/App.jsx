@@ -70,6 +70,7 @@ import HawkTracker from './pages/HawkTracker';
 import PilotTracker from './pages/PilotTracker';
 import TowerSiter from './pages/TowerSiter';
 import Tower3DViewer from './pages/Tower3DViewer';
+import CesiumTowerViewer from './pages/CesiumTowerViewer';
 import Photo3DViewer from './pages/Photo3DViewer';
 import HawkLease from './pages/HawkLease';
 import HawkLeaseDashboard from './pages/hawklease/HawkLeaseDashboard';
@@ -171,6 +172,8 @@ const AuthenticatedApp = () => {
         {/* HawkPerch — feature_tower_siter ships dark: route exists, no nav link */}
         <Route path="/tower-siter" element={<TowerSiter />} />
         <Route path="/tower-3d-viewer" element={<Tower3DViewer />} />
+        {/* Interactive Cesium scene for a Tower3DRender (viewer_html_url target) */}
+        <Route path="/cesium-tower-viewer" element={<CesiumTowerViewer />} />
         <Route path="/photo-3d-viewer" element={<Photo3DViewer />} />
         {/* HawkLease */}
         <Route path="/hawk-lease" element={<HawkLease />}>
