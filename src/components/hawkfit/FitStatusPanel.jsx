@@ -27,7 +27,7 @@ export default function FitStatusPanel({ fit }) {
         ))}
       </ul>
       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
-        Preliminary screen — not a survey or zoning determination.
+        NOT final engineering, NOT a stamped survey, and NOT a final zoning determination.
       </p>
     </div>
   );

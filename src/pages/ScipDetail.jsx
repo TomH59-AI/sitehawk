@@ -20,6 +20,7 @@ import NotionSyncToggle from "../components/scip/NotionSyncToggle";
 import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
 import PrintSiteHawkScipButton from "../components/scip/PrintSiteHawkScipButton";
 import RunFullScipButton from "../components/scip/RunFullScipButton";
+import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
 
 // Thin, self-contained print row placed above each on-screen SCIP panel. Lets a
 // user print the ENTIRE branded SCIP from wherever they're reviewing — without
@@ -250,6 +251,19 @@ export default function ScipDetail() {
         <div className="bg-white rounded-lg shadow-sm border mx-auto" style={{ borderColor: SKYWAVE.line, width: "8.5in", maxWidth: "100%" }}>
           <ScipPrintDoc record={record} />
         </div>
+
+        {/* HAWKFIT MAP — immediately after the Tower Siter exhibit (the final
+            SCIP page above). Uses the SCIP's active Target A
+            (parcel_targets[active_target_index || 0]). Not printed. */}
+        {record.parcel_targets?.[record.active_target_index || 0] && (
+          <div className="mt-5 no-print">
+            <HawkFitPipelineSection
+              unlocked={true}
+              targetA={record.parcel_targets[record.active_target_index || 0]}
+              towerHeightFt={Number(record.sarf_height) || 199}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

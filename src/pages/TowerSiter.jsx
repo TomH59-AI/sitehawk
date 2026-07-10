@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { FileText, Download, Send, CheckCircle2, AlertOctagon, Layers, Printer, Save } from "lucide-react";
 import Generate3DImageButton from "@/components/towersiter/Generate3DImageButton";
 import GeneratePhoto3DButton from "@/components/towersiter/GeneratePhoto3DButton";
+import HawkFitPipelineSection from "@/components/hawkfit/HawkFitPipelineSection";
 
 import { recompute, makeFrame, polygonFromFrame, compoundRect, polygonFromCalls } from "@/lib/towerSiterEngine";
 import { siterEntitlements, DEMO_PARCEL } from "@/lib/towerSiterAccess";
@@ -399,6 +400,23 @@ export default function TowerSiter() {
     acres: parcel?.acres, calls: parcel?.calls, sourceLabel: parcel?.sourceLabel,
   };
 
+  // Active Target A for the HawkFit section below — derived from the loaded
+  // parcel in ScipRecord.parcel_targets shape so the shared resolver order holds.
+  const hawkFitTarget = useMemo(() => {
+    const c = parcel?.location?.coordinates;
+    if (!c || !Number.isFinite(Number(c[1])) || !Number.isFinite(Number(c[0]))) return null;
+    return {
+      parcel_address: parcel.addressFull || null,
+      apn: parcel.apn || null,
+      owner_name: parcel.ownerName || null,
+      acreage: parcel.acres ?? null,
+      zoning_classification: parcel.zoningCode || null,
+      jurisdiction: parcel.jurisdiction || null,
+      latitude: Number(c[1]),
+      longitude: Number(c[0]),
+    };
+  }, [parcel]);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -604,6 +622,17 @@ export default function TowerSiter() {
           )}
         </div>
       </div>
+
+      {/* HAWKFIT MAP — immediately after the Tower Siter / Preliminary Tower
+          Siting Exhibit. Deterministic fit checks + Save Scenario / Export Map
+          on the SAME parcel loaded above. */}
+      {hawkFitTarget && (
+        <HawkFitPipelineSection
+          unlocked={true}
+          targetA={hawkFitTarget}
+          towerHeightFt={Number(controls.heightFt) || 199}
+        />
+      )}
 
       <UpgradeModal open={!!upgrade} onClose={() => setUpgrade(null)} reason={upgrade} />
     </div>

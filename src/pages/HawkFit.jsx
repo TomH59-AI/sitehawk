@@ -23,6 +23,7 @@ export default function HawkFit() {
   const [layers, setLayers] = useState({ parcel: true, fallZone: true, compound: true });
   const [lookupBusy, setLookupBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  const [savedScenario, setSavedScenario] = useState(null);
 
   const fit = useMemo(() => {
     if (!towerLngLat) return null;
@@ -43,6 +44,7 @@ export default function HawkFit() {
       const target = res.data.target;
       setSiteTarget(target);
       setTowerLngLat([target.longitude, target.latitude]);
+      setSavedScenario(null);
       toast({ title: "Property loaded", description: target.address || "Target A ready — drag the tower pin." });
     } catch (e) {
       toast({
@@ -64,6 +66,7 @@ export default function HawkFit() {
       const res = await saveTowerScenario({
         site_target: siteTarget,
         scenario: {
+          id: savedScenario?.id,
           name: siteTarget.address || siteTarget.parcel_id || "Tower Scenario",
           tower_lat: towerLngLat[1],
           tower_lon: towerLngLat[0],
@@ -74,9 +77,10 @@ export default function HawkFit() {
           fit_reasons: fit.reasons,
         },
       });
-      // Remember the saved SiteTarget id so re-saves don't duplicate it.
+      // Remember the saved SiteTarget + TowerScenario ids so re-saves update, not duplicate.
       setSiteTarget((t) => ({ ...t, id: res.data.site_target_id }));
-      toast({ title: "Scenario saved", description: "Tower placement and fit status stored." });
+      setSavedScenario(res.data.scenario || { id: res.data.tower_scenario_id });
+      toast({ title: "Scenario saved", description: "Export Map is now enabled." });
     } catch (e) {
       toast({ title: "Save failed", description: e?.response?.data?.error || e.message, variant: "destructive" });
     }
@@ -107,9 +111,18 @@ export default function HawkFit() {
               <div className="space-y-2">
                 <Button onClick={handleSave} disabled={saveBusy || !fit} className="w-full">
                   {saveBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Save Tower Scenario
+                  {savedScenario ? "Update Tower Scenario" : "Save Tower Scenario"}
                 </Button>
-                <ExportMapButton siteTarget={siteTarget} towerLngLat={towerLngLat} fit={fit} disabled={!fit} />
+                <ExportMapButton
+                  siteTarget={siteTarget}
+                  towerLngLat={towerLngLat}
+                  fit={fit}
+                  disabled={!savedScenario}
+                  scenarioId={savedScenario?.id}
+                />
+                {!savedScenario && (
+                  <p className="text-[11px] text-muted-foreground">Save the scenario to enable Export Map.</p>
+                )}
               </div>
             </>
           )}
