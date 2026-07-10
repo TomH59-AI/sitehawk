@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Crosshair, ChevronDown, ChevronUp, Save, Loader2, Box, ExternalLink } from "lucide-react";
+import { Crosshair, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { computeFit } from "@/lib/hawkfitGeometry";
 import { resolveActiveTargetA, resolve3DContext } from "@/lib/hawkfitTargetResolver";
@@ -13,6 +13,7 @@ import TowerControls from "@/components/hawkfit/TowerControls";
 import FitStatusPanel from "@/components/hawkfit/FitStatusPanel";
 import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
+import Preview3DButton from "@/components/hawkfit/Preview3DButton";
 
 const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v != null && v !== ""));
 
@@ -188,15 +189,11 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                     <p className="text-[11px] text-muted-foreground">Save the scenario to enable Export Map.</p>
                   )}
                   {/* 3D preview — tied to the real TowerSitingRun / Tower3DRender for this parcel */}
-                  {threeD?.render ? (
-                    <a
-                      href={threeD.render.viewer_html_url || threeD.render.snapshot_image_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-2 w-full h-9 rounded-md border border-input text-sm font-medium hover:bg-accent transition-colors"
-                    >
-                      <Box className="w-4 h-4" /> 3D Preview <ExternalLink className="w-3 h-3" />
-                    </a>
+                  {threeD?.run || threeD?.render ? (
+                    <Preview3DButton
+                      threeD={threeD}
+                      onRenderSaved={() => siteTarget && resolve3DContext(siteTarget).then(setThreeD)}
+                    />
                   ) : (
                     <p className="text-[11px] text-muted-foreground">
                       3D preview: generate one from the Tower Siter section above — it stays tied to this Target A's siting run.
