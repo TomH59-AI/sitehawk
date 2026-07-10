@@ -30,9 +30,10 @@ function esc(s) {
 }
 
 function buildHtml(subject, body, type = 'notification') {
+  const linkify = (s) => s.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#00d4ff;">$1</a>');
   const bodyHtml = String(body || '')
     .split(/\n{1,}/)
-    .map((p) => `<p style="margin:0 0 14px 0;font-size:15px;line-height:1.65;color:#cbd5e1;">${esc(p.trim())}</p>`)
+    .map((p) => `<p style="margin:0 0 14px 0;font-size:15px;line-height:1.65;color:#cbd5e1;">${linkify(esc(p.trim()))}</p>`)
     .join('');
 
   const footerExtra = type === 'marketing'
