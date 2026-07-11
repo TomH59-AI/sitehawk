@@ -21,6 +21,7 @@ import { useSearchParams } from "react-router-dom";
 import { Zap, Gauge, Building2, Radio, TowerControl, Loader2, AlertTriangle, List } from "lucide-react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
+import { infrastructureAssets } from "@/functions/infrastructureAssets";
 import { base44 } from "@/api/base44Client";
 import { resolveScipActiveTarget } from "@/lib/scipTarget";
 import PowerLineDetailsPanel from "../components/powerlines/PowerLineDetailsPanel";
@@ -199,6 +200,7 @@ export default function SitePowerMap() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(null);
   const [stats, setStats] = useState(null);
+  const [showPoles, setShowPoles] = useState(false);
   const reqRef = useRef(0);
 
   // init map once
@@ -233,6 +235,19 @@ export default function SitePowerMap() {
         map.addLayer({ id: "subs-label", type: "symbol", source: "subs", minzoom: 11,
           layout: { "text-field": ["get", "disp"], "text-size": 10, "text-offset": [0, 1.1], "text-anchor": "top", "text-allow-overlap": false, "text-optional": true },
           paint: { "text-color": "#fde047", "text-halo-color": "#000", "text-halo-width": 1.4 } });
+
+        // ---- OSM distribution grid (smart density: transformers/substations, lines, poles) ----
+        map.addSource("dist-lines", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "dist-lines", type: "line", source: "dist-lines", paint: { "line-color": "#e60000", "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.8, 15, 2], "line-opacity": 0.75, "line-dasharray": [1, 0.6] } });
+        map.addSource("dist-poles", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "dist-poles", type: "circle", source: "dist-poles", layout: { visibility: "none" }, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 1.6, 16, 4], "circle-color": "#e60000", "circle-opacity": 0.7, "circle-stroke-color": "#fff", "circle-stroke-width": 0.4 } });
+        map.addSource("dist-key", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "dist-key", type: "circle", source: "dist-key", paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 3.5, 16, 7], "circle-color": "#e60000", "circle-stroke-color": "#fff", "circle-stroke-width": 1.2, "circle-opacity": 0.95 } });
+        const distHover = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+        const distMove = (e) => { map.getCanvas().style.cursor = "pointer"; const p = e.features?.[0]?.properties || {}; distHover.setLngLat(e.lngLat).setHTML(`<div style="font-family:monospace;font-size:11px"><strong>${(p.kind || "asset").toUpperCase()}</strong>${p.operator ? " · " + p.operator : ""}${p.voltage ? " · " + p.voltage : ""}<br/><span style="opacity:.7">OSM distribution</span></div>`).addTo(map); };
+        const distLeave = () => { map.getCanvas().style.cursor = ""; distHover.remove(); };
+        map.on("mousemove", "dist-key", distMove); map.on("mouseleave", "dist-key", distLeave);
+        map.on("mousemove", "dist-poles", distMove); map.on("mouseleave", "dist-poles", distLeave);
 
         const hover = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
         map.on("mousemove", "lines-hit", (e) => {
@@ -281,11 +296,16 @@ export default function SitePowerMap() {
       const dLatMi = 2.0;
       const dLat = dLatMi / 69.172, dLon = dLatMi / (Math.cos(toRad(lat)) * 69.172);
       const bbox = [lon - dLon, lat - dLat, lon + dLon, lat + dLat];
-      let lineFeats = [], subFeats = [];
+      let lineFeats = [], subFeats = [], osm = null;
       try {
-        const [lineResp, subs] = await Promise.all([hifldTransmissionLines({ bbox, limit: 1000 }), fetchSubstations(lat, lon, 10).catch(() => [])]);
+        const [lineResp, subs, osmResp] = await Promise.all([
+          hifldTransmissionLines({ bbox, limit: 1000 }),
+          fetchSubstations(lat, lon, 10).catch(() => []),
+          infrastructureAssets({ lat, lon, radius_m: 1609 }).then((r) => r?.data).catch(() => null),
+        ]);
         lineFeats = lineResp?.data?.features || [];
         subFeats = subs || [];
+        osm = osmResp;
       } catch (err) { console.warn("SitePowerMap fetch failed:", err?.message); }
       if (reqId !== reqRef.current) return;
 
@@ -297,6 +317,25 @@ export default function SitePowerMap() {
       });
       map.getSource("lines")?.setData({ type: "FeatureCollection", features: lineFeats });
       map.getSource("subs")?.setData({ type: "FeatureCollection", features: subFeats });
+
+      // OSM distribution grid — transformers/substations (key), poles, lines
+      const ePts = osm?.electric?.points || [];
+      const eLns = osm?.electric?.lines || [];
+      const keyPts = ePts.filter((p) => p.kind === "transformer" || p.kind === "substation");
+      const polePts = ePts.filter((p) => p.kind === "pole" || p.kind === "tower");
+      const toPt = (p) => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] }, properties: { kind: p.kind, operator: p.operator || "" } });
+      map.getSource("dist-key")?.setData({ type: "FeatureCollection", features: keyPts.map(toPt) });
+      map.getSource("dist-poles")?.setData({ type: "FeatureCollection", features: polePts.map(toPt) });
+      map.getSource("dist-lines")?.setData({ type: "FeatureCollection", features: eLns.map((l) => ({ type: "Feature", geometry: { type: "LineString", coordinates: l.coords }, properties: { kind: l.kind, voltage: l.voltage || "" } })) });
+      let nearestXfmr = Infinity;
+      for (const p of keyPts) if (p.kind === "transformer") { const d = milesBetween(lat, lon, p.lat, p.lon); if (d < nearestXfmr) nearestXfmr = d; }
+      const dist = {
+        transformers: keyPts.filter((p) => p.kind === "transformer").length,
+        osmSubs: keyPts.filter((p) => p.kind === "substation").length,
+        poles: polePts.length, lines: eLns.length,
+        nearestXfmr: Number.isFinite(nearestXfmr) ? nearestXfmr : null,
+      };
+      const osmCount = ePts.length + eLns.length;
 
       const rings = { r025: 0, r05: 0, r1: 0 };
       let nearestLine = null, nearestLineDist = Infinity;
@@ -334,17 +373,25 @@ export default function SitePowerMap() {
         subCount: subFeats.length, subsWithin1, subsWithin5,
         nearestSub: nearestSub ? { d: nearestSub.d, p: nearestSub.p } : null,
         lineList: lineList.slice(0, 10), subList: subList.slice(0, 12),
+        dist, osmCount,
       });
       setLoading(false);
     })();
   }, [ready, target]);
+
+  // toggle OSM pole/tower visibility
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    if (map.getLayer("dist-poles")) map.setLayoutProperty("dist-poles", "visibility", showPoles ? "visible" : "none");
+  }, [showPoles, ready]);
 
   if (tokenMissing) {
     return <div className="max-w-3xl mx-auto p-8"><div className="rounded-xl border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-4 flex items-start gap-3"><AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" /><div className="text-sm text-amber-800 dark:text-amber-200">Mapbox token unavailable — the Site Power Map can't render.</div></div></div>;
   }
 
   const nl = stats?.nearestLine, ns = stats?.nearestSub;
-  const identified = stats ? (stats.lineCount + stats.subCount) : 0;
+  const identified = stats ? (stats.lineCount + stats.subCount + (stats.osmCount || 0)) : 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
