@@ -1,0 +1,502 @@
+/**
+ * UnifiedGridMap — ONE map that answers power + connectivity for a single site.
+ *
+ * Given a { lat, lon, label } target it overlays, in a single seamless view:
+ *   • HIFLD transmission lines + substations (yellow) — the grid & tie-in points
+ *   • OSM distribution grid (red) — transformers, dist. subs, lines, poles(toggle)
+ *   • CarrierFinder fiber (green On-Net / yellow Near-Net) + serving telco
+ * with SCIP 0.25/0.5/1-mi rings, layer toggles (Transmission / Distribution /
+ * Fiber), full asset identification, and a stat panel. Reusable — dropped into
+ * the SitePowerMap page (with an A/B/C selector) AND inline in the SCIP
+ * Power & Airport section, so users look at ONE map instead of two pictures.
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { Zap, Gauge, Building2, Radio, TowerControl, Loader2, AlertTriangle, List, Cable } from "lucide-react";
+import { loadPublicConfig } from "@/lib/publicConfig";
+import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
+import { infrastructureAssets } from "@/functions/infrastructureAssets";
+import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
+import PowerLineDetailsPanel from "./PowerLineDetailsPanel";
+
+const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js";
+const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css";
+const SAT_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
+const SUBSTATIONS_URL =
+  "https://services6.arcgis.com/OO2s4OoyCZkYJ6oE/arcgis/rest/services/Substations/FeatureServer/0/query";
+
+const LINE_COLOR_EXPR = [
+  "step",
+  ["coalesce", ["to-number", ["get", "VOLTAGE"]], -1],
+  "#9ca3af",
+  0, "#22d3ee", 100, "#4ade80", 300, "#fb923c", 500, "#f43f5e",
+];
+
+const R_MI = 3958.7613;
+const toRad = (d) => (d * Math.PI) / 180;
+function milesBetween(lat1, lon1, lat2, lon2) {
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R_MI * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function pointToSegMiles(lat, lon, aLat, aLon, bLat, bLon) {
+  const kx = Math.cos(toRad(lat)) * 69.172, ky = 69.172;
+  const px = lon * kx, py = lat * ky, ax = aLon * kx, ay = aLat * ky, bx = bLon * kx, by = bLat * ky;
+  const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+  let t = len2 ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+function lineMinMiles(lat, lon, geom) {
+  const rings = geom.type === "LineString" ? [geom.coordinates] : geom.coordinates;
+  let min = Infinity;
+  for (const ring of rings) {
+    for (let i = 0; i < ring.length - 1; i++) {
+      const [aLon, aLat] = ring[i], [bLon, bLat] = ring[i + 1];
+      const d = pointToSegMiles(lat, lon, aLat, aLon, bLat, bLon);
+      if (d < min) min = d;
+    }
+    if (ring.length === 1) { const [x, y] = ring[0]; const d = milesBetween(lat, lon, y, x); if (d < min) min = d; }
+  }
+  return min;
+}
+function circlePolygon(lat, lon, miles, steps = 72) {
+  const coords = [];
+  const dLat = miles / 69.172, dLon = miles / (Math.cos(toRad(lat)) * 69.172);
+  for (let i = 0; i <= steps; i++) { const a = (i / steps) * 2 * Math.PI; coords.push([lon + dLon * Math.cos(a), lat + dLat * Math.sin(a)]); }
+  return { type: "Feature", geometry: { type: "Polygon", coordinates: [coords] }, properties: { miles } };
+}
+function voltLabel(v, cls) { const n = Number(v); if (Number.isFinite(n) && n > 0) return `${n} kV`; return cls || "Unknown"; }
+function cleanSubName(p) {
+  const n = (p?.NAME || "").trim();
+  const junk = !n || /^UNKNOWN/i.test(n) || /^\d+$/.test(n);
+  if (!junk) return n;
+  const loc = [p?.CITY, p?.COUNTY].filter(Boolean).join(" / ");
+  return loc ? `Substation · ${loc}` : "Substation (unnamed)";
+}
+
+let mapboxLoadingPromise = null;
+async function ensureMapbox() {
+  if (window.mapboxgl) return;
+  if (!mapboxLoadingPromise) {
+    mapboxLoadingPromise = new Promise((resolve, reject) => {
+      const css = document.createElement("link"); css.rel = "stylesheet"; css.href = MAPBOX_CSS; document.head.appendChild(css);
+      const s = document.createElement("script"); s.src = MAPBOX_JS; s.onload = resolve; s.onerror = reject; document.head.appendChild(s);
+    });
+  }
+  await mapboxLoadingPromise;
+}
+async function fetchSubstations(lat, lon, miles) {
+  const dLat = miles / 69.172, dLon = miles / (Math.cos(toRad(lat)) * 69.172);
+  const geom = { xmin: lon - dLon, ymin: lat - dLat, xmax: lon + dLon, ymax: lat + dLat, spatialReference: { wkid: 4326 } };
+  const params = new URLSearchParams({
+    where: "1=1", geometry: JSON.stringify(geom), geometryType: "esriGeometryEnvelope",
+    inSR: "4326", outSR: "4326", spatialRel: "esriSpatialRelIntersects",
+    outFields: "NAME,STATUS,TYPE,LINES,MAX_VOLT,MIN_VOLT,CITY,COUNTY", returnGeometry: "true", f: "geojson", resultRecordCount: "300",
+  });
+  const resp = await fetch(`${SUBSTATIONS_URL}?${params.toString()}`);
+  if (!resp.ok) throw new Error(`Substations ${resp.status}`);
+  return (await resp.json()).features || [];
+}
+
+function StatRow({ label, value, sub }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-1.5 border-b border-border/60 last:border-0">
+      <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground pt-0.5">{label}</div>
+      <div className="text-right"><div className="text-sm font-semibold text-foreground">{value ?? "—"}</div>{sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}</div>
+    </div>
+  );
+}
+
+function Chip({ on, onClick, color, children }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`text-[11px] font-mono px-2.5 py-1 rounded-full border transition ${on ? "text-white" : "text-muted-foreground opacity-60 hover:opacity-100"}`}
+      style={on ? { background: color, borderColor: color } : { borderColor: "var(--border)" }}>
+      {children}
+    </button>
+  );
+}
+
+const LAYER_GROUPS = {
+  transmission: ["lines-halo", "lines-color", "lines-hit", "subs-pt", "subs-label", "subconn-line"],
+  distribution: ["dist-lines", "dist-key"],
+  fiber: ["fiber-pt", "fiber-label"],
+};
+
+export default function UnifiedGridMap({ target, height = 620 }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const siteMarkerRef = useRef(null);
+  const reqRef = useRef(0);
+  const [ready, setReady] = useState(false);
+  const [tokenMissing, setTokenMissing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [showPoles, setShowPoles] = useState(false);
+  const [layers, setLayers] = useState({ transmission: true, distribution: true, fiber: true });
+
+  const lat = target?.lat, lon = target?.lon;
+
+  // init map once
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cfg = await loadPublicConfig();
+      const token = cfg.mapboxAccessToken;
+      if (!token) { setTokenMissing(true); return; }
+      await ensureMapbox();
+      if (cancelled) return;
+      window.mapboxgl.accessToken = token;
+      const center = (lat != null && lon != null) ? [lon, lat] : [-98.5, 39.5];
+      const map = new window.mapboxgl.Map({ container: containerRef.current, style: SAT_STYLE, center, zoom: (lat != null) ? 13.2 : 4 });
+      map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
+      map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
+
+      map.on("load", () => {
+        map.addSource("rings", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "rings-line", type: "line", source: "rings", paint: { "line-color": "#38bdf8", "line-width": 1.4, "line-opacity": 0.7, "line-dasharray": [2, 2] } });
+
+        map.addSource("subconn", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "subconn-line", type: "line", source: "subconn", paint: { "line-color": "#facc15", "line-width": 2, "line-dasharray": [1.5, 1.2], "line-opacity": 0.9 } });
+
+        map.addSource("lines", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "lines-halo", type: "line", source: "lines", paint: { "line-color": "#000", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 15, 7], "line-opacity": 0.35 } });
+        map.addLayer({ id: "lines-color", type: "line", source: "lines", paint: { "line-color": LINE_COLOR_EXPR, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 15, 4], "line-opacity": 0.95 } });
+        map.addLayer({ id: "lines-hit", type: "line", source: "lines", paint: { "line-color": "#000", "line-opacity": 0, "line-width": 16 } });
+
+        map.addSource("subs", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "subs-pt", type: "circle", source: "subs", paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 4, 15, 8], "circle-color": "#fde047", "circle-stroke-color": "#000", "circle-stroke-width": 1.2, "circle-opacity": 0.95 } });
+        map.addLayer({ id: "subs-label", type: "symbol", source: "subs", minzoom: 11,
+          layout: { "text-field": ["get", "disp"], "text-size": 10, "text-offset": [0, 1.1], "text-anchor": "top", "text-allow-overlap": false, "text-optional": true },
+          paint: { "text-color": "#fde047", "text-halo-color": "#000", "text-halo-width": 1.4 } });
+
+        map.addSource("dist-lines", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "dist-lines", type: "line", source: "dist-lines", paint: { "line-color": "#e60000", "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.8, 15, 2], "line-opacity": 0.75, "line-dasharray": [1, 0.6] } });
+        map.addSource("dist-poles", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "dist-poles", type: "circle", source: "dist-poles", layout: { visibility: "none" }, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 1.6, 16, 4], "circle-color": "#e60000", "circle-opacity": 0.7, "circle-stroke-color": "#fff", "circle-stroke-width": 0.4 } });
+        map.addSource("dist-key", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "dist-key", type: "circle", source: "dist-key", paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 3.5, 16, 7], "circle-color": "#e60000", "circle-stroke-color": "#fff", "circle-stroke-width": 1.2, "circle-opacity": 0.95 } });
+        const distHover = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+        const distMove = (e) => { map.getCanvas().style.cursor = "pointer"; const p = e.features?.[0]?.properties || {}; distHover.setLngLat(e.lngLat).setHTML(`<div style="font-family:monospace;font-size:11px"><strong>${(p.kind || "asset").toUpperCase()}</strong>${p.operator ? " · " + p.operator : ""}${p.voltage ? " · " + p.voltage : ""}<br/><span style="opacity:.7">OSM distribution</span></div>`).addTo(map); };
+        const distLeave = () => { map.getCanvas().style.cursor = ""; distHover.remove(); };
+        map.on("mousemove", "dist-key", distMove); map.on("mouseleave", "dist-key", distLeave);
+        map.on("mousemove", "dist-poles", distMove); map.on("mouseleave", "dist-poles", distLeave);
+
+        map.addSource("fiber", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "fiber-pt", type: "circle", source: "fiber", paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 4, 16, 8], "circle-color": ["case", ["get", "onnet"], "#16a34a", "#eab308"], "circle-stroke-color": "#fff", "circle-stroke-width": 1.6, "circle-opacity": 0.95 } });
+        map.addLayer({ id: "fiber-label", type: "symbol", source: "fiber", minzoom: 12, layout: { "text-field": ["get", "carrier"], "text-size": 10, "text-offset": [0, 1.2], "text-anchor": "top", "text-allow-overlap": false, "text-optional": true }, paint: { "text-color": "#a7f3d0", "text-halo-color": "#0f172a", "text-halo-width": 1.6 } });
+        const fiberPopup = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+        const fiberShow = (e) => { map.getCanvas().style.cursor = "pointer"; const p = e.features?.[0]?.properties || {}; const on = (p.onnet === true || p.onnet === "true"); const net = on ? "On-Net (fiber lit)" : "Near-Net"; const color = on ? "#16a34a" : "#eab308"; const addr = [p.street, p.city, p.state].filter(Boolean).join(", "); fiberPopup.setLngLat(e.lngLat).setHTML(`<div style="font-family:monospace;font-size:11px;line-height:1.4"><strong style="color:${color}">🔌 ${p.carrier || "Carrier"}${p.carriertype ? " · " + p.carriertype : ""}</strong><br/><b>Status:</b> ${net}<br/>${p.datacenter ? "<b>Data Center</b><br/>" : ""}${addr ? addr + "<br/>" : ""}${p.distance ? "<b>Distance:</b> " + p.distance + " ft<br/>" : ""}${p.carrier_count ? "<b>Carriers at site:</b> " + p.carrier_count : ""}</div>`).addTo(map); };
+        const fiberClear = () => { map.getCanvas().style.cursor = ""; fiberPopup.remove(); };
+        map.on("mouseenter", "fiber-pt", fiberShow); map.on("mousemove", "fiber-pt", fiberShow); map.on("mouseleave", "fiber-pt", fiberClear);
+
+        const hover = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+        map.on("mousemove", "lines-hit", (e) => {
+          map.getCanvas().style.cursor = "pointer";
+          const p = e.features?.[0]?.properties || {};
+          hover.setLngLat(e.lngLat).setHTML(`<div style="font-family:monospace;font-size:11px"><strong>${voltLabel(p.VOLTAGE, p.VOLT_CLASS)}</strong> · ${p.OWNER ?? "N/A"}<br/>${p.SUB_1 ?? "—"} → ${p.SUB_2 ?? "—"}</div>`).addTo(map);
+        });
+        map.on("mouseleave", "lines-hit", () => { map.getCanvas().style.cursor = ""; hover.remove(); });
+        map.on("click", "lines-hit", (e) => { const f = e.features?.[0]; if (!f) return; setSelected({ properties: f.properties, lngLat: [e.lngLat.lng, e.lngLat.lat] }); });
+
+        const subHover = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+        map.on("mousemove", "subs-pt", (e) => {
+          map.getCanvas().style.cursor = "pointer";
+          const p = e.features?.[0]?.properties || {};
+          const mv = Number(p.MAX_VOLT) > 0 ? `${p.MAX_VOLT} kV` : "";
+          subHover.setLngLat(e.lngLat).setHTML(`<div style="font-family:monospace;font-size:11px"><strong>⚡ ${p.disp || p.NAME || "Substation"}</strong><br/>${mv}${p.STATUS ? " · " + p.STATUS : ""}${p.LINES ? " · " + p.LINES + " lines" : ""}</div>`).addTo(map);
+        });
+        map.on("mouseleave", "subs-pt", () => { map.getCanvas().style.cursor = ""; subHover.remove(); });
+
+        setReady(true);
+      });
+      mapRef.current = map;
+    })();
+    return () => { cancelled = true; mapRef.current?.remove(); mapRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // fetch + compute whenever the target coordinate changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || lat == null || lon == null) return;
+    const reqId = ++reqRef.current;
+    setLoading(true); setSelected(null);
+    map.flyTo({ center: [lon, lat], zoom: 13.2, duration: 600 });
+    map.getSource("rings")?.setData({ type: "FeatureCollection", features: [0.25, 0.5, 1].map((mi) => circlePolygon(lat, lon, mi)) });
+
+    if (!siteMarkerRef.current) {
+      const el = document.createElement("div");
+      el.style.cssText = "width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(15,23,42,.92);border:2px solid #f97316;border-radius:50%;box-shadow:0 0 0 2px rgba(249,115,22,.5),0 0 14px rgba(249,115,22,.8);font-size:15px";
+      el.textContent = "📡";
+      siteMarkerRef.current = new window.mapboxgl.Marker({ element: el, anchor: "center" });
+    }
+    siteMarkerRef.current.setLngLat([lon, lat]).addTo(map);
+
+    (async () => {
+      const dLatMi = 2.0;
+      const dLat = dLatMi / 69.172, dLon = dLatMi / (Math.cos(toRad(lat)) * 69.172);
+      const bbox = [lon - dLon, lat - dLat, lon + dLon, lat + dLat];
+      let lineFeats = [], subFeats = [], osm = null, fiber = null;
+      try {
+        const [lineResp, subs, osmResp, fiberResp] = await Promise.all([
+          hifldTransmissionLines({ bbox, limit: 1000 }),
+          fetchSubstations(lat, lon, 10).catch(() => []),
+          infrastructureAssets({ lat, lon, radius_m: 1609 }).then((r) => r?.data).catch(() => null),
+          carrierFinderFiber({ lat, lon, radius_miles: 1 }).then((r) => r?.data).catch(() => null),
+        ]);
+        lineFeats = lineResp?.data?.features || [];
+        subFeats = subs || [];
+        osm = osmResp;
+        fiber = fiberResp;
+      } catch (err) { console.warn("UnifiedGridMap fetch failed:", err?.message); }
+      if (reqId !== reqRef.current) return;
+
+      subFeats = subFeats.map((s) => {
+        const c = s.geometry?.coordinates;
+        const d = c ? milesBetween(lat, lon, c[1], c[0]) : Infinity;
+        return { ...s, properties: { ...s.properties, disp: cleanSubName(s.properties), _mi: d } };
+      });
+      map.getSource("lines")?.setData({ type: "FeatureCollection", features: lineFeats });
+      map.getSource("subs")?.setData({ type: "FeatureCollection", features: subFeats });
+
+      const ePts = osm?.electric?.points || [];
+      const eLns = osm?.electric?.lines || [];
+      const keyPts = ePts.filter((p) => p.kind === "transformer" || p.kind === "substation");
+      const polePts = ePts.filter((p) => p.kind === "pole" || p.kind === "tower");
+      const toPt = (p) => ({ type: "Feature", geometry: { type: "Point", coordinates: [p.lon, p.lat] }, properties: { kind: p.kind, operator: p.operator || "" } });
+      map.getSource("dist-key")?.setData({ type: "FeatureCollection", features: keyPts.map(toPt) });
+      map.getSource("dist-poles")?.setData({ type: "FeatureCollection", features: polePts.map(toPt) });
+      map.getSource("dist-lines")?.setData({ type: "FeatureCollection", features: eLns.map((l) => ({ type: "Feature", geometry: { type: "LineString", coordinates: l.coords }, properties: { kind: l.kind, voltage: l.voltage || "" } })) });
+      let nearestXfmr = Infinity;
+      for (const p of keyPts) if (p.kind === "transformer") { const d = milesBetween(lat, lon, p.lat, p.lon); if (d < nearestXfmr) nearestXfmr = d; }
+      const dist = {
+        transformers: keyPts.filter((p) => p.kind === "transformer").length,
+        osmSubs: keyPts.filter((p) => p.kind === "substation").length,
+        poles: polePts.length, lines: eLns.length,
+        nearestXfmr: Number.isFinite(nearestXfmr) ? nearestXfmr : null,
+      };
+      const osmCount = ePts.length + eLns.length;
+
+      const litB = (fiber?.lit_buildings || []).filter((b) => Number.isFinite(b.lon) && Number.isFinite(b.lat));
+      map.getSource("fiber")?.setData({ type: "FeatureCollection", features: litB.map((b) => ({ type: "Feature", geometry: { type: "Point", coordinates: [b.lon, b.lat] }, properties: { carrier: b.carrier || "Carrier", carriertype: b.carriertype || "", onnet: b.xnet_code === "O", street: b.street || "", city: b.city || "", state: b.state || "", distance: b.distance != null ? String(b.distance) : "", carrier_count: b.carrier_count != null ? String(b.carrier_count) : "", datacenter: b.datacenter ? "1" : "" } })) });
+      let nearestLit = null, nearestLitMi = Infinity, nearestOnnet = null, nearestOnnetMi = Infinity, onnetCount = 0;
+      for (const b of litB) {
+        const d = milesBetween(lat, lon, b.lat, b.lon);
+        if (d < nearestLitMi) { nearestLitMi = d; nearestLit = b; }
+        if (b.xnet_code === "O") { onnetCount++; if (d < nearestOnnetMi) { nearestOnnetMi = d; nearestOnnet = b; } }
+      }
+      const fiberStat = (fiber?.telco || litB.length) ? {
+        litCount: litB.length, onnetCount, nearnetCount: litB.length - onnetCount,
+        telco: fiber?.telco || null,
+        nearest: nearestOnnet ? { d: nearestOnnetMi, b: nearestOnnet, onnet: true } : (nearestLit ? { d: nearestLitMi, b: nearestLit, onnet: false } : null),
+      } : null;
+
+      const rings = { r025: 0, r05: 0, r1: 0 };
+      let nearestLine = null, nearestLineDist = Infinity;
+      const owners = new Set(), vclasses = new Set();
+      const lineList = [];
+      for (const f of lineFeats) {
+        if (!f.geometry) continue;
+        const d = lineMinMiles(lat, lon, f.geometry);
+        if (d <= 0.25) rings.r025++;
+        if (d <= 0.5) rings.r05++;
+        if (d <= 1) { rings.r1++; if (f.properties?.OWNER) owners.add(f.properties.OWNER); vclasses.add(voltLabel(f.properties?.VOLTAGE, f.properties?.VOLT_CLASS)); }
+        if (d < nearestLineDist) { nearestLineDist = d; nearestLine = f; }
+        lineList.push({ d, p: f.properties || {} });
+      }
+      lineList.sort((a, b) => a.d - b.d);
+
+      const subList = subFeats
+        .filter((s) => Number.isFinite(s.properties._mi))
+        .map((s) => ({ d: s.properties._mi, name: s.properties.disp, p: s.properties }))
+        .sort((a, b) => a.d - b.d);
+      let subsWithin1 = 0, subsWithin5 = 0;
+      for (const s of subList) { if (s.d <= 1) subsWithin1++; if (s.d <= 5) subsWithin5++; }
+      const nearestSub = subList[0] || null;
+
+      if (nearestSub) {
+        const s = subFeats.find((x) => x.properties.disp === nearestSub.name && x.properties._mi === nearestSub.d);
+        const c = s?.geometry?.coordinates;
+        map.getSource("subconn")?.setData(c ? { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "LineString", coordinates: [[lon, lat], c] }, properties: {} }] } : { type: "FeatureCollection", features: [] });
+      }
+
+      setStats({
+        lineCount: lineFeats.length, rings,
+        nearestLine: nearestLine ? { d: nearestLineDist, p: nearestLine.properties } : null,
+        owners: [...owners], vclasses: [...vclasses],
+        subCount: subFeats.length, subsWithin1, subsWithin5,
+        nearestSub: nearestSub ? { d: nearestSub.d, p: nearestSub.p } : null,
+        lineList: lineList.slice(0, 10), subList: subList.slice(0, 12),
+        dist, osmCount, fiber: fiberStat,
+      });
+      setLoading(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, lat, lon]);
+
+  // apply layer-toggle visibility
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const setVis = (ids, vis) => ids.forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, "visibility", vis ? "visible" : "none"));
+    setVis(LAYER_GROUPS.transmission, layers.transmission);
+    setVis(LAYER_GROUPS.distribution, layers.distribution);
+    setVis(LAYER_GROUPS.fiber, layers.fiber);
+    setVis(["dist-poles"], layers.distribution && showPoles);
+  }, [ready, layers, showPoles]);
+
+  if (tokenMissing) {
+    return (
+      <div className="rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-4 flex items-start gap-3">
+        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+        <div className="text-sm text-amber-800 dark:text-amber-200">Mapbox token unavailable — the unified map can't render.</div>
+      </div>
+    );
+  }
+
+  const nl = stats?.nearestLine, ns = stats?.nearestSub;
+  const identified = stats ? (stats.lineCount + stats.subCount + (stats.osmCount || 0) + (stats.fiber?.litCount || 0)) : 0;
+
+  return (
+    <div className="space-y-3">
+      {/* Layer toggles — one map, dial the picture */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Layers</span>
+        <Chip on={layers.transmission} color="#eab308" onClick={() => setLayers((l) => ({ ...l, transmission: !l.transmission }))}>Transmission</Chip>
+        <Chip on={layers.distribution} color="#e60000" onClick={() => setLayers((l) => ({ ...l, distribution: !l.distribution }))}>Distribution</Chip>
+        <Chip on={layers.fiber} color="#16a34a" onClick={() => setLayers((l) => ({ ...l, fiber: !l.fiber }))}>Fiber</Chip>
+        {stats?.dist?.poles > 0 && (
+          <Chip on={showPoles && layers.distribution} color="#e60000" onClick={() => setShowPoles((v) => !v)}>Poles {stats.dist.poles}</Chip>
+        )}
+        {stats && <span className="ml-auto text-[11px] font-mono text-emerald-600">{identified} assets identified</span>}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4">
+        <div className="relative w-full rounded-lg overflow-hidden border border-border" style={{ height }}>
+          <div ref={containerRef} className="absolute inset-0" />
+          {loading && <div className="absolute top-3 left-3 bg-black/70 text-amber-300 text-[11px] font-mono px-2 py-1 rounded flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> LOADING GRID…</div>}
+          <div className="absolute bottom-5 left-5 bg-white/95 text-slate-800 text-[12px] px-3 py-2 rounded-lg shadow-md leading-relaxed">
+            <strong>Transmission (kV)</strong><br />
+            <span style={{ color: "#22d3ee" }}>▬</span> &lt;100&nbsp;
+            <span style={{ color: "#4ade80" }}>▬</span> 100–299&nbsp;
+            <span style={{ color: "#fb923c" }}>▬</span> 300–499&nbsp;
+            <span style={{ color: "#f43f5e" }}>▬</span> 500+<br />
+            <span style={{ color: "#eab308" }}>●</span> Substation&nbsp;&nbsp;
+            <span style={{ color: "#f97316" }}>📡</span> Site&nbsp;&nbsp;
+            <span style={{ color: "#38bdf8" }}>◌</span> 0.25/0.5/1 mi<br />
+            <span style={{ color: "#e60000" }}>◼</span> Distribution&nbsp;&nbsp;
+            <span style={{ color: "#16a34a" }}>●</span> On-Net&nbsp;
+            <span style={{ color: "#eab308" }}>●</span> Near-Net
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="border border-border rounded-lg bg-card overflow-hidden">
+            <div className="bg-gradient-to-r from-amber-600 to-yellow-600 text-white px-3 py-2 flex items-center gap-2"><Gauge className="w-4 h-4" /><span className="font-heading font-semibold text-sm">Surrounding Power Structure</span></div>
+            <div className="px-3 py-2">
+              <div className="mb-2">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1"><TowerControl className="w-3 h-3" /> Nearest transmission line</div>
+                {nl ? (
+                  <div className="bg-muted/50 rounded p-2">
+                    <div className="text-sm font-bold">{nl.d < 0.1 ? `${(nl.d * 5280).toFixed(0)} ft` : `${nl.d.toFixed(2)} mi`} away</div>
+                    <div className="text-xs text-muted-foreground">{voltLabel(nl.p.VOLTAGE, nl.p.VOLT_CLASS)} · {nl.p.OWNER || "Owner N/A"}</div>
+                    <div className="text-xs text-muted-foreground truncate">{nl.p.SUB_1 || "—"} → {nl.p.SUB_2 || "—"}</div>
+                  </div>
+                ) : <div className="text-xs text-muted-foreground italic py-1">No transmission line within 2 mi.</div>}
+              </div>
+              <StatRow label="Lines ≤ 0.25 mi" value={stats?.rings.r025 ?? "—"} />
+              <StatRow label="Lines ≤ 0.5 mi" value={stats?.rings.r05 ?? "—"} />
+              <StatRow label="Lines ≤ 1 mi" value={stats?.rings.r1 ?? "—"} sub={stats?.owners?.length ? `${stats.owners.length} operator${stats.owners.length > 1 ? "s" : ""}` : null} />
+              <StatRow label="Voltage classes ≤1mi" value={stats?.vclasses?.length ? stats.vclasses.join(", ") : "—"} />
+
+              <div className="mt-3 mb-2">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 mb-1"><Building2 className="w-3 h-3" /> Nearest substation (tie-in)</div>
+                {ns ? (
+                  <div className="bg-muted/50 rounded p-2">
+                    <div className="text-sm font-bold">{ns.p.disp || ns.p.NAME || "Substation"}</div>
+                    <div className="text-xs text-muted-foreground">{ns.d.toFixed(2)} mi away{Number(ns.p.MAX_VOLT) > 0 ? ` · ${ns.p.MAX_VOLT} kV` : ""}{ns.p.LINES ? ` · ${ns.p.LINES} lines` : ""}</div>
+                    <div className="text-xs text-muted-foreground">{ns.p.STATUS || ""}{ns.p.COUNTY ? ` · ${ns.p.COUNTY}` : ""}</div>
+                  </div>
+                ) : <div className="text-xs text-muted-foreground italic py-1">No substation within 10 mi.</div>}
+              </div>
+              <StatRow label="Substations ≤ 1 mi" value={stats?.subsWithin1 ?? "—"} />
+              <StatRow label="Substations ≤ 5 mi" value={stats?.subsWithin5 ?? "—"} />
+            </div>
+            <div className="px-3 py-1.5 border-t border-border bg-muted/30 text-[10px] font-mono text-muted-foreground tracking-wider flex items-center gap-1.5"><Radio className="w-3 h-3" /> SOURCE · HIFLD TRANSMISSION LINES + SUBSTATIONS</div>
+          </div>
+
+          {stats?.fiber && (
+            <div className="border border-emerald-500/40 rounded-lg bg-card overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-3 py-2 flex items-center gap-2"><Cable className="w-4 h-4" /><span className="font-heading font-semibold text-sm">Fiber &amp; Backhaul · CarrierFinder</span></div>
+              <div className="px-3 py-2">
+                {stats.fiber.nearest ? (
+                  <div className="bg-muted/50 rounded p-2 mb-2">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Nearest {stats.fiber.nearest.onnet ? "On-Net (lit)" : "Near-Net"} building</div>
+                    <div className="text-sm font-bold">{stats.fiber.nearest.b.carrier || "Carrier"}</div>
+                    <div className="text-xs text-muted-foreground">{stats.fiber.nearest.d < 0.1 ? `${(stats.fiber.nearest.d * 5280).toFixed(0)} ft` : `${stats.fiber.nearest.d.toFixed(2)} mi`} away{stats.fiber.nearest.b.carriertype ? ` · ${stats.fiber.nearest.b.carriertype}` : ""}{stats.fiber.nearest.b.datacenter ? " · Data Center" : ""}</div>
+                    <div className="text-xs text-muted-foreground truncate">{[stats.fiber.nearest.b.street, stats.fiber.nearest.b.city, stats.fiber.nearest.b.state].filter(Boolean).join(", ")}</div>
+                  </div>
+                ) : <div className="text-xs text-muted-foreground italic py-1 mb-1">No lit / near-net buildings within 1 mi.</div>}
+                <StatRow label="On-Net (lit) buildings" value={stats.fiber.onnetCount} />
+                <StatRow label="Near-Net buildings" value={stats.fiber.nearnetCount} />
+                {stats.fiber.telco && <StatRow label="Serving telco" value={stats.fiber.telco.name} sub={stats.fiber.telco.co_distance ? `CO ${stats.fiber.telco.co_distance} away` : (stats.fiber.telco.clli || null)} />}
+                {stats.fiber.telco?.phone && <StatRow label="Telco contact" value={stats.fiber.telco.phone} />}
+              </div>
+              <div className="px-3 py-1.5 border-t border-border bg-muted/30 text-[10px] font-mono text-muted-foreground tracking-wider">SOURCE · CARRIERFINDER · LIT / NEAR-NET FIBER</div>
+            </div>
+          )}
+
+          {stats?.dist && (stats.dist.transformers + stats.dist.osmSubs + stats.dist.poles + stats.dist.lines) > 0 && (
+            <div className="border border-border rounded-lg bg-card overflow-hidden">
+              <div className="bg-gradient-to-r from-red-600 to-rose-600 text-white px-3 py-2 flex items-center gap-2"><Zap className="w-4 h-4" /><span className="font-heading font-semibold text-sm">Local Distribution Grid · OSM ≤1 mi</span></div>
+              <div className="px-3 py-2">
+                <StatRow label="Nearest transformer" value={stats.dist.nearestXfmr != null ? (stats.dist.nearestXfmr < 0.1 ? `${(stats.dist.nearestXfmr * 5280).toFixed(0)} ft` : `${stats.dist.nearestXfmr.toFixed(2)} mi`) : "—"} />
+                <StatRow label="Transformers" value={stats.dist.transformers} />
+                <StatRow label="Distribution substations" value={stats.dist.osmSubs} />
+                <StatRow label="Distribution lines" value={stats.dist.lines} />
+                <StatRow label="Poles / towers" value={stats.dist.poles} sub={stats.dist.poles > 0 ? (showPoles ? "shown" : "toggle above") : null} />
+              </div>
+              <div className="px-3 py-1.5 border-t border-border bg-muted/30 text-[10px] font-mono text-muted-foreground tracking-wider">SOURCE · OPENSTREETMAP (OVERPASS) · DISTRIBUTION</div>
+            </div>
+          )}
+
+          {stats?.subList?.length > 0 && (
+            <div className="border border-border rounded-lg bg-card overflow-hidden">
+              <div className="bg-muted/60 px-3 py-2 flex items-center gap-2 border-b border-border"><List className="w-4 h-4 text-amber-600" /><span className="font-heading font-semibold text-sm">Substations nearby ({stats.subCount})</span></div>
+              <div className="max-h-52 overflow-y-auto divide-y divide-border/60">
+                {stats.subList.map((s, i) => (
+                  <div key={i} className="px-3 py-1.5 flex items-center justify-between gap-2 text-xs">
+                    <span className="truncate font-medium">{s.name}</span>
+                    <span className="text-muted-foreground whitespace-nowrap font-mono">{s.d.toFixed(1)} mi{Number(s.p.MAX_VOLT) > 0 ? ` · ${s.p.MAX_VOLT}kV` : ""}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {stats?.lineList?.length > 0 && (
+            <div className="border border-border rounded-lg bg-card overflow-hidden">
+              <div className="bg-muted/60 px-3 py-2 flex items-center gap-2 border-b border-border"><List className="w-4 h-4 text-amber-600" /><span className="font-heading font-semibold text-sm">Transmission lines nearby ({stats.lineCount})</span></div>
+              <div className="max-h-52 overflow-y-auto divide-y divide-border/60">
+                {stats.lineList.map((l, i) => (
+                  <div key={i} className="px-3 py-1.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{voltLabel(l.p.VOLTAGE, l.p.VOLT_CLASS)}</span>
+                      <span className="text-muted-foreground font-mono whitespace-nowrap">{l.d < 0.1 ? `${(l.d * 5280).toFixed(0)} ft` : `${l.d.toFixed(2)} mi`}</span>
+                    </div>
+                    <div className="text-muted-foreground truncate">{l.p.OWNER || "Owner N/A"} · {l.p.SUB_1 || "—"} → {l.p.SUB_2 || "—"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <PowerLineDetailsPanel selected={selected} onClose={() => setSelected(null)} />
+        </div>
+      </div>
+    </div>
+  );
+}
