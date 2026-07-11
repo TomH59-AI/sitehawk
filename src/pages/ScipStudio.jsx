@@ -3,11 +3,29 @@ import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { scipStudioAssemble } from "@/functions/scipStudioAssemble";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, Sparkles, Printer } from "lucide-react";
 import { toast } from "sonner";
 import StudioFieldGrid from "@/components/scipstudio/StudioFieldGrid";
 import StudioTable from "@/components/scipstudio/StudioTable";
 import StudioMapSet from "@/components/scipstudio/StudioMapSet";
+
+const PRINT_STYLE_ID = "scip-studio-print-styles";
+function ensurePrintStyles() {
+  if (document.getElementById(PRINT_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = PRINT_STYLE_ID;
+  style.textContent = `
+    @media print {
+      body * { visibility: hidden !important; }
+      #scip-studio-doc, #scip-studio-doc * { visibility: visible !important; }
+      #scip-studio-doc { position: absolute; top: 0; left: 0; width: 100%; }
+      .studio-no-print { display: none !important; }
+      #scip-studio-doc .studio-sheet { page-break-inside: avoid; break-inside: avoid; box-shadow: none !important; }
+      @page { size: 8.5in 11in; margin: 0.5in; }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 const SECTION_LABELS = {
   target_a: "Target A",
