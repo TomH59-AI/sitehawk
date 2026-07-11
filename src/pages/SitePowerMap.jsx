@@ -20,7 +20,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Zap, MapPin, Gauge, Building2, Radio, TowerControl, Loader2, AlertTriangle } from "lucide-react";
+import { Zap, Gauge, Building2, Radio, TowerControl, Loader2, AlertTriangle } from "lucide-react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
 import PowerLineDetailsPanel from "../components/powerlines/PowerLineDetailsPanel";
@@ -260,7 +260,6 @@ export default function SitePowerMap() {
       mapRef.current = map;
     })();
     return () => { cancelled = true; mapRef.current?.remove(); mapRef.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // on target change (and once ready): recenter, rings, marker, fetch data, stats
