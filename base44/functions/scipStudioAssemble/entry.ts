@@ -3,6 +3,9 @@
 //  • target_a is written ONCE from the original ScipRecord and never touched again.
 //  • Refreshes only FILL BLANKS — analyst-entered values are never overwritten.
 //  • Map exhibits keep any existing captured asset; fresh URLs only fill gaps.
+// Completeness: ALL 12 required exhibits are built here (stored SCIP URLs first,
+// otherwise fresh Mapbox Static Image URLs — same approach as the legacy print doc),
+// plus fiber/airport/public-safety lookups so the doc prints as a complete SCIP.
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
 const TEMPLATE_VERSION = "SCIP Document Studio Template v1";
@@ -53,11 +56,82 @@ function haversineMiles(lat1, lon1, lat2, lon2) {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(toRad(lon2 - lon1) / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(a));
 }
-// Coverage % = non-empty values / total keys in an object
 function coverage(obj = {}) {
   const keys = Object.keys(obj);
   if (!keys.length) return 0;
   return Math.round((keys.filter((k) => !isEmpty(obj[k])).length / keys.length) * 100);
+}
+
+// ───────── Mapbox Static Images builders (ported from sitehawkScipStatic) ─────────
+const STATIC_BASE = "https://api.mapbox.com/styles/v1/mapbox";
+const SAT = "satellite-streets-v12", LIGHT = "light-v11", OUTDOORS = "outdoors-v12";
+const W = 1000, H = 720;
+const GREEN = "#628C83", GOLD = "#FFC72C", NAVY = "#0C1B2E";
+
+function ringFeature(lat, lon, radiusMi, stroke = GOLD, width = 3) {
+  const coords = [];
+  const latR = radiusMi / 69.0;
+  const lonR = radiusMi / (69.0 * Math.cos((lat * Math.PI) / 180));
+  for (let i = 0; i <= 80; i++) {
+    const t = (i / 80) * 2 * Math.PI;
+    coords.push([+(lon + lonR * Math.cos(t)).toFixed(6), +(lat + latR * Math.sin(t)).toFixed(6)]);
+  }
+  return {
+    type: "Feature",
+    properties: { stroke, "stroke-width": width, "stroke-opacity": 0.95, fill: stroke, "fill-opacity": 0.06 },
+    geometry: { type: "Polygon", coordinates: [coords] },
+  };
+}
+function pointFeature(lat, lon, color, symbol) {
+  return {
+    type: "Feature",
+    properties: { "marker-color": color, "marker-size": "medium", ...(symbol ? { "marker-symbol": symbol } : {}) },
+    geometry: { type: "Point", coordinates: [lon, lat] },
+  };
+}
+function lineFeature(aLat, aLon, bLat, bLon, color = GREEN) {
+  return {
+    type: "Feature",
+    properties: { stroke: color, "stroke-width": 4, "stroke-opacity": 1 },
+    geometry: { type: "LineString", coordinates: [[aLon, aLat], [bLon, bLat]] },
+  };
+}
+function overlayUrl({ style, features, center, zoom, bbox, token }) {
+  const geojson = encodeURIComponent(JSON.stringify({ type: "FeatureCollection", features }));
+  const region = bbox
+    ? `[${bbox.map((n) => n.toFixed(6)).join(",")}]`
+    : `${center[0].toFixed(6)},${center[1].toFixed(6)},${zoom}`;
+  return `${STATIC_BASE}/${style}/static/geojson(${geojson})/${region}/${W}x${H}@2x?access_token=${token}&padding=40`;
+}
+function rasterCompositeUrl({ style, rasterUrl, lat, lon, pad, token }) {
+  const bbox = [lon - pad, lat - pad, lon + pad, lat + pad];
+  const geojson = encodeURIComponent(JSON.stringify({
+    type: "FeatureCollection",
+    features: [pointFeature(lat, lon, GREEN, "communications-tower")],
+  }));
+  const region = `[${bbox.map((n) => n.toFixed(6)).join(",")}]`;
+  const overlay = `url-${encodeURIComponent(rasterUrl)}(${region}),geojson(${geojson})`;
+  return `${STATIC_BASE}/${style}/static/${overlay}/${region}/${W}x${H}@2x?access_token=${token}&padding=0`;
+}
+function pairBbox(aLat, aLon, bLat, bLon, padFrac = 0.3) {
+  const minLat = Math.min(aLat, bLat), maxLat = Math.max(aLat, bLat);
+  const minLon = Math.min(aLon, bLon), maxLon = Math.max(aLon, bLon);
+  const dLat = Math.max(maxLat - minLat, 0.01) * padFrac;
+  const dLon = Math.max(maxLon - minLon, 0.01) * padFrac;
+  return [minLon - dLon, minLat - dLat, maxLon + dLon, maxLat + dLat];
+}
+const marker = (lat, lon) => [pointFeature(lat, lon, GREEN, "communications-tower")];
+
+const FEMA_EXPORT = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/export";
+const NWI_EXPORT = "https://www.fws.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/export";
+const ASCE_WIND_EXPORT = "https://gis.asce.org/arcgis/rest/services/ASCE722/w2022_Tile_RC_II_new/MapServer/export";
+
+function exportPng(base, bbox, layers, size = `${W},${H}`) {
+  return `${base}?` + new URLSearchParams({
+    bbox: `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`,
+    bboxSR: "4326", imageSR: "4326", size,
+    format: "png32", transparent: "true", dpi: "96", layers, f: "image",
+  });
 }
 
 Deno.serve(async (req) => {
@@ -78,11 +152,104 @@ Deno.serve(async (req) => {
     const hm = scip.hawk_maps || {};
     const pa = scip.power_airport_maps || {};
     const ec = scip.existing_conditions || {};
-    // zoning_report rows may be {value,source,confidence} or plain values
     const zr = (k) => {
       const row = scip.zoning_report?.[k];
       return row && typeof row === "object" ? row.value ?? null : row ?? null;
     };
+
+    const token = Deno.env.get("MAPBOX_API_KEY");
+    const radius = parseFloat(scip.search_radius) || 1.0;
+    // Exhibit anchor = candidate parcel when available, else the ring center
+    const cLat = Number(tgt?.latitude ?? scip.latitude);
+    const cLon = Number(tgt?.longitude ?? scip.longitude);
+    const hasCoords = Number.isFinite(cLat) && Number.isFinite(cLon);
+
+    // ── Best-effort enrichment lookups (never block assembly) ──
+    let airport = null, safety = null, fiberSnap = null;
+    const [airportRes, safetyRes, fiberSnaps] = await Promise.allSettled([
+      base44.functions.invoke('nearestAirportFromDirectory', { lat: cLat, lon: cLon }),
+      base44.functions.invoke('nearestPublicSafetyDept', { lat: cLat, lon: cLon, state: scip.state, county: scip.county }),
+      base44.entities.DataSourceSnapshot.filter({ scip_record_id, section_key: "fiber", is_current: true }),
+    ]);
+    if (airportRes.status === "fulfilled") airport = airportRes.value?.match || airportRes.value?.data?.match || null;
+    if (safetyRes.status === "fulfilled") safety = safetyRes.value?.data || safetyRes.value || null;
+    if (fiberSnaps.status === "fulfilled") fiberSnap = fiberSnaps.value?.[0]?.normalized_result || null;
+
+    // ── Fresh map URLs for ALL 12 exhibits (stored SCIP assets first) ──
+    const fresh_maps = {};
+    if (token && hasCoords) {
+      const srcLat = Number(scip.latitude), srcLon = Number(scip.longitude);
+      const ringFeatures = [ringFeature(srcLat, srcLon, radius), pointFeature(srcLat, srcLon, GOLD, "marker"), ...marker(cLat, cLon)];
+      const latR = (radius / 69.0) * 1.4;
+      const lonR = (radius / (69.0 * Math.cos((srcLat * Math.PI) / 180))) * 1.4;
+
+      fresh_maps.search_ring = {
+        asset_url: scip.map_image_url || overlayUrl({ style: SAT, features: ringFeatures, bbox: [srcLon - lonR, srcLat - latR, srcLon + lonR, srcLat + latR], token }),
+        source: "SiteHawk SARF Map (Mapbox)",
+      };
+      fresh_maps.aerial_parcel = {
+        asset_url: hm.aerial_url || overlayUrl({ style: SAT, features: marker(cLat, cLon), center: [cLon, cLat], zoom: 16, token }),
+        source: "Mapbox Satellite",
+      };
+      fresh_maps.site_fit = {
+        asset_url: overlayUrl({ style: SAT, features: marker(cLat, cLon), center: [cLon, cLat], zoom: 17, token }),
+        source: "Mapbox Satellite — candidate close-up",
+      };
+      fresh_maps.zoning = {
+        asset_url: hm.zoning_url || overlayUrl({ style: LIGHT, features: marker(cLat, cLon), center: [cLon, cLat], zoom: 15, token }),
+        source: hm.zoning_url ? "Zoneomics overlay" : "Mapbox Light — zoning location",
+      };
+      fresh_maps.flum = {
+        asset_url: overlayUrl({ style: LIGHT, features: marker(cLat, cLon), center: [cLon, cLat], zoom: 15, token }),
+        source: "Mapbox Light — FLUM location context",
+      };
+      fresh_maps.floodplain = {
+        asset_url: hm.floodplain_url || rasterCompositeUrl({ style: LIGHT, rasterUrl: exportPng(FEMA_EXPORT, [cLon - 0.012, cLat - 0.012, cLon + 0.012, cLat + 0.012], "show:28"), lat: cLat, lon: cLon, pad: 0.012, token }),
+        source: "FEMA NFHL overlay",
+      };
+      fresh_maps.wetlands = {
+        asset_url: rasterCompositeUrl({ style: SAT, rasterUrl: exportPng(NWI_EXPORT, [cLon - 0.012, cLat - 0.012, cLon + 0.012, cLat + 0.012], "show:0"), lat: cLat, lon: cLon, pad: 0.012, token }),
+        source: "USFWS National Wetlands Inventory overlay",
+      };
+      fresh_maps.topography = {
+        asset_url: hm.topography_url || overlayUrl({ style: OUTDOORS, features: marker(cLat, cLon), center: [cLon, cLat], zoom: 14, token }),
+        source: "Mapbox Terrain",
+      };
+      fresh_maps.power = {
+        asset_url: pa.power?.map_url || pa.power?.url || overlayUrl({ style: LIGHT, features: marker(cLat, cLon), center: [cLon, cLat], zoom: 14, token }),
+        source: (pa.power?.map_url || pa.power?.url) ? "EIA/HIFLD power map" : "Mapbox Light — power service location",
+      };
+      fresh_maps.fiber = {
+        asset_url: overlayUrl({ style: LIGHT, features: marker(cLat, cLon), center: [cLon, cLat], zoom: 14, token }),
+        source: "Mapbox Light — fiber/communications location",
+      };
+      const aLat = Number(airport?.latitude ?? airport?.latitude_deg), aLon = Number(airport?.longitude ?? airport?.longitude_deg);
+      fresh_maps.airport = {
+        asset_url: pa.airport?.map_url || pa.airport?.url || (Number.isFinite(aLat) && Number.isFinite(aLon)
+          ? overlayUrl({ style: LIGHT, features: [ringFeature(cLat, cLon, 0.5, "#ffffff", 1.2), lineFeature(cLat, cLon, aLat, aLon), pointFeature(aLat, aLon, GREEN, "airport"), pointFeature(cLat, cLon, NAVY, "communications-tower")], bbox: pairBbox(cLat, cLon, aLat, aLon), token })
+          : null),
+        source: "Airport directory map",
+      };
+      fresh_maps.wind = {
+        asset_url: rasterCompositeUrl({ style: LIGHT, rasterUrl: exportPng(ASCE_WIND_EXPORT, [cLon - 0.35, cLat - 0.35, cLon + 0.35, cLat + 0.35], "show:5", "720,720"), lat: cLat, lon: cLon, pad: 0.35, token }),
+        source: "ASCE 7-22 wind speed overlay",
+      };
+    }
+
+    const prevMaps = Object.fromEntries((existing?.map_set || []).map((m) => [m.key, m]));
+    const map_set = MAP_SET.map(([key, label]) => {
+      const prev = prevMaps[key];
+      if (prev?.asset_url) return { ...prev, label };
+      const f = fresh_maps[key];
+      return {
+        key, label,
+        status: f?.asset_url ? "Captured" : "Not Captured",
+        asset_url: f?.asset_url || null,
+        captured_at: f?.asset_url ? new Date().toISOString() : null,
+        source: f?.asset_url ? f.source : null,
+        caption: prev?.caption || null,
+      };
+    });
 
     // ---- Fresh auto-derived groups (blanks-only merge on refresh) ----
     const identity = {
@@ -139,30 +306,6 @@ Deno.serve(async (req) => {
       general_directions: null,
     };
 
-    const fresh_maps = {
-      search_ring: { asset_url: scip.map_image_url, source: "SiteHawk SARF Map (Mapbox)" },
-      aerial_parcel: { asset_url: hm.aerial_url, source: "Mapbox Satellite" },
-      zoning: { asset_url: hm.zoning_url, source: "Zoneomics overlay" },
-      floodplain: { asset_url: hm.floodplain_url, source: "FEMA NFHL overlay" },
-      topography: { asset_url: hm.topography_url, source: "Mapbox Terrain" },
-      power: { asset_url: pa.power?.map_url || pa.power?.url, source: "EIA/HIFLD power map" },
-      airport: { asset_url: pa.airport?.map_url || pa.airport?.url, source: "Airport directory map" },
-    };
-    const prevMaps = Object.fromEntries((existing?.map_set || []).map((m) => [m.key, m]));
-    const map_set = MAP_SET.map(([key, label]) => {
-      const prev = prevMaps[key];
-      if (prev?.asset_url) return { ...prev, label };
-      const f = fresh_maps[key];
-      return {
-        key, label,
-        status: f?.asset_url ? "Captured" : "Not Captured",
-        asset_url: f?.asset_url || null,
-        captured_at: f?.asset_url ? new Date().toISOString() : null,
-        source: f?.asset_url ? f.source : null,
-        caption: prev?.caption || null,
-      };
-    });
-
     const powerBlock = {
       utility_owner: pa.power?.company || pa.power?.provider || pa.power?.company_name || null,
       utility_contact: [pa.power?.phone, pa.power?.address, pa.power?.website].filter(Boolean).join(" · ") || null,
@@ -174,9 +317,14 @@ Deno.serve(async (req) => {
       field_verification_status: "Not Verified",
     };
     const fiberBlock = {
-      fiber_available: null, fiber_provider: null, nearest_fiber_route: null,
-      distance_to_candidate: null, telco_provider: null, nearest_demarc: null,
-      backhaul_confidence: null, verification_notes: null,
+      fiber_available: fiberSnap?.fiber_available ?? fiberSnap?.available ?? null,
+      fiber_provider: fiberSnap?.fiber_provider ?? fiberSnap?.provider ?? fiberSnap?.providers?.[0]?.name ?? null,
+      nearest_fiber_route: fiberSnap?.nearest_fiber_route ?? null,
+      distance_to_candidate: fiberSnap?.distance ?? fiberSnap?.distance_to_candidate ?? null,
+      telco_provider: fiberSnap?.telco_provider ?? null,
+      nearest_demarc: null,
+      backhaul_confidence: fiberSnap?.backhaul_confidence ?? fiberSnap?.confidence ?? null,
+      verification_notes: null,
     };
 
     const zoningOverview = {
@@ -198,6 +346,8 @@ Deno.serve(async (req) => {
       measurement_method: zr("measurement_method"),
       fall_zone_requirement: zr("fall_zone_requirement") || zr("fall_zone_requirements"),
     };
+    const airportLabel = airport?.name || airport?.airport_name || pa.airport?.name || null;
+    const airportDist = airport?.distance_miles ?? pa.airport?.distance_miles ?? null;
     const environmental = {
       flood_zone: ec.flood_zone || tgt?.fema_risk_factor || null,
       wetland_concern: ec.wetland_concerns || null,
@@ -207,16 +357,18 @@ Deno.serve(async (req) => {
       protected_lands: null,
       access_constraint: ec.access_notes || null,
       airport_faa_concern: null,
-      nearest_airport_distance: pa.airport?.name
-        ? `${pa.airport.name}${pa.airport.distance_miles ? ` — ${pa.airport.distance_miles} mi` : ""}`
+      nearest_airport_distance: airportLabel
+        ? `${airportLabel}${airportDist != null ? ` — ${Number(airportDist).toFixed(2)} mi` : ""}`
         : null,
       wind_design_criteria: null,
     };
+    const police = safety?.police || null;
+    const fire = safety?.fire || null;
     const emergency = {
-      police_jurisdiction: ec.local_police || null,
-      police_contact: null,
-      fire_jurisdiction: ec.local_fire || null,
-      fire_contact: null,
+      police_jurisdiction: ec.local_police || police?.name || null,
+      police_contact: police ? [police.phone, police.street_address, police.city].filter(Boolean).join(" · ") || null : null,
+      fire_jurisdiction: ec.local_fire || fire?.name || null,
+      fire_contact: fire ? [fire.phone, fire.street_address, fire.city].filter(Boolean).join(" · ") || null : null,
       nearest_hospital_ems: null,
       emergency_access_notes: null,
     };
