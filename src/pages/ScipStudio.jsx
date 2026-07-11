@@ -21,6 +21,8 @@ function ensurePrintStyles() {
       #scip-studio-doc { position: absolute; top: 0; left: 0; width: 100%; }
       .studio-no-print { display: none !important; }
       #scip-studio-doc .studio-sheet { page-break-inside: avoid; break-inside: avoid; box-shadow: none !important; }
+      #scip-studio-doc img { break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      #scip-studio-doc { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       @page { size: 8.5in 11in; margin: 0.5in; }
     }
   `;
@@ -65,6 +67,26 @@ export default function ScipStudio() {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(true);
   const [assembling, setAssembling] = useState(false);
+  const [preparingPrint, setPreparingPrint] = useState(false);
+
+  // Wait for EVERY image in the document to finish downloading before opening
+  // the print dialog — otherwise not-yet-loaded map exhibits print blank.
+  const handlePrint = async () => {
+    ensurePrintStyles();
+    setPreparingPrint(true);
+    const imgs = Array.from(document.querySelectorAll("#scip-studio-doc img"));
+    await Promise.all(imgs.map((img) =>
+      img.complete && img.naturalWidth > 0
+        ? Promise.resolve()
+        : new Promise((res) => {
+            img.addEventListener("load", res, { once: true });
+            img.addEventListener("error", res, { once: true });
+            setTimeout(res, 20000); // never hang forever on a dead image
+          })
+    ));
+    setPreparingPrint(false);
+    window.print();
+  };
 
   const load = useCallback(async () => {
     const rows = await base44.entities.ScipStudioDoc.filter({ scip_record_id: id });
@@ -114,8 +136,9 @@ export default function ScipStudio() {
             {doc ? "Refresh from SCIP" : "Assemble from SCIP"}
           </Button>
           {doc && (
-            <Button variant="outline" onClick={() => { ensurePrintStyles(); window.print(); }}>
-              <Printer className="w-4 h-4 mr-2" /> Print / Save PDF
+            <Button variant="outline" onClick={handlePrint} disabled={preparingPrint}>
+              {preparingPrint ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
+              {preparingPrint ? "Loading maps…" : "Print / Save PDF"}
             </Button>
           )}
         </div>
