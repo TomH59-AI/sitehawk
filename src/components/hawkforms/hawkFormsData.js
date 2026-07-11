@@ -10,6 +10,7 @@ export const FORM_CATEGORIES = [
         name: "FCC Form 620",
         subtitle: "New Tower Submission Packet",
         url: "https://transition.fcc.gov/Forms/Form620/620.pdf",
+        fillable: true,
         purpose:
           "Used for raw-land builds or brand-new antenna support structures to initiate Section 106 review. It provides the SHPO and THPOs with localized visual impact maps and archaeological studies to evaluate potential impacts on historic and cultural resources.",
         tag: "PDF Form",
@@ -18,6 +19,7 @@ export const FORM_CATEGORIES = [
         name: "FCC Form 621",
         subtitle: "Collocation Submission Packet",
         url: "https://transition.fcc.gov/Forms/Form621/621.pdf",
+        fillable: true,
         purpose:
           "Used for equipment additions on existing structures (towers, rooftops, utility poles) only when the project fails to meet standard Section 106 collocation exclusions (e.g., if it requires a substantial increase in compound size or extra ground disturbance).",
         tag: "PDF Form",
@@ -26,6 +28,7 @@ export const FORM_CATEGORIES = [
         name: "FCC Form 854",
         subtitle: "Antenna Structure Registration (ASR)",
         url: "https://www.fcc.gov/sites/default/files/form854.pdf",
+        fillable: true,
         purpose:
           "Required to register a physical tower structure with the FCC. It is mandatory for towers exceeding 200 feet AGL or those located near airports. Filing requires a prior certification that NEPA and Section 106 historic reviews are fully completed.",
         tag: "PDF Form",
@@ -33,7 +36,8 @@ export const FORM_CATEGORIES = [
       {
         name: "FCC Form 601",
         subtitle: "Wireless Telecommunications Bureau Application",
-        url: "https://www.fcc.gov/sites/default/files/601_jun_2000_0.pdf",
+        url: "https://transition.fcc.gov/Forms/Form601/601.pdf",
+        fillable: true,
         purpose:
           "The primary multi-purpose application for wireless radio service authorizations and tower licensing. This form includes the explicit mandatory compliance checkboxes where you officially certify that the site does not have a significant environmental impact under NEPA guidelines.",
         tag: "PDF Form",
@@ -57,7 +61,7 @@ export const FORM_CATEGORIES = [
       {
         name: "FAA Form 7460-2",
         subtitle: "Notice of Actual Construction or Alteration",
-        url: "https://www.flashtechnology.com/wp-content/uploads/2017/10/FAA-AC-70-7460-1J.pdf",
+        url: "https://www.faa.gov/forms/index.cfm/go/document.information/documentid/186274",
         purpose:
           "A two-part follow-up filing required after receiving a hazard clearance. Part 1 must be submitted when the physical structure reaches its greatest height, and Part 2 must be filed within 5 days of the construction being completed and its obstruction lighting going live.",
         tag: "FAA Filing",
@@ -110,6 +114,14 @@ export const FORM_CATEGORIES = [
         url: "https://www.fcc.gov/wireless/support/tower-construction-notification-system-tcns",
         purpose:
           "The mandatory electronic system used to log a proposed tower construction. The FCC uses this portal to instantly broadcast the project data to all applicable Tribal Historic Preservation Offices (THPOs) to initiate tribal consultation.",
+        tag: "Live Portal",
+      },
+      {
+        name: "FCC E-106 System",
+        subtitle: "Section 106 Electronic Filing to SHPO",
+        url: "https://www.fcc.gov/wireless/systems-utilities/e-106-system",
+        purpose:
+          "The FCC's electronic system for submitting completed Form 620 and Form 621 packets to the State Historic Preservation Officer (SHPO). It is the filing companion to TCNS — TCNS handles tribal notification, while E-106 delivers the Section 106 packet itself for SHPO review.",
         tag: "Live Portal",
       },
       {
