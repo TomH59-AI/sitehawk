@@ -430,6 +430,12 @@ export default function SitePowerMap() {
         <div className="relative w-full h-[660px] rounded-lg overflow-hidden border border-border">
           <div ref={containerRef} className="absolute inset-0" />
           {loading && <div className="absolute top-3 left-3 bg-black/70 text-amber-300 text-[11px] font-mono px-2 py-1 rounded flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> LOADING GRID…</div>}
+          {stats?.dist && (
+            <button onClick={() => setShowPoles((v) => !v)}
+              className={`absolute top-3 right-14 z-10 text-[11px] font-mono px-2 py-1 rounded border transition ${showPoles ? "bg-red-600/90 border-red-400 text-white" : "bg-black/70 border-white/20 text-red-200 hover:text-white"}`}>
+              ⚡ Poles {stats.dist.poles}{showPoles ? " ·ON" : " ·OFF"}
+            </button>
+          )}
           <div className="absolute bottom-5 left-5 bg-white/95 text-slate-800 text-[12px] px-3 py-2 rounded-lg shadow-md leading-relaxed">
             <strong>Transmission (kV)</strong><br />
             <span style={{ color: "#22d3ee" }}>▬</span> &lt;100&nbsp;
@@ -438,7 +444,8 @@ export default function SitePowerMap() {
             <span style={{ color: "#f43f5e" }}>▬</span> 500+<br />
             <span style={{ color: "#eab308" }}>●</span> Substation&nbsp;&nbsp;
             <span style={{ color: "#f97316" }}>📡</span> Site&nbsp;&nbsp;
-            <span style={{ color: "#38bdf8" }}>◌</span> 0.25/0.5/1 mi
+            <span style={{ color: "#38bdf8" }}>◌</span> 0.25/0.5/1 mi<br />
+            <span style={{ color: "#e60000" }}>◼</span> Distribution (OSM)
           </div>
         </div>
 
@@ -476,6 +483,20 @@ export default function SitePowerMap() {
             </div>
             <div className="px-3 py-1.5 border-t border-border bg-muted/30 text-[10px] font-mono text-muted-foreground tracking-wider flex items-center gap-1.5"><Radio className="w-3 h-3" /> SOURCE · HIFLD TRANSMISSION LINES + SUBSTATIONS</div>
           </div>
+
+          {stats?.dist && (stats.dist.transformers + stats.dist.osmSubs + stats.dist.poles + stats.dist.lines) > 0 && (
+            <div className="border border-border rounded-lg bg-card overflow-hidden">
+              <div className="bg-gradient-to-r from-red-600 to-rose-600 text-white px-3 py-2 flex items-center gap-2"><Zap className="w-4 h-4" /><span className="font-heading font-semibold text-sm">Local Distribution Grid · OSM ≤1 mi</span></div>
+              <div className="px-3 py-2">
+                <StatRow label="Nearest transformer" value={stats.dist.nearestXfmr != null ? (stats.dist.nearestXfmr < 0.1 ? `${(stats.dist.nearestXfmr * 5280).toFixed(0)} ft` : `${stats.dist.nearestXfmr.toFixed(2)} mi`) : "—"} />
+                <StatRow label="Transformers" value={stats.dist.transformers} />
+                <StatRow label="Distribution substations" value={stats.dist.osmSubs} />
+                <StatRow label="Distribution lines" value={stats.dist.lines} />
+                <StatRow label="Poles / towers" value={stats.dist.poles} sub={stats.dist.poles > 0 ? (showPoles ? "shown" : "toggle on map") : null} />
+              </div>
+              <div className="px-3 py-1.5 border-t border-border bg-muted/30 text-[10px] font-mono text-muted-foreground tracking-wider">SOURCE · OPENSTREETMAP (OVERPASS) · DISTRIBUTION</div>
+            </div>
+          )}
 
           {/* Full identification — every nearby asset enumerated */}
           {stats?.subList?.length > 0 && (
