@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScanLine, Scale, GitCompareArrows } from "lucide-react";
 import PermitApplications from "../components/hawkdoc/PermitApplications";
@@ -12,7 +13,19 @@ import HawkFetchModule from "../components/hawkfetch/HawkFetchModule";
 //  · Lease Analysis — single-side hard-locked telecom lease breakdown
 //  · Redline Counter — original vs landlord redline, accept/reject/counter suggestions
 export default function HawkDocs() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  // One-shot handoff from Hawk Forms (“Yes, help me fill it out”): capture once, then
+  // strip the params so refresh/back doesn't re-trigger the agency fetch.
+  const [formImport] = useState(() => {
+    const importUrl = searchParams.get("importUrl");
+    return importUrl ? { importUrl, importName: searchParams.get("importName") || "" } : null;
+  });
   const [tab, setTab] = useState("permits");
+
+  useEffect(() => {
+    if (formImport) setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -41,7 +54,7 @@ export default function HawkDocs() {
           <TabsTrigger value="redline"><GitCompareArrows className="w-4 h-4 mr-1.5" /> Redline Counter</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="permits"><div id="hawkdocs-permits"><PermitApplications /></div></TabsContent>
+        <TabsContent value="permits"><div id="hawkdocs-permits"><PermitApplications formImport={formImport} /></div></TabsContent>
 
         <TabsContent value="lease">
           <HawkLawDisclaimerBanner />
