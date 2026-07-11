@@ -7,8 +7,11 @@ import DocFieldsView from "./DocFieldsView";
 // Permit Applications (zoning / building-permit) — upload, AI fill, Q&A, sign, print.
 // Extracted from the old HawkDocs page so it lives inside the unified hub.
 // Screens: list -> new (upload+analyze) -> fields (review/fill)
-export default function PermitApplications() {
-  const [screen, setScreen] = useState("list");
+export default function PermitApplications({ formImport = null }) {
+  // A handoff from Hawk Forms drops the user straight into the uploader with the
+  // form auto-fetched. Cleared on Back so “New” afterwards starts fresh.
+  const [pendingImport, setPendingImport] = useState(formImport);
+  const [screen, setScreen] = useState(formImport ? "new" : "list");
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(null);
@@ -24,11 +27,11 @@ export default function PermitApplications() {
 
   useEffect(() => { load(); }, []);
 
-  function goList() { setActive(null); setScreen("list"); load(); }
+  function goList() { setActive(null); setPendingImport(null); setScreen("list"); load(); }
   function openDoc(rec) { setActive(rec); setScreen("fields"); }
   function onReady(rec) { setActive(rec); setScreen("fields"); }
 
-  if (screen === "new") return <DocUploader onBack={goList} onReady={onReady} />;
+  if (screen === "new") return <DocUploader onBack={goList} onReady={onReady} formImport={pendingImport} />;
   if (screen === "fields" && active) return <DocFieldsView document={active} onBack={goList} />;
   return <DocsList docs={docs} loading={loading} onNew={() => setScreen("new")} onOpen={openDoc} onDeleted={load} />;
 }
