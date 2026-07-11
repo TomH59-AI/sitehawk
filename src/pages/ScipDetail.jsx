@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { generateSarfMap } from "@/functions/generateSarfMap";
-import { Printer, Download, RefreshCw, Copy, Loader2, ArrowLeft, FileText } from "lucide-react";
+import { Printer, Download, RefreshCw, Copy, Loader2, ArrowLeft, FileText, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
 import { resolveScipActiveTarget } from "@/lib/scipTarget";
@@ -155,6 +155,7 @@ export default function ScipDetail() {
             <span className="px-3 py-1 rounded-full text-white text-xs font-semibold" style={{ background: st.bg }}>{st.label}</span>
             <ToolbarBtn icon={RefreshCw} label="Regenerate Map" onClick={handleRegenerate} busy={busy} />
             <ToolbarBtn icon={FileText} label="Hawk SCIP" onClick={() => navigate(`/scip/${record.id}/hawk`)} />
+            <ToolbarBtn icon={Layers} label="Doc Studio" onClick={() => navigate(`/scip/${record.id}/studio`)} />
             <PrintSiteHawkScipButton scip={record} variant="toolbar" />
             <ToolbarBtn icon={Printer} label="Print SCIP (Classic)" onClick={handlePrint} />
             <ToolbarBtn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />

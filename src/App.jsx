@@ -61,6 +61,7 @@ import HawkFrequency from './pages/HawkFrequency';
 import CoverageAnalysis from './pages/CoverageAnalysis';
 import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
+import ScipStudio from './pages/ScipStudio';
 import HawkScip from './pages/HawkScip';
 import HawkDocs from './pages/HawkDocs';
 import HawkDocShareView from './pages/HawkDocShareView';
@@ -158,6 +159,8 @@ const AuthenticatedApp = () => {
         <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
+        {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}
+        <Route path="/scip/:id/studio" element={<ScipStudio />} />
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
         <Route path="/hawk-fill" element={<HawkFill />} />

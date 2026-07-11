@@ -1,0 +1,149 @@
+{
+  "name": "ScipStudioDoc",
+  "type": "object",
+  "description": "SCIP Document Studio \u2014 one report workspace per ScipRecord, mirroring the six-sheet SiteHawk SCIP Document Studio Template (Executive Summary, Target & Candidate, Maps & Evidence, Infrastructure, Zoning & Constraints, Final Assessment). target_a is the LOCKED authoritative source record: written once at assembly from the original ScipRecord and never overwritten by AI or refreshes. Built alongside the legacy SCIP form system; does not replace it.",
+  "properties": {
+    "scip_record_id": {
+      "type": "string",
+      "description": "The source ScipRecord this studio document was assembled from. One doc per SCIP."
+    },
+    "doc_status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "review",
+        "final"
+      ],
+      "default": "draft"
+    },
+    "identity": {
+      "type": "object",
+      "description": "PROJECT IDENTITY block: { project_id, site_name, client, prepared_by, issue_date }.",
+      "additionalProperties": true
+    },
+    "target_a": {
+      "type": "object",
+      "description": "LOCKED SOURCE RECORD \u2014 original Target A inputs (target_id, site_name, latitude, longitude, search_radius, requested_height_ft, county, state, created_date, created_by, original_instructions). Written once at first assembly; NEVER modified afterward.",
+      "additionalProperties": true
+    },
+    "candidate": {
+      "type": "object",
+      "description": "SELECTED CANDIDATE profile: candidate_id, candidate_name, latitude, longitude, distance_from_target_a, parcel_id, site_address, parcel_size, parcel_dimensions, owner_of_record, tax_status, current_use, ground_elevation, proposed_compound_size, available_centerlines.",
+      "additionalProperties": true
+    },
+    "owner_access": {
+      "type": "object",
+      "description": "OWNER AND ACCESS: owner_entity, contact_person, mailing_address, email, phone, access_from, row_driveway_notes, general_directions.",
+      "additionalProperties": true
+    },
+    "candidate_rationale": {
+      "type": "string",
+      "description": "Why this parcel was selected. Analyst/AI-drafted, analyst-owned."
+    },
+    "executive": {
+      "type": "object",
+      "description": "DECISION SNAPSHOT + EXECUTIVE ASSESSMENT: recommended_candidate, overall_feasibility (High/Moderate/Low/Hold), primary_advantage, primary_constraint, next_action, assessment_text.",
+      "additionalProperties": true
+    },
+    "map_set": {
+      "type": "array",
+      "description": "REQUIRED MAP SET \u2014 12 exhibits. Each: { key, label, status (Not Captured|Captured|Approved), asset_url, captured_at, source, caption }.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "photos": {
+      "type": "array",
+      "description": "PHOTO EVIDENCE rows: { photo_id, category, direction_location, asset_url, captured_at, caption }.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "infrastructure": {
+      "type": "object",
+      "description": "Power & Communications sheet: power {utility_owner, utility_contact, nearest_service_point, nearest_pole_asset_id, distance_to_candidate, service_voltage, on_site_power_observed, field_verification_status}, hifld_lines [{segment_id, owner, voltage_kv, subs, distance_relation, evidence_status}], ai_assessment, fiber {fiber_available, fiber_provider, nearest_fiber_route, distance_to_candidate, telco_provider, nearest_demarc, backhaul_confidence, verification_notes}, risks [{priority, issue, evidence, responsible_party, due, status}].",
+      "additionalProperties": true
+    },
+    "zoning": {
+      "type": "object",
+      "description": "Zoning, Environment & Public Safety sheet: overview {jurisdiction, planning_contact, zoning_district, future_land_use, current_use, telecom_code_section, approval_process, application_fees, estimated_timeframe, minimum_lot_compliance, maximum_tower_height, stealth_required, required_collocations, residential_separation, tower_separation, measurement_method, fall_zone_requirement}, environmental {flood_zone, wetland_concern, water_management_district, hazardous_materials, topography_slope, protected_lands, access_constraint, airport_faa_concern, nearest_airport_distance, wind_design_criteria}, emergency {police_jurisdiction, police_contact, fire_jurisdiction, fire_contact, nearest_hospital_ems, emergency_access_notes}, source_register [{topic, requirement, code_source, url, verified_date, status}].",
+      "additionalProperties": true
+    },
+    "scorecard": {
+      "type": "array",
+      "description": "CANDIDATE SCORECARD: { category, weight, score (1-5 or null), weighted_score, key_evidence, status }.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Proceed / Proceed with Conditions / Hold / Reject narrative with evidence."
+    },
+    "quality_gate": {
+      "type": "array",
+      "description": "PRE-PUBLICATION QUALITY GATE checks: { check, required, result (Pending|Pass|Fail), reviewed_by, review_date, notes }.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "issue_record": {
+      "type": "object",
+      "description": "ISSUE RECORD: report_version, template_version, generated_by, generated_at, approved_by, approval_date, final_pdf_url.",
+      "additionalProperties": true
+    },
+    "completion": {
+      "type": "object",
+      "description": "COMPLETION CONTROLS \u2014 per-section status: { section_key: { status, verified_by, verified_date, open_items, source_coverage_pct } }.",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "scip_record_id"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
