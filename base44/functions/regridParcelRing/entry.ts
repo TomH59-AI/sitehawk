@@ -16,9 +16,20 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// ll_row_parcel (premium schema) stores the criteria that flagged the parcel as ROW.
+const ROW_CRITERIA_LABELS = {
+  parcel_number: "Parcel number indicates ROW",
+  land_use: "Land use indicates ROW",
+  perimeter_ratio: "Street-network geometry (perimeter ratio)",
+  hull_ratio: "Street-network geometry (hull ratio)",
+};
+// Roadway ROW (RROW) road_type codes — US Census route type classification.
+const ROAD_TYPE_LABELS = { C: "County", I: "Interstate", M: "Common Name", O: "Other", S: "Statewide", U: "US" };
+
 function normalize(feature) {
   const f = feature?.properties?.fields || feature?.properties || {};
   const geom = feature?.geometry || null;
+  const rowParcel = f.ll_row_parcel || null;
 
   return {
     // ── Core identifiers ──
@@ -69,10 +80,16 @@ function normalize(feature) {
     rdi: f.rdi || null,                         // Residential Delivery Indicator
     ll_address_count: f.ll_address_count ?? null,
 
-    // ── ROW (Right-of-Way) indicators ──
-    row_flag: f.row_flag ?? f.ll_row_flag ?? null,         // true = parcel is ROW
-    row_type: f.row_type || f.ll_row_type || null,         // road, rail, utility, etc.
-    roadway_row: f.roadway_row ?? null,
+    // ── ROW (Right-of-Way) indicators — premium schema `ll_row_parcel` ──
+    ll_row_parcel: rowParcel,                              // criteria value when parcel is ROW
+    row_flag: rowParcel ? true : (f.row_flag ?? f.ll_row_flag ?? null),
+    row_type: rowParcel
+      ? (ROW_CRITERIA_LABELS[rowParcel] || rowParcel)
+      : (f.row_type || f.ll_row_type || null),
+    // ── Roadway ROW (RROW) product attributes (when included in account schema) ──
+    road_type: f.road_type ? (ROAD_TYPE_LABELS[f.road_type] || f.road_type) : null,
+    mtfcc: f.mtfcc || null,
+    mtfcc_name: f.mtfcc_name || null,
 
     // ── Stacked parcel indicators ──
     ll_stack_uuid: f.ll_stack_uuid || null,     // non-null = stacked parcel

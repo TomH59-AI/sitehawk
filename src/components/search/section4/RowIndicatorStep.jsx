@@ -86,11 +86,10 @@ export default function RowIndicatorStep({
 
   const e = enrichment || {};
 
-  // ROW color
-  const rowColor = (e.row_flag === true || e.row_flag === "true" || e.row_type) ? "red" : "green";
-  const rowVal = (e.row_flag === true || e.row_flag === "true")
-    ? `Yes${e.row_type ? ` — ${e.row_type}` : ""}`
-    : e.row_type || "Not flagged";
+  // ROW color — ll_row_parcel is the Regrid premium-schema ROW field
+  const isRow = !!e.ll_row_parcel || e.row_flag === true || e.row_flag === "true" || !!e.row_type;
+  const rowColor = isRow ? "red" : "green";
+  const rowVal = isRow ? `Yes${e.row_type ? ` — ${e.row_type}` : ""}` : "Not flagged";
 
   // Vacancy
   const vacancyVal = e.usps_vacancy === "V" ? "Vacant" : e.usps_vacancy === "N" ? "Active delivery" : e.usps_vacancy || "—";
@@ -186,7 +185,9 @@ export default function RowIndicatorStep({
 
           {/* ROW & Stacked */}
           <Section icon={AlertCircle} title="ROW & Stacked Parcel Indicators">
-            <Badge label="ROW Flag" value={rowVal} color={rowColor} />
+            <Badge label="ROW Flag (ll_row_parcel)" value={rowVal} color={rowColor} />
+            {e.road_type && <Badge label="Roadway ROW Road Class" value={e.road_type} color="blue" />}
+            {e.mtfcc_name && <Badge label="Roadway Feature (MTFCC)" value={e.mtfcc_name} color="blue" />}
             {corridor?.found && (
               <Badge label="Inferred ROW Width" value={`~${corridor.estimated_row_width_ft} ft`} color="amber" />
             )}

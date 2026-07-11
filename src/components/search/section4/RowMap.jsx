@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { ensureMapboxLoaded } from "@/lib/section4Maps";
 import { loadPublicConfig } from "@/lib/publicConfig";
 
-const isRowParcel = (p) => p.row_flag === true || p.row_flag === "true" || !!p.row_type;
+const isRowParcel = (p) => !!p.ll_row_parcel || p.row_flag === true || p.row_flag === "true" || !!p.row_type;
 
 function extendBounds(bounds, coords) {
   if (typeof coords[0] === "number") { bounds.extend(coords); return; }
@@ -44,6 +44,8 @@ export default function RowMap({ parcels = [], targetA, corridor = null }) {
           properties: {
             row: isRowParcel(p),
             row_type: p.row_type || "",
+            road_type: p.road_type || "",
+            mtfcc_name: p.mtfcc_name || "",
             owner: p.owner_name || "",
             apn: p.apn || "",
             acres: p.ll_gisacre != null ? Number(p.ll_gisacre).toFixed(3) : "",
@@ -94,7 +96,9 @@ export default function RowMap({ parcels = [], targetA, corridor = null }) {
               .setHTML(
                 `<div style="font-size:12px;line-height:1.5;color:#111">
                   <div style="font-weight:700;color:#dc2626">Right-of-Way Parcel</div>
-                  ${pr.row_type ? `<div><b>Type:</b> ${pr.row_type}</div>` : ""}
+                  ${pr.row_type ? `<div><b>Detection:</b> ${pr.row_type}</div>` : ""}
+                  ${pr.road_type ? `<div><b>Road class:</b> ${pr.road_type}</div>` : ""}
+                  ${pr.mtfcc_name ? `<div><b>Feature (MTFCC):</b> ${pr.mtfcc_name}</div>` : ""}
                   ${pr.owner ? `<div><b>Owner:</b> ${pr.owner}</div>` : ""}
                   ${pr.apn ? `<div><b>APN:</b> ${pr.apn}</div>` : ""}
                   ${pr.acres ? `<div><b>Acres:</b> ${pr.acres}</div>` : ""}
