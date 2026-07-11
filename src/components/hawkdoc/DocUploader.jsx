@@ -34,7 +34,7 @@ export default function DocUploader({ onBack, onReady, formImport = null }) {
     let cancelled = false;
     (async () => {
       setBusy(true);
-      setStage("Fetching the form from the agency site...");
+      setStage("Fetching the form from the agency site…");
       if (formImport.importName) setDocName(formImport.importName);
       try {
         const res = await hawkFormImport({ url: formImport.importUrl });
@@ -49,7 +49,7 @@ export default function DocUploader({ onBack, onReady, formImport = null }) {
         toast.success("Form loaded. Link a SCIP to pre-fill (optional), then hit Analyze.");
       } catch (err) {
         if (!cancelled) {
-          toast.error(err.message || "Couldn't fetch the form automatically - download it from the tab we opened and upload it here.");
+          toast.error(err.message || "Couldn't fetch the form automatically — download it from the tab we opened and upload it here.");
         }
       } finally {
         if (!cancelled) { setBusy(false); setStage(""); }
