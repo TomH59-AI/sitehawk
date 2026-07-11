@@ -472,7 +472,9 @@ export default function SitePowerMap() {
             <span style={{ color: "#eab308" }}>●</span> Substation&nbsp;&nbsp;
             <span style={{ color: "#f97316" }}>📡</span> Site&nbsp;&nbsp;
             <span style={{ color: "#38bdf8" }}>◌</span> 0.25/0.5/1 mi<br />
-            <span style={{ color: "#e60000" }}>◼</span> Distribution (OSM)
+            <span style={{ color: "#e60000" }}>◼</span> Distribution (OSM)<br />
+            <span style={{ color: "#16a34a" }}>●</span> Fiber On-Net&nbsp;
+            <span style={{ color: "#eab308" }}>●</span> Near-Net
           </div>
         </div>
 
@@ -510,6 +512,27 @@ export default function SitePowerMap() {
             </div>
             <div className="px-3 py-1.5 border-t border-border bg-muted/30 text-[10px] font-mono text-muted-foreground tracking-wider flex items-center gap-1.5"><Radio className="w-3 h-3" /> SOURCE · HIFLD TRANSMISSION LINES + SUBSTATIONS</div>
           </div>
+
+          {stats?.fiber && (
+            <div className="border border-emerald-500/40 rounded-lg bg-card overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-3 py-2 flex items-center gap-2"><Cable className="w-4 h-4" /><span className="font-heading font-semibold text-sm">Fiber &amp; Backhaul · CarrierFinder</span></div>
+              <div className="px-3 py-2">
+                {stats.fiber.nearest ? (
+                  <div className="bg-muted/50 rounded p-2 mb-2">
+                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-0.5">Nearest {stats.fiber.nearest.onnet ? "On-Net (lit)" : "Near-Net"} building</div>
+                    <div className="text-sm font-bold">{stats.fiber.nearest.b.carrier || "Carrier"}</div>
+                    <div className="text-xs text-muted-foreground">{stats.fiber.nearest.d < 0.1 ? `${(stats.fiber.nearest.d * 5280).toFixed(0)} ft` : `${stats.fiber.nearest.d.toFixed(2)} mi`} away{stats.fiber.nearest.b.carriertype ? ` · ${stats.fiber.nearest.b.carriertype}` : ""}{stats.fiber.nearest.b.datacenter ? " · Data Center" : ""}</div>
+                    <div className="text-xs text-muted-foreground truncate">{[stats.fiber.nearest.b.street, stats.fiber.nearest.b.city, stats.fiber.nearest.b.state].filter(Boolean).join(", ")}</div>
+                  </div>
+                ) : <div className="text-xs text-muted-foreground italic py-1 mb-1">No lit / near-net buildings within 1 mi.</div>}
+                <StatRow label="On-Net (lit) buildings" value={stats.fiber.onnetCount} />
+                <StatRow label="Near-Net buildings" value={stats.fiber.nearnetCount} />
+                {stats.fiber.telco && <StatRow label="Serving telco" value={stats.fiber.telco.name} sub={stats.fiber.telco.co_distance ? `CO ${stats.fiber.telco.co_distance} away` : (stats.fiber.telco.clli || null)} />}
+                {stats.fiber.telco?.phone && <StatRow label="Telco contact" value={stats.fiber.telco.phone} />}
+              </div>
+              <div className="px-3 py-1.5 border-t border-border bg-muted/30 text-[10px] font-mono text-muted-foreground tracking-wider">SOURCE · CARRIERFINDER · LIT / NEAR-NET FIBER</div>
+            </div>
+          )}
 
           {stats?.dist && (stats.dist.transformers + stats.dist.osmSubs + stats.dist.poles + stats.dist.lines) > 0 && (
             <div className="border border-border rounded-lg bg-card overflow-hidden">
