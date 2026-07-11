@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "../HawkFlightSpinner";
 import RowMap from "./RowMap";
 import PublicSafetyContacts from "./PublicSafetyContacts";
+import ConnectionPointsCard from "./ConnectionPointsCard";
 import { inferRowCorridor } from "@/lib/rowCorridor";
 
 const BRAND_GREEN = "#628C83";
@@ -242,6 +243,9 @@ export default function RowIndicatorStep({
 
           {/* Public Safety — nearest Police + Fire non-emergency contacts */}
           <PublicSafetyContacts lat={targetA?.latitude} lon={targetA?.longitude} />
+
+          {/* Likely fiber / power / access-road connection points */}
+          <ConnectionPointsCard lat={targetA?.latitude} lon={targetA?.longitude} />
         </div>
       )}
     </div>
