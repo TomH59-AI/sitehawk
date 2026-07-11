@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
 import { stampPatch, SECTION_KEYS, sectionLabel, resolveScipActiveTarget } from "@/lib/scipTarget";
 import ScipPowerAirportPage from "./ScipPowerAirportPage";
+import UnifiedGridMap from "@/components/powerlines/UnifiedGridMap";
 import SectionStaleBanner from "./SectionStaleBanner";
 import LiveAirportMap from "./LiveAirportMap";
 import LiveTowerMap from "./LiveTowerMap";
@@ -69,14 +70,20 @@ export default function HawkPowerAirport({ record, onUpdate }) {
       </p>
 
       {ctx.lat != null && ctx.lon != null && (
-        <div className="mb-4 no-print">
-          <Link
-            to={`/site-power-map?scip=${record.id}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
-            style={{ border: `1px solid ${SKYWAVE.blue}`, color: SKYWAVE.blue }}
-          >
-            <Zap className="w-4 h-4" /> Open Site Power Map — surrounding grid &amp; tie-in points
-          </Link>
+        <div className="mb-4 no-print space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="text-sm font-semibold" style={{ color: SKYWAVE.navy }}>
+              Unified Power + Fiber Map — {ctx.target_label}
+            </div>
+            <Link
+              to={`/site-power-map?scip=${record.id}`}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{ border: `1px solid ${SKYWAVE.blue}`, color: SKYWAVE.blue }}
+            >
+              <Zap className="w-3.5 h-3.5" /> Open full-screen ↗
+            </Link>
+          </div>
+          <UnifiedGridMap target={{ lat: ctx.lat, lon: ctx.lon, label: ctx.target_label, address: target?.parcel_address || "" }} height={520} />
         </div>
       )}
       <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.power_airport} hasData={!!data} />
