@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import { buildDimensionLabels } from "@/lib/parcelDimensions";
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
@@ -32,12 +33,27 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
           map.addSource("hf-parcel", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-fallzone", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-compound", { type: "geojson", data: EMPTY_FC });
+          map.addSource("hf-dims", { type: "geojson", data: EMPTY_FC });
           map.addLayer({ id: "hf-parcel-fill", type: "fill", source: "hf-parcel", paint: { "fill-color": "#00A3FF", "fill-opacity": 0.08 } });
           map.addLayer({ id: "hf-parcel-line", type: "line", source: "hf-parcel", paint: { "line-color": "#00A3FF", "line-width": 3 } });
           map.addLayer({ id: "hf-fallzone-fill", type: "fill", source: "hf-fallzone", paint: { "fill-color": "#EF4444", "fill-opacity": 0.12 } });
           map.addLayer({ id: "hf-fallzone-line", type: "line", source: "hf-fallzone", paint: { "line-color": "#EF4444", "line-width": 2, "line-dasharray": [2, 2] } });
           map.addLayer({ id: "hf-compound-fill", type: "fill", source: "hf-compound", paint: { "fill-color": "#F59E0B", "fill-opacity": 0.3 } });
           map.addLayer({ id: "hf-compound-line", type: "line", source: "hf-compound", paint: { "line-color": "#F59E0B", "line-width": 2 } });
+          map.addLayer({
+            id: "hf-dims-labels", type: "symbol", source: "hf-dims",
+            layout: {
+              "text-field": ["get", "label"],
+              "text-size": 12,
+              "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
+              "text-allow-overlap": false,
+            },
+            paint: {
+              "text-color": "#FFFFFF",
+              "text-halo-color": "#0056B3",
+              "text-halo-width": 1.6,
+            },
+          });
           setReady(true);
         });
         mapRef.current = map;
@@ -62,6 +78,7 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
       ? { type: "Feature", properties: {}, geometry: siteTarget.parcel_geometry }
       : EMPTY_FC;
     map.getSource("hf-parcel").setData(parcelData);
+    map.getSource("hf-dims").setData(buildDimensionLabels(siteTarget.parcel_geometry));
 
     if (siteTarget.parcel_geometry) {
       const coords = [];
@@ -110,7 +127,7 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     const map = mapRef.current;
     if (!ready || !map) return;
     const vis = (ids, on) => ids.forEach((id) => map.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
-    vis(["hf-parcel-fill", "hf-parcel-line"], layers.parcel);
+    vis(["hf-parcel-fill", "hf-parcel-line", "hf-dims-labels"], layers.parcel);
     vis(["hf-fallzone-fill", "hf-fallzone-line"], layers.fallZone);
     vis(["hf-compound-fill", "hf-compound-line"], layers.compound);
   }, [ready, layers]);
