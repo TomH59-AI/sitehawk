@@ -16,7 +16,7 @@
  *   3. Brevard County, FL demo (no params).
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Zap, Gauge, Building2, Radio, TowerControl, Loader2, AlertTriangle, List } from "lucide-react";
 import { loadPublicConfig } from "@/lib/publicConfig";
