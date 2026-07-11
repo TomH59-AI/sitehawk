@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { scipPowerAirportMaps } from "@/functions/scipPowerAirportMaps";
 import { Loader2, Zap } from "lucide-react";
@@ -67,6 +68,17 @@ export default function HawkPowerAirport({ record, onUpdate }) {
         Electric service map — nearest power provider connected to the tower site with company name, contact address &amp; transmission-line voltage. Airport map — property waypoint with the radius ring and nearest airport (plane icon), distance shown as the hawk flies.
       </p>
 
+      {ctx.lat != null && ctx.lon != null && (
+        <div className="mb-4 no-print">
+          <Link
+            to={`/site-power-map?scip=${record.id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium"
+            style={{ border: `1px solid ${SKYWAVE.blue}`, color: SKYWAVE.blue }}
+          >
+            <Zap className="w-4 h-4" /> Open Site Power Map — surrounding grid &amp; tie-in points
+          </Link>
+        </div>
+      )}
       <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.power_airport} hasData={!!data} />
       {data && <ScipPowerAirportPage data={data} />}
 
