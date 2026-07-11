@@ -38,7 +38,7 @@ const SECTION_LABELS = {
 
 function Sheet({ title, subtitle, children }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="studio-sheet rounded-xl border border-border bg-card overflow-hidden">
       <div className="px-4 py-3 bg-secondary text-secondary-foreground">
         <h3 className="font-heading font-bold text-base leading-tight">{title}</h3>
         {subtitle && <p className="text-[11px] opacity-70">{subtitle}</p>}
@@ -101,9 +101,9 @@ export default function ScipStudio() {
   const ir = doc?.issue_record || {};
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div id="scip-studio-doc" className="max-w-4xl mx-auto space-y-5">
       {/* Toolbar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="studio-no-print flex items-center justify-between flex-wrap gap-3">
         <button onClick={() => navigate(`/scip/${id}`)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" /> Back to SCIP
         </button>
@@ -113,6 +113,11 @@ export default function ScipStudio() {
             {assembling ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : doc ? <RefreshCw className="w-4 h-4 mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
             {doc ? "Refresh from SCIP" : "Assemble from SCIP"}
           </Button>
+          {doc && (
+            <Button variant="outline" onClick={() => { ensurePrintStyles(); window.print(); }}>
+              <Printer className="w-4 h-4 mr-2" /> Print / Save PDF
+            </Button>
+          )}
         </div>
       </div>
 
