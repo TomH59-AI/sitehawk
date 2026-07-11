@@ -215,7 +215,6 @@ export default function UnifiedGridMap({ target, height = 620 }) {
       mapRef.current = map;
     })();
     return () => { cancelled = true; mapRef.current?.remove(); mapRef.current = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // fetch + compute whenever the target coordinate changes
@@ -334,7 +333,6 @@ export default function UnifiedGridMap({ target, height = 620 }) {
       });
       setLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, lat, lon]);
 
   // apply layer-toggle visibility
