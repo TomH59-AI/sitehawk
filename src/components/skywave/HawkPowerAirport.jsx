@@ -69,11 +69,17 @@ export default function HawkPowerAirport({ record, onUpdate }) {
         Electric service map — nearest power provider connected to the tower site with company name, contact address &amp; transmission-line voltage. Airport map — property waypoint with the radius ring and nearest airport (plane icon), distance shown as the hawk flies.
       </p>
 
+      <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.power_airport} hasData={!!data} />
+      {data && <ScipPowerAirportPage data={data} />}
+
+      {/* Unified Power + Fiber map — piped in RIGHT AFTER the existing Power & Airport
+          map, driven by the same Target A (resolveScipActiveTarget), keeping the flow. */}
       {ctx.lat != null && ctx.lon != null && (
-        <div className="mb-4 no-print space-y-2">
+        <div className="mt-5 no-print space-y-2 border-t pt-4" style={{ borderColor: SKYWAVE.line }}>
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="text-sm font-semibold" style={{ color: SKYWAVE.navy }}>
-              Unified Power + Fiber Map — {ctx.target_label}
+            <div>
+              <div className="text-[10px] font-mono tracking-[0.25em]" style={{ color: SKYWAVE.blue }}>SCIP · POWER + FIBER · ONE VIEW · LIVE</div>
+              <div className="font-heading font-bold text-lg leading-tight" style={{ color: SKYWAVE.navy }}>Unified Power + Fiber Map — {ctx.target_label}</div>
             </div>
             <Link
               to={`/site-power-map?scip=${record.id}`}
@@ -86,8 +92,6 @@ export default function HawkPowerAirport({ record, onUpdate }) {
           <UnifiedGridMap target={{ lat: ctx.lat, lon: ctx.lon, label: ctx.target_label, address: target?.parcel_address || "" }} height={520} />
         </div>
       )}
-      <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.power_airport} hasData={!!data} />
-      {data && <ScipPowerAirportPage data={data} />}
 
       {ctx.lat != null && ctx.lon != null && (
         <div className="mt-4 no-print">
