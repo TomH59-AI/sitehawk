@@ -15,6 +15,7 @@ import { Lock, Sparkles, RefreshCw, AlertTriangle, Building2, TreePine, Zap, Map
 import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "../HawkFlightSpinner";
 import RowMap from "./RowMap";
+import PublicSafetyContacts from "./PublicSafetyContacts";
 import { inferRowCorridor } from "@/lib/rowCorridor";
 
 const BRAND_GREEN = "#628C83";
@@ -238,6 +239,9 @@ export default function RowIndicatorStep({
             <Badge label="Opp. Zone (QOZ)" value={e.qoz === "Y" ? "✓ Qualified Opp. Zone" : e.qoz || "Not a QOZ"} color={e.qoz === "Y" ? "violet" : "default"} />
             <Badge label="GeoID" value={e.geoid} />
           </Section>
+
+          {/* Public Safety — nearest Police + Fire non-emergency contacts */}
+          <PublicSafetyContacts lat={targetA?.latitude} lon={targetA?.longitude} />
         </div>
       )}
     </div>

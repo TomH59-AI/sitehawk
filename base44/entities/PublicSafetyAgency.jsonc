@@ -1,0 +1,87 @@
+{
+  "name": "PublicSafetyAgency",
+  "type": "object",
+  "description": "Police & Fire department directory (non-emergency planning contacts). Currently Florida + Georgia (FBI CDE agency directory + USFA National Fire Department Registry); more states to follow. App-wide shared reference data \u2014 not user-scoped.",
+  "properties": {
+    "category": {
+      "type": "string",
+      "enum": [
+        "police",
+        "fire"
+      ],
+      "description": "Agency category."
+    },
+    "name": {
+      "type": "string",
+      "description": "Department / agency name."
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase state code."
+    },
+    "county": {
+      "type": "string",
+      "description": "County name, normalized UPPERCASE for matching."
+    },
+    "city": {
+      "type": "string"
+    },
+    "street_address": {
+      "type": "string",
+      "description": "Street address (blank when not published in the source dataset)."
+    },
+    "zip": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Non-emergency phone (blank when not published in the source dataset)."
+    },
+    "email": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "department_type": {
+      "type": "string",
+      "description": "e.g. County, City, Career, Volunteer."
+    },
+    "agency_id": {
+      "type": "string",
+      "description": "Source agency ID (FBI ORI or USFA FDID)."
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "source_url": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "category",
+    "name",
+    "state"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
