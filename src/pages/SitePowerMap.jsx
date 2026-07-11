@@ -18,10 +18,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Zap, Gauge, Building2, Radio, TowerControl, Loader2, AlertTriangle, List } from "lucide-react";
+import { Zap, Gauge, Building2, Radio, TowerControl, Loader2, AlertTriangle, List, Cable } from "lucide-react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
 import { infrastructureAssets } from "@/functions/infrastructureAssets";
+import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import { base44 } from "@/api/base44Client";
 import { resolveScipActiveTarget } from "@/lib/scipTarget";
 import PowerLineDetailsPanel from "../components/powerlines/PowerLineDetailsPanel";
@@ -249,6 +250,15 @@ export default function SitePowerMap() {
         map.on("mousemove", "dist-key", distMove); map.on("mouseleave", "dist-key", distLeave);
         map.on("mousemove", "dist-poles", distMove); map.on("mouseleave", "dist-poles", distLeave);
 
+        // ---- CarrierFinder fiber (lit / near-net buildings) ----
+        map.addSource("fiber", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+        map.addLayer({ id: "fiber-pt", type: "circle", source: "fiber", paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 11, 4, 16, 8], "circle-color": ["case", ["get", "onnet"], "#16a34a", "#eab308"], "circle-stroke-color": "#fff", "circle-stroke-width": 1.6, "circle-opacity": 0.95 } });
+        map.addLayer({ id: "fiber-label", type: "symbol", source: "fiber", minzoom: 12, layout: { "text-field": ["get", "carrier"], "text-size": 10, "text-offset": [0, 1.2], "text-anchor": "top", "text-allow-overlap": false, "text-optional": true }, paint: { "text-color": "#a7f3d0", "text-halo-color": "#0f172a", "text-halo-width": 1.6 } });
+        const fiberPopup = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
+        const fiberShow = (e) => { map.getCanvas().style.cursor = "pointer"; const p = e.features?.[0]?.properties || {}; const on = (p.onnet === true || p.onnet === "true"); const net = on ? "On-Net (fiber lit)" : "Near-Net"; const color = on ? "#16a34a" : "#eab308"; const addr = [p.street, p.city, p.state].filter(Boolean).join(", "); fiberPopup.setLngLat(e.lngLat).setHTML(`<div style="font-family:monospace;font-size:11px;line-height:1.4"><strong style="color:${color}">🔌 ${p.carrier || "Carrier"}${p.carriertype ? " · " + p.carriertype : ""}</strong><br/><b>Status:</b> ${net}<br/>${p.datacenter ? "<b>Data Center</b><br/>" : ""}${addr ? addr + "<br/>" : ""}${p.distance ? "<b>Distance:</b> " + p.distance + " ft<br/>" : ""}${p.carrier_count ? "<b>Carriers at site:</b> " + p.carrier_count : ""}</div>`).addTo(map); };
+        const fiberClear = () => { map.getCanvas().style.cursor = ""; fiberPopup.remove(); };
+        map.on("mouseenter", "fiber-pt", fiberShow); map.on("mousemove", "fiber-pt", fiberShow); map.on("mouseleave", "fiber-pt", fiberClear);
+
         const hover = new window.mapboxgl.Popup({ closeButton: false, closeOnClick: false });
         map.on("mousemove", "lines-hit", (e) => {
           map.getCanvas().style.cursor = "pointer";
@@ -296,16 +306,18 @@ export default function SitePowerMap() {
       const dLatMi = 2.0;
       const dLat = dLatMi / 69.172, dLon = dLatMi / (Math.cos(toRad(lat)) * 69.172);
       const bbox = [lon - dLon, lat - dLat, lon + dLon, lat + dLat];
-      let lineFeats = [], subFeats = [], osm = null;
+      let lineFeats = [], subFeats = [], osm = null, fiber = null;
       try {
-        const [lineResp, subs, osmResp] = await Promise.all([
+        const [lineResp, subs, osmResp, fiberResp] = await Promise.all([
           hifldTransmissionLines({ bbox, limit: 1000 }),
           fetchSubstations(lat, lon, 10).catch(() => []),
           infrastructureAssets({ lat, lon, radius_m: 1609 }).then((r) => r?.data).catch(() => null),
+          carrierFinderFiber({ lat, lon, radius_miles: 1 }).then((r) => r?.data).catch(() => null),
         ]);
         lineFeats = lineResp?.data?.features || [];
         subFeats = subs || [];
         osm = osmResp;
+        fiber = fiberResp;
       } catch (err) { console.warn("SitePowerMap fetch failed:", err?.message); }
       if (reqId !== reqRef.current) return;
 
@@ -336,6 +348,21 @@ export default function SitePowerMap() {
         nearestXfmr: Number.isFinite(nearestXfmr) ? nearestXfmr : null,
       };
       const osmCount = ePts.length + eLns.length;
+
+      // CarrierFinder fiber — lit / near-net buildings (connectivity selling point)
+      const litB = (fiber?.lit_buildings || []).filter((b) => Number.isFinite(b.lon) && Number.isFinite(b.lat));
+      map.getSource("fiber")?.setData({ type: "FeatureCollection", features: litB.map((b) => ({ type: "Feature", geometry: { type: "Point", coordinates: [b.lon, b.lat] }, properties: { carrier: b.carrier || "Carrier", carriertype: b.carriertype || "", onnet: b.xnet_code === "O", street: b.street || "", city: b.city || "", state: b.state || "", distance: b.distance != null ? String(b.distance) : "", carrier_count: b.carrier_count != null ? String(b.carrier_count) : "", datacenter: b.datacenter ? "1" : "" } })) });
+      let nearestLit = null, nearestLitMi = Infinity, nearestOnnet = null, nearestOnnetMi = Infinity, onnetCount = 0;
+      for (const b of litB) {
+        const d = milesBetween(lat, lon, b.lat, b.lon);
+        if (d < nearestLitMi) { nearestLitMi = d; nearestLit = b; }
+        if (b.xnet_code === "O") { onnetCount++; if (d < nearestOnnetMi) { nearestOnnetMi = d; nearestOnnet = b; } }
+      }
+      const fiberStat = (fiber?.telco || litB.length) ? {
+        litCount: litB.length, onnetCount, nearnetCount: litB.length - onnetCount,
+        telco: fiber?.telco || null,
+        nearest: nearestOnnet ? { d: nearestOnnetMi, b: nearestOnnet, onnet: true } : (nearestLit ? { d: nearestLitMi, b: nearestLit, onnet: false } : null),
+      } : null;
 
       const rings = { r025: 0, r05: 0, r1: 0 };
       let nearestLine = null, nearestLineDist = Infinity;
@@ -373,7 +400,7 @@ export default function SitePowerMap() {
         subCount: subFeats.length, subsWithin1, subsWithin5,
         nearestSub: nearestSub ? { d: nearestSub.d, p: nearestSub.p } : null,
         lineList: lineList.slice(0, 10), subList: subList.slice(0, 12),
-        dist, osmCount,
+        dist, osmCount, fiber: fiberStat,
       });
       setLoading(false);
     })();
@@ -391,7 +418,7 @@ export default function SitePowerMap() {
   }
 
   const nl = stats?.nearestLine, ns = stats?.nearestSub;
-  const identified = stats ? (stats.lineCount + stats.subCount + (stats.osmCount || 0)) : 0;
+  const identified = stats ? (stats.lineCount + stats.subCount + (stats.osmCount || 0) + (stats.fiber?.litCount || 0)) : 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-4">
