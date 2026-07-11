@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { extractLeaseText } from "@/lib/leaseTextExtract";
 import { hawkDocAnalyze } from "@/functions/hawkDocAnalyze";
+import { hawkFormImport } from "@/functions/hawkFormImport";
 import { Loader2, Upload, FileText, ArrowLeft, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/select";
 
 // New document screen: pick file (PDF/DOCX), name it, optionally link a SCIP/Target, analyze.
-export default function DocUploader({ onBack, onReady }) {
+export default function DocUploader({ onBack, onReady, formImport = null }) {
   const [file, setFile] = useState(null);
   const [docName, setDocName] = useState("");
   const [scips, setScips] = useState([]);
@@ -23,6 +24,39 @@ export default function DocUploader({ onBack, onReady }) {
 
   useEffect(() => {
     base44.entities.ScipRecord.list("-created_date", 100).then(setScips).catch(() => {});
+  }, []);
+
+  // Hawk Forms handoff: fetch the official form server-side (agency sites block
+  // browser CORS), rebuild it as a File, and stage it so the user only has to
+  // (optionally) link a SCIP for pre-fill and hit Analyze.
+  useEffect(() => {
+    if (!formImport?.importUrl) return;
+    let cancelled = false;
+    (async () => {
+      setBusy(true);
+      setStage("Fetching the form from the agency site...");
+      if (formImport.importName) setDocName(formImport.importName);
+      try {
+        const res = await hawkFormImport({ url: formImport.importUrl });
+        const data = res?.data ?? res;
+        if (data?.error) throw new Error(data.error);
+        const bin = atob(data.base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const f = new File([bytes], data.fileName || "form.pdf", { type: "application/pdf" });
+        if (cancelled) return;
+        setFile(f);
+        toast.success("Form loaded. Link a SCIP to pre-fill (optional), then hit Analyze.");
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(err.message || "Couldn't fetch the form automatically - download it from the tab we opened and upload it here.");
+        }
+      } finally {
+        if (!cancelled) { setBusy(false); setStage(""); }
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedScip = scips.find((s) => s.id === scipId) || null;
