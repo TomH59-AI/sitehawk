@@ -157,9 +157,11 @@ export default function Layout() {
         <div className="p-3 border-t border-border space-y-0.5">
           <HubSpotSidebarConnect />
           <div className="border-t border-border/50 my-1" />
-          <div className="flex items-center justify-end pb-1">
-            <RestartTourButton />
-          </div>
+          {location.pathname === "/search" && (
+            <div className="flex items-center justify-end pb-1">
+              <RestartTourButton />
+            </div>
+          )}
           <button
             onClick={toggle}
             className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
@@ -205,7 +207,7 @@ export default function Layout() {
         )}
         <div className="flex items-center gap-1">
           <UsageBadge className="mr-1" />
-          <RestartTourButton />
+          {location.pathname === "/search" && <RestartTourButton />}
           <Button variant="ghost" size="icon" onClick={toggle}>
             {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </Button>

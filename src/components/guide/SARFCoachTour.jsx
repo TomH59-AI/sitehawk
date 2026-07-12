@@ -1,10 +1,9 @@
 /**
  * SARFCoachTour — sequential onboarding coachmarks for the SARF → SCIP flow.
  *
- * Two-page tour (Plan B):
- *   Steps 1–3 on /search   (form fields, scan button, SARF map)
- *   Steps 4–5 on /scip     (params form, print button) — gated on first arrival
- *                          with location.state.candidate present.
+ * Site Search tour:
+ *   The tour starts only on /search and uses floating callouts to guide each
+ *   field and the scan action in order.
  *
  * Behavior:
  *   • Dark callout (#1a2436, accent #3b82f6, text #e8edf5) with HawkIcon.
@@ -22,8 +21,7 @@ import { useLocation } from "react-router-dom";
 import { X, ArrowRight } from "lucide-react";
 import HawkIcon from "../HawkIcon";
 
-const LS_DONE = "sarf_coach_tour_completed_v1";
-const LS_SEARCH_DONE = "sarf_coach_search_done_v1"; // marks /search portion finished
+const LS_DONE = "sarf_coach_tour_completed_v2";
 
 // Step definitions — split by route. `anchor` is a data-coach attribute on the target.
 const SEARCH_STEPS = [
@@ -65,21 +63,6 @@ const SEARCH_STEPS = [
   },
 ];
 
-const SCIP_STEPS = [
-  {
-    id: "params",
-    anchor: "scip-params",
-    title: "4 · Your Target A",
-    body: "Here's your Target A — auto-selected from the scan. Confirm the site parameters, then click Scan to load Targets A/B/C.",
-  },
-  {
-    id: "print",
-    anchor: "scip-print",
-    title: "5 · Generate your SCIP",
-    body: "When the package is ready, print or export your HawkVision SCIP report from here.",
-  },
-];
-
 // Wait until a [data-coach="..."] element is in the DOM and has a non-zero bounding rect.
 function waitForAnchor(anchor, timeoutMs = 8000) {
   return new Promise((resolve) => {
@@ -107,57 +90,32 @@ export default function SARFCoachTour() {
 
   // Determine which step set applies to the current page
   const onSearch = location.pathname === "/search";
-  const onScip = location.pathname === "/scip";
 
   // Public start handler — wired to window for the header restart icon
   const startTour = useCallback(() => {
-    try { localStorage.removeItem(LS_DONE); localStorage.removeItem(LS_SEARCH_DONE); } catch {}
-    if (onSearch) {
-      setSteps(SEARCH_STEPS);
-      setStepIdx(0);
-      setActive(true);
-      activeRef.current = true;
-    } else if (onScip) {
-      setSteps(SCIP_STEPS);
-      setStepIdx(0);
-      setActive(true);
-      activeRef.current = true;
-    }
-  }, [onSearch, onScip]);
+    try { localStorage.removeItem(LS_DONE); } catch {}
+    if (!onSearch) return;
+    setSteps(SEARCH_STEPS);
+    setStepIdx(0);
+    setActive(true);
+    activeRef.current = true;
+  }, [onSearch]);
 
   useEffect(() => {
     window.__sarfCoachStart = startTour;
     return () => { delete window.__sarfCoachStart; };
   }, [startTour]);
 
-  // Auto-fire logic
+  // Auto-fire once when the user reaches Site Search.
   useEffect(() => {
     let done = false;
     try { done = localStorage.getItem(LS_DONE) === "1"; } catch {}
-    if (done) return;
-
-    if (onSearch) {
-      let searchDone = false;
-      try { searchDone = localStorage.getItem(LS_SEARCH_DONE) === "1"; } catch {}
-      if (!searchDone) {
-        setSteps(SEARCH_STEPS);
-        setStepIdx(0);
-        setActive(true);
-        activeRef.current = true;
-      }
-    } else if (onScip) {
-      // Only fire the /scip portion on first arrival WITH candidate state
-      const hasCandidate = !!location.state?.candidate;
-      let searchDone = false;
-      try { searchDone = localStorage.getItem(LS_SEARCH_DONE) === "1"; } catch {}
-      if (hasCandidate && searchDone) {
-        setSteps(SCIP_STEPS);
-        setStepIdx(0);
-        setActive(true);
-        activeRef.current = true;
-      }
-    }
-  }, [location.pathname, location.state, onSearch, onScip]);
+    if (done || !onSearch) return;
+    setSteps(SEARCH_STEPS);
+    setStepIdx(0);
+    setActive(true);
+    activeRef.current = true;
+  }, [location.pathname, onSearch]);
 
   // When step changes, wait for the anchor to mount, then measure its rect
   useLayoutEffect(() => {
@@ -211,12 +169,8 @@ export default function SARFCoachTour() {
     setActive(false);
     activeRef.current = false;
     setRect(null);
-    // Mark the segment finished
-    try {
-      if (steps === SEARCH_STEPS) localStorage.setItem(LS_SEARCH_DONE, "1");
-      else localStorage.setItem(LS_DONE, "1");
-    } catch {}
-  }, [steps]);
+    try { localStorage.setItem(LS_DONE, "1"); } catch {}
+  }, []);
 
   const advance = useCallback(() => {
     if (stepIdx + 1 >= steps.length) {
