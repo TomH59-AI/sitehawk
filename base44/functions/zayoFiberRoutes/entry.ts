@@ -8,9 +8,11 @@ const SOURCE_DATE = "Imported Zayo KMZ; source vintage not supplied";
 const MAX_KMZ_BYTES = 50 * 1024 * 1024;
 
 function supabaseAdmin() {
-  const url = Deno.env.get("HAWK_SUPABASE_URL");
+  const rawUrl = Deno.env.get("HAWK_SUPABASE_URL");
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !key) throw new Error("Supabase service configuration is missing");
+  if (!rawUrl || !key) throw new Error("Supabase service configuration is missing");
+  const cleanedUrl = rawUrl.trim().replace(/^['"]|['"]$/g, "").replace(/\/$/, "");
+  const url = /^https?:\/\//i.test(cleanedUrl) ? cleanedUrl : `https://${cleanedUrl}`;
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
