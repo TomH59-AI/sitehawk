@@ -1,68 +1,81 @@
 import { Link } from "react-router-dom";
 import {
-  ClipboardList, Search, FileText, Target, Layers, Cable,
-  Zap, Radio, ShieldCheck, Users, Send, Printer, ArrowRight,
+  ClipboardList, Map, FileText, Target, RadioTower, Layers, Cable, Radio,
+  Ruler, Box, ShieldCheck, Printer, MapPin, ListChecks, FileSignature,
+  Scale, ClipboardEdit, FileStack, ScanLine, ArrowRight,
 } from "lucide-react";
 
-// Capabilities index — a visual map of everything SiteHawk can do. This is a
-// read-only directory: each card links to where that capability lives. SCIP
-// generation + printing happen inside the Site Search pipeline (/search), NOT
-// from the dashboard. Nothing here is gated.
-const CAPABILITIES = [
-  { n: 1, title: "Enter Data", desc: "Drop your SARF center, radius, tower height & site details.", icon: ClipboardList, to: "/search", color: "#2563eb" },
-  { n: 2, title: "Run a Site Scan", desc: "Generate the search-ring map around your target area.", icon: Search, to: "/search", color: "#0ea5e9" },
-  { n: 3, title: "Run a Zoning Report", desc: "Pull jurisdiction, zoning & telecom permitting rules.", icon: FileText, to: "/search", color: "#10b981" },
-  { n: 4, title: "Pick Three Targets", desc: "Score & select the best Target A / B / C parcels.", icon: Target, to: "/search", color: "#8b5cf6" },
-  { n: 5, title: "Run the Mapping Suite", desc: "Aerial, topo, FEMA, zoning, FLUM, wetlands & more.", icon: Layers, to: "/search", color: "#3f5a54" },
-  { n: 6, title: "Run Fiber Optics Map", desc: "Map nearest lit & near-net fiber infrastructure.", icon: Cable, to: "/search", color: "#059669" },
-  { n: 7, title: "Run Power Map", desc: "Local grid, substations & transmission tie-in points.", icon: Zap, to: "/search", color: "#eab308" },
-  { n: 8, title: "Run Propagation Map", desc: "Per-carrier RF coverage propagation simulation.", icon: Radio, to: "/search", color: "#f97316" },
-  { n: 9, title: "Run a Compliance Report", desc: "Section 106 / NEPA pre-screen with FCC shot clocks.", icon: ShieldCheck, to: "/search", color: "#dc2626" },
-  { n: 10, title: "CRM", desc: "Track owners, deals, stages & follow-ups.", icon: Users, to: "/crm", color: "#0891b2" },
-  { n: 11, title: "Send Mailers", desc: "Mail your Target A/B/C owners on-brand postcards.", icon: Send, to: "/mail-orders", color: "#7c3aed" },
-  { n: 12, title: "Print SCIP", desc: "Generate & print the full SiteHawk SCIP document.", icon: Printer, to: "/search", color: "#0c1b2e" },
+const JOURNEY = [
+  { n: 1, title: "Enter Site Details", desc: "Add the SARF center, radius, tower height, compound size, and project name.", icon: ClipboardList, to: "/search" },
+  { n: 2, title: "Generate the SARF Map", desc: "Create the search ring and confirm the exact center of your hunt.", icon: Map, to: "/search" },
+  { n: 3, title: "Run Zoning", desc: "Find the jurisdiction, zoning district, telecom rules, and permit path.", icon: FileText, to: "/search" },
+  { n: 4, title: "Choose Targets A, B & C", desc: "Find, score, compare, and select the strongest candidate parcels.", icon: Target, to: "/search" },
+  { n: 5, title: "Check Colocation", desc: "Scan FCC and OpenCellID for towers, rooftops, and nearby cell sites.", icon: RadioTower, to: "/search" },
+  { n: 6, title: "Build the Map Suite", desc: "Create aerial, topo, FEMA, zoning, wetlands, FLUM, and evidence maps.", icon: Layers, to: "/search" },
+  { n: 7, title: "Review Power & Fiber", desc: "Locate utility providers, transmission assets, and fiber connectivity.", icon: Cable, to: "/search" },
+  { n: 8, title: "Run RF Propagation", desc: "Model coverage and visualize the proposed tower's service footprint.", icon: Radio, to: "/search" },
+  { n: 9, title: "Place the Tower", desc: "Test setbacks, fall zones, compound fit, access, and tower separation.", icon: Ruler, to: "/search" },
+  { n: 10, title: "Preview in 3D", desc: "Use HawkFit and 3D imagery to show the proposed site clearly.", icon: Box, to: "/search" },
+  { n: 11, title: "Review Compliance", desc: "Pre-screen Section 106, NEPA, environmental triggers, and shot clocks.", icon: ShieldCheck, to: "/search" },
+  { n: 12, title: "Generate the SCIP", desc: "Assemble, print, and share the complete SiteHawk site package.", icon: Printer, to: "/search" },
 ];
 
-// A read-only capabilities directory. No gating, no progress — just a map of
-// everything SiteHawk can do, each card linking to where you do it.
+const TIME_SAVERS = [
+  { n: 13, title: "Hawk Tracker", desc: "Track deployment activity and stay ready for every client meeting.", icon: MapPin, to: "/hawk-tracker" },
+  { n: 14, title: "Follow-Up Tracker", desc: "Keep urgent sites and next actions from slipping behind.", icon: ListChecks, to: "/follow-up-tracker" },
+  { n: 15, title: "HawkLease", desc: "Know what is in your lease bucket and what is closest to signing.", icon: FileSignature, to: "/hawk-lease" },
+  { n: 16, title: "Hawk Law", desc: "Speed up negotiations with clause intelligence and saved history.", icon: Scale, to: "/hawk-law" },
+  { n: 17, title: "HawkFill", desc: "Upload your own document and intelligently fill the form.", icon: ClipboardEdit, to: "/hawk-fill" },
+  { n: 18, title: "Hawk Forms", desc: "Open the client forms you need and complete them with assistance.", icon: FileStack, to: "/hawk-forms" },
+  { n: 19, title: "Document Intelligence", desc: "Upload zoning and permit applications and get help completing them.", icon: ScanLine, to: "/hawk-docs" },
+];
+
+function IndexGrid({ items, accent }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <Link key={item.n} to={item.to} className="group rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 p-4 transition-all">
+            <div className="flex items-start gap-3">
+              <div className={`relative shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${accent}`}>
+                <Icon className="w-5 h-5" />
+                <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center border-2 border-card">{item.n}</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2 font-heading font-bold text-sm text-foreground">
+                  {item.title}<ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function WorkflowIndex() {
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      <div className="px-6 py-4 border-b border-border bg-gradient-to-r from-primary/10 via-transparent to-transparent">
-        <div className="text-[10px] font-mono tracking-[0.3em] text-primary mb-0.5">WHAT SITEHAWK CAN DO</div>
-        <h2 className="font-heading font-bold text-lg text-foreground">Capabilities Index</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Everything SiteHawk offers, top to bottom. Tap any card to jump straight to it.</p>
-      </div>
+    <div className="space-y-7">
+      <section>
+        <div className="mb-4">
+          <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">The SiteHawk Pipeline · In Order</div>
+          <h2 className="font-heading font-bold text-2xl text-foreground">Everything SiteHawk Does</h2>
+          <p className="text-sm text-muted-foreground mt-1">Start at Step 1 and follow the journey through your finished SCIP.</p>
+        </div>
+        <IndexGrid items={JOURNEY} accent="bg-primary/15 text-primary border border-primary/25" />
+      </section>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
-        {CAPABILITIES.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Link
-              key={s.n}
-              to={s.to}
-              className="group flex items-start gap-3 p-4 bg-card hover:bg-muted/30 transition-colors"
-            >
-              <div
-                className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-white relative"
-                style={{ background: s.color }}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center border-2 border-card">
-                  {s.n}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 font-heading font-semibold text-sm text-foreground">
-                  {s.title}
-                  <ArrowRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{s.desc}</p>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+      <section className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card p-5 md:p-6">
+        <div className="mb-4">
+          <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">After the SCIP · Stay Organized</div>
+          <h2 className="font-heading font-bold text-2xl text-foreground">Don't Miss These Time Savers</h2>
+          <p className="text-sm text-muted-foreground mt-1">The tools that save hours, reduce stress, and keep every site moving.</p>
+        </div>
+        <IndexGrid items={TIME_SAVERS} accent="bg-secondary text-secondary-foreground border border-border" />
+      </section>
     </div>
   );
 }
