@@ -1,0 +1,46 @@
+{
+  "name": "RegridRingCache",
+  "type": "object",
+  "description": "App-wide cache of Regrid parcel ring/point query results. Keyed by rounded center + radius + mode. The full normalized payload is stored as a private JSON file (payload_uri) to keep entity records small. TTL 30 days \u2014 repeat scans of the same ring are served from cache instead of spending Regrid parcel-record credits. Not user-scoped.",
+  "properties": {
+    "cache_key": {
+      "type": "string",
+      "description": "Stable key: `{lat4},{lon4},{radius_miles|point},{mode}` using 4-decimal rounded coordinates."
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "ring",
+        "point"
+      ],
+      "default": "ring"
+    },
+    "payload_uri": {
+      "type": "string",
+      "description": "Private file URI holding the full JSON response payload."
+    },
+    "parcel_count": {
+      "type": "number",
+      "description": "Number of parcels in the cached payload (= Regrid records this cache hit saves)."
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the underlying Regrid fetch happened. Entries older than 30 days are refetched."
+    }
+  },
+  "required": [
+    "cache_key",
+    "payload_uri"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

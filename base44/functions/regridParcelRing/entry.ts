@@ -132,6 +132,40 @@ function findTargetParcel(parcels, lat, lon) {
   return best || parcels[0];
 }
 
+// ── RING/POINT RESULT CACHE ─────────────────────────────────────────────────
+// Same rounded center + radius + mode within 30 days → serve the stored result
+// instead of re-spending Regrid parcel-record credits. Payload lives in a
+// private JSON file so entity records stay small.
+const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function cacheKey(lat, lon, radiusMiles, mode) {
+  const r = mode === "point" ? "point" : String(Number(radiusMiles));
+  return `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)},${r},${mode}`;
+}
+
+async function cacheGet(base44, key) {
+  const rows = await base44.asServiceRole.entities.RegridRingCache.filter({ cache_key: key }, "-fetched_at", 1);
+  const row = rows?.[0];
+  if (!row?.payload_uri) return null;
+  if (Date.now() - new Date(row.fetched_at || row.created_date).getTime() > CACHE_TTL_MS) return null;
+  const { signed_url } = await base44.asServiceRole.integrations.Core.CreateFileSignedUrl({ file_uri: row.payload_uri });
+  const res = await fetch(signed_url);
+  if (!res.ok) return null;
+  return await res.json();
+}
+
+async function cachePut(base44, key, mode, payload, parcelCount) {
+  const file = new File([JSON.stringify(payload)], "regrid-cache.json", { type: "application/json" });
+  const { file_uri } = await base44.asServiceRole.integrations.Core.UploadPrivateFile({ file });
+  await base44.asServiceRole.entities.RegridRingCache.create({
+    cache_key: key,
+    mode,
+    payload_uri: file_uri,
+    parcel_count: parcelCount,
+    fetched_at: new Date().toISOString(),
+  });
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -141,9 +175,23 @@ Deno.serve(async (req) => {
     const token = Deno.env.get("REGRID_API_KEY");
     if (!token) return Response.json({ error: "REGRID_API_KEY not configured" }, { status: 500 });
 
-    const { lat, lon, radius_miles = 0.5, mode = "ring" } = await req.json();
+    const { lat, lon, radius_miles = 0.5, mode = "ring", force_refresh = false } = await req.json();
     if (lat == null || lon == null) {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
+    }
+
+    // Cache check — shared across all users, all sections, both modes.
+    const key = cacheKey(lat, lon, radius_miles, mode);
+    if (!force_refresh) {
+      try {
+        const cached = await cacheGet(base44, key);
+        if (cached) {
+          console.log(`[regridParcelRing] CACHE HIT ${key} — 0 Regrid credits spent`);
+          return Response.json({ ...cached, cached: true });
+        }
+      } catch (e) {
+        console.warn("[regridParcelRing] cache read failed, fetching live:", e.message);
+      }
     }
 
     // ── POINT mode: single parcel lookup at a specific lat/lon ──
@@ -170,7 +218,9 @@ Deno.serve(async (req) => {
       const parcels = features.map(normalize);
       const target = findTargetParcel(parcels, lat, lon) || parcels[0] || null;
       console.log(`[regridParcelRing/point] zoning=${target?.zoning} flu=${target?.land_use}`);
-      return Response.json({ ok: true, parcel: target, parcels });
+      const payload = { ok: true, parcel: target, parcels };
+      try { await cachePut(base44, key, "point", payload, parcels.length); } catch (e) { console.warn("[regridParcelRing] cache write failed:", e.message); }
+      return Response.json(payload);
     }
 
     // ── RING mode (default) ──
@@ -209,7 +259,7 @@ Deno.serve(async (req) => {
 
     console.log(`[regridParcelRing] returned ${parcels.length} parcels | ROW: ${rowCount} | Stacked: ${stackedCount} | Vacant: ${vacantCount}`);
 
-    return Response.json({
+    const payload = {
       ok: true,
       count: parcels.length,
       center: { lat, lon },
@@ -223,7 +273,9 @@ Deno.serve(async (req) => {
         stacked_count: stackedCount,
         vacant_count: vacantCount,
       },
-    });
+    };
+    try { await cachePut(base44, key, "ring", payload, parcels.length); } catch (e) { console.warn("[regridParcelRing] cache write failed:", e.message); }
+    return Response.json(payload);
   } catch (err) {
     console.error("[regridParcelRing] error:", err.message);
     return Response.json({ error: err.message }, { status: 500 });
