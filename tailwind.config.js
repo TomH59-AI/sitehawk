@@ -5,6 +5,7 @@ module.exports = {
   theme: {
   	extend: {
       fontFamily: {
+        sans: ['var(--font-body)'],
         heading: ['var(--font-heading)'],
         body: ['var(--font-body)'],
       },
@@ -14,7 +15,14 @@ module.exports = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
-  			background: 'hsl(var(--background))',
+  		    brand: {
+  		      cyan: 'hsl(var(--brand-cyan))',
+  		      blue: 'hsl(var(--primary))',
+  		      ink: 'hsl(var(--foreground))',
+  		      surface: 'hsl(var(--background))',
+  		      subtle: 'hsl(var(--muted))'
+  		    },
+  		background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
   				DEFAULT: 'hsl(var(--card))',

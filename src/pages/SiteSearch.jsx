@@ -296,7 +296,7 @@ export default function SiteSearch() {
       {/* SiteHawk Vision chat toggle (not a scan) */}
       <button
           onClick={() => setChatOpen((o) => !o)}
-          className="fixed right-6 bottom-8 z-40 w-14 h-14 rounded-full bg-[#0C1B2E] shadow-xl flex items-center justify-center hover:scale-105 transition-transform border border-[#2563A0]"
+          className="fixed right-6 bottom-8 z-40 w-14 h-14 rounded-full bg-secondary shadow-xl flex items-center justify-center hover:scale-105 transition-transform border border-primary"
           title="SiteHawk Vision"
         >
           <HawkIcon size={36} />
@@ -364,8 +364,8 @@ export default function SiteSearch() {
       {/* Section One output — the single MapBox SARF render. Nothing else fires. */}
       {coordsReady && pipelineStep === "sarf" && (
         <div className="space-y-2" data-coach="sarf-map">
-          <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-cyan-500/15 via-transparent to-transparent border border-cyan-500/30">
-            <div className="text-[10px] font-mono text-cyan-700 tracking-[0.3em] mb-0.5">IMAGE GENERATED · SITEHAWK</div>
+          <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-primary/15 via-transparent to-transparent border border-primary/30">
+            <div className="text-[10px] font-mono text-primary tracking-[0.3em] mb-0.5">IMAGE GENERATED · SITEHAWK</div>
             <div className="font-heading font-bold text-foreground">
               SARF Map — {searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"} · {Number(searchCenter.lat).toFixed(6)}, {Number(searchCenter.lon).toFixed(6)}
             </div>

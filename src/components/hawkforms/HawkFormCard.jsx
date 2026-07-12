@@ -13,7 +13,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 
-export default function HawkFormCard({ item, accent }) {
+export default function HawkFormCard({ item }) {
   const [askDI, setAskDI] = useState(false);
   const navigate = useNavigate();
 
@@ -34,10 +34,7 @@ export default function HawkFormCard({ item, accent }) {
     <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-3 hover:shadow-lg hover:border-primary/30 transition-all group">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: `${accent}1A`, color: accent }}
-          >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-primary/10 text-primary">
             <FileText className="w-5 h-5" />
           </div>
           <div>

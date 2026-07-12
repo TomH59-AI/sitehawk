@@ -118,8 +118,8 @@ export default function Layout() {
           <Link to="/" className="flex items-center gap-3">
             <HawkIcon size={40} />
             <div>
-              <h1 className="font-heading font-bold text-lg text-foreground tracking-tight">SiteHawk</h1>
-              <p className="text-[10px] text-muted-foreground font-medium italic">"When you need the AI Vision"™</p>
+              <h1 className="font-heading font-bold text-lg text-sidebar-foreground tracking-tight">SiteHawk</h1>
+              <p className="text-[10px] text-sidebar-foreground/70 font-medium italic">"When you need the AI Vision"™</p>
             </div>
           </Link>
           <div className="mt-4">
@@ -200,7 +200,7 @@ export default function Layout() {
         ) : (
           <Link to="/" className="flex items-center gap-2">
             <HawkIcon size={32} />
-            <span className="font-heading font-bold text-foreground">SiteHawk</span>
+            <span className="font-heading font-bold text-sidebar-foreground">SiteHawk</span>
           </Link>
         )}
         <div className="flex items-center gap-1">
