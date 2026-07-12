@@ -8,6 +8,7 @@ import SyncToGoogleSheetButton from "@/components/crm/SyncToGoogleSheetButton";
 import CRMExportButton from "@/components/crm/CRMExportButton";
 import TargetPostcardModal from "@/components/crm/TargetPostcardModal";
 import MailQueuePanel from "@/components/crm/MailQueuePanel";
+import TimeSaversIndex from "@/components/crm/TimeSaversIndex";
 
 const STAGES = ["prospect", "contacted", "interested", "negotiating", "signed", "lost"];
 const STAGE_COLORS = {
@@ -318,6 +319,9 @@ export default function CRM() {
       </div>
       </>
       )}
+
+      {/* AFTER THE DEAL — time-saver tools index, always visible under the pipeline */}
+      <TimeSaversIndex />
     </div>
   );
 }
