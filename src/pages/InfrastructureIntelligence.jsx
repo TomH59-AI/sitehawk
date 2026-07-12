@@ -4,10 +4,13 @@ import SiteHawkInfrastructureMap from "@/components/maps/SiteHawkInfrastructureM
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
 import { carrierFinderInfrastructure } from "@/functions/carrierFinderInfrastructure";
+import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
 
-const loadInfrastructureLayer = (payload) => payload.layer.startsWith("fiber_")
-  ? carrierFinderInfrastructure(payload)
-  : hifldTransmissionLines(payload);
+const loadInfrastructureLayer = (payload) => payload.layer === "zayo_routes"
+  ? zayoFiberRoutes(payload)
+  : payload.layer.startsWith("fiber_")
+    ? carrierFinderInfrastructure(payload)
+    : hifldTransmissionLines(payload);
 
 export default function InfrastructureIntelligence() {
   const [params] = useSearchParams();

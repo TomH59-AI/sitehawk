@@ -11,6 +11,7 @@ const LAYERS = [
   { id: "substations", group: "Power infrastructure", label: "Substations", description: "Clustered transmission substations and facility details", color: "#f97316", geometry: "point", source: "HIFLD public archive", sourceDate: "2021 public archive · reclassified 2023" },
   { id: "service_territories", group: "Power infrastructure", label: "Electric service territories", description: "Shaded utility ownership boundaries", color: "#38bdf8", geometry: "fill", source: "HIFLD", sourceDate: "2022" },
   { id: "fiber_routes", group: "Fiber & backhaul", label: "Long-haul & metro fiber routes", description: "Licensed generalized route geometry when available", color: "#22d3ee", geometry: "line", source: "CarrierFinder" },
+  { id: "zayo_routes", group: "Fiber & backhaul", label: "Zayo fiber routes", description: "Imported licensed long-haul and metro route geometry", color: "#f59e0b", geometry: "line", source: "Zayo KMZ import" },
   { id: "fiber_pops", group: "Fiber & backhaul", label: "Fiber POPs & carrier hotels", description: "Licensed data-center and network access facilities", color: "#67e8f9", geometry: "point", source: "CarrierFinder", clustered: true },
   { id: "fiber_ixps", group: "Fiber & backhaul", label: "IXPs & interconnection facilities", description: "Licensed major interconnection locations", color: "#818cf8", geometry: "point", source: "CarrierFinder", clustered: true },
   { id: "fiber_buildings", group: "Fiber & backhaul", label: "Lit buildings & on-net locations", description: "Displayed only where the license permits", color: "#34d399", geometry: "point", source: "CarrierFinder", clustered: true },
@@ -81,7 +82,7 @@ function addMapLayer(map, definition, data) {
   if (definition.geometry === "line") {
     const lineColor = definition.id === "transmission_lines"
       ? ["step", ["to-number", ["get", "voltage_kv"]], "#fde047", 115, "#facc15", 230, "#fb923c", 345, "#f97316", 500, "#ef4444"]
-      : definition.id === "fiber_routes" ? ["get", "provider_color"] : definition.color;
+      : (definition.id === "fiber_routes" || definition.id === "zayo_routes") ? ["get", "provider_color"] : definition.color;
     map.addLayer({ id: sourceId, type: "line", source: sourceId, paint: { "line-color": lineColor, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 13, 4], "line-opacity": 0.9 } });
   } else if (definition.geometry === "fill") {
     map.addLayer({ id: `${sourceId}-fill`, type: "fill", source: sourceId, paint: { "fill-color": definition.color, "fill-opacity": 0.3 } });
@@ -324,7 +325,7 @@ export default function SiteHawkInfrastructureMap({
           {candidate && <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs"><div className="font-bold uppercase tracking-widest text-amber-300">Power at candidate</div><div className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-slate-300"><span>Utility owner</span><strong>{insights.power_owner || selected.owner || "Not loaded"}</strong><span>Nearest substation</span><strong>{insights.nearest_substation_miles != null ? `${insights.nearest_substation_miles} mi` : "Not loaded"}</strong><span>Voltage across area</span><strong>{insights.voltage_classes?.length ? insights.voltage_classes.join(", ") : selected.voltage || "Not loaded"}</strong><span>Nearest transmission line</span><strong>{insights.nearest_line_miles != null ? `${insights.nearest_line_miles} mi` : "Not loaded"}</strong></div></div>}
           <dl className="mt-3 max-h-56 space-y-1 overflow-y-auto text-xs">{Object.entries(selected).filter(([key, value]) => {
             if (key.startsWith("_") || value == null || typeof value === "object") return false;
-            if (!selected._layer_id?.includes("fiber_")) return true;
+            if (!selected._layer_id?.includes("fiber_") && !selected._layer_id?.includes("zayo_routes")) return true;
             return ["provider", "facility_name", "infrastructure_type", "route_type", "status", "source", "source_date", "distance_miles"].includes(key);
           }).slice(0, 14).map(([key, value]) => <div key={key} className="grid grid-cols-[105px_1fr] gap-2 border-t border-slate-800 py-1.5"><dt className="truncate text-slate-500">{key.replaceAll("_", " ")}</dt><dd className="break-words text-slate-200">{String(value)}</dd></div>)}</dl>
         </section>
