@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import SiteHawkInfrastructureMap from "@/components/maps/SiteHawkInfrastructureMap";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
 
 export default function InfrastructureIntelligence() {
+  const [params] = useSearchParams();
   const [mapboxToken, setMapboxToken] = useState(null);
+  const lat = Number(params.get("lat"));
+  const lon = Number(params.get("lon"));
+  const candidate = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
 
   useEffect(() => {
     loadPublicConfig()
@@ -22,6 +28,10 @@ export default function InfrastructureIntelligence() {
   return (
     <SiteHawkInfrastructureMap
       mapboxToken={mapboxToken}
+      initialCenter={candidate ? [candidate.lon, candidate.lat] : undefined}
+      initialZoom={candidate ? 11 : 6}
+      candidate={candidate}
+      layerLoader={hifldTransmissionLines}
       onOpen3D={({ center, zoom }) => {
         const params = new URLSearchParams({
           lng: String(center?.lng ?? ""),
