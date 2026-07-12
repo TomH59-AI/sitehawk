@@ -21,7 +21,7 @@ const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 const BASE_NAV = [
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
-  { path: "/crm", icon: Briefcase, label: "Deal Pipeline" },
+  { path: "/crm", icon: Briefcase, label: "⏱️ Time Savers" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },
   { path: "/hawk-lease", icon: FileSignature, label: "🦅 HawkLease" },
