@@ -11,7 +11,7 @@ const LAYERS = [
   { id: "substations", group: "Power infrastructure", label: "Substations", description: "Clustered transmission substations and facility details", color: "#f97316", geometry: "point", source: "HIFLD public archive", sourceDate: "2021 public archive · reclassified 2023" },
   { id: "service_territories", group: "Power infrastructure", label: "Electric service territories", description: "Shaded utility ownership boundaries", color: "#38bdf8", geometry: "fill", source: "HIFLD", sourceDate: "2022" },
   { id: "fiber_routes", group: "Fiber & backhaul", label: "Long-haul & metro fiber routes", description: "Licensed generalized route geometry when available", color: "#22d3ee", geometry: "line", source: "CarrierFinder" },
-  { id: "zayo_routes", group: "Fiber & backhaul", label: "Zayo fiber routes", description: "Imported licensed long-haul and metro route geometry", color: "#f59e0b", geometry: "line", source: "Zayo KMZ import" },
+  { id: "zayo_routes", group: "Fiber & backhaul", label: "Zayo Fiber", description: "Imported licensed network points and route geometry", color: "#f59e0b", geometry: "mixed", source: "Zayo KMZ import" },
   { id: "fiber_pops", group: "Fiber & backhaul", label: "Fiber POPs & carrier hotels", description: "Licensed data-center and network access facilities", color: "#67e8f9", geometry: "point", source: "CarrierFinder", clustered: true },
   { id: "fiber_ixps", group: "Fiber & backhaul", label: "IXPs & interconnection facilities", description: "Licensed major interconnection locations", color: "#818cf8", geometry: "point", source: "CarrierFinder", clustered: true },
   { id: "fiber_buildings", group: "Fiber & backhaul", label: "Lit buildings & on-net locations", description: "Displayed only where the license permits", color: "#34d399", geometry: "point", source: "CarrierFinder", clustered: true },
@@ -79,10 +79,13 @@ function addMapLayer(map, definition, data) {
     ...((definition.id === "substations" || definition.clustered) ? { cluster: true, clusterMaxZoom: 8, clusterRadius: 45 } : {}),
   });
 
-  if (definition.geometry === "line") {
+  if (definition.id === "zayo_routes") {
+    map.addLayer({ id: sourceId, type: "line", source: sourceId, filter: ["match", ["geometry-type"], ["LineString", "MultiLineString"], true, false], paint: { "line-color": ["get", "provider_color"], "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 13, 4], "line-opacity": 0.9 } });
+    map.addLayer({ id: `${sourceId}-points`, type: "circle", source: sourceId, filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 13, 9], "circle-color": ["get", "provider_color"], "circle-stroke-color": "#020617", "circle-stroke-width": 1.5, "circle-opacity": 0.92 } });
+  } else if (definition.geometry === "line") {
     const lineColor = definition.id === "transmission_lines"
       ? ["step", ["to-number", ["get", "voltage_kv"]], "#fde047", 115, "#facc15", 230, "#fb923c", 345, "#f97316", 500, "#ef4444"]
-      : (definition.id === "fiber_routes" || definition.id === "zayo_routes") ? ["get", "provider_color"] : definition.color;
+      : definition.id === "fiber_routes" ? ["get", "provider_color"] : definition.color;
     map.addLayer({ id: sourceId, type: "line", source: sourceId, paint: { "line-color": lineColor, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 13, 4], "line-opacity": 0.9 } });
   } else if (definition.geometry === "fill") {
     map.addLayer({ id: `${sourceId}-fill`, type: "fill", source: sourceId, paint: { "fill-color": definition.color, "fill-opacity": 0.3 } });
@@ -97,7 +100,7 @@ function addMapLayer(map, definition, data) {
 }
 
 function setLayerVisibility(map, definition, visible) {
-  [`sitehawk-${definition.id}`, `sitehawk-${definition.id}-fill`, `sitehawk-${definition.id}-clusters`, `sitehawk-${definition.id}-cluster-count`].forEach((id) => {
+  [`sitehawk-${definition.id}`, `sitehawk-${definition.id}-points`, `sitehawk-${definition.id}-fill`, `sitehawk-${definition.id}-clusters`, `sitehawk-${definition.id}-cluster-count`].forEach((id) => {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
   });
 }
@@ -106,6 +109,7 @@ function setLayerOpacity(map, definition, opacity) {
   const id = `sitehawk-${definition.id}`;
   const fillId = `${id}-fill`;
   if (map.getLayer(fillId)) map.setPaintProperty(fillId, "fill-opacity", opacity * 0.42);
+  if (map.getLayer(`${id}-points`)) map.setPaintProperty(`${id}-points`, "circle-opacity", opacity);
   if (!map.getLayer(id)) return;
   const property = definition.geometry === "point" ? "circle-opacity" : "line-opacity";
   map.setPaintProperty(id, property, opacity);
@@ -180,7 +184,7 @@ export default function SiteHawkInfrastructureMap({
         map.addControl(new mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-right");
         map.on("load", () => { mapRef.current = map; setMapReady(true); });
         map.on("click", (event) => {
-          const ids = LAYERS.flatMap((layer) => [`sitehawk-${layer.id}`, `sitehawk-${layer.id}-fill`]).filter((id) => map.getLayer(id));
+          const ids = LAYERS.flatMap((layer) => [`sitehawk-${layer.id}`, `sitehawk-${layer.id}-points`, `sitehawk-${layer.id}-fill`]).filter((id) => map.getLayer(id));
           const feature = ids.length ? map.queryRenderedFeatures(event.point, { layers: ids })[0] : null;
           if (feature) setSelected({ ...feature.properties, _layer_id: feature.layer.id, _coordinates: event.lngLat.toArray() });
         });
@@ -326,7 +330,7 @@ export default function SiteHawkInfrastructureMap({
           <dl className="mt-3 max-h-56 space-y-1 overflow-y-auto text-xs">{Object.entries(selected).filter(([key, value]) => {
             if (key.startsWith("_") || value == null || typeof value === "object") return false;
             if (!selected._layer_id?.includes("fiber_") && !selected._layer_id?.includes("zayo_routes")) return true;
-            return ["provider", "facility_name", "infrastructure_type", "route_type", "status", "source", "source_date", "distance_miles"].includes(key);
+            return ["provider", "feature_type", "source_name", "source_date", "confidence", "verification_status", "facility_name", "route_type", "distance_miles"].includes(key);
           }).slice(0, 14).map(([key, value]) => <div key={key} className="grid grid-cols-[105px_1fr] gap-2 border-t border-slate-800 py-1.5"><dt className="truncate text-slate-500">{key.replaceAll("_", " ")}</dt><dd className="break-words text-slate-200">{String(value)}</dd></div>)}</dl>
         </section>
       )}
