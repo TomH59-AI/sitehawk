@@ -165,9 +165,11 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
     setScanMeta(null);
     try {
       const res = await colocationOpportunities({ lat: srcLat, lon: srcLon, radius_miles: RADIUS_MILES });
-      // Only actual cellular towers (monopole, lattice, guyed, self-support) —
-      // exclude rooftops, utility poles, water tanks and signal-only OCID points.
-      const list = (res?.data?.towers || []).filter((t) => t.structure_category === "tower");
+      // Cell towers, building/rooftop sites, and OpenCellID signal points —
+      // exclude only utility poles, water tanks, and misc structures.
+      const list = (res?.data?.towers || []).filter((t) =>
+        ["tower", "rooftop", "signal_only"].includes(t.structure_category)
+      );
       const meta = {
         fcc_count: res?.data?.fcc_count ?? 0,
         ocid_count: res?.data?.ocid_count ?? 0,
@@ -223,7 +225,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
             <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 9 · COLOCATION</div>
             <h2 className="font-heading font-bold text-lg leading-tight">Hawk Colocation Intelligence</h2>
             <div className="text-[11px] font-mono opacity-80 mt-0.5">
-              FCC ASR (primary) + OpenCellID (sparse areas only) · {RADIUS_MILES}-mile ring
+              FCC ASR + OpenCellID · towers & rooftops · {RADIUS_MILES}-mile ring
             </div>
           </div>
         </div>
@@ -244,9 +246,9 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
       {/* Idle */}
       {!active && (
         <div className="px-4 py-6 text-sm text-muted-foreground">
-          Queries FCC ASR registered towers first (free, unlimited). OpenCellID crowdsourced cell data
-          is only pulled when FCC returns fewer than 5 results in the area — protecting daily API quota.
-          Sites from both sources are merged at 100-metre proximity to eliminate duplicates.
+          Queries FCC ASR registered structures and OpenCellID crowdsourced cell data together —
+          showing cell towers, building/rooftop sites, and signal-only cell locations for maximum
+          colocation potential. Sites from both sources are merged at 100-metre proximity to eliminate duplicates.
         </div>
       )}
 
@@ -271,12 +273,9 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
                   <p className="opacity-80">
                     {scanMeta.fcc_count > 0 && <span className="mr-3">📡 FCC ASR: <b>{scanMeta.fcc_count}</b></span>}
                     {scanMeta.ocid_count > 0 && <span className="mr-3">📶 OpenCellID: <b>{scanMeta.ocid_count}</b></span>}
-                    {scanMeta.ocid_count === 0 && scanMeta.fcc_count >= 5 && (
-                      <span className="text-emerald-700 dark:text-emerald-400">✓ OpenCellID quota not used (FCC results sufficient)</span>
-                    )}
                   </p>
                 )}
-                <p className="opacity-80">📡 Showing registered cellular towers only (monopole, lattice, guyed, self-support) — rooftops, utility structures and signal-only points excluded.</p>
+                <p className="opacity-80">📡 Showing cell towers, building/rooftop sites, and OpenCellID signal points — utility poles and water tanks excluded.</p>
               </div>
 
               {/* Mapbox map */}

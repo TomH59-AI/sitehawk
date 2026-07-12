@@ -243,20 +243,18 @@ Deno.serve(async (req) => {
     const fccTowers = await queryFccBbox(latN, lonN, radiusMiles);
     console.log(`[colocationOpportunities] FCC ASR: ${fccTowers.length} towers within ${radiusMiles} mi`);
 
-    // 2. OpenCellID — only if FCC result is sparse (< 5) to protect daily quota
+    // 2. OpenCellID — ALWAYS queried alongside FCC ASR to surface additional
+    // potential sites (crowdsourced cell locations FCC registration misses).
     const uwToken = Deno.env.get("UNWIREDLABS_TOKEN");
     let ocidTowers = [];
-    if (uwToken && fccTowers.length < 5) {
-      console.log("[colocationOpportunities] FCC sparse — querying OpenCellID (quota event)");
+    if (uwToken) {
       ocidTowers = await queryOpenCellId(latN, lonN, radiusMiles, uwToken).catch((e) => {
         console.error("[colocationOpportunities] OpenCellID failed:", e.message);
         return [];
       });
       console.log(`[colocationOpportunities] OpenCellID returned ${ocidTowers.length} clustered sites`);
-    } else if (!uwToken) {
-      console.log("[colocationOpportunities] UNWIREDLABS_TOKEN not set — skipping OpenCellID");
     } else {
-      console.log(`[colocationOpportunities] FCC has ${fccTowers.length} towers — skipping OpenCellID (quota-save)`);
+      console.log("[colocationOpportunities] UNWIREDLABS_TOKEN not set — skipping OpenCellID");
     }
 
     // 3. Merge: FCC wins; add OCID only if > 100 m from every FCC tower
