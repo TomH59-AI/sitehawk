@@ -3,6 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import SiteHawkInfrastructureMap from "@/components/maps/SiteHawkInfrastructureMap";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
+import { carrierFinderInfrastructure } from "@/functions/carrierFinderInfrastructure";
+
+const loadInfrastructureLayer = (payload) => payload.layer.startsWith("fiber_")
+  ? carrierFinderInfrastructure(payload)
+  : hifldTransmissionLines(payload);
 
 export default function InfrastructureIntelligence() {
   const [params] = useSearchParams();
@@ -31,7 +36,7 @@ export default function InfrastructureIntelligence() {
       initialCenter={candidate ? [candidate.lon, candidate.lat] : undefined}
       initialZoom={candidate ? 11 : 6}
       candidate={candidate}
-      layerLoader={hifldTransmissionLines}
+      layerLoader={loadInfrastructureLayer}
       onOpen3D={({ center, zoom }) => {
         const params = new URLSearchParams({
           lng: String(center?.lng ?? ""),

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import FiberNearestSummary from "@/components/maps/FiberNearestSummary";
 
 const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css";
 const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js";
@@ -9,8 +10,10 @@ const LAYERS = [
   { id: "transmission_lines", group: "Power infrastructure", label: "Transmission lines", description: "Colored by voltage class with ownership and status", color: "#fbbf24", geometry: "line", source: "HIFLD", sourceDate: "2022" },
   { id: "substations", group: "Power infrastructure", label: "Substations", description: "Clustered transmission substations and facility details", color: "#f97316", geometry: "point", source: "HIFLD public archive", sourceDate: "2021 public archive · reclassified 2023" },
   { id: "service_territories", group: "Power infrastructure", label: "Electric service territories", description: "Shaded utility ownership boundaries", color: "#38bdf8", geometry: "fill", source: "HIFLD", sourceDate: "2022" },
-  { id: "fiber_routes", group: "Fiber & backhaul", label: "Long-haul & metro fiber", description: "Known and licensed fiber routes", color: "#22d3ee", geometry: "line", source: "CarrierFinder" },
-  { id: "fiber_pops", group: "Fiber & backhaul", label: "POPs, IXPs & lit buildings", description: "Interconnection and on-net access points", color: "#67e8f9", geometry: "point", source: "CarrierFinder" },
+  { id: "fiber_routes", group: "Fiber & backhaul", label: "Long-haul & metro fiber routes", description: "Licensed generalized route geometry when available", color: "#22d3ee", geometry: "line", source: "CarrierFinder" },
+  { id: "fiber_pops", group: "Fiber & backhaul", label: "Fiber POPs & carrier hotels", description: "Licensed data-center and network access facilities", color: "#67e8f9", geometry: "point", source: "CarrierFinder", clustered: true },
+  { id: "fiber_ixps", group: "Fiber & backhaul", label: "IXPs & interconnection facilities", description: "Licensed major interconnection locations", color: "#818cf8", geometry: "point", source: "CarrierFinder", clustered: true },
+  { id: "fiber_buildings", group: "Fiber & backhaul", label: "Lit buildings & on-net locations", description: "Displayed only where the license permits", color: "#34d399", geometry: "point", source: "CarrierFinder", clustered: true },
   { id: "power_plants", group: "Power infrastructure", label: "Generation facilities", description: "Power plants, fuel and capacity", color: "#fb7185", geometry: "point", source: "Data.gov / EIA" },
   { id: "macro_towers", group: "Wireless", label: "Macro towers & structures", description: "Registered and commercially sourced structures", color: "#a78bfa", geometry: "point", source: "CarrierFinder / FCC" },
   { id: "carrier_sites", group: "Wireless", label: "Carrier presence", description: "Known carrier assignments and technologies", color: "#c084fc", geometry: "point", source: "CarrierFinder" },
@@ -72,19 +75,19 @@ function addMapLayer(map, definition, data) {
     type: "geojson",
     data,
     generateId: true,
-    ...(definition.id === "substations" ? { cluster: true, clusterMaxZoom: 8, clusterRadius: 45 } : {}),
+    ...((definition.id === "substations" || definition.clustered) ? { cluster: true, clusterMaxZoom: 8, clusterRadius: 45 } : {}),
   });
 
   if (definition.geometry === "line") {
     const lineColor = definition.id === "transmission_lines"
       ? ["step", ["to-number", ["get", "voltage_kv"]], "#fde047", 115, "#facc15", 230, "#fb923c", 345, "#f97316", 500, "#ef4444"]
-      : definition.color;
+      : definition.id === "fiber_routes" ? ["get", "provider_color"] : definition.color;
     map.addLayer({ id: sourceId, type: "line", source: sourceId, paint: { "line-color": lineColor, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 13, 4], "line-opacity": 0.9 } });
   } else if (definition.geometry === "fill") {
     map.addLayer({ id: `${sourceId}-fill`, type: "fill", source: sourceId, paint: { "fill-color": definition.color, "fill-opacity": 0.3 } });
     map.addLayer({ id: sourceId, type: "line", source: sourceId, paint: { "line-color": definition.color, "line-width": 1.2, "line-opacity": 0.8 } });
-  } else if (definition.id === "substations") {
-    map.addLayer({ id: `${sourceId}-clusters`, type: "circle", source: sourceId, filter: ["has", "point_count"], paint: { "circle-color": "#f97316", "circle-radius": ["step", ["get", "point_count"], 14, 20, 19, 75, 25], "circle-opacity": 0.85 } });
+  } else if (definition.id === "substations" || definition.clustered) {
+    map.addLayer({ id: `${sourceId}-clusters`, type: "circle", source: sourceId, filter: ["has", "point_count"], paint: { "circle-color": definition.color, "circle-radius": ["step", ["get", "point_count"], 14, 20, 19, 75, 25], "circle-opacity": 0.85 } });
     map.addLayer({ id: `${sourceId}-cluster-count`, type: "symbol", source: sourceId, filter: ["has", "point_count"], layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 11 }, paint: { "text-color": "#ffffff" } });
     map.addLayer({ id: sourceId, type: "circle", source: sourceId, filter: ["!", ["has", "point_count"]], paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 13, 8], "circle-color": definition.color, "circle-stroke-color": "#020617", "circle-stroke-width": 1.5, "circle-opacity": 0.92 } });
   } else {
@@ -178,7 +181,7 @@ export default function SiteHawkInfrastructureMap({
         map.on("click", (event) => {
           const ids = LAYERS.flatMap((layer) => [`sitehawk-${layer.id}`, `sitehawk-${layer.id}-fill`]).filter((id) => map.getLayer(id));
           const feature = ids.length ? map.queryRenderedFeatures(event.point, { layers: ids })[0] : null;
-          if (feature) setSelected({ ...feature.properties, _coordinates: event.lngLat.toArray() });
+          if (feature) setSelected({ ...feature.properties, _layer_id: feature.layer.id, _coordinates: event.lngLat.toArray() });
         });
         map.on("mouseenter", () => { map.getCanvas().style.cursor = "crosshair"; });
       })
@@ -298,12 +301,13 @@ export default function SiteHawkInfrastructureMap({
               <span className="flex items-center justify-between"><span className="text-sm font-black text-amber-300">Power Grid X-Ray</span><span className="text-[10px] uppercase tracking-widest text-slate-500">Lines + substations</span></span>
               <span className="mt-1 block text-[11px] text-slate-400">Synchronizes voltage-class transmission corridors with clustered substation nodes.</span>
             </button>
+            <FiberNearestSummary insights={insights} />
             {Object.entries(groupedLayers).map(([group, layers]) => (
               <section key={group} className="mb-5"><h2 className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{group}</h2><div className="space-y-2">
                 {layers.map((layer) => {
                   const enabled = active.has(layer.id); const busy = loading.has(layer.id);
                   return <div key={layer.id} className={`rounded-xl border p-3 transition ${enabled ? "border-cyan-500/40 bg-cyan-950/25" : "border-slate-800 bg-slate-900/45"}`}>
-                    <button type="button" onClick={() => toggleLayer(layer)} className="flex w-full items-start gap-3 text-left"><span className="mt-0.5 h-4 w-4 shrink-0 rounded border" style={{ borderColor: layer.color, background: enabled ? layer.color : "transparent", boxShadow: enabled ? `0 0 14px ${layer.color}` : "none" }} /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-slate-100">{layer.label}</span><span className="shrink-0 text-[10px] text-slate-500">{busy ? "Loading…" : counts[layer.id] != null ? counts[layer.id].toLocaleString() : layer.source}</span></span><span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{layer.description}{layer.expensive ? " · on demand" : ""}</span><span className="mt-1 block text-[10px] text-slate-600">Source: {metadata[layer.id]?.source || layer.source}{(metadata[layer.id]?.source_date || layer.sourceDate) ? ` · Vintage: ${metadata[layer.id]?.source_date || layer.sourceDate}` : ""}</span></span></button>
+                    <button type="button" onClick={() => toggleLayer(layer)} className="flex w-full items-start gap-3 text-left"><span className="mt-0.5 h-4 w-4 shrink-0 rounded border" style={{ borderColor: layer.color, background: enabled ? layer.color : "transparent", boxShadow: enabled ? `0 0 14px ${layer.color}` : "none" }} /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-slate-100">{layer.label}</span><span className="shrink-0 text-[10px] text-slate-500">{busy ? "Loading…" : counts[layer.id] != null ? counts[layer.id].toLocaleString() : layer.source}</span></span><span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{layer.description}{layer.expensive ? " · on demand" : ""}</span><span className="mt-1 block text-[10px] text-slate-600">Source: {metadata[layer.id]?.source || layer.source}{(metadata[layer.id]?.source_date || layer.sourceDate) ? ` · Vintage: ${metadata[layer.id]?.source_date || layer.sourceDate}` : ""}</span>{metadata[layer.id]?.limitations && <span className="mt-1 block text-[10px] leading-4 text-amber-300/70">Limitation: {metadata[layer.id].limitations}</span>}</span></button>
                     {enabled && !busy && !errors[layer.id] && <input aria-label={`${layer.label} opacity`} type="range" min="0.15" max="1" step="0.05" value={opacity[layer.id] ?? 0.9} onChange={(event) => changeOpacity(layer, event.target.value)} className="mt-2 h-1 w-full accent-cyan-400" />}
                     {errors[layer.id] && <div className="mt-2 rounded-lg bg-red-950/60 px-2 py-1.5 text-[11px] text-red-300">{errors[layer.id]}</div>}
                   </div>;
@@ -318,7 +322,11 @@ export default function SiteHawkInfrastructureMap({
         <section className="absolute bottom-8 right-4 z-20 w-80 max-w-[calc(100vw-32px)] rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-4 shadow-2xl backdrop-blur-xl">
           <button type="button" onClick={() => setSelected(null)} className="float-right text-slate-500 hover:text-white">×</button><div className="text-[10px] font-bold uppercase tracking-widest text-cyan-400">Feature intelligence</div><h2 className="mt-1 pr-6 text-lg font-bold text-white">{featureName(selected)}</h2>
           {candidate && <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-950/20 p-3 text-xs"><div className="font-bold uppercase tracking-widest text-amber-300">Power at candidate</div><div className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-slate-300"><span>Utility owner</span><strong>{insights.power_owner || selected.owner || "Not loaded"}</strong><span>Nearest substation</span><strong>{insights.nearest_substation_miles != null ? `${insights.nearest_substation_miles} mi` : "Not loaded"}</strong><span>Voltage across area</span><strong>{insights.voltage_classes?.length ? insights.voltage_classes.join(", ") : selected.voltage || "Not loaded"}</strong><span>Nearest transmission line</span><strong>{insights.nearest_line_miles != null ? `${insights.nearest_line_miles} mi` : "Not loaded"}</strong></div></div>}
-          <dl className="mt-3 max-h-56 space-y-1 overflow-y-auto text-xs">{Object.entries(selected).filter(([key, value]) => !key.startsWith("_") && value != null && typeof value !== "object").slice(0, 14).map(([key, value]) => <div key={key} className="grid grid-cols-[105px_1fr] gap-2 border-t border-slate-800 py-1.5"><dt className="truncate text-slate-500">{key.replaceAll("_", " ")}</dt><dd className="break-words text-slate-200">{String(value)}</dd></div>)}</dl>
+          <dl className="mt-3 max-h-56 space-y-1 overflow-y-auto text-xs">{Object.entries(selected).filter(([key, value]) => {
+            if (key.startsWith("_") || value == null || typeof value === "object") return false;
+            if (!selected._layer_id?.includes("fiber_")) return true;
+            return ["provider", "facility_name", "infrastructure_type", "route_type", "status", "source", "source_date", "distance_miles"].includes(key);
+          }).slice(0, 14).map(([key, value]) => <div key={key} className="grid grid-cols-[105px_1fr] gap-2 border-t border-slate-800 py-1.5"><dt className="truncate text-slate-500">{key.replaceAll("_", " ")}</dt><dd className="break-words text-slate-200">{String(value)}</dd></div>)}</dl>
         </section>
       )}
 
