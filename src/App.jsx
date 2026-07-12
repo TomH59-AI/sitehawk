@@ -60,6 +60,7 @@ import PowerLinesDashboard from './pages/PowerLinesDashboard';
 import SitePowerMap from './pages/SitePowerMap';
 import HawkFrequency from './pages/HawkFrequency';
 import CoverageAnalysis from './pages/CoverageAnalysis';
+import InfrastructureIntelligence from './pages/InfrastructureIntelligence';
 import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
 import ScipStudio from './pages/ScipStudio';
@@ -159,6 +160,7 @@ const AuthenticatedApp = () => {
         <Route path="/site-power-map" element={<SitePowerMap />} />
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
         <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
+        <Route path="/InfrastructureIntelligence" element={<InfrastructureIntelligence />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}
