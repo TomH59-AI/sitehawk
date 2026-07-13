@@ -36,6 +36,7 @@ export default function SaveToAttioButton({ target, leaseStatus = "prospect", si
   return (
     <Button
       onClick={handleSync}
+      title="Sends this parcel + full SCIP/zoning/score data as a Deal in your Attio. Saves hours + helps you close faster. Included with your plan."
       size={size}
       variant={status === "saved" ? "outline" : "default"}
       disabled={status === "saving"}

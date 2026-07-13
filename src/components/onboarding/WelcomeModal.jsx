@@ -2,14 +2,23 @@ import { useState } from "react";
 import { X, ChevronRight, ChevronLeft, Search, Phone, HelpCircle } from "lucide-react";
 import HawkIcon from "../HawkIcon";
 import { Button } from "@/components/ui/button";
+import AttioConnectCard from "@/components/crm/AttioConnectCard";
 
 const STEPS = [
   {
     icon: <HawkIcon size={56} />,
     emoji: null,
     title: "Welcome to SiteHawk 🦅",
-    desc: "You now have AI-powered site acquisition intelligence at your fingertips. Let's take a quick 30-second tour so you're up and running fast.",
+    desc: "You just got the fastest way to find tower sites. Now let's make sure none of that research ever gets lost.",
     tip: null,
+  },
+  {
+    icon: null,
+    emoji: null,
+    title: null,
+    desc: null,
+    tip: null,
+    attioConnect: true,
   },
   {
     icon: null,
@@ -82,16 +91,20 @@ export default function WelcomeModal({ onClose }) {
 
         {/* Content */}
         <div className="p-8 flex flex-col items-center text-center gap-4 min-h-[320px] justify-center">
-          {current.icon ? (
+          {current.attioConnect ? (
+            <AttioConnectCard compact />
+          ) : current.icon ? (
             <div className="mb-2">{current.icon}</div>
           ) : (
             <div className={`text-5xl mb-2 ${current.highlight ? "animate-bounce" : ""}`}>{current.emoji}</div>
           )}
 
-          <h2 className={`font-heading font-bold text-xl text-foreground leading-snug ${current.highlight ? "text-primary" : ""}`}>
-            {current.title}
-          </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">{current.desc}</p>
+          {current.title && (
+            <h2 className={`font-heading font-bold text-xl text-foreground leading-snug ${current.highlight ? "text-primary" : ""}`}>
+              {current.title}
+            </h2>
+          )}
+          {current.desc && <p className="text-sm text-muted-foreground leading-relaxed">{current.desc}</p>}
 
           {current.tip && (
             <div className={`w-full rounded-xl px-4 py-3 text-xs font-medium text-left ${current.highlight ? "bg-primary/10 border border-primary/30 text-primary" : "bg-secondary border border-border text-muted-foreground"}`}>

@@ -27,6 +27,7 @@ const PLANS = [
       "Hawk Infrastructure Vision Maps (Viewshed, FEMA, Zoning overlays)",
       "SCIP CRM Pipeline — track your 14-stage deals seamlessly",
       "Postcard Mailer Outreach — integrated Lob automation",
+      "Native Attio CRM Sync — Included. Auto-push every qualified site search (parcels, SCIP scores, zoning, fiber, wetlands, full data) straight into your Attio as ready-to-work deals. No manual entry. No extra tools. No extra cost.",
     ],
     missing: [
       "Hawk Law toolkit not included",
@@ -47,6 +48,7 @@ const PLANS = [
       "Full HawkLease — track up to 25 lease sites",
       "AI Site Renders — show the landowner exactly what the tower will look like",
       "Carrier Overlay Records in Comp Library",
+      "Native Attio CRM Sync + Apollo contact enrichment — Included",
       "Includes all HawkSite Solo features",
     ],
     missing: [],
