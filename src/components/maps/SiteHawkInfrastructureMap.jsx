@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import FiberNearestSummary from "@/components/maps/FiberNearestSummary";
-
-const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css";
-const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js";
+import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 const DEFAULT_CENTER = [-81.5158, 27.6648];
 const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 
@@ -25,27 +23,6 @@ const LAYERS = [
   { id: "broadband_service", group: "Market intelligence", label: "Broadband service & gaps", description: "Availability, technology and underserved areas", color: "#60a5fa", geometry: "fill", source: "Data.gov / FCC" },
   { id: "cell_observations", group: "Field intelligence", label: "Cell/Wi-Fi observations", description: "User-authorized device observations and fixes", color: "#f472b6", geometry: "point", source: "Unwired Labs", expensive: true },
 ];
-
-function loadMapbox() {
-  if (window.mapboxgl) return Promise.resolve(window.mapboxgl);
-  const existing = document.querySelector(`script[src="${MAPBOX_JS}"]`);
-  if (!document.querySelector(`link[href="${MAPBOX_CSS}"]`)) {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = MAPBOX_CSS;
-    document.head.appendChild(link);
-  }
-  return new Promise((resolve, reject) => {
-    const script = existing || document.createElement("script");
-    if (!existing) {
-      script.src = MAPBOX_JS;
-      script.async = true;
-      document.head.appendChild(script);
-    }
-    script.addEventListener("load", () => resolve(window.mapboxgl), { once: true });
-    script.addEventListener("error", () => reject(new Error("Mapbox GL failed to load.")), { once: true });
-  });
-}
 
 function normalizeGeoJson(value) {
   const data = value?.geojson || value?.data || value;
@@ -209,14 +186,20 @@ export default function SiteHawkInfrastructureMap({
       setFatalError("Mapbox access is not configured.");
       return undefined;
     }
-    loadMapbox()
-      .then((mapboxgl) => {
+    ensureMapboxLoaded()
+      .then(() => {
         if (disposed || !containerRef.current) return;
+        const mapboxgl = window.mapboxgl;
         mapboxgl.accessToken = mapboxToken;
         const map = new mapboxgl.Map({ container: containerRef.current, style: `mapbox://styles/mapbox/${mapStyle}`, center: initialCenter, zoom: initialZoom, pitch: 0, attributionControl: true });
+        mapRef.current = map;
         map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
         map.addControl(new mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-right");
-        map.on("load", () => { mapRef.current = map; setMapReady(true); });
+        let styleLoaded = false;
+        map.on("load", () => { styleLoaded = true; setMapReady(true); });
+        map.on("error", (event) => {
+          if (!styleLoaded) setFatalError(event.error?.message || "The Mapbox basemap could not load.");
+        });
         map.on("click", (event) => {
           const ids = LAYERS.flatMap((layer) => [`sitehawk-${layer.id}`, `sitehawk-${layer.id}-points`, `sitehawk-${layer.id}-fill`]).filter((id) => map.getLayer(id));
           const feature = ids.length ? map.queryRenderedFeatures(event.point, { layers: ids })[0] : null;

@@ -15,11 +15,23 @@ let mapboxLoadingPromise = null;
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
+    document.querySelectorAll(`script[src="${src}"]`).forEach((node) => node.remove());
     const s = document.createElement("script");
+    const timer = window.setTimeout(() => {
+      s.remove();
+      reject(new Error(`Timed out loading ${src}`));
+    }, 2500);
     s.src = src;
     s.crossOrigin = "anonymous";
-    s.onload = () => resolve();
-    s.onerror = () => { s.remove(); reject(new Error(`Failed to load ${src}`)); };
+    s.onload = () => {
+      window.clearTimeout(timer);
+      window.mapboxgl ? resolve() : reject(new Error(`Mapbox did not initialize from ${src}`));
+    };
+    s.onerror = () => {
+      window.clearTimeout(timer);
+      s.remove();
+      reject(new Error(`Failed to load ${src}`));
+    };
     document.head.appendChild(s);
   });
 }
@@ -29,11 +41,13 @@ export function ensureMapboxLoaded() {
   if (!mapboxLoadingPromise) {
     mapboxLoadingPromise = (async () => {
       if (!document.querySelector(`link[data-mapbox-css="1"]`)) {
-        const css = document.createElement("link");
-        css.rel = "stylesheet";
-        css.href = MAPBOX_SOURCES[0].css;
-        css.setAttribute("data-mapbox-css", "1");
-        document.head.appendChild(css);
+        MAPBOX_SOURCES.forEach((source) => {
+          const css = document.createElement("link");
+          css.rel = "stylesheet";
+          css.href = source.css;
+          css.setAttribute("data-mapbox-css", "1");
+          document.head.appendChild(css);
+        });
       }
       let lastErr;
       for (const src of MAPBOX_SOURCES) {
