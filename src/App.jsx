@@ -52,6 +52,7 @@ import ScanResults from './pages/ScanResults';
 import SendUpdate from './pages/SendUpdate';
 import MailOrders from './pages/MailOrders';
 import CRM from './pages/CRM';
+import HubSpotIntegration from './pages/HubSpotIntegration';
 import RefundPolicy from './pages/RefundPolicy';
 import MailAnalytics from './pages/MailAnalytics';
 import SCIPPreview from './pages/SCIPPreview';
@@ -152,6 +153,7 @@ const AuthenticatedApp = () => {
         <Route path="/send-update" element={<SendUpdate />} />
         <Route path="/mail-orders" element={<MailOrders />} />
         <Route path="/crm" element={<CRM />} />
+        <Route path="/hubspot" element={<HubSpotIntegration />} />
         <Route path="/subscriber-crm" element={<SubscriberCRM />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/mail-analytics" element={<MailAnalytics />} />

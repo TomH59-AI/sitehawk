@@ -14,7 +14,7 @@ const HUBSPOT_ORANGE = "#FF7A59";
 export default function HubSpotSidebarConnect() {
   return (
     <Link
-      to="/crm"
+      to="/hubspot"
       className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-secondary transition-all duration-200 group"
       title="Sync your deals to HubSpot CRM"
     >
