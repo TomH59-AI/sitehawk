@@ -1,31 +1,46 @@
 /**
- * AttioConnectCard — "Connect Attio CRM" value card used in onboarding and
- * settings. Attio sync is already wired app-side (attioSyncDeal); this card
- * makes the value obvious and flips the user's attio_sync_enabled flag so we
- * know they've activated it.
+ * AttioConnectCard — "Connect Attio CRM" card used in onboarding and settings.
+ * Each paying subscriber pastes their own Attio API key; we verify it against
+ * the Attio API, then store it on their user record. From then on every
+ * qualified site search auto-syncs targets as Deals into THEIR Attio workspace.
  */
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
+import { attioSyncDeal } from "@/functions/attioSyncDeal";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { CheckCircle2, Link2, Loader2 } from "lucide-react";
 
 export default function AttioConnectCard({ compact = false }) {
   const [status, setStatus] = useState("idle"); // idle | connecting | connected
+  const [apiKey, setApiKey] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     base44.auth.me().then((u) => {
-      if (u?.attio_sync_enabled) setStatus("connected");
+      if (u?.attio_api_key) setStatus("connected");
     }).catch(() => {});
   }, []);
 
   async function handleConnect() {
+    if (!apiKey.trim()) { setError("Paste your Attio API key first."); return; }
     setStatus("connecting");
+    setError("");
     try {
-      await base44.auth.updateMe({ attio_sync_enabled: true });
+      const res = await attioSyncDeal({ verify: true, api_key: apiKey.trim() });
+      if (!res.data?.ok) throw new Error(res.data?.error || "Verification failed");
+      await base44.auth.updateMe({ attio_api_key: apiKey.trim(), attio_sync_enabled: true });
       setStatus("connected");
-    } catch {
+    } catch (e) {
+      setError(e?.response?.data?.error || e.message || "Could not verify that API key.");
       setStatus("idle");
     }
+  }
+
+  async function handleDisconnect() {
+    await base44.auth.updateMe({ attio_api_key: null, attio_sync_enabled: false }).catch(() => {});
+    setStatus("idle");
+    setApiKey("");
   }
 
   if (status === "connected") {
@@ -34,12 +49,15 @@ export default function AttioConnectCard({ compact = false }) {
         <div className="flex items-start gap-3">
           <CheckCircle2 className="w-6 h-6 text-emerald-500 shrink-0 mt-0.5" />
           <div>
-            <h3 className="font-heading font-bold text-foreground">Connected! 🎉</h3>
+            <h3 className="font-heading font-bold text-foreground">Attio Connected! 🎉</h3>
             <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-              Your next SiteHawk search will have a one-click "Sync to Attio" button. All the rich
-              data — suitability score, zoning, SCIP records, coords — travels with it. You're now
-              running the full modern site acquisition stack.
+              Auto-sync is live. Every qualified site search now pushes your Target A/B/C parcels
+              straight into your Attio workspace as Deals — suitability score, zoning, FEMA,
+              coords, and Apollo-enriched owner contact attached. Zero manual entry.
             </p>
+            <button onClick={handleDisconnect} className="text-xs text-muted-foreground hover:text-destructive underline mt-2">
+              Disconnect
+            </button>
           </div>
         </div>
       </div>
@@ -58,21 +76,32 @@ export default function AttioConnectCard({ compact = false }) {
         </div>
       </div>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-        Stop copying data into spreadsheets. Every great parcel you find in SiteHawk syncs
-        automatically to your Attio workspace with full context attached — suitability score,
-        zoning, SCIP records, coords. Your pipeline stays clean, follow-ups are automatic, and you
-        close more deals with less admin. <strong className="text-foreground">Takes 30 seconds.</strong>
+        Paste your Attio API key and every qualified site search automatically syncs to your own
+        Attio workspace as ready-to-work Deals — suitability score, zoning, SCIP records, coords.
+        Your pipeline stays clean with <strong className="text-foreground">zero manual entry</strong>.
       </p>
-      <Button
-        onClick={handleConnect}
-        disabled={status === "connecting"}
-        className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold"
-      >
-        {status === "connecting"
-          ? <><Loader2 className="w-4 h-4 animate-spin" /> Activating…</>
-          : <>Connect Attio (Free with your plan)</>}
-      </Button>
-      <p className="text-[11px] text-muted-foreground mt-3 text-center">Takes 30 seconds • Secure • Apollo contact enrichment included</p>
+      <div className="space-y-2">
+        <Input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="Attio API key (Attio → Workspace Settings → Developers)"
+          className="text-sm"
+        />
+        {error && <p className="text-xs text-destructive">{error}</p>}
+        <Button
+          onClick={handleConnect}
+          disabled={status === "connecting"}
+          className="w-full gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold"
+        >
+          {status === "connecting"
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Verifying your workspace…</>
+            : <>Connect Attio (Free with your plan)</>}
+        </Button>
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-3 text-center">
+        Takes 30 seconds • Key verified & stored securely • Apollo contact enrichment included • Revoke anytime in Attio
+      </p>
     </div>
   );
 }
