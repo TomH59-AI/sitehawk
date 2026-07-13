@@ -5,12 +5,16 @@ import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
 import { carrierFinderInfrastructure } from "@/functions/carrierFinderInfrastructure";
 import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
+import { infrastructureMap } from "@/functions/infrastructureMap";
 
-const loadInfrastructureLayer = (payload) => payload.layer === "zayo_routes"
-  ? zayoFiberRoutes(payload)
-  : payload.layer.startsWith("fiber_")
-    ? carrierFinderInfrastructure(payload)
-    : hifldTransmissionLines(payload);
+const LIVE_DETAIL_LAYERS = new Set(["fiber_splice_points", "transformers", "utility_easements"]);
+const loadInfrastructureLayer = (payload) => LIVE_DETAIL_LAYERS.has(payload.layer)
+  ? infrastructureMap(payload)
+  : payload.layer === "zayo_routes"
+    ? zayoFiberRoutes(payload)
+    : payload.layer.startsWith("fiber_")
+      ? carrierFinderInfrastructure(payload)
+      : hifldTransmissionLines(payload);
 
 export default function InfrastructureIntelligence() {
   const [params] = useSearchParams();

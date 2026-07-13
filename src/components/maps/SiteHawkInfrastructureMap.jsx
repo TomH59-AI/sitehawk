@@ -12,6 +12,9 @@ const LAYERS = [
   { id: "service_territories", group: "Power infrastructure", label: "Electric service territories", description: "Shaded utility ownership boundaries", color: "#38bdf8", geometry: "fill", source: "HIFLD", sourceDate: "2022" },
   { id: "fiber_routes", group: "Fiber & backhaul", label: "Long-haul & metro fiber routes", description: "Licensed generalized route geometry when available", color: "#22d3ee", geometry: "line", source: "CarrierFinder" },
   { id: "zayo_routes", group: "Fiber & backhaul", label: "Zayo Fiber", description: "Imported licensed network points and route geometry", color: "#f59e0b", geometry: "mixed", source: "Zayo KMZ import" },
+  { id: "fiber_splice_points", group: "Live field detail", label: "Fiber splice points", description: "Named connection points and telecom manholes when mapped", color: "#00f5ff", geometry: "point", source: "OpenStreetMap live query", minZoom: 10, live: true },
+  { id: "transformers", group: "Live field detail", label: "Transformers", description: "Mapped distribution transformers with operator and voltage details", color: "#ff3b30", geometry: "point", source: "OpenStreetMap live query", minZoom: 11, live: true },
+  { id: "utility_easements", group: "Live field detail", label: "Utility easements", description: "Mapped utility-use and easement corridors for screening", color: "#d946ef", geometry: "fill", source: "OpenStreetMap live query", minZoom: 9, live: true },
   { id: "fiber_pops", group: "Fiber & backhaul", label: "Fiber POPs & carrier hotels", description: "Licensed data-center and network access facilities", color: "#67e8f9", geometry: "point", source: "CarrierFinder", clustered: true },
   { id: "fiber_ixps", group: "Fiber & backhaul", label: "IXPs & interconnection facilities", description: "Licensed major interconnection locations", color: "#818cf8", geometry: "point", source: "CarrierFinder", clustered: true },
   { id: "fiber_buildings", group: "Fiber & backhaul", label: "Lit buildings & on-net locations", description: "Displayed only where the license permits", color: "#34d399", geometry: "point", source: "CarrierFinder", clustered: true },
@@ -51,6 +54,32 @@ function normalizeGeoJson(value) {
   return EMPTY_COLLECTION;
 }
 
+function featureId(feature) {
+  return feature?.id ?? feature?.properties?.id ?? null;
+}
+
+function mergeDelta(current, incoming, deletedIds = []) {
+  const deleted = new Set(deletedIds.map(String));
+  const merged = new Map((current?.features || []).filter((feature) => !deleted.has(String(featureId(feature)))).map((feature) => [String(featureId(feature)), feature]));
+  for (const feature of incoming.features || []) {
+    const id = featureId(feature);
+    if (id != null) merged.set(String(id), feature);
+  }
+  return { type: "FeatureCollection", features: [...merged.values()] };
+}
+
+function applyDeepSpace(map, enabled) {
+  map.easeTo({ pitch: enabled ? 65 : 0, bearing: enabled ? -18 : 0, duration: 900 });
+  map.setFog(enabled ? { color: "#06111f", "high-color": "#172554", "space-color": "#020617", "horizon-blend": 0.18 } : null);
+  if (enabled && !map.getSource("sitehawk-terrain")) map.addSource("sitehawk-terrain", { type: "raster-dem", url: "mapbox://mapbox.mapbox-terrain-dem-v1", tileSize: 512, maxzoom: 14 });
+  map.setTerrain(enabled ? { source: "sitehawk-terrain", exaggeration: 1.65 } : null);
+  if (enabled && !map.getLayer("sitehawk-3d-buildings") && map.getSource("composite")) {
+    const labelLayer = map.getStyle().layers.find((layer) => layer.type === "symbol" && layer.layout?.["text-field"]);
+    map.addLayer({ id: "sitehawk-3d-buildings", source: "composite", "source-layer": "building", filter: ["==", ["get", "extrude"], "true"], type: "fill-extrusion", minzoom: 14, paint: { "fill-extrusion-color": "#172554", "fill-extrusion-height": ["get", "height"], "fill-extrusion-base": ["get", "min_height"], "fill-extrusion-opacity": 0.82 } }, labelLayer?.id);
+  }
+  if (!enabled && map.getLayer("sitehawk-3d-buildings")) map.removeLayer("sitehawk-3d-buildings");
+}
+
 function featureName(properties = {}) {
   return properties.name || properties.site_name || properties.owner || properties.operator ||
     properties.facility || properties.id || "Infrastructure feature";
@@ -88,14 +117,14 @@ function addMapLayer(map, definition, data) {
       : definition.id === "fiber_routes" ? ["get", "provider_color"] : definition.color;
     map.addLayer({ id: sourceId, type: "line", source: sourceId, paint: { "line-color": lineColor, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 13, 4], "line-opacity": 0.9 } });
   } else if (definition.geometry === "fill") {
-    map.addLayer({ id: `${sourceId}-fill`, type: "fill", source: sourceId, paint: { "fill-color": definition.color, "fill-opacity": 0.3 } });
-    map.addLayer({ id: sourceId, type: "line", source: sourceId, paint: { "line-color": definition.color, "line-width": 1.2, "line-opacity": 0.8 } });
+    map.addLayer({ id: `${sourceId}-fill`, type: "fill", source: sourceId, minzoom: definition.minZoom, paint: { "fill-color": definition.color, "fill-opacity": 0.3 } });
+    map.addLayer({ id: sourceId, type: "line", source: sourceId, minzoom: definition.minZoom, paint: { "line-color": definition.color, "line-width": 1.2, "line-opacity": 0.8 } });
   } else if (definition.id === "substations" || definition.clustered) {
     map.addLayer({ id: `${sourceId}-clusters`, type: "circle", source: sourceId, filter: ["has", "point_count"], paint: { "circle-color": definition.color, "circle-radius": ["step", ["get", "point_count"], 14, 20, 19, 75, 25], "circle-opacity": 0.85 } });
     map.addLayer({ id: `${sourceId}-cluster-count`, type: "symbol", source: sourceId, filter: ["has", "point_count"], layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 11 }, paint: { "text-color": "#ffffff" } });
     map.addLayer({ id: sourceId, type: "circle", source: sourceId, filter: ["!", ["has", "point_count"]], paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 13, 8], "circle-color": definition.color, "circle-stroke-color": "#020617", "circle-stroke-width": 1.5, "circle-opacity": 0.92 } });
   } else {
-    map.addLayer({ id: sourceId, type: "circle", source: sourceId, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 13, 8], "circle-color": definition.color, "circle-stroke-color": "#020617", "circle-stroke-width": 1.5, "circle-opacity": 0.92 } });
+    map.addLayer({ id: sourceId, type: "circle", source: sourceId, minzoom: definition.minZoom, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 13, 8], "circle-color": definition.color, "circle-stroke-color": "#020617", "circle-stroke-width": 1.5, "circle-opacity": 0.92 } });
   }
 }
 
@@ -115,22 +144,22 @@ function setLayerOpacity(map, definition, opacity) {
   map.setPaintProperty(id, property, opacity);
 }
 
-export async function fetchInfrastructureLayer({ endpoint, token, layer, bbox, zoom, signal, candidate, layerLoader }) {
+export async function fetchInfrastructureLayer({ endpoint, token, layer, bbox, zoom, signal, candidate, layerLoader, since }) {
   if (layerLoader) {
-    const response = await layerLoader({ action: "query_layer", layer, bbox, zoom, candidate });
+    const response = await layerLoader({ action: "query_layer", layer, bbox, zoom, candidate, since });
     const body = response?.data || response;
     if (body?.error) throw new Error(body.error);
-    return { geojson: normalizeGeoJson(body), metadata: body?.metadata || {}, summary: body?.summary || {} };
+    return { geojson: normalizeGeoJson(body), metadata: body?.metadata || {}, summary: body?.summary || {}, cursor: body?.cursor, delta: body?.delta === true, deletedIds: body?.deleted_ids || [] };
   }
   const response = await fetch(endpoint, {
     method: "POST",
     signal,
     headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: JSON.stringify({ action: "query_layer", layer, bbox, zoom, candidate }),
+    body: JSON.stringify({ action: "query_layer", layer, bbox, zoom, candidate, since }),
   });
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new Error(body?.error || `${layer} failed with HTTP ${response.status}.`);
-  return { geojson: normalizeGeoJson(body), metadata: body?.metadata || {}, summary: body?.summary || {} };
+  return { geojson: normalizeGeoJson(body), metadata: body?.metadata || {}, summary: body?.summary || {}, cursor: body?.cursor, delta: body?.delta === true, deletedIds: body?.deleted_ids || [] };
 }
 
 export default function SiteHawkInfrastructureMap({
@@ -146,6 +175,8 @@ export default function SiteHawkInfrastructureMap({
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const requestsRef = useRef(new Map());
+  const layerDataRef = useRef(new Map());
+  const cursorsRef = useRef(new Map());
   const [mapReady, setMapReady] = useState(false);
   const [fatalError, setFatalError] = useState("");
   const [search, setSearch] = useState("");
@@ -159,6 +190,9 @@ export default function SiteHawkInfrastructureMap({
   const [selected, setSelected] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mapStyle, setMapStyle] = useState("dark-v11");
+  const [deepSpace, setDeepSpace] = useState(false);
+  const [livePaused, setLivePaused] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const groupedLayers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -216,6 +250,7 @@ export default function SiteHawkInfrastructureMap({
         setLayerVisibility(map, layer, active.has(layer.id));
         setLayerOpacity(map, layer, opacity[layer.id] ?? 0.9);
       });
+      applyDeepSpace(map, deepSpace);
     });
   }, [mapReady, mapStyle]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -229,13 +264,18 @@ export default function SiteHawkInfrastructureMap({
     setErrors((value) => ({ ...value, [definition.id]: "" }));
     try {
       const bounds = map.getBounds();
-      const result = await fetchInfrastructureLayer({ endpoint: apiEndpoint, token: accessToken, layer: definition.id, bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()], zoom: Math.round(map.getZoom()), signal: controller.signal, candidate, layerLoader });
-      addMapLayer(map, definition, result.geojson);
+      const result = await fetchInfrastructureLayer({ endpoint: apiEndpoint, token: accessToken, layer: definition.id, bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()], zoom: Math.round(map.getZoom()), signal: controller.signal, candidate, layerLoader, since: cursorsRef.current.get(definition.id) });
+      const current = layerDataRef.current.get(definition.id) || EMPTY_COLLECTION;
+      const nextData = result.delta ? mergeDelta(current, result.geojson, result.deletedIds) : result.geojson;
+      layerDataRef.current.set(definition.id, nextData);
+      if (result.cursor) cursorsRef.current.set(definition.id, result.cursor);
+      addMapLayer(map, definition, nextData);
       setLayerVisibility(map, definition, true);
       setLayerOpacity(map, definition, opacity[definition.id] ?? 0.9);
-      setCounts((value) => ({ ...value, [definition.id]: result.geojson.features.length }));
+      setCounts((value) => ({ ...value, [definition.id]: nextData.features.length }));
       setMetadata((value) => ({ ...value, [definition.id]: result.metadata }));
       setInsights((value) => ({ ...value, ...result.summary }));
+      setLastUpdated(new Date());
     } catch (error) {
       if (error.name !== "AbortError") {
         setErrors((value) => ({ ...value, [definition.id]: error.message || String(error) }));
@@ -277,7 +317,21 @@ export default function SiteHawkInfrastructureMap({
     if (mapRef.current) setLayerOpacity(mapRef.current, definition, next);
   };
 
-  const refreshActive = () => LAYERS.filter((layer) => active.has(layer.id)).forEach(loadLayer);
+  const refreshActive = useCallback(() => LAYERS.filter((layer) => active.has(layer.id)).forEach(loadLayer), [active, loadLayer]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map || livePaused || !active.size) return undefined;
+    const refresh = () => refreshActive();
+    const timer = window.setInterval(refresh, 30000);
+    map.on("moveend", refresh);
+    return () => { window.clearInterval(timer); map.off("moveend", refresh); };
+  }, [active.size, livePaused, mapReady, refreshActive]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (mapReady && map) applyDeepSpace(map, deepSpace);
+  }, [deepSpace, mapReady]);
 
   return (
     <div className="relative h-[calc(100vh-64px)] min-h-[680px] overflow-hidden bg-slate-950 text-slate-100">
@@ -285,13 +339,16 @@ export default function SiteHawkInfrastructureMap({
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 bg-gradient-to-b from-slate-950/95 to-transparent p-4 pb-12">
         <div className="pointer-events-auto flex items-center gap-3">
           <button type="button" onClick={() => setSidebarOpen((value) => !value)} className="rounded-xl border border-cyan-500/30 bg-slate-950/90 px-3 py-2 text-cyan-300 shadow-xl backdrop-blur">{sidebarOpen ? "Hide layers" : "Show layers"}</button>
-          <div><div className="text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">SiteHawk</div><h1 className="text-xl font-black tracking-tight text-white">Infrastructure Intelligence Map</h1></div>
+          <div><div className="text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">SiteHawk</div><h1 className="text-xl font-black tracking-tight text-white">Live Infrastructure Command Center</h1></div>
         </div>
-        <div className="pointer-events-auto flex gap-2">
+        <div className="pointer-events-auto flex flex-wrap justify-end gap-2">
+          <div className="rounded-xl border border-emerald-400/30 bg-slate-950/90 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-emerald-300 backdrop-blur"><span className={`mr-2 inline-block h-2 w-2 rounded-full ${livePaused ? "bg-amber-400" : "bg-emerald-400 animate-pulse"}`} />{livePaused ? "Live paused" : "Live · 30 sec"}{lastUpdated ? ` · ${lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
+          <button type="button" onClick={() => setLivePaused((value) => !value)} className="rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs text-slate-200 backdrop-blur">{livePaused ? "Resume" : "Pause"}</button>
           <select value={mapStyle} onChange={(event) => setMapStyle(event.target.value)} className="rounded-xl border border-slate-700 bg-slate-950/90 px-3 py-2 text-xs text-slate-200 backdrop-blur">
             <option value="dark-v11">Dark intelligence</option><option value="satellite-streets-v12">Satellite</option><option value="outdoors-v12">Terrain</option><option value="light-v11">Light</option>
           </select>
-          <button type="button" onClick={() => onOpen3D?.({ center: mapRef.current?.getCenter(), zoom: mapRef.current?.getZoom() })} className="rounded-xl border border-violet-400/40 bg-violet-500/20 px-3 py-2 text-xs font-bold text-violet-200 backdrop-blur hover:bg-violet-500/30">Open Cesium 3D</button>
+          <button type="button" onClick={() => setDeepSpace((value) => !value)} className={`rounded-xl border px-3 py-2 text-xs font-bold backdrop-blur ${deepSpace ? "border-cyan-300 bg-cyan-400/25 text-cyan-100" : "border-violet-400/40 bg-violet-500/20 text-violet-200"}`}>{deepSpace ? "Exit Deep Space" : "Deep Space 3D"}</button>
+          <button type="button" onClick={() => onOpen3D?.({ center: mapRef.current?.getCenter(), zoom: mapRef.current?.getZoom() })} className="rounded-xl border border-violet-400/40 bg-violet-500/20 px-3 py-2 text-xs font-bold text-violet-200 backdrop-blur hover:bg-violet-500/30">Photoreal 3D</button>
         </div>
       </header>
 
@@ -312,7 +369,7 @@ export default function SiteHawkInfrastructureMap({
                 {layers.map((layer) => {
                   const enabled = active.has(layer.id); const busy = loading.has(layer.id);
                   return <div key={layer.id} className={`rounded-xl border p-3 transition ${enabled ? "border-cyan-500/40 bg-cyan-950/25" : "border-slate-800 bg-slate-900/45"}`}>
-                    <button type="button" onClick={() => toggleLayer(layer)} className="flex w-full items-start gap-3 text-left"><span className="mt-0.5 h-4 w-4 shrink-0 rounded border" style={{ borderColor: layer.color, background: enabled ? layer.color : "transparent", boxShadow: enabled ? `0 0 14px ${layer.color}` : "none" }} /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-slate-100">{layer.label}</span><span className="shrink-0 text-[10px] text-slate-500">{busy ? "Loading…" : counts[layer.id] != null ? counts[layer.id].toLocaleString() : layer.source}</span></span><span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{layer.description}{layer.expensive ? " · on demand" : ""}</span><span className="mt-1 block text-[10px] text-slate-600">Source: {metadata[layer.id]?.source || layer.source}{(metadata[layer.id]?.source_date || layer.sourceDate) ? ` · Vintage: ${metadata[layer.id]?.source_date || layer.sourceDate}` : ""}</span>{metadata[layer.id]?.limitations && <span className="mt-1 block text-[10px] leading-4 text-amber-300/70">Limitation: {metadata[layer.id].limitations}</span>}</span></button>
+                    <button type="button" onClick={() => toggleLayer(layer)} className="flex w-full items-start gap-3 text-left"><span className="mt-0.5 h-4 w-4 shrink-0 rounded border" style={{ borderColor: layer.color, background: enabled ? layer.color : "transparent", boxShadow: enabled ? `0 0 14px ${layer.color}` : "none" }} /><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-sm font-semibold text-slate-100">{layer.label}</span><span className="shrink-0 text-[10px] text-slate-500">{busy ? "Loading…" : counts[layer.id] != null ? counts[layer.id].toLocaleString() : layer.source}</span></span><span className="mt-0.5 block text-[11px] leading-4 text-slate-500">{layer.description}{layer.expensive ? " · on demand" : ""}{layer.minZoom ? ` · zoom ${layer.minZoom}+` : ""}</span><span className="mt-1 block text-[10px] text-slate-600">Source: {metadata[layer.id]?.source || layer.source}{(metadata[layer.id]?.source_date || layer.sourceDate) ? ` · Vintage: ${metadata[layer.id]?.source_date || layer.sourceDate}` : ""}</span>{metadata[layer.id]?.limitations && <span className="mt-1 block text-[10px] leading-4 text-amber-300/70">Limitation: {metadata[layer.id].limitations}</span>}</span></button>
                     {enabled && !busy && !errors[layer.id] && <input aria-label={`${layer.label} opacity`} type="range" min="0.15" max="1" step="0.05" value={opacity[layer.id] ?? 0.9} onChange={(event) => changeOpacity(layer, event.target.value)} className="mt-2 h-1 w-full accent-cyan-400" />}
                     {errors[layer.id] && <div className="mt-2 rounded-lg bg-red-950/60 px-2 py-1.5 text-[11px] text-red-300">{errors[layer.id]}</div>}
                   </div>;
