@@ -61,6 +61,9 @@ export function computeLiveSiting({ result, rules, compoundW, compoundD, separat
   if (c.compound?.status === "fail") {
     reasons.push(`${compoundW} ft × ${compoundD} ft compound crosses the parcel boundary here.`);
   }
+  if (c.structures?.status === "fail") {
+    reasons.push("Tower or compound overlaps a mapped building footprint.");
+  }
   if (separationCheck?.status === "fail") {
     reasons.push(
       rules?.tower_separation_ft
@@ -90,6 +93,7 @@ export function computeLiveSiting({ result, rules, compoundW, compoundD, separat
     c.height?.status === "fail" ||
     c.setback?.status === "fail" ||
     c.compound?.status === "fail" ||
+    c.structures?.status === "fail" ||
     separationCheck?.status === "fail" ||
     residential?.result?.status === "fail";
   const fallFail = c.fallZone?.status === "fail";

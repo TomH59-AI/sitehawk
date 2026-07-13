@@ -12,9 +12,52 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  */
 
 const isResidential = (p) => {
-  const s = `${p?.usedesc || ""} ${p?.zoning || ""} ${p?.zoning_description || ""} ${p?.lbcs_activity_desc || ""}`.toLowerCase();
-  return /resid|single family|multi family|duplex|dwelling|mobile home|apartment|condo|townho/.test(s);
+  const s = `${p?.usedesc || ""} ${p?.zoning || ""} ${p?.zoning_description || ""} ${p?.lbcs_activity_desc || ""} ${p?.building || ""}`.toLowerCase();
+  return /resid|single family|multi family|duplex|dwelling|mobile home|apartment|condo|townho|house/.test(s);
 };
+
+const OVERPASS_ENDPOINTS = [
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.openstreetmap.fr/api/interpreter",
+];
+
+async function osmBuildings(lat, lon, radiusM) {
+  const query = `[out:json][timeout:25];way(around:${radiusM},${lat},${lon})[building];(._;>;);out body;`;
+  let lastError = "No Overpass endpoint responded";
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "SiteHawk-TowerSiter/1.0" },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+      if (!response.ok) { lastError = `Overpass HTTP ${response.status}`; continue; }
+      const data = await response.json();
+      const nodes = new Map((data.elements || []).filter((item) => item.type === "node").map((item) => [item.id, [item.lon, item.lat]]));
+      const features = (data.elements || []).filter((item) => item.type === "way" && item.tags?.building && item.nodes?.length >= 4).map((item) => {
+        const coordinates = item.nodes.map((id) => nodes.get(id)).filter(Boolean);
+        if (coordinates.length < 4) return null;
+        if (coordinates[0][0] !== coordinates.at(-1)[0] || coordinates[0][1] !== coordinates.at(-1)[1]) coordinates.push(coordinates[0]);
+        return {
+          type: "Feature",
+          properties: {
+            id: `osm-way-${item.id}`,
+            parcel_address: [item.tags?.["addr:housenumber"], item.tags?.["addr:street"]].filter(Boolean).join(" ") || null,
+            building: item.tags.building,
+            residential: isResidential(item.tags),
+            source: "OpenStreetMap",
+          },
+          geometry: { type: "Polygon", coordinates: [coordinates] },
+        };
+      }).filter(Boolean);
+      return { type: "FeatureCollection", features };
+    } catch (error) {
+      lastError = error.message;
+    }
+  }
+  throw new Error(lastError);
+}
 
 Deno.serve(async (req) => {
   try {
@@ -42,8 +85,9 @@ Deno.serve(async (req) => {
     const r = await fetch(url.toString());
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
-      console.log(`[ERROR] Regrid HTTP ${r.status}: ${JSON.stringify(j).slice(0, 500)}`);
-      return Response.json({ error: `Regrid HTTP ${r.status}`, detail: j }, { status: 502 });
+      console.warn(`Regrid matched buildings unavailable (${r.status}); using OpenStreetMap building footprints.`);
+      const buildings = await osmBuildings(Number(lat), Number(lon), radiusM);
+      return Response.json({ buildings, count: buildings.features.length, parcels_scanned: 0, source: "OpenStreetMap" });
     }
 
     const parcelFeats = j?.parcels?.features || [];

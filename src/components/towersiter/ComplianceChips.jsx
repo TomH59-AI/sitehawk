@@ -31,6 +31,7 @@ export default function ComplianceChips({ checks, residential, residentialAllowe
     ["setback",  "Setback"],
     ["fallZone", "Fall-zone containment"],
     ["compound", "Compound fit"],
+    ["structures", "Building clearance"],
   ];
   return (
     <div className="flex flex-wrap gap-2">

@@ -20,6 +20,7 @@ import { towerSiterOrdinance } from "@/functions/towerSiterOrdinance";
 import { towerSiterResidential } from "@/functions/towerSiterResidential";
 import { towerSiterSitings } from "@/functions/towerSiterSitings";
 import { scipExistingConditions } from "@/functions/scipExistingConditions";
+import { regridBuildingFootprints } from "@/functions/regridBuildingFootprints";
 import { useTowerSeparation } from "@/components/towersiter/TowerSeparationLayer";
 
 import ParcelInputPanel from "../components/towersiter/ParcelInputPanel";
@@ -59,6 +60,9 @@ export default function TowerSiter() {
   const [manualRect, setManualRect] = useState({ w: "", d: "" });
   const [pendingPlat, setPendingPlat] = useState(null);
   const [accessRoad, setAccessRoad] = useState(null); // { road_name, highway_label, road_type, ownership, permit_path, distance_ft }
+  const [buildingsFC, setBuildingsFC] = useState(null);
+  const [buildingStatus, setBuildingStatus] = useState("idle");
+  const buildingRequestRef = useRef(0);
   const exhibitARef = useRef(null);
 
   useEffect(() => {
@@ -68,7 +72,7 @@ export default function TowerSiter() {
 
   /* ---------------- engine — recompute on every control change / drag ---------------- */
   const result = useMemo(() => {
-    if (!parcel?.geometry) return null;
+    if (!parcel?.geometry || buildingStatus !== "ready") return null;
     try {
       // Normalize ordinance units before passing to the engine
       const normalizedRules = normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199);
@@ -82,12 +86,13 @@ export default function TowerSiter() {
         compoundW: Number(controls.compoundW) || 75,
         compoundD: Number(controls.compoundD) || 75,
         towerOverrideLonLat: towerOverride,
+        buildingFootprints: buildingsFC,
       });
     } catch (e) {
       console.error("recompute failed:", e);
       return { collapsed: true, banner: "Could not compute a placement on this boundary — check the parcel geometry." };
     }
-  }, [parcel, rules, controls, towerOverride, ent.peAllowed]);
+  }, [parcel, rules, controls, towerOverride, ent.peAllowed, buildingsFC, buildingStatus]);
 
   // Live drag verdict — recomputes on every drag tick since `result` recomputes.
   const liveSiting = useMemo(() => {
@@ -138,10 +143,13 @@ export default function TowerSiter() {
     setSavedRunId(null);
     resetTowerSep();
     setAccessRoad(null);
+    setBuildingsFC(null);
+    setBuildingStatus("loading");
     setClickMode(null);
     setDraftPoints([]);
-    // Fire access road lookup in background — non-blocking
+    // Fire access road and mandatory building-footprint lookups in background.
     const centroidCoords = p.location?.coordinates || [p.geometry?.coordinates?.[0]?.[0]?.[0], p.geometry?.coordinates?.[0]?.[0]?.[1]];
+    const buildingRequestId = ++buildingRequestRef.current;
     if (centroidCoords?.[0] && centroidCoords?.[1]) {
       scipExistingConditions({ lat: centroidCoords[1], lon: centroidCoords[0] })
         .then((res) => {
@@ -149,6 +157,18 @@ export default function TowerSiter() {
           if (conditions?.access_road) setAccessRoad(conditions.access_road);
         })
         .catch(() => {}); // non-blocking — never fails the siting
+      regridBuildingFootprints({ lat: centroidCoords[1], lon: centroidCoords[0], radius_ft: 2500 })
+        .then((res) => {
+          if (buildingRequestRef.current !== buildingRequestId) return;
+          setBuildingsFC(res?.data?.buildings || { type: "FeatureCollection", features: [] });
+          setBuildingStatus("ready");
+        })
+        .catch((error) => {
+          console.error("building footprint lookup failed:", error);
+          if (buildingRequestRef.current === buildingRequestId) setBuildingStatus("error");
+        });
+    } else {
+      setBuildingStatus("error");
     }
     if (p.state && p.jurisdiction) {
       try {
@@ -233,9 +253,16 @@ export default function TowerSiter() {
   /* ---------------- tower drag — clamp inside parcel, live recompute ---------------- */
   const onTowerDrag = useCallback((lonLat) => {
     if (!result?.parcel) return;
-    try { if (!booleanPointInPolygon(point(lonLat), result.parcel)) return; } catch { return; }
+    try {
+      const candidate = point(lonLat);
+      if (!booleanPointInPolygon(candidate, result.parcel)) return;
+      if ((buildingsFC?.features || []).some((building) => booleanPointInPolygon(candidate, building))) {
+        toast.error("Tower cannot be placed on a building.");
+        return;
+      }
+    } catch { return; }
     setTowerOverride(lonLat);
-  }, [result?.parcel]);
+  }, [result?.parcel, buildingsFC]);
 
   /* ---------------- residential + tower separation — fires ONCE on Confirm ---------------- */
   const confirmPlacement = async () => {
@@ -272,11 +299,7 @@ export default function TowerSiter() {
     await fetchTowers(result.towerLonLat[1], result.towerLonLat[0], towerSep, 2);
 
     // 3. Compute result classification (after checks are set — use current values)
-    const rc = classifyResult(
-      result.checks,
-      [],
-      false // structures not yet supported
-    );
+    const rc = classifyResult(result.checks, [], buildingStatus === "ready");
     setResultClass(rc);
   };
 
@@ -288,7 +311,7 @@ export default function TowerSiter() {
       const centroid = turfCentroid(result.parcel).geometry.coordinates;
       const normalizedRules = normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199);
       const effectiveRules = normalizedRules || rules;
-      const rc = resultClass || classifyResult(result.checks, [], false, result.collapsed);
+      const rc = resultClass || classifyResult(result.checks, [], buildingStatus === "ready", result.collapsed);
 
       const payload = {
         parcel_id: parcel.apn || null,
@@ -329,6 +352,7 @@ export default function TowerSiter() {
           features: [
             ...(towerData?.buffers?.features || []),
             ...(residential?.circle ? [residential.circle] : []),
+            ...(buildingsFC?.features || []),
           ],
         },
         tower_separation_geojson: towerData?.buffers || null,
@@ -523,6 +547,12 @@ export default function TowerSiter() {
 
         {/* right — map / plan sheet */}
         <div className="space-y-3">
+          {parcel && buildingStatus === "loading" && (
+            <div className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3 text-sm text-cyan-200 font-semibold">Checking building footprints before placing the tower…</div>
+          )}
+          {parcel && buildingStatus === "error" && (
+            <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300 font-semibold">Building footprints could not be verified, so Tower Siter has blocked placement on this parcel.</div>
+          )}
           {result?.collapsed && (
             <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300 flex items-center gap-2 font-semibold">
               <AlertOctagon className="w-5 h-5 shrink-0" />
@@ -566,8 +596,7 @@ export default function TowerSiter() {
               towerSeparation={separationCheck}
               residential={residential}
               warnings={[
-                ...(!towerData?.towers?.length ? [] : []),
-                "Structure and residential separation could not be fully verified because building footprint data was unavailable.",
+                "Mapped building footprints were excluded from tower and compound placement.",
                 "Preliminary automated siting exhibit only. Final placement must be verified by surveyor, engineer, and jurisdictional review.",
               ]}
               rules={normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199) || rules}
@@ -592,6 +621,7 @@ export default function TowerSiter() {
                 leaseLonLat={leaseLonLat}
                 residCircle={residential?.circle || null}
                 towerData={towerData}
+                buildingsFC={buildingsFC}
                 draftPoints={draftPoints}
                 onTowerDrag={onTowerDrag}
                 onMapClick={handleMapClick}

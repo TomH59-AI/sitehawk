@@ -104,7 +104,7 @@ export function classifyResult(checks = {}, warnings = [], structuresAvailable =
   if (collapsed) return "fail_no_candidate_area";
   if (c.setback?.status === "fail" && c.fallZone?.status === "fail") return "fail_no_candidate_area";
   if (c.fallZone?.status === "fail") return "fail_fall_zone";
-  if (c.compound?.status === "fail") return "fail_compound_fit";
+  if (c.compound?.status === "fail" || c.structures?.status === "fail") return "fail_compound_fit";
   if (c.towerSeparation?.status === "fail") return "fail_tower_separation";
 
   // Soft pass variants

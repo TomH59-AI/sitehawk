@@ -104,6 +104,22 @@ export function autoSite(envelopeParts, frame) {
   return best;
 }
 
+export function excludeBuildingFootprints(envelope, buildings, clearanceFt) {
+  let remaining = envelope;
+  const footprints = buildings?.features || [];
+  for (const footprint of footprints) {
+    if (!footprint?.geometry || !["Polygon", "MultiPolygon"].includes(footprint.geometry.type)) continue;
+    const obstacle = clearanceFt > 0 ? turf.buffer(footprint, clearanceFt, { units: "feet", steps: 8 }) : footprint;
+    if (!obstacle || !turf.booleanIntersects(remaining, obstacle)) continue;
+    remaining = turf.difference(remaining, obstacle);
+    if (!remaining?.geometry || turf.area(remaining) < 0.1) return { envelope: null, parts: [], collapsed: true };
+  }
+  const parts = remaining.geometry.type === "MultiPolygon"
+    ? remaining.geometry.coordinates.map((coordinates) => turf.polygon(coordinates))
+    : [remaining];
+  return { envelope: remaining, parts, collapsed: false };
+}
+
 /* ---------------- compound rectangle around tower (feet frame) ---------------- */
 export function compoundRect(towerFt, widthFt, depthFt, frame) {
   const [x, y] = towerFt;
@@ -113,7 +129,7 @@ export function compoundRect(towerFt, widthFt, depthFt, frame) {
 }
 
 /* ---------------- compliance checks (§5.4) — run every recompute ---------------- */
-export function runChecks({ parcelLonLat, envelope, towerLonLat, towerHeightFt, fallRadiusFt, compoundLonLat, rules, compoundRespectsSetback = true }) {
+export function runChecks({ parcelLonLat, envelope, towerLonLat, towerHeightFt, fallRadiusFt, compoundLonLat, rules, buildingFootprints, compoundRespectsSetback = true }) {
   const checks = {};
   const r = rules || {};
   checks.height = r.height_limit_ft == null
@@ -137,6 +153,14 @@ export function runChecks({ parcelLonLat, envelope, towerLonLat, towerHeightFt, 
     checks.compound = { status: inParcel && vsLine ? "pass" : "fail",
       label: "Compound fits parcel + setback" };
   }
+  const structures = buildingFootprints?.features || [];
+  const structureConflict = structures.some((building) =>
+    turf.booleanPointInPolygon(towerPt, building) || (compoundLonLat && turf.booleanIntersects(compoundLonLat, building))
+  );
+  checks.structures = {
+    status: structureConflict ? "fail" : "pass",
+    label: structureConflict ? "Building overlap — move tower" : "Clear of mapped buildings",
+  };
   checks.allPass = Object.values(checks).every((c) => c === true || c.status !== "fail");
   return checks;
 }
@@ -192,7 +216,7 @@ export function polygonFromCalls(calls, closeToleranceFt = 2) {
  * parcelGeoJSON: Realie geometry (lon/lat Polygon|MultiPolygon)
  * towerOverrideLonLat: set during drag; null = auto-site
  */
-export function recompute({ parcelGeoJSON, locationPoint, rules, towerHeightFt, peToggle, engineeredFallRadiusFt, compoundW = 75, compoundD = 75, towerOverrideLonLat = null, compoundRespectsSetback = true }) {
+export function recompute({ parcelGeoJSON, locationPoint, rules, towerHeightFt, peToggle, engineeredFallRadiusFt, compoundW = 75, compoundD = 75, towerOverrideLonLat = null, buildingFootprints = null, compoundRespectsSetback = true }) {
   const sel = selectWorkingPolygon(parcelGeoJSON, locationPoint);
   const parcel = sel.polygon; // lon/lat
   const centroid = turf.centroid(parcel).geometry.coordinates;
@@ -201,10 +225,17 @@ export function recompute({ parcelGeoJSON, locationPoint, rules, towerHeightFt, 
   const { setback, fallRadius, unverified, peApplied } =
     resolveSetback(rules, towerHeightFt, peToggle, engineeredFallRadiusFt);
 
-  const { envelope, collapsed, parts } = buildableEnvelope(parcel, setback);
-  if (collapsed)
+  const base = buildableEnvelope(parcel, setback);
+  if (base.collapsed)
     return { frame, parcel, collapsed: true, unverified, peApplied, setback, fallRadius,
       banner: "No compliant placement at this height - try a PE letter or shorter tower." };
+
+  const buildingClearanceFt = Math.hypot(compoundW / 2, compoundD / 2);
+  const available = excludeBuildingFootprints(base.envelope, buildingFootprints, buildingClearanceFt);
+  if (available.collapsed)
+    return { frame, parcel, collapsed: true, unverified, peApplied, setback, fallRadius,
+      banner: "No placement remains clear of mapped buildings and required setbacks." };
+  const { envelope, parts } = available;
 
   let towerLonLat, towerFt, clearanceFt = null;
   if (towerOverrideLonLat) {
@@ -219,7 +250,7 @@ export function recompute({ parcelGeoJSON, locationPoint, rules, towerHeightFt, 
 
   const compound = compoundRect(towerFt, compoundW, compoundD, frame);
   const checks = runChecks({ parcelLonLat: parcel, envelope, towerLonLat, towerHeightFt,
-    fallRadiusFt: fallRadius, compoundLonLat: compound.lonLat, rules, compoundRespectsSetback });
+    fallRadiusFt: fallRadius, compoundLonLat: compound.lonLat, rules, buildingFootprints, compoundRespectsSetback });
 
   return { frame, parcel, parcelFt: polygonToFrame(parcel, frame),
     envelope, envelopeFt: polygonFromFrameSafe(envelope, frame, polygonToFrame),
