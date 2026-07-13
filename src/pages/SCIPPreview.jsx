@@ -11,6 +11,7 @@ import HawkParcelDetails from "../components/scip/HawkParcelDetails";
 import HawkElectricServiceMap from "../components/scip/HawkElectricServiceMap";
 import HawkSectorCoverage from "../components/scip/HawkSectorCoverage";
 import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
+import { attioSyncDeal } from "@/functions/attioSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -53,6 +54,15 @@ export default function SCIPPreview() {
         sessionStorage.setItem(autoSyncKey, "1");
         hubspotSyncDeal({ candidate: c, agent: agentInfo, source: "scip" }).catch((err) => {
           console.warn("HubSpot auto-sync failed:", err.message);
+        });
+      }
+
+      // Auto-fire Attio + Apollo lead capture in parallel (independent of HubSpot)
+      const attioSyncKey = `scip-attio-synced:${c.id || c.parcel_id}`;
+      if (!sessionStorage.getItem(attioSyncKey)) {
+        sessionStorage.setItem(attioSyncKey, "1");
+        attioSyncDeal({ candidate: c, agent: agentInfo, source: "scip" }).catch((err) => {
+          console.warn("Attio auto-sync failed:", err.message);
         });
       }
 

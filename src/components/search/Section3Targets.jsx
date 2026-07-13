@@ -25,6 +25,7 @@ import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import { withRateLimitRetry } from "@/lib/quietLookup";
 import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
+import SaveToAttioButton from "@/components/crm/SaveToAttioButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
 import ExportTargetJsonButton from "./section3/ExportTargetJsonButton";
 import Section3Alternates from "./section3/Section3Alternates";
@@ -693,6 +694,7 @@ export default function Section3Targets({
                         zoningResult={zoningResult}
                         towerSiting={towerSiting}
                       />
+                      <SaveToAttioButton target={targets[colIdx]} />
                     </div>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
