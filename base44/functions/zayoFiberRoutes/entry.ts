@@ -1,7 +1,5 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.38";
-import AdmZip from "npm:adm-zip@0.6.0";
-import { DOMParser } from "npm:@xmldom/xmldom@0.9.10";
-import { kml } from "npm:@tmcw/togeojson@7.1.2";
+import { unzipSync } from "npm:fflate@0.8.2";
 import { createClient } from "npm:@supabase/supabase-js@2.110.2";
 
 const SOURCE_NAME = "Zayo KMZ import";
@@ -26,22 +24,79 @@ function supabaseAdmin() {
   return supabaseClient(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
 }
 
-function extractFeatures(collection) {
-  return (collection.features || []).flatMap((feature) => {
-    const geometry = feature.geometry;
-    if (!geometry || !SUPPORTED_GEOMETRIES.has(geometry.type)) return [];
-    const properties = feature.properties || {};
-    return [{
-      route_name: properties.name || properties.Name || null,
-      route_type: properties.route_type || properties.type || properties.Type || null,
+function parseCoordinates(text) {
+  const coords = [];
+  for (const token of text.trim().split(/\s+/)) {
+    const parts = token.split(",");
+    const lon = Number(parts[0]);
+    const lat = Number(parts[1]);
+    if (Number.isFinite(lon) && Number.isFinite(lat)) coords.push([lon, lat]);
+  }
+  return coords;
+}
+
+function tagText(block, tag) {
+  const open = block.indexOf(`<${tag}`);
+  if (open === -1) return null;
+  const start = block.indexOf(">", open);
+  const close = block.indexOf(`</${tag}>`, start);
+  if (start === -1 || close === -1) return null;
+  return block.slice(start + 1, close);
+}
+
+// Lightweight string-based KML parser — a full XML DOM of a 40MB+ document
+// exhausts the worker; scanning Placemark blocks keeps memory flat.
+function extractFeatures(xml) {
+  const features = [];
+  let cursor = 0;
+  while (true) {
+    const open = xml.indexOf("<Placemark", cursor);
+    if (open === -1) break;
+    const close = xml.indexOf("</Placemark>", open);
+    if (close === -1) break;
+    cursor = close + 12;
+    const block = xml.slice(open, close);
+
+    const name = (tagText(block, "name") || "").replace(/<!\[CDATA\[|\]\]>/g, "").trim() || null;
+    const lines = [];
+    let lineCursor = 0;
+    while (true) {
+      const lsOpen = block.indexOf("<LineString", lineCursor);
+      if (lsOpen === -1) break;
+      const lsClose = block.indexOf("</LineString>", lsOpen);
+      if (lsClose === -1) break;
+      lineCursor = lsClose + 13;
+      const coordText = tagText(block.slice(lsOpen, lsClose), "coordinates");
+      if (!coordText) continue;
+      const coords = parseCoordinates(coordText);
+      if (coords.length >= 2) lines.push(coords);
+    }
+
+    let geometry = null;
+    if (lines.length === 1) geometry = { type: "LineString", coordinates: lines[0] };
+    else if (lines.length > 1) geometry = { type: "MultiLineString", coordinates: lines };
+    else {
+      const pointOpen = block.indexOf("<Point");
+      if (pointOpen !== -1) {
+        const coordText = tagText(block.slice(pointOpen), "coordinates");
+        const coords = coordText ? parseCoordinates(coordText) : [];
+        if (coords.length) geometry = { type: "Point", coordinates: coords[0] };
+      }
+    }
+    if (!geometry) continue;
+
+    features.push({
+      route_name: name,
+      route_type: null,
       feature_type: geometry.type,
       source_name: SOURCE_NAME,
-      source_date: properties.source_date || properties.date || null,
+      source_date: null,
       confidence: "medium",
       verification_status: "unverified",
       geometry,
-    }];
-  });
+    });
+  }
+  return features;
 }
 
 async function importKmz(fileUrl) {
@@ -54,14 +109,18 @@ async function importKmz(fileUrl) {
   const bytes = await response.arrayBuffer();
   if (bytes.byteLength > MAX_KMZ_BYTES) throw new Error("KMZ exceeds the 50 MB import limit");
 
-  const archive = new AdmZip(new Uint8Array(bytes));
-  const entries = archive.getEntries().filter((entry) => !entry.isDirectory && entry.entryName.toLowerCase().endsWith(".kml"));
-  const entry = entries.find((item) => item.entryName.toLowerCase().endsWith("doc.kml")) || entries[0];
-  if (!entry) throw new Error("The KMZ archive does not contain a KML document");
+  console.log(`downloaded ${bytes.byteLength} bytes`);
+  const unzipped = unzipSync(new Uint8Array(bytes));
+  const names = Object.keys(unzipped).filter((name) => name.toLowerCase().endsWith(".kml"));
+  const entryName = names.find((name) => name.toLowerCase().endsWith("doc.kml")) || names[0];
+  if (!entryName) throw new Error("The KMZ archive does not contain a KML document");
+  console.log(`unzipped ${entryName}: ${unzipped[entryName].length} bytes`);
 
-  const xml = new TextDecoder().decode(entry.getData());
-  const document = new DOMParser().parseFromString(xml, "text/xml");
-  const features = extractFeatures(kml(document));
+  const xml = new TextDecoder().decode(unzipped[entryName]);
+  for (const key of Object.keys(unzipped)) delete unzipped[key];
+  console.log("decoded xml, extracting features");
+  const features = extractFeatures(xml);
+  console.log(`extracted ${features.length} features`);
   if (!features.length) throw new Error("No Point, LineString, or MultiLineString features were found in the KMZ");
 
   const supabase = supabaseAdmin();
@@ -158,6 +217,21 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
     const body = await req.json();
+
+    if (body.action === "inspect_kmz") {
+      if (user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+      const res = await fetch(body.file_url, { redirect: "follow" });
+      const buf = new Uint8Array(await res.arrayBuffer());
+      const head = new TextDecoder().decode(buf.slice(0, 200));
+      let entries = [];
+      try {
+        const unzipped = unzipSync(buf);
+        entries = Object.entries(unzipped).map(([name, data]) => ({ name, size: data.length }));
+      } catch (e) {
+        return Response.json({ bytes: buf.byteLength, head, zip_error: e.message, content_type: res.headers.get("content-type") });
+      }
+      return Response.json({ bytes: buf.byteLength, content_type: res.headers.get("content-type"), entries });
+    }
 
     if (body.action === "import_kmz") {
       if (user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
