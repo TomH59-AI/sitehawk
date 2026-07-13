@@ -313,8 +313,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: "No lead resolved from payload" }, { status: 400 });
     }
 
-    // 1. Apollo enrichment (best-effort)
-    const enrich = await apolloEnrich(deal);
+    // 1. Apollo enrichment — ONLY on explicit save actions (payload.enrich=true).
+    // Automatic syncs (search pipeline / SCIP auto-fire / CRMDeal automations)
+    // never enrich, avoiding per-lookup Apollo charges.
+    const enrich = payload?.enrich === true ? await apolloEnrich(deal) : null;
 
     // 2 + 3. Attio person + deal upsert
     const personId = await upsertPerson(apiKey, deal, enrich);
