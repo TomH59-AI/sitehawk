@@ -38,6 +38,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import ParcelLinesToggle from "@/components/maps/ParcelLinesToggle";
+import ZayoFiberToggle from "@/components/maps/ZayoFiberToggle";
 import ParcelIdentifyCard from "@/components/maps/ParcelIdentifyCard";
 import { queryParcelAt, highlightParcel, setParcelLinesVisible, PARCEL_LINES_LAYER_ID } from "@/lib/regridParcelTiles";
 
@@ -363,6 +364,7 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
           ))}
         </div>
         <ParcelLinesToggle mapRef={mapRef} />
+        <ZayoFiberToggle mapRef={mapRef} />
       </div>
       {clickedParcel && (
         <div className="absolute top-3 right-14 z-10">
