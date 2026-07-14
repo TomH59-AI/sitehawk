@@ -1,4 +1,5 @@
-// ZONEOMICS PROMOTED TO PRIMARY (paid tier $189/mo) — cascade: Zoneomics → Realie → Notion → AI
+// Zoning cascade: telecom_ordinances Supabase cache → Realie → web-grounded AI.
+// ⛔ Zoneomics paid API (api.zoneomics.com) is BANNED after a billing incident — never re-enable.
 /**
  * Section2Zoning — SiteHawk pipeline step 2 ("HAWK ZONING AND PERMITTING VISION").
  *
@@ -12,10 +13,12 @@
  *
  * DATA SOURCE PIPELINE (generateZoningPermitReport, run serially on Run Zoning):
  *   STEP 1  MapBox reverse-geocode (MAPBOX_API_KEY)      → state / county / city
- *   STEP 2  Zoneomics paid zoneDetail (ZONEOMICS_API_KEY)→ PRIMARY district + telecom controls
+ *   STEP 2  telecom_ordinances Supabase table            → SANCTIONED PRIMARY zoning text
  *   STEP 3  Realie parcel @ SARF center (REALIE_API_KEY) → cross-check district + fill gaps
  *   STEP 4  LLM extraction (web-grounded)                → fills any field still empty
  *   STEP 5  Render four panels with a per-field source badge.
+ *   ⛔ Zoneomics paid API (api.zoneomics.com) is BANNED and hard short-circuited
+ *      in the backend (getZoneomics is a no-op) after a billing incident. Never re-enable.
  *
  * Each field is inline-editable; a manual edit overrides source data and the
  * badge flips to [Manual edit]. "Re-query Sources" re-runs the lookup WITHOUT
