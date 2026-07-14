@@ -140,7 +140,7 @@ export default function HawkRFCoverage({ record, onUpdate }) {
       {!target && (
         <div className="flex items-center gap-2 text-sm rounded-lg p-3" style={{ background: "#FEF3C7", color: "#92400E" }}>
           <AlertTriangle className="w-4 h-4 shrink-0" />
-          Target A must be selected before maps can be generated. Run Section 1 (Find 3 Best Parcels) first.
+          Target A must be selected before maps can be generated. Run Find 3 Best Parcels (Hawk Parcel Data) first.
         </div>
       )}
 
