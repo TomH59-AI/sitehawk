@@ -6,6 +6,9 @@
  * active target (defaulting to Target A / index 0) and shows a completion
  * summary naming the target used.
  *
+ * Zoning & Permitting runs FIRST (canonical pipeline: SARF → Zoning → Targets →
+ * Maps) so scipMapSuite below receives a REAL jurisdiction — never "Unknown".
+ *
  * Each optional enrichment failure records its error but does not block
  * subsequent sections. Required sections (hawk_maps) failure does abort.
  */
@@ -20,6 +23,8 @@ import {
   stampPatch,
   SECTION_KEYS,
 } from "@/lib/scipTarget";
+import { jurisdictionZoningCache } from "@/functions/jurisdictionZoningCache";
+import { generateZoningPermitReport } from "@/functions/generateZoningPermitReport";
 import { scipMapSuite } from "@/functions/scipMapSuite";
 import { scipPowerAirportMaps } from "@/functions/scipPowerAirportMaps";
 import { scipExistingConditions } from "@/functions/scipExistingConditions";
@@ -65,7 +70,57 @@ export default function RunFullScipButton({ record, onUpdate }) {
       return updated;
     }
 
-    // 1. HAWK MAPS (required)
+    // 1. Zoning & Permitting — runs FIRST (canonical: SARF → Zoning → Targets → Maps)
+    //    so HAWK MAPS below receives a REAL jurisdiction instead of "Unknown".
+    //    Reuse ladder: this record's snapshot → app-wide jurisdiction cache → fetch.
+    //    The HawkSCIP quota gate lives inside generateZoningPermitReport, so cache
+    //    hits and re-runs burn nothing. Failure is non-fatal — maps fall back to county.
+    try {
+      addLog("Zoning & Permitting…", "running");
+      const zlat = Number.isFinite(Number(current.latitude)) ? Number(current.latitude) : ctx.lat;
+      const zlon = Number.isFinite(Number(current.longitude)) ? Number(current.longitude) : ctx.lon;
+      const district = ctx.zoning_classification || undefined;
+      if (current.zoning_report && Object.keys(current.zoning_report).length > 0 && current.zoning_jurisdiction) {
+        addLog("Zoning & Permitting — reused from this SCIP", "done");
+      } else {
+        let applied = false;
+        const look = await jurisdictionZoningCache({ action: "lookup", lat: zlat, lon: zlon, zoning_district: district }).catch(() => null);
+        if (look?.data?.cache === "hit" && look.data?.report) {
+          await updateRecord({
+            zoning_report: look.data.report,
+            zoning_jurisdiction: look.data?.jurisdiction?.jurisdiction_name || current.zoning_jurisdiction || "",
+          });
+          applied = true;
+          addLog("Zoning & Permitting — reused jurisdiction cache", "done");
+        }
+        if (!applied) {
+          const gen = await generateZoningPermitReport({
+            lat: zlat, lon: zlon,
+            candidate: (ctx.parcel_address || ctx.zoning_classification)
+              ? { parcel_address: ctx.parcel_address, zoning_classification: ctx.zoning_classification }
+              : undefined,
+          });
+          const r = gen.data?.report;
+          if (!r) throw new Error("no zoning report returned");
+          const save = await jurisdictionZoningCache({
+            action: "save", lat: zlat, lon: zlon, zoning_district: district,
+            report: r,
+            zone_code: gen.data?.zoneomics?.zone_code || null,
+            zoneomics_ok: !!gen.data?.sources_used?.zoneomics,
+            raw_response: { zoneomics: gen.data?.zoneomics || null },
+          }).catch(() => null);
+          await updateRecord({
+            zoning_report: r,
+            zoning_jurisdiction: save?.data?.jurisdiction?.jurisdiction_name || current.zoning_jurisdiction || "",
+          });
+          addLog("Zoning & Permitting — fetched & cached", "done");
+        }
+      }
+    } catch (e) {
+      addLog(`Zoning failed: ${e.message} — maps will fall back to county`, "warn");
+    }
+
+    // 2. HAWK MAPS (required)
     try {
       addLog("HAWK MAPS (Aerial / Topo / Floodplain / Zoning)…", "running");
       const res = await scipMapSuite({
@@ -101,7 +156,7 @@ export default function RunFullScipButton({ record, onUpdate }) {
       return;
     }
 
-    // 2. RF Proximity & Coverage (optional — failure logged, not fatal)
+    // 3. RF Proximity & Coverage (optional — failure logged, not fatal)
     try {
       addLog("RF Proximity & Coverage…", "running");
       const towerHeightFt = Number(current.sarf_height) || 199;
@@ -136,7 +191,7 @@ export default function RunFullScipButton({ record, onUpdate }) {
       addLog(`RF & Coverage failed: ${e.message}`, "warn");
     }
 
-    // 3. Power & Airport (optional)
+    // 4. Power & Airport (optional)
     try {
       addLog("Power & Airport maps…", "running");
       const res = await scipPowerAirportMaps({
@@ -155,7 +210,7 @@ export default function RunFullScipButton({ record, onUpdate }) {
       addLog(`Power & Airport failed: ${e.message}`, "warn");
     }
 
-    // 4. Existing Conditions (optional)
+    // 5. Existing Conditions (optional)
     try {
       addLog("Existing Conditions…", "running");
       const res = await scipExistingConditions({
@@ -195,7 +250,7 @@ export default function RunFullScipButton({ record, onUpdate }) {
         <div>
           <h3 className="font-bold text-lg" style={{ color: SKYWAVE.navy }}>Run Full SCIP</h3>
           <p className="text-xs mt-0.5" style={{ color: SKYWAVE.muted }}>
-            Runs all sections (HAWK MAPS, RF & Coverage, Power & Airport, Existing Conditions) in sequence for{" "}
+            Runs all sections (Zoning & Permitting, HAWK MAPS, RF & Coverage, Power & Airport, Existing Conditions) in sequence for{" "}
             <strong>{ctx.target_label}</strong>. Requires parcel targets to be selected first.
           </p>
         </div>
