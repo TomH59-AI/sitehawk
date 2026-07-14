@@ -22,7 +22,7 @@ export default function HawkPowerAirport({ record, onUpdate }) {
 
   async function generate() {
     if (!target) {
-      toast.error("Run Section 1 (Find 3 Best Parcels) first — these maps are for Target A.");
+      toast.error("Run Find 3 Best Parcels (Hawk Parcel Data) first — these maps are for Target A.");
       return;
     }
     setBusy(true);
