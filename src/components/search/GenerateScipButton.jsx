@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { FileText, X, Printer, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { FileText, X, Printer, Loader2, Download, Upload } from "lucide-react";
+import { base44 } from "@/api/base44Client";
+import { generateScipWorkbook } from "@/functions/generateScipWorkbook";
 import { toast } from "sonner";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
@@ -111,17 +114,29 @@ export default function GenerateScipButton({
   const [open, setOpen] = useState(false);
   const [building, setBuilding] = useState(false);
   const [record, setRecord] = useState(null);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const navigate = useNavigate();
 
   const ready = !!(searchCenter && targetA && Number.isFinite(Number(targetA.latitude)));
 
   // The HawkSCIP quota is spent at Run Zoning (Section 2), not here. SCIP
   // generation is free once the HawkSCIP has been spent — no paywall on this step.
-  const build = () => buildScip();
+  // Phase 1.5: the button opens the two-door deliverable chooser.
+  // Door B = SiteHawk builds it (this component's pipeline → preview + xlsx).
+  // Door A = HawkFill fills the subscriber's own uploaded SCIP (/hawk-fill).
+  const build = () => setChooserOpen(true);
+  const chooseSiteHawkScip = () => { setChooserOpen(false); buildScip(); };
 
   const buildScip = async () => {
     setBuilding(true);
     try {
       const cfg = await loadPublicConfig();
+      // Multi-tenant: the SCIP's agent is the logged-in SUBSCRIBER. Their
+      // account profile is the source of truth for agent identity; the
+      // search-form name is only a fallback. Never hardcode an agent.
+      let me = null;
+      try { me = await base44.auth.me(); } catch { /* agent fields fall back below */ }
       const token = cfg.mapboxAccessToken;
       const srcLat = Number(searchCenter.lat), srcLon = Number(searchCenter.lon);
       const radius = searchParams.radius_miles;
@@ -209,7 +224,9 @@ export default function GenerateScipButton({
 
       const rec = {
         site_name: searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring",
-        agent_name: searchParams.agent_name,
+        agent_name: (searchParams.agent_name || "").trim() || me?.full_name || "",
+        agent_phone: searchParams.agent_phone || me?.phone || me?.phone_number || "",
+        agent_email: me?.email || "",
         generated_at: new Date().toISOString(),
         latitude: srcLat,
         longitude: srcLon,
@@ -319,6 +336,44 @@ export default function GenerateScipButton({
     }
   };
 
+  // Door B deliverable — POST the assembled record to generateScipWorkbook
+  // (ExcelJS backend, private file + signed URL). The adapter below translates
+  // this component's print-record field names into the shapes the backend's
+  // normalize() expects, so no populated field silently falls to TBD.
+  const handleDownloadXlsx = async () => {
+    if (!record) return;
+    setDownloading(true);
+    try {
+      const wbRecord = {
+        ...record,
+        maps: { ...(record.maps || {}), sarf: record.sarf_map },
+        taxes_paid: record.targetA?.taxes_paid,
+        conforming_size: record.targetA?.conforming_size,
+        power_provider_str: record.conditions?.power_provider,
+        telco_provider_str: record.conditions?.telco_provider,
+        fiber_provider_str: record.conditions?.fiber,
+        airport_str: record.conditions?.airport,
+        zoning: {
+          ...(record.zoning || {}),
+          stealth_required: record.zoning?.stealth,
+          collocation_required: record.zoning?.collocations,
+          ldc_section: record.zoning?.ldc_reference,
+        },
+        conditions: { ...(record.conditions || {}), wetland_concerns: record.conditions?.wetlands },
+      };
+      const res = await generateScipWorkbook({ record: wbRecord });
+      const d = res?.data || {};
+      if (!d.ok || !d.signed_url) throw new Error(d.error || "Workbook generation failed");
+      window.open(d.signed_url, "_blank");
+      toast.success(`Workbook ready — ${d.filename}`);
+    } catch (e) {
+      console.error(e);
+      toast.error(e.message || "Could not generate the workbook.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   // Build the spec'd filename: {SiteName}_{TargetLabel}_SCIP_{YYYYMMDD}.
   // Browsers use document.title as the default "Save as PDF" filename, so we
   // swap it in for the print and restore it afterward.
@@ -347,12 +402,39 @@ export default function GenerateScipButton({
         {building ? "Building SCIP…" : "Generate SCIP"}
       </button>
 
+      {chooserOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4" onClick={() => setChooserOpen(false)}>
+          <div className="w-full max-w-2xl rounded-2xl p-6" style={{ background: "#0C1B2E" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-heading font-bold text-lg text-white">How do you want your SCIP?</h3>
+              <button onClick={() => setChooserOpen(false)} className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 text-white hover:bg-white/20"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <button onClick={chooseSiteHawkScip} className="text-left rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 p-5 transition-colors">
+                <FileText className="w-6 h-6 mb-2" style={{ color: "#FFC72C" }} />
+                <div className="font-bold text-white mb-1">SiteHawk SCIP</div>
+                <p className="text-xs text-white/70">We build it. One click generates the full industry-standard SCIP from your live pipeline data — preview it, print it, or download the workbook.</p>
+              </button>
+              <button onClick={() => { setChooserOpen(false); navigate("/hawk-fill"); }} className="text-left rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 p-5 transition-colors">
+                <Upload className="w-6 h-6 mb-2" style={{ color: "#FFC72C" }} />
+                <div className="font-bold text-white mb-1">🪶 HawkFill My Document</div>
+                <p className="text-xs text-white/70 mb-2">You bring it, we fill it. Upload the SCIP or form you want to use and HawkFill maps your site data into it, with a full review before download.</p>
+                <p className="text-[10px] italic text-white/50">SiteHawk's engine is built to industry-standard fields — we may not be able to complete your document fully. Anything we can't confidently match is left blank for your review, never guessed.</p>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {open && record && (
         <div className="scip-print-overlay fixed inset-0 z-[100] bg-black/70 overflow-auto" onClick={() => setOpen(false)}>
           <div className="min-h-full flex flex-col items-center py-8 px-4" onClick={(e) => e.stopPropagation()}>
             <div className="no-print sticky top-0 z-10 w-full max-w-[8.5in] flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-lg" style={{ background: "#0C1B2E" }}>
               <span className="font-heading font-bold text-white">SiteHawk SCIP — Preview</span>
               <div className="flex items-center gap-2">
+                <button onClick={handleDownloadXlsx} disabled={downloading} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm bg-white/10 text-white hover:bg-white/20 disabled:opacity-50">
+                  {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {downloading ? "Building…" : "Download .xlsx"}
+                </button>
                 <button onClick={handlePrint} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm" style={{ background: "#FFC72C", color: "#0C1B2E" }}>
                   <Printer className="w-4 h-4" /> Print / Save PDF
                 </button>
