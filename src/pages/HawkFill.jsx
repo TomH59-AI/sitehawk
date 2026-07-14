@@ -148,7 +148,7 @@ export default function HawkFill() {
           <FileText className="w-6 h-6 text-primary" /> HawkFill
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload a document template and let HawkFill populate it with your site data automatically.
+          Upload the SCIP or form you want filled and HawkFill populates it with your site data automatically. Heads up: SiteHawk's engine is built to industry-standard fields — we may not be able to complete your document fully. We fill every field that matches your SCIP data; anything we can't confidently match is left blank for your review rather than guessed. For the most complete package every time, use the SiteHawk SCIP.
         </p>
       </div>
 
