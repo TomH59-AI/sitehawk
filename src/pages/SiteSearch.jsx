@@ -361,11 +361,13 @@ export default function SiteSearch() {
         </div>
       )}
 
-      {/* Section One output — the single MapBox SARF render. Nothing else fires. */}
-      {coordsReady && pipelineStep === "sarf" && (
+      {/* Section One output — the single MapBox SARF render. Nothing else fires.
+          The SARF stays MOUNTED for the rest of the run (sarfReady) — it must not
+          vanish from the page when the pipeline advances to Zoning and beyond. */}
+      {coordsReady && (pipelineStep === "sarf" || sarfReady) && (
         <div className="space-y-2" data-coach="sarf-map">
           <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-primary/15 via-transparent to-transparent border border-primary/30">
-            <div className="text-[10px] font-mono text-primary tracking-[0.3em] mb-0.5">IMAGE GENERATED · SITEHAWK</div>
+            <div className="text-[10px] font-mono text-primary tracking-[0.3em] mb-0.5">SCIP · SECTION 1 · SARF</div>
             <div className="font-heading font-bold text-foreground">
               SARF Map — {searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"} · {Number(searchCenter.lat).toFixed(6)}, {Number(searchCenter.lon).toFixed(6)}
             </div>
