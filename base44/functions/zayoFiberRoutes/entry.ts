@@ -21,7 +21,7 @@ function supabaseRead() {
 }
 
 function supabaseAdmin() {
-  return supabaseClient(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
+  return supabaseClient(Deno.env.get("HAWK_SUPABASE_SERVICE_ROLE_KEY"));
 }
 
 function parseCoordinates(text) {
@@ -231,6 +231,25 @@ Deno.serve(async (req) => {
         return Response.json({ bytes: buf.byteLength, head, zip_error: e.message, content_type: res.headers.get("content-type") });
       }
       return Response.json({ bytes: buf.byteLength, content_type: res.headers.get("content-type"), entries });
+    }
+
+    if (body.action === "diag_keys") {
+      if (user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+      const decodeRef = (key) => {
+        try {
+          const cleaned = (key || "").replace(/^[\\'"\s]+/, "").replace(/[\\'"\s]+$/, "");
+          const payload = JSON.parse(atob(cleaned.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+          return { ref: payload.ref, role: payload.role, exp: payload.exp, len: cleaned.length };
+        } catch (e) {
+          const cleaned = (key || "").replace(/^[\\'"\s]+/, "").replace(/[\\'"\s]+$/, "");
+          return { error: e.message, len: cleaned.length, prefix: cleaned.slice(0, 12) };
+        }
+      };
+      return Response.json({
+        url_host: (Deno.env.get("HAWK_SUPABASE_URL") || "").replace(/^[\\'"\s]+/, "").replace(/[\\'"\s/]+$/, ""),
+        anon: decodeRef(Deno.env.get("HAWK_SUPABASE_ANON_KEY")),
+        service: decodeRef(Deno.env.get("HAWK_SUPABASE_SERVICE_ROLE_KEY")),
+      });
     }
 
     if (body.action === "import_kmz") {
