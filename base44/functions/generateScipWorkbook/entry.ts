@@ -18,6 +18,7 @@
 // Wiring lands in GenerateScipButton after Tom approves a sample output.
 
 import ExcelJS from "npm:exceljs@4.4.0";
+import { createClientFromRequest } from "npm:@base44/sdk@0.8.31";
 
 // ── Template constants (ported 1:1 from scip_generator.py) ─────────────────
 const HEADER_GREEN = "FF628C83"; // signature Anthemnet sage/teal green
@@ -457,7 +458,6 @@ export async function buildScipWorkbook(n: ReturnType<typeof normalize>) {
 // ── HTTP handler ─────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   try {
-    const { createClientFromRequest } = await import("npm:@base44/sdk@0.8.0/server");
     const base44 = createClientFromRequest(req);
     if (!(await base44.auth.isAuthenticated())) {
       return Response.json({ error: "Authentication required" }, { status: 401 });
