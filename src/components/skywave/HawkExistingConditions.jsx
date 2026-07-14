@@ -28,7 +28,7 @@ export default function HawkExistingConditions({ record, onUpdate }) {
 
   async function generate() {
     if (!target) {
-      toast.error("Run Section 1 (Find 3 Best Parcels) first — Existing Conditions describes Target A.");
+      toast.error("Run Find 3 Best Parcels (Hawk Parcel Data) first — Existing Conditions describes Target A.");
       return;
     }
     setBusy(true);
