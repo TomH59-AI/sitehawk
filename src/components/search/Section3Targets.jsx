@@ -31,6 +31,7 @@ import SaveToAttioButton from "@/components/crm/SaveToAttioButton";
 import SaveToHubSpotButton from "@/components/crm/SaveToHubSpotButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
 import ExportTargetJsonButton from "./section3/ExportTargetJsonButton";
+import GenerateScupPdfButton from "./section3/GenerateScupPdfButton";
 import Section3Alternates from "./section3/Section3Alternates";
 import ConnectivityPanel from "./section3/ConnectivityPanel";
 import SectionClearButton from "./SectionClearButton";
@@ -720,6 +721,23 @@ export default function Section3Targets({
                       />
                       <SaveToHubSpotButton target={targets[colIdx]} />
                       <SaveToAttioButton target={targets[colIdx]} />
+                      <GenerateScupPdfButton
+                        targetLabel={COLS[colIdx]}
+                        ringName={ringName}
+                        fields={{
+                          target_name: COLS[colIdx],
+                          parcel_id: grid.apn?.[colIdx],
+                          owner_name: grid.owner_name?.[colIdx],
+                          parcel_address: grid.parcel_address?.[colIdx],
+                          mailing_address: grid.mailing_address?.[colIdx],
+                          coordinates: grid.coordinates?.[colIdx],
+                          parcel_size: grid.acreage?.[colIdx],
+                          boundaries: grid.boundaries?.[colIdx],
+                          zoning: grid.zoning_classification?.[colIdx],
+                          phone: grid.phone?.[colIdx],
+                          fema_risk: grid.fema_risk_factor?.[colIdx],
+                        }}
+                      />
                     </div>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
