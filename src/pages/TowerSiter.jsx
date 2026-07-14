@@ -32,6 +32,7 @@ import SiterMap from "../components/towersiter/SiterMap";
 import UpgradeModal from "../components/towersiter/UpgradeModal";
 import SitingDeepDive from "../components/towersiter/SitingDeepDive";
 import SitingResultPanel from "../components/towersiter/SitingResultPanel";
+import FeasibilityFinder from "../components/towersiter/FeasibilityFinder";
 
 // HawkPerch — Tower Siter. Single source of truth for placement math is
 // lib/towerSiterEngine.js (recompute pipeline). NO Zoneomics, NO Regrid —
@@ -554,10 +555,21 @@ export default function TowerSiter() {
             <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300 font-semibold">Building footprints could not be verified, so Tower Siter has blocked placement on this parcel.</div>
           )}
           {result?.collapsed && (
-            <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300 flex items-center gap-2 font-semibold">
-              <AlertOctagon className="w-5 h-5 shrink-0" />
-              {result.banner || "No compliant placement at this height — try PE letter or shorter tower."}
-            </div>
+            <>
+              <div className="rounded-xl border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-300 flex items-center gap-2 font-semibold">
+                <AlertOctagon className="w-5 h-5 shrink-0" />
+                {result.banner || "No compliant placement at this height — try PE letter or shorter tower."}
+              </div>
+              <FeasibilityFinder
+                parcelGeoJSON={parcel.geometry}
+                locationPoint={parcel.location?.coordinates || null}
+                rules={rules}
+                controls={controls}
+                buildingsFC={buildingsFC}
+                peAllowed={ent.peAllowed}
+                onApply={(patch) => { setTowerOverride(null); setControls((c) => ({ ...c, ...patch })); }}
+              />
+            </>
           )}
 
           {result && !result.collapsed && (
