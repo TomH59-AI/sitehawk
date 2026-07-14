@@ -18,7 +18,7 @@ export default function HawkMaps({ record, onUpdate }) {
 
   async function generate() {
     if (!target) {
-      toast.error("Run Section 1 (Find 3 Best Parcels) first — HAWK MAPS are for Target A.");
+      toast.error("Run Find 3 Best Parcels (Hawk Parcel Data) first — HAWK MAPS are for Target A.");
       return;
     }
     setBusy(true);
