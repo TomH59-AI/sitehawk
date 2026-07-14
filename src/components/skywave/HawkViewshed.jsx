@@ -17,7 +17,7 @@ export default function HawkViewshed({ record, onUpdate }) {
 
   async function generate() {
     if (!target) {
-      toast.error("Run Section 1 (Find 3 Best Parcels) first — viewshed is for Target A.");
+      toast.error("Run Find 3 Best Parcels (Hawk Parcel Data) first — viewshed is for Target A.");
       return;
     }
     setBusy(true);
