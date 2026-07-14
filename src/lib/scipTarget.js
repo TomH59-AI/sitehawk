@@ -36,10 +36,13 @@ export const SECTION_KEYS = {
 // section_key string. Change the order here and the whole UI follows.
 // ───────────────────────────────────────────────────────────────────────────
 export const SCIP_SECTION_ORDER = [
+  // Zoning runs FIRST — right after the SARF, before the 3-target parcel pick —
+  // so parcel scoring and HAWK MAPS' jurisdiction cache use real zoning data.
+  // Canonical pipeline: SARF → Zoning → Targets A/B/C → Maps.
+  { key: SECTION_KEYS.zoning, title: "Hawk Zoning & Permitting" },
   { key: "parcel_targets", title: "Hawk Parcel Data" },
   { key: SECTION_KEYS.hawk_maps, title: "HAWK MAPS" },
   { key: SECTION_KEYS.coverage_viewshed, title: "RF Proximity & Coverage" },
-  { key: SECTION_KEYS.zoning, title: "Hawk Zoning & Permitting" },
   { key: SECTION_KEYS.power_airport, title: "Power & Airport" },
   { key: SECTION_KEYS.existing_conditions, title: "Existing Conditions" },
 ];
