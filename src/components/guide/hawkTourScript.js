@@ -46,7 +46,16 @@ export const TOUR_STOPS = [
     scrollTo: '[data-tour="zoning"]',
     autoClick: '[data-tour="run-zoning"]',
     narration:
-      "Here's Section Two — Zoning. See that white Run Zoning button in the blue banner? Normally you'd click it yourself — but you're riding with me, so I just pressed it for you. Right now SiteHawk is pulling the local telecommunications ordinance for this exact jurisdiction: the maximum tower height they'll allow, setback rules, fall-zone requirements, separation from residential, whether stealth design is required, and the approval path — administrative review or a full public hearing. This is the stuff that kills deals late when you skip it early. SiteHawk reads the ordinance for you so you know the rules of the game before you ever pick a parcel. Once the report fills in below, hit Next — because what comes after this is my favorite part.",
+      "Here's Section Two — Zoning. See that white Run Zoning button in the blue banner? Normally you'd click it yourself — but you're riding with me, so I just pressed it for you. Right now SiteHawk is pulling the local telecommunications ordinance for this exact jurisdiction: the maximum tower height they'll allow, setback rules, fall-zone requirements, separation from residential, whether stealth design is required, and the approval path — administrative review or a full public hearing. This is the stuff that kills deals late when you skip it early. SiteHawk reads the ordinance for you so you know the rules of the game before you ever pick a parcel. Now, before we pick our parcels, when you hit Next I'm going to press the Scan Colocation Opportunities button for you and show you every existing structure nearby you could potentially colocate on instead of building new. Hit Next and let's take a look.",
+  },
+  {
+    path: "/search",
+    key: "/search/colocation",
+    title: "Colocation — what's already out there",
+    scrollTo: '[data-tour="colocation"]',
+    autoClick: '[data-tour="run-colocation"]',
+    narration:
+      "There it goes — I just hit the Scan Colocation Opportunities button for you. SiteHawk is sweeping FCC registered structures and crowdsourced cell data for every existing site within three miles of your ring, and dropping each one as a pin on the map. Now, one important thing: not every pin is a tower. Some are building rooftops, and some are antennas — signal-only points where a cell signal was detected but there's no registered structure. Hover over any pin, or click it, and a card pops up telling you exactly what it is, who owns it, and how tall it stands. And below the map there's a spreadsheet listing every single site — owner, headquarters, structure type, height, coordinates, and distance — so you can see at a glance what each pin represents. If one of these works for your carrier, colocating can save months of zoning and construction. When you're done exploring, hit Next and I'll show you my favorite part — picking the target parcels.",
   },
   {
     path: "/search",

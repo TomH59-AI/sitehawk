@@ -216,7 +216,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div data-tour="colocation" className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Banner */}
       <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap text-white" style={{ background: HEADER_COLOR }}>
         <div className="flex items-center gap-2">
@@ -231,7 +231,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
         </div>
         <div className="flex items-center gap-2">
           {!active ? (
-            <Button onClick={run} className="bg-white hover:bg-blue-50 font-semibold shadow" style={{ color: HEADER_COLOR }}>
+            <Button data-tour="run-colocation" onClick={run} className="bg-white hover:bg-blue-50 font-semibold shadow" style={{ color: HEADER_COLOR }}>
               <Sparkles className="w-4 h-4 mr-2" /> Scan Colocation Opportunities
             </Button>
           ) : done ? (

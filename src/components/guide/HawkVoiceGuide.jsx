@@ -57,6 +57,11 @@ export default function HawkVoiceGuide() {
     setLoading(true);
     setError("");
     try {
+      // Bring the section into view first — don't start talking until it's visible.
+      if (stop.scrollTo) {
+        document.querySelector(stop.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        await new Promise((r) => setTimeout(r, 1000));
+      }
       const res = await hawkTourAudio({
         page_key: stopKey(stop),
         text: stop.narration,
