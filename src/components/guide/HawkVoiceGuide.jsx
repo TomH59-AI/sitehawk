@@ -36,7 +36,7 @@ export default function HawkVoiceGuide() {
     if (!target || !open) return;
     const t = setTimeout(() => {
       document.querySelector(target)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 300);
+    }, 900);
     return () => clearTimeout(t);
   }, [index, open]);
 
@@ -69,6 +69,10 @@ export default function HawkVoiceGuide() {
     stopAudio();
     const next = TOUR_STOPS[index + dir];
     if (!next) return;
+    // Moving forward off a stop with demo data: fill the form + run the scan for the user
+    if (dir > 0 && stop.autoFill) {
+      window.dispatchEvent(new CustomEvent("hawk-tour-fill", { detail: stop.autoFill }));
+    }
     if (next.path !== location.pathname) navigate(next.path);
     else setIndex(index + dir);
   };

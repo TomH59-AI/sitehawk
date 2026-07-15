@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, MapPin, Crosshair, Locate } from "lucide-react";
 import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,31 @@ export default function SearchForm({ onSearch, isLoading, disabled }) {
   const [addressQuery, setAddressQuery] = useState("");
   const [resolving, setResolving] = useState(false);
   const [resolveMsg, setResolveMsg] = useState(null); // { ok, text }
+
+  // Hawk Guide tour: fill the form with the guide's example data and run the scan.
+  useEffect(() => {
+    const handler = (e) => {
+      const d = e.detail || {};
+      if (!Number.isFinite(d.lat) || !Number.isFinite(d.lon)) return;
+      setAgentName(d.agent_name || "");
+      setRingName(d.ring_name || "");
+      setTowerHeight(String(d.tower_height_ft || 150));
+      setRadius(d.radius_miles || 0.5);
+      setLat(String(d.lat));
+      setLon(String(d.lon));
+      onSearch(d.lat, d.lon, {
+        agent_name: d.agent_name || "",
+        ring_name: d.ring_name || "",
+        tower_height_ft: d.tower_height_ft || 150,
+        radius_miles: d.radius_miles || 0.5,
+        compound_size: "100x100",
+        county: "",
+        state: "",
+      });
+    };
+    window.addEventListener("hawk-tour-fill", handler);
+    return () => window.removeEventListener("hawk-tour-fill", handler);
+  }, [onSearch]);
 
   // Resolve an address or parcel ID to coordinates via Realie.
   const handleResolveAddress = async () => {
