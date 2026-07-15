@@ -79,6 +79,37 @@ export default function PublicSafetyContacts({ lat, lon }) {
             />
             <DeptCard emoji="🚒" title="Fire Department" dept={data.fire} />
           </div>
+          {data.psap && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1.5">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                📟 911 Dispatch Center (PSAP) — Non-Emergency
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Name: </span>
+                <span className="font-semibold text-foreground">{data.psap.name || "—"}</span>
+                {data.psap.distance_mi != null && (
+                  <span className="text-xs text-muted-foreground"> · {data.psap.distance_mi} mi</span>
+                )}
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Address: </span>
+                <span className="text-foreground">
+                  {data.psap.address || [data.psap.city, data.psap.county && `${data.psap.county} County`, data.psap.state].filter(Boolean).join(", ") || "—"}
+                </span>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Non-Emergency Phone: </span>
+                {data.psap.phone ? (
+                  <a href={`tel:${data.psap.phone}`} className="font-semibold text-primary hover:underline">{data.psap.phone}</a>
+                ) : (
+                  <span className="text-foreground">—</span>
+                )}
+              </div>
+              <div className="text-[11px] text-muted-foreground italic">
+                FCC Master PSAP Registry — contact details verified via web lookup; confirm before filing.
+              </div>
+            </div>
+          )}
           <div className="text-[10px] text-muted-foreground italic">
             Planning directory (FBI CDE + USFA registry) — not an emergency resource. For emergencies, call 911.
           </div>

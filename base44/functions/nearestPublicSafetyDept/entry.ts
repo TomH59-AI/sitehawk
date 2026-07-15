@@ -67,6 +67,59 @@ Deno.serve(async (req) => {
       (b.department_type === 'Career') - (a.department_type === 'Career') || (!!b.phone - !!a.phone)
     );
 
+    // 911 PSAP — nearest primary answering point from the FCC Master PSAP Registry.
+    // Registry has no address/phone, so enrich via web-grounded lookup.
+    let psap = null;
+    try {
+      const psaps = await base44.entities.PSAP.filter({ state }, undefined, 5000);
+      const isPrimary = (p) => !/orphaned|secondary|duplicate/i.test(p.type_of_change || '');
+      const coordsOf = (p) => {
+        const m = (p.geocode_city_level || '').match(/\((-?\d+\.?\d*),\s*(-?\d+\.?\d*)\)/);
+        return m ? [Number(m[1]), Number(m[2])] : null;
+      };
+      let candidates = county
+        ? psaps.filter((p) => (p.county || '').toUpperCase() === county && isPrimary(p))
+        : [];
+      if (!candidates.length) candidates = psaps.filter(isPrimary);
+      let best = null, bestPD = Infinity;
+      for (const p of candidates) {
+        const c = coordsOf(p);
+        const d = c ? haversineMi(lat, lon, c[0], c[1]) : Infinity;
+        if (d < bestPD || (!best && d === Infinity)) { best = p; bestPD = d; }
+      }
+      if (best) {
+        psap = {
+          psap_id: best.psap_id,
+          name: best.psap_name,
+          county: best.county || null,
+          city: best.city || null,
+          state: best.state,
+          distance_mi: Number.isFinite(bestPD) ? Math.round(bestPD * 10) / 10 : null,
+          address: null,
+          phone: null,
+        };
+        try {
+          const info = await base44.asServiceRole.integrations.Core.InvokeLLM({
+            prompt: `Find the public NON-EMERGENCY administrative contact information for this 911 dispatch center (PSAP): "${best.psap_name}" in ${best.city || best.county}, ${best.state} (${best.county} County). Return its street/mailing address and its non-emergency (administrative) phone number. Do NOT return 911. If a value cannot be verified, return null for it.`,
+            add_context_from_internet: true,
+            response_json_schema: {
+              type: 'object',
+              properties: {
+                address: { type: ['string', 'null'] },
+                phone: { type: ['string', 'null'] },
+              },
+            },
+          });
+          if (info?.address) psap.address = info.address;
+          if (info?.phone && !/^9-?1-?1$/.test(String(info.phone).trim())) psap.phone = info.phone;
+        } catch (e) {
+          console.warn('PSAP contact enrichment failed:', e.message);
+        }
+      }
+    } catch (e) {
+      console.warn('PSAP lookup failed:', e.message);
+    }
+
     const covered = police.length > 0;
     return Response.json({
       state,
@@ -75,6 +128,7 @@ Deno.serve(async (req) => {
       note: covered ? null : `${state} is not in the directory yet — Florida and Georgia are loaded, more states coming soon.`,
       police: nearestPolice ? { ...pick(nearestPolice), distance_mi: Math.round(bestD * 10) / 10 } : null,
       fire: fireMatches.length ? pick(fireMatches[0]) : null,
+      psap,
     });
   } catch (error) {
     console.error('nearestPublicSafetyDept failed:', error);
