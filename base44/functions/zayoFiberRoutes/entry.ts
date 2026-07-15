@@ -6,6 +6,8 @@ const SOURCE_NAME = "Zayo KMZ import";
 const DISCLAIMER = "Zayo network information is provided for preliminary screening only. Routes shown are approximate and do not represent surveyed or as-built fiber locations. Availability, capacity, ownership, and exact routing must be confirmed directly with Zayo.";
 const MAX_KMZ_BYTES = 50 * 1024 * 1024;
 const SUPPORTED_GEOMETRIES = new Set(["Point", "LineString", "MultiLineString"]);
+// Point names that mark fiber access infrastructure (spec §4)
+const SPLICE_NAME_RE = /\b(splice(\s+case)?|cabinet|handhole|node|pop|co)\b/i;
 
 function supabaseClient(rawKey) {
   const rawUrl = Deno.env.get("HAWK_SUPABASE_URL");
@@ -182,7 +184,8 @@ async function queryFeatures(bbox, candidate) {
         confidence: row.confidence || "medium",
         verification_status: row.verification_status || "unverified",
         facility_name: row.route_name || null,
-        route_type: row.route_type || null,
+        route_type: row.route_type ||
+          (row.geometry.type === "Point" && row.route_name && SPLICE_NAME_RE.test(row.route_name) ? "splice_point" : null),
         distance_miles: row.distance_miles == null ? null : Number(Number(row.distance_miles).toFixed(2)),
         provider_color: "#f59e0b",
       },

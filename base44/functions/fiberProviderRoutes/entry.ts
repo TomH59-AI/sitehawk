@@ -20,6 +20,8 @@ const PROVIDERS = {
 };
 const DISCLAIMER = "Provider network information is for preliminary screening only. Routes are approximate, not surveyed or as-built locations. Availability, capacity, ownership, and exact routing must be confirmed directly with the provider.";
 const MAX_KMZ_BYTES = 50 * 1024 * 1024;
+// Point names that mark fiber access infrastructure (spec §4)
+const SPLICE_NAME_RE = /\b(splice(\s+case)?|cabinet|handhole|node|pop|co)\b/i;
 const SUPPORTED_GEOMETRIES = new Set(["Point", "LineString", "MultiLineString"]);
 
 function supabaseClient(rawKey) {
@@ -95,9 +97,10 @@ function extractFeatures(xml, sourceName) {
     }
     if (!geometry) continue;
 
+    const isSplicePoint = geometry.type === "Point" && name && SPLICE_NAME_RE.test(name);
     features.push({
       route_name: name,
-      route_type: null,
+      route_type: isSplicePoint ? "splice_point" : null,
       feature_type: geometry.type,
       source_name: sourceName,
       source_date: null,

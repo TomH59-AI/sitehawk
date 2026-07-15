@@ -260,8 +260,12 @@ function addMapLayer(map, definition, data, { nlcdYear = 2025 } = {}) {
         source: sourceId,
         filter: ["==", ["geometry-type"], "Point"],
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 2.5, 13, 7],
-          "circle-color": definition.color,
+          // Splice/access points (spec §4): magenta, 12px; other points inherit the layer color
+          "circle-radius": ["interpolate", ["linear"], ["zoom"],
+            4, ["case", ["==", ["get", "route_type"], "splice_point"], 4, 2.5],
+            13, ["case", ["==", ["get", "route_type"], "splice_point"], 6, 7],
+          ],
+          "circle-color": ["case", ["==", ["get", "route_type"], "splice_point"], "#FF00FF", definition.color],
           "circle-stroke-color": "#020617",
           "circle-stroke-width": 1,
           "circle-opacity": 0.9,
@@ -498,6 +502,28 @@ export default function SiteHawkInfrastructureMap({
           if (feature) setSelected({ ...feature.properties, _coordinates: event.lngLat.toArray() });
         });
         map.on("mouseenter", () => { map.getCanvas().style.cursor = "crosshair"; });
+        // Splice-point hover tooltip (spec §4)
+        const splicePopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
+        map.on("mousemove", (event) => {
+          const pointIds = LAYERS.filter((layer) => layer.geometry === "line")
+            .map((layer) => `sitehawk-${layer.id}-points`)
+            .filter((id) => map.getLayer(id));
+          const feature = pointIds.length ? map.queryRenderedFeatures(event.point, { layers: pointIds })[0] : null;
+          if (feature?.properties?.route_type === "splice_point" && feature.geometry?.type === "Point") {
+            const [lon, lat] = feature.geometry.coordinates;
+            splicePopup.setLngLat(feature.geometry.coordinates).setHTML(
+              `<div style="font-size:11px;line-height:1.5;color:#0f172a">` +
+              `<strong>Name:</strong> ${escapeHtml(feature.properties.facility_name || "Unknown")}<br/>` +
+              `<strong>Type:</strong> Splice Point<br/>` +
+              `<strong>Coordinates:</strong> ${lat.toFixed(6)}, ${lon.toFixed(6)}<br/>` +
+              `<strong>Provider:</strong> ${escapeHtml(feature.properties.provider || "Unknown")}` +
+              `</div>`,
+            ).addTo(map);
+            map.getCanvas().style.cursor = "pointer";
+          } else {
+            splicePopup.remove();
+          }
+        });
       })
       .catch((error) => setFatalError(error.message || String(error)));
     return () => {
