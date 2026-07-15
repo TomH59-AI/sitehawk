@@ -204,7 +204,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
         <div className="px-4 py-3 flex items-center gap-2 text-white/80" style={{ background: HEADER_COLOR }}>
           <Lock className="w-4 h-4" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">SCIP · SECTION 9 · LOCKED</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">SCIP · SECTION 4 · LOCKED</div>
             <h2 className="font-heading font-bold text-lg leading-tight">Hawk Colocation Intelligence</h2>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function Section9Colocation({ unlocked, srcLat, srcLon, onClear }
         <div className="flex items-center gap-2">
           <Signal className="w-5 h-5" />
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 9 · COLOCATION</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">SCIP · SECTION 4 · COLOCATION</div>
             <h2 className="font-heading font-bold text-lg leading-tight">Hawk Colocation Intelligence</h2>
             <div className="text-[11px] font-mono opacity-80 mt-0.5">
               FCC ASR + OpenCellID · towers & rooftops · {RADIUS_MILES}-mile ring
