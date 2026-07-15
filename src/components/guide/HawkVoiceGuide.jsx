@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Volume2, Square, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { hawkTourAudio } from "@/functions/hawkTourAudio";
-import { TOUR_STOPS, GUIDE_VOICE_ID, findStop, stopIndex } from "./hawkTourScript";
+import { TOUR_STOPS, GUIDE_VOICE_ID, stopKey, firstStopIndex } from "./hawkTourScript";
 
 export default function HawkVoiceGuide() {
   const location = useLocation();
@@ -11,10 +11,10 @@ export default function HawkVoiceGuide() {
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
+  const [index, setIndex] = useState(() => firstStopIndex(location.pathname));
   const audioRef = useRef(null);
 
-  const stop = findStop(location.pathname);
-  const index = stopIndex(location.pathname);
+  const stop = TOUR_STOPS[index] || null;
 
   const stopAudio = () => {
     if (audioRef.current) {
@@ -24,10 +24,13 @@ export default function HawkVoiceGuide() {
     setPlaying(false);
   };
 
-  // Leaving a page silences the narrator
-  useEffect(() => () => stopAudio(), [location.pathname]);
+  // Route change: silence the narrator and jump to that page's first stop
+  useEffect(() => {
+    setIndex(firstStopIndex(location.pathname));
+    return () => stopAudio();
+  }, [location.pathname]);
 
-  if (!stop) return null;
+  if (!stop || stop.path !== location.pathname) return null;
 
   const handlePlay = async () => {
     if (playing) return stopAudio();
@@ -35,7 +38,7 @@ export default function HawkVoiceGuide() {
     setError("");
     try {
       const res = await hawkTourAudio({
-        page_key: stop.path,
+        page_key: stopKey(stop),
         text: stop.narration,
         voice_id: GUIDE_VOICE_ID,
       });
@@ -55,7 +58,9 @@ export default function HawkVoiceGuide() {
   const go = (dir) => {
     stopAudio();
     const next = TOUR_STOPS[index + dir];
-    if (next) navigate(next.path);
+    if (!next) return;
+    if (next.path !== location.pathname) navigate(next.path);
+    else setIndex(index + dir);
   };
 
   return (
