@@ -2,7 +2,6 @@ import { useState } from "react";
 import { X, ChevronRight, ChevronLeft, Search, Phone, HelpCircle } from "lucide-react";
 import HawkIcon from "../HawkIcon";
 import { Button } from "@/components/ui/button";
-import AttioConnectCard from "@/components/crm/AttioConnectCard";
 
 const STEPS = [
   {
@@ -11,14 +10,6 @@ const STEPS = [
     title: "Welcome to SiteHawk 🦅",
     desc: "You just got the fastest way to find tower sites. Now let's make sure none of that research ever gets lost.",
     tip: null,
-  },
-  {
-    icon: null,
-    emoji: null,
-    title: null,
-    desc: null,
-    tip: null,
-    attioConnect: true,
   },
   {
     icon: null,
@@ -91,9 +82,7 @@ export default function WelcomeModal({ onClose }) {
 
         {/* Content */}
         <div className="p-8 flex flex-col items-center text-center gap-4 min-h-[320px] justify-center">
-          {current.attioConnect ? (
-            <AttioConnectCard compact />
-          ) : current.icon ? (
+          {current.icon ? (
             <div className="mb-2">{current.icon}</div>
           ) : (
             <div className={`text-5xl mb-2 ${current.highlight ? "animate-bounce" : ""}`}>{current.emoji}</div>

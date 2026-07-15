@@ -3,12 +3,10 @@ import { ArrowRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import HawkIcon from "@/components/HawkIcon";
 import WorkflowIndex from "@/components/dashboard/WorkflowIndex";
-import AttioAnnouncementBanner from "@/components/crm/AttioAnnouncementBanner";
 
 export default function Dashboard() {
   return (
     <div className="space-y-8">
-      <AttioAnnouncementBanner />
       <section className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/15 via-card to-muted p-6 md:p-9">
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-4 max-w-2xl">

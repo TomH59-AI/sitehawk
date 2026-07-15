@@ -88,7 +88,7 @@ export const TOUR_STOPS = [
     path: "/crm",
     title: "CRM — track every deal",
     narration:
-      "This is your deal pipeline. Every parcel you pursue becomes a deal card you drag through stages, from first contact to signed lease. Now, the big advantage: SiteHawk connects to both HubSpot and Attio. HubSpot gives you enterprise-grade email sequences, call logging, and a full marketing engine your whole team already knows. Attio is faster and more flexible — it syncs your parcel data, owner enrichment, and deal notes automatically, so your CRM always mirrors your site work without manual data entry. Connect either one from this page and every deal you save here flows straight into it.",
+      "This is your deal pipeline. Every parcel you pursue becomes a deal card you drag through stages, from first contact to signed lease. Now, the big advantage: SiteHawk connects straight to HubSpot. That gives you enterprise-grade email sequences, call logging, and a full marketing engine your whole team already knows — and SiteHawk pushes your parcel data, owner info, and deals into it automatically, so your CRM always mirrors your site work without manual data entry. Connect it once and every deal you save here flows straight in.",
   },
   {
     path: "/hubspot",

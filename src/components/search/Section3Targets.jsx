@@ -22,12 +22,10 @@ import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import { base44 } from "@/api/base44Client";
 import { scipBestParcels } from "@/functions/scipBestParcels";
-import { attioSyncDeal } from "@/functions/attioSyncDeal";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import { withRateLimitRetry } from "@/lib/quietLookup";
 import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
-import SaveToAttioButton from "@/components/crm/SaveToAttioButton";
 import SaveToHubSpotButton from "@/components/crm/SaveToHubSpotButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
 import ExportTargetJsonButton from "./section3/ExportTargetJsonButton";
@@ -41,23 +39,6 @@ import RegridEnrichRows from "@/components/search/regrid/RegridEnrichRows";
 import RegridDemographics from "@/components/search/regrid/RegridDemographics";
 
 const COLS = ["Target A", "Target B", "Target C"];
-
-// Auto-sync qualified targets to the subscriber's OWN Attio workspace (only
-// when they've connected their Attio API key). Fire-and-forget, deduped per
-// session by APN so re-renders/re-runs never create duplicate pushes.
-async function autoSyncTargetsToAttio(targets) {
-  try {
-    const me = await base44.auth.me();
-    if (!me?.attio_api_key) return; // subscriber hasn't connected Attio
-    for (const t of targets) {
-      if (!t) continue;
-      const dedupeKey = `attio-auto:${t.apn || t.parcel_address || `${t.latitude},${t.longitude}`}`;
-      if (sessionStorage.getItem(dedupeKey)) continue;
-      sessionStorage.setItem(dedupeKey, "1");
-      attioSyncDeal({ target: t }).catch((e) => console.warn("Attio auto-sync failed:", e.message));
-    }
-  } catch { /* never block the pipeline */ }
-}
 
 // Session cache: key `${ownerName}|${mailingAddress}` → cascade result.
 // Persists for the browser session so re-rendering Section 3 doesn't re-burn credits.
@@ -356,10 +337,6 @@ export default function Section3Targets({
       // Additive: expose ALL three targets so B and C can run their own
       // fully isolated pipelines. Does not change the Target A lead flow.
       onAllTargets?.(slots);
-
-      // Auto-push every qualified target into the subscriber's own Attio
-      // workspace as a Deal (no manual entry). Fire-and-forget.
-      autoSyncTargetsToAttio(slots);
 
       // Regrid precision enrichment — fire per target in parallel, additive only.
       found.slice(0, 3).forEach((t, i) => {
@@ -720,7 +697,6 @@ export default function Section3Targets({
                         towerSiting={towerSiting}
                       />
                       <SaveToHubSpotButton target={targets[colIdx]} />
-                      <SaveToAttioButton target={targets[colIdx]} />
                       <GenerateScupPdfButton
                         targetLabel={COLS[colIdx]}
                         ringName={ringName}
