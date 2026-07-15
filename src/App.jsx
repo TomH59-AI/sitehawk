@@ -95,6 +95,7 @@ import HawkLawSessions from './pages/hawklaw/HawkLawSessions';
 import HawkLawSessionDetail from './pages/hawklaw/HawkLawSessionDetail';
 import HawkLawClauses from './pages/hawklaw/HawkLawClauses';
 import HawkLawHistory from './pages/hawklaw/HawkLawHistory';
+import FiberLayersAdmin from './pages/FiberLayersAdmin';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -163,6 +164,8 @@ const AuthenticatedApp = () => {
         <Route path="/hawk-frequency" element={<HawkFrequency />} />
         <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
         <Route path="/InfrastructureIntelligence" element={<InfrastructureIntelligence />} />
+        {/* Admin-only ScipHawk fiber KMZ importer */}
+        <Route path="/fiber-layers-admin" element={<FiberLayersAdmin />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}

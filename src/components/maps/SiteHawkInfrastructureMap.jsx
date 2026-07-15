@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NLCD_LAYERS, NLCD_YEARS, nlcdTilesUrl } from "./nlcdLayers";
+import { FIBER_PROVIDER_LAYERS } from "./fiberLayers";
 
 const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css";
 const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js";
@@ -16,6 +17,7 @@ const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 
 const LAYERS = [
   ...Object.values(NLCD_LAYERS),
+  ...FIBER_PROVIDER_LAYERS,
   {
     id: "fiber_splice_points",
     group: "Fiber & backhaul",
@@ -250,6 +252,23 @@ function addMapLayer(map, definition, data, { nlcdYear = 2025 } = {}) {
         "line-emissive-strength": 1,
       },
     });
+    if (definition.showSplicePoints !== false) {
+      // Splice / access points embedded in provider KMZ imports
+      map.addLayer({
+        id: `${sourceId}-points`,
+        type: "circle",
+        source: sourceId,
+        filter: ["==", ["geometry-type"], "Point"],
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 2.5, 13, 7],
+          "circle-color": definition.color,
+          "circle-stroke-color": "#020617",
+          "circle-stroke-width": 1,
+          "circle-opacity": 0.9,
+          "circle-emissive-strength": 1,
+        },
+      });
+    }
   } else if (definition.geometry === "fill") {
     map.addLayer({
       id: `${sourceId}-fill`,
@@ -310,7 +329,7 @@ function addMapLayer(map, definition, data, { nlcdYear = 2025 } = {}) {
 
 function setLayerVisibility(map, definition, visible, is3D = false) {
   const sourceId = sourceIdFor(definition);
-  [sourceId, `${sourceId}-fill`, `${sourceId}-halo`].forEach((id) => {
+  [sourceId, `${sourceId}-fill`, `${sourceId}-halo`, `${sourceId}-points`].forEach((id) => {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
   });
   const extrusionId = `${sourceId}-3d`;
@@ -327,6 +346,7 @@ function setLayerOpacity(map, definition, opacity) {
   if (map.getLayer(fillId)) map.setPaintProperty(fillId, "fill-opacity", opacity * 0.42);
   if (map.getLayer(`${id}-3d`)) map.setPaintProperty(`${id}-3d`, "fill-extrusion-opacity", opacity * 0.7);
   if (map.getLayer(`${id}-halo`)) map.setPaintProperty(`${id}-halo`, "circle-opacity", opacity * 0.42);
+  if (map.getLayer(`${id}-points`)) map.setPaintProperty(`${id}-points`, "circle-opacity", opacity * 0.9);
   if (!map.getLayer(id)) return;
   const property = definition.geometry === "point" ? "circle-opacity" : "line-opacity";
   map.setPaintProperty(id, property, opacity);
@@ -468,6 +488,7 @@ export default function SiteHawkInfrastructureMap({
           const ids = LAYERS.filter((layer) => layer.geometry !== "raster").flatMap((layer) => [
             `sitehawk-${layer.id}`,
             `sitehawk-${layer.id}-fill`,
+            `sitehawk-${layer.id}-points`,
           ]).filter((id) => map.getLayer(id));
           const feature = ids.length ? map.queryRenderedFeatures(event.point, { layers: ids })[0] : null;
           if (feature) setSelected({ ...feature.properties, _coordinates: event.lngLat.toArray() });
