@@ -633,14 +633,14 @@ export default function Section4MapSuite({
         />
         </div>
         <MapSubStep
-          index={3} title="Floodplain (FEMA) Map" runLabel="Run FEMA Map"
+          index={3} title="Floodplain (FEMA) Map" runLabel="Run FEMA Map" tourKey="map-fema"
           spinnerLabel="Generating Target A FEMA floodplain map…"
           unlocked={active && isUnlocked("fema")}
           loading={loadingStep === "fema"} done={!!completed.fema}
           onRun={() => runStep("fema")} mapRef={refs.fema} banner={banners.fema}
         />
         <MapSubStep
-          index={4} title="Zoning Map" runLabel="Run Zoning Map"
+          index={4} title="Zoning Map" runLabel="Run Zoning Map" tourKey="map-zoning"
           spinnerLabel="Generating Target A zoning map…"
           unlocked={active && isUnlocked("zoning")}
           loading={loadingStep === "zoning"} done={!!completed.zoning}
@@ -659,7 +659,7 @@ export default function Section4MapSuite({
           )}
         </MapSubStep>
         <MapSubStep
-          index={5} title="Future Land Use (FLUM) Map" runLabel="Run FLUM Map"
+          index={5} title="Future Land Use (FLUM) Map" runLabel="Run FLUM Map" tourKey="map-flum"
           spinnerLabel="Generating Target A future land use map…"
           unlocked={active && isUnlocked("flum")}
           loading={loadingStep === "flum"} done={!!completed.flum}
@@ -674,33 +674,34 @@ export default function Section4MapSuite({
           )}
         </MapSubStep>
         <MapSubStep
-          index={6} title="Wetlands Map" runLabel="Run Wetlands Map"
+          index={6} title="Wetlands Map" runLabel="Run Wetlands Map" tourKey="map-wetlands"
           spinnerLabel="Generating Target A wetlands map…"
           unlocked={active && isUnlocked("wetlands")}
           loading={loadingStep === "wetlands"} done={!!completed.wetlands}
           onRun={() => runStep("wetlands")} mapRef={refs.wetlands} banner={banners.wetlands}
         />
         <MapSubStep
-          index={7} title="Nearest Airport Map" runLabel="Run Nearest Airport Map"
+          index={7} title="Nearest Airport Map" runLabel="Run Nearest Airport Map" tourKey="map-airport"
           spinnerLabel="Finding nearest airport to Target A…"
           unlocked={active && isUnlocked("airport")}
           loading={loadingStep === "airport"} done={!!completed.airport}
           onRun={() => runStep("airport")} mapRef={refs.airport} banner={banners.airport}
         />
         <MapSubStep
-          index={8} title="Nearest Cell Tower Map" runLabel="Run Nearest Cell Tower Map"
+          index={8} title="Nearest Cell Tower Map" runLabel="Run Nearest Cell Tower Map" tourKey="map-celltower"
           spinnerLabel="Finding nearest cell tower to Target A…"
           unlocked={active && isUnlocked("celltower")}
           loading={loadingStep === "celltower"} done={!!completed.celltower}
           onRun={() => runStep("celltower")} mapRef={refs.celltower} banner={banners.celltower}
         />
         <MapSubStep
-          index={9} title="Parcel Map" runLabel="Run Parcel Map"
+          index={9} title="Parcel Map" runLabel="Run Parcel Map" tourKey="map-parcel"
           spinnerLabel="Generating Target A parcel map…"
           unlocked={active && isUnlocked("parcel")}
           loading={loadingStep === "parcel"} done={!!completed.parcel}
           onRun={() => runStep("parcel")} mapRef={refs.parcel} banner={banners.parcel}
         />
+        <div data-tour="map-row">
         <RowIndicatorStep
           index={10}
           unlocked={active && isUnlocked("row")}
@@ -713,29 +714,30 @@ export default function Section4MapSuite({
           error={errors.row}
           onRun={() => runStep("row")}
         />
+        </div>
         <MapSubStep
-          index={11} title="Wind Speed Map" runLabel="Run Wind Speed Map"
+          index={11} title="Wind Speed Map" runLabel="Run Wind Speed Map" tourKey="map-wind"
           spinnerLabel="Generating Target A wind speed map…"
           unlocked={active && isUnlocked("wind")}
           loading={loadingStep === "wind"} done={!!completed.wind}
           onRun={() => runStep("wind")} mapRef={refs.wind} banner={banners.wind}
         />
         <MapSubStep
-          index={12} title="Fiber Optics Map" runLabel="Run Fiber Optics Map"
+          index={12} title="Fiber Optics Map" runLabel="Run Fiber Optics Map" tourKey="map-fiber"
           spinnerLabel="Finding fiber optics infrastructure near Target A…"
           unlocked={active && isUnlocked("fiber")}
           loading={loadingStep === "fiber"} done={!!completed.fiber}
           onRun={() => runStep("fiber")} mapRef={refs.fiber} banner={banners.fiber}
         />
         <MapSubStep
-          index={13} title="Power Map" runLabel="Run Power Map"
+          index={13} title="Power Map" runLabel="Run Power Map" tourKey="map-power"
           spinnerLabel="Mapping power grid, substations & transmission lines near Target A…"
           unlocked={active && isUnlocked("power")}
           loading={loadingStep === "power"} done={!!completed.power}
           onRun={() => runStep("power")} mapRef={refs.power} banner={banners.power}
         />
         <MapSubStep
-          index={14} title="2D Viewshed Map" runLabel="Run 2D Viewshed Map"
+          index={14} title="2D Viewshed Map" runLabel="Run 2D Viewshed Map" tourKey="map-viewshed"
           spinnerLabel="Generating Target A N/S/E/W viewshed maps & line-of-sight profiles…"
           unlocked={active && isUnlocked("viewshed")}
           loading={loadingStep === "viewshed"} done={!!completed.viewshed}

@@ -82,7 +82,55 @@ export const TOUR_STOPS = [
     scrollTo: '[data-tour="map-topo"]',
     autoClick: '[data-tour="map-topo"] button',
     narration:
-      "We're showing off now — I just smashed the Run Topography Map button for you too. Each map in this suite runs one by one, and here comes number two. The topography map draws the contour lines across your ring and gives you the ground elevation in feet A-M-S-L — that's above mean sea level. Why does that matter? Tower height limits, FAA clearances, and your RF line-of-sight all start from that ground elevation number. Study the contours — tight lines mean steep terrain, and steep terrain means expensive site work. From here, keep working your way down the list — FEMA Floodplain, Zoning, Future Land Use, Wetlands, and the rest — each button unlocks the next, and every map lands in your SCIP document automatically. When you've seen enough, hit Next, press Play, and we'll check out Hawk Docs.",
+      "We're showing off now — I just smashed the Run Topography Map button for you too. Map number two draws the contour lines across the ring and gives you the Target A ground elevation above mean sea level. Tight contours mean steep terrain and potentially expensive site work. Hit Next when it finishes and we'll keep running the suite in order.",
+  },
+  {
+    path: "/search", key: "/search/maps-fema", title: "FEMA Floodplain Map", scrollTo: '[data-tour="map-fema"]', autoClick: '[data-tour="map-fema"] button',
+    narration: "Map three is the FEMA Floodplain Map, and I just started it for Target A. This checks the parcel centroid against FEMA flood data and overlays the floodplain so you can see whether the compound faces flood risk, added engineering, or insurance concerns. When it finishes, hit Next for zoning.",
+  },
+  {
+    path: "/search", key: "/search/maps-zoning", title: "Target A Zoning Map", scrollTo: '[data-tour="map-zoning"]', autoClick: '[data-tour="map-zoning"] button',
+    narration: "Now we're running the Target A Zoning Map. This resolves the parcel's zoning district and draws the available zoning geometry, giving you a visual check against the telecommunications rules we researched earlier. Hit Next when the zoning layer is ready.",
+  },
+  {
+    path: "/search", key: "/search/maps-flum", title: "Future Land Use Map", scrollTo: '[data-tour="map-flum"]', autoClick: '[data-tour="map-flum"] button',
+    narration: "Next is Future Land Use. I just pressed Run FLUM Map for Target A. Current zoning tells you what applies today; future land use shows the jurisdiction's long-range plan and can reveal whether the area is intended to stay rural, become commercial, or transition toward residential development.",
+  },
+  {
+    path: "/search", key: "/search/maps-wetlands", title: "Wetlands Map", scrollTo: '[data-tour="map-wetlands"]', autoClick: '[data-tour="map-wetlands"] button',
+    narration: "Here comes the Wetlands Map. SiteHawk is overlaying mapped wetland areas around Target A so you can spot environmental constraints before a survey or site walk. Wetlands can affect compound placement, access, permitting, and construction cost. Hit Next when the map completes.",
+  },
+  {
+    path: "/search", key: "/search/maps-airport", title: "Nearest Airport Map", scrollTo: '[data-tour="map-airport"]', autoClick: '[data-tour="map-airport"] button',
+    narration: "I'm running the Nearest Airport Map now. It identifies the closest airport to Target A, measures the straight-line distance, and maps both locations. That proximity is an early indicator for FAA review and possible height or lighting considerations.",
+  },
+  {
+    path: "/search", key: "/search/maps-celltower", title: "Nearest Cell Tower Map", scrollTo: '[data-tour="map-celltower"]', autoClick: '[data-tour="map-celltower"] button',
+    narration: "Now SiteHawk is finding and mapping the nearest existing cell tower to Target A. This gives you an immediate view of nearby infrastructure, ownership, structure type, and distance — useful context for separation rules, colocation options, and market coverage.",
+  },
+  {
+    path: "/search", key: "/search/maps-parcel", title: "Target A Parcel Map", scrollTo: '[data-tour="map-parcel"]', autoClick: '[data-tour="map-parcel"] button',
+    narration: "Map nine is the Parcel Map. I just started the Target A parcel-boundary pull. This draws the parcel in the context of the full search ring and brings in the premium parcel details used by the next step. Review the shape and surrounding parcels, then hit Next.",
+  },
+  {
+    path: "/search", key: "/search/maps-row", title: "ROW & Parcel Indicators", scrollTo: '[data-tour="map-row"]', autoClick: '[data-tour="map-row"] button',
+    narration: "This is the right-of-way and premium parcel indicator step. It reuses the parcel data we just pulled to evaluate road access, frontage, parcel characteristics, and the other indicators that matter when you need a practical route into the proposed compound.",
+  },
+  {
+    path: "/search", key: "/search/maps-wind", title: "Wind Speed Map", scrollTo: '[data-tour="map-wind"]', autoClick: '[data-tour="map-wind"] button',
+    narration: "Now we're running the Wind Speed Map for Target A. SiteHawk pulls the design wind criteria and flags hurricane-prone or special-wind conditions. Those values matter directly to structural design, foundation engineering, and tower cost.",
+  },
+  {
+    path: "/search", key: "/search/maps-fiber", title: "Fiber Optics Map", scrollTo: '[data-tour="map-fiber"]', autoClick: '[data-tour="map-fiber"] button',
+    narration: "Next is Fiber Optics. I just started the infrastructure search around Target A. This maps nearby lit and near-net buildings and identifies local carrier context, helping you understand whether backhaul is close or whether the site may need a longer, more expensive connection.",
+  },
+  {
+    path: "/search", key: "/search/maps-power", title: "Power Grid Map", scrollTo: '[data-tour="map-power"]', autoClick: '[data-tour="map-power"] button',
+    narration: "Now we're mapping the power grid around Target A — the serving utility, nearby substations, and transmission corridors. Every tower needs reliable power, so this gives you an early look at likely service availability and potential tie-in distance.",
+  },
+  {
+    path: "/search", key: "/search/maps-viewshed", title: "2D Viewshed Map", scrollTo: '[data-tour="map-viewshed"]', autoClick: '[data-tour="map-viewshed"] button',
+    narration: "This is map fourteen, the 2D Viewshed. SiteHawk is generating north, south, east, and west line-of-sight profiles from Target A using the proposed tower height and terrain elevation. This helps reveal where terrain or tree-line assumptions may obstruct coverage. Once this finishes, the full Target A Mapping Suite is complete. Hit Next and we'll move on to Hawk Docs.",
   },
   {
     path: "/hawk-docs",

@@ -17,7 +17,7 @@ import HawkFlightSpinner from "../HawkFlightSpinner";
 const BRAND_GREEN = "#628C83";
 
 export default function MapSubStep({
-  index, title, runLabel, spinnerLabel, banner,
+  index, title, runLabel, spinnerLabel, banner, tourKey,
   unlocked, loading, done, onRun, mapRef, children, error, fillContent,
 }) {
   const localRef = useRef(null);
@@ -29,7 +29,7 @@ export default function MapSubStep({
 
   if (!unlocked) {
     return (
-      <div className="rounded-xl border border-border bg-muted/40 overflow-hidden opacity-60 select-none">
+      <div data-tour={tourKey} className="rounded-xl border border-border bg-muted/40 overflow-hidden opacity-60 select-none">
         <div className="px-4 py-3 flex items-center gap-2 text-white/80" style={{ background: "#3f5a54" }}>
           <Lock className="w-4 h-4" />
           <div>
@@ -45,7 +45,7 @@ export default function MapSubStep({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div data-tour={tourKey} className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap text-white" style={{ background: BRAND_GREEN }}>
         <div className="flex items-center gap-2">
           <div>
