@@ -404,6 +404,7 @@ export default function SiteSearch() {
       {/* SECTION 2 — ZONING. Locked until Section 1 SARF is ready; fires only
           when the user clicks "Run Zoning" (advances pipelineStep → "zoning"). */}
       {coordsReady && sarfReady && (
+        <div data-tour="zoning">
         <Section2Zoning
           key={`zoning-${clearKeys.zoning}`}
           unlocked={sarfReady}
@@ -416,11 +417,13 @@ export default function SiteSearch() {
           onComplete={() => setZoningReady(true)}
           onData={(data) => { mergeSectionData(data); if (data?.zoning) setZoningResult(data); }}
         />
+        </div>
       )}
 
       {/* SECTION 3 — TARGET PARCELS. Locked until Section 2 zoning is complete;
           fires only when the user clicks "Run Targets" (pipelineStep → "targets"). */}
       {coordsReady && sarfReady && zoningReady && (
+        <div data-tour="targets">
         <Section3Targets
           key={`targets-${clearKeys.targets}`}
           unlocked={zoningReady}
@@ -441,6 +444,7 @@ export default function SiteSearch() {
           onAllTargets={(slots) => setAllTargets(slots.map((t) => (t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : null)))}
           onData={mergeSectionData}
         />
+        </div>
       )}
 
       {/* SECTION 9 — HAWK COLOCATION INTELLIGENCE. Standalone, unlocked as soon as

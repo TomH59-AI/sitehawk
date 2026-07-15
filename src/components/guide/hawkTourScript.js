@@ -40,6 +40,22 @@ export const TOUR_STOPS = [
       "Beautiful — look at that. The moment you hit Scan, SiteHawk landed your center coordinates dead-on and drew the half-mile search ring you selected right around them. That ring is your hunting ground — every parcel inside it is now in play. Before we move on, notice the top left corner of the map: those are your view toggles. Flip them on and off to see your search area from every angle — satellite, terrain, parcel lines, you name it. Now that we know exactly where we're hunting, we need to find out what the local ordinance says about telecommunications towers and antennas — the rules of the game before we pick a parcel. Hit Next and let's pull the zoning requirements.",
   },
   {
+    path: "/search",
+    key: "/search/zoning",
+    title: "Zoning — the rules of the game",
+    scrollTo: '[data-tour="zoning"]',
+    narration:
+      "Here's Section Two — Zoning. Hit that Run Zoning button and SiteHawk pulls the local telecommunications ordinance for this exact jurisdiction: the maximum tower height they'll allow, setback rules, fall-zone requirements, separation from residential, whether stealth design is required, and the approval path — administrative review or a full public hearing. This is the stuff that kills deals late when you skip it early. SiteHawk reads the ordinance for you so you know the rules of the game before you ever pick a parcel. Once the zoning report is in, hit Next — because what comes after this is my favorite part.",
+  },
+  {
+    path: "/search",
+    key: "/search/targets",
+    title: "Target Parcels — the cool part",
+    scrollTo: '[data-tour="targets"]',
+    narration:
+      "Now THIS is the cool part. Hit Run Targets and watch SiteHawk sweep every single parcel inside your ring and score each one against real tower-siting criteria — acreage, zoning classification, flood risk, how well a compound fits, distance from residential. Then it hands you the three best candidates: Target A, Target B, and Target C, ranked and ready, with the owner's name and mailing address already attached. What used to take a site acquisition agent days at the county assessor's office happens right here in seconds. Target A becomes your lead site, and B and C are your backups if the owner says no. From here the rest of the pipeline runs on Target A — maps, siting, propagation, the whole SCIP.",
+  },
+  {
     path: "/crm",
     title: "CRM — track every deal",
     narration:
