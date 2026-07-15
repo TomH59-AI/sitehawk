@@ -25,4 +25,5 @@ export const FIBER_PROVIDER_LAYERS = FIBER_PROVIDERS.map((p) => ({
   geometry: "line",
   source: "KMZ import",
   showSplicePoints: p.showSplicePoints,
+  visible: p.visible === true, // all fiber layers start unchecked unless a provider sets visible: true
 }));

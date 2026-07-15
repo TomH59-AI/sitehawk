@@ -437,7 +437,11 @@ export default function SiteHawkInfrastructureMap({
   const [mapReady, setMapReady] = useState(false);
   const [fatalError, setFatalError] = useState("");
   const [search, setSearch] = useState("");
-  const [active, setActive] = useState(() => new Set(["fiber_routes", "transmission_lines", "substations"]));
+  const [active, setActive] = useState(() => new Set([
+    "fiber_routes", "transmission_lines", "substations",
+    // Layers declaring visible: true in their definition start enabled
+    ...LAYERS.filter((layer) => layer.visible === true).map((layer) => layer.id),
+  ]));
   const [loading, setLoading] = useState(() => new Set());
   const [errors, setErrors] = useState({});
   const [counts, setCounts] = useState({});
