@@ -255,6 +255,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Parser validation — run raw KML text through the same extractor without
+    // touching the database. Optional insert with { ingest: true }.
+    if (body.action === "validate_kml") {
+      if (user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+      if (!body.kml_text) return Response.json({ error: "kml_text is required" }, { status: 400 });
+      const features = extractFeatures(body.kml_text);
+      let inserted = 0;
+      if (body.ingest && features.length) {
+        const result = await supabaseAdmin().rpc("import_zayo_fiber_routes", { routes: features });
+        if (result.error) throw new Error(`PostGIS import failed: ${result.error.message}`);
+        inserted = Number(result.data || 0);
+      }
+      return Response.json({ parsed: features.length, inserted, features });
+    }
+
     if (body.action === "import_kmz") {
       if (user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
       if (!body.file_url) return Response.json({ error: "file_url is required" }, { status: 400 });
