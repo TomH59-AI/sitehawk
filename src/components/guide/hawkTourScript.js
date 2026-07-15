@@ -169,6 +169,12 @@ export const TOUR_STOPS = [
       "Here you model RF coverage from any tower location. Set your transmitter height and frequency, run the propagation, and see exactly what a tower at your site would cover. Great for showing a carrier why your candidate beats the alternatives.",
   },
   {
+    path: "/billing",
+    title: "Billing",
+    narration:
+      "Manage your subscription and usage here. Upgrade, downgrade, or open the billing portal any time. One last stop before we wrap up — hit Next and I'll show you Time Savers, the toolkit that keeps every deal organized.",
+  },
+  {
     path: "/crm",
     title: "Time Savers — track every deal",
     narration:
@@ -178,13 +184,7 @@ export const TOUR_STOPS = [
     path: "/hubspot",
     title: "HubSpot Integration",
     narration:
-      "Connect your HubSpot account here. Once linked, SiteHawk pushes your contacts and deals directly into HubSpot's pipeline — owner name, parcel details, skip-traced phone numbers and all. That means your outreach team works in the CRM they already live in, while SiteHawk does the site intelligence. Set it up once and forget it.",
-  },
-  {
-    path: "/billing",
-    title: "Billing",
-    narration:
-      "Manage your subscription and usage here. Upgrade, downgrade, or open the billing portal any time. That's the end of the tour — you now know the whole SiteHawk workflow, from search ring to signed lease. Go find some towers.",
+      "Connect your HubSpot account here. Once linked, SiteHawk pushes your contacts and deals directly into HubSpot's pipeline — owner name, parcel details, skip-traced phone numbers and all. That means your outreach team works in the CRM they already live in, while SiteHawk does the site intelligence. That's the end of the tour — you now know the whole SiteHawk workflow, from search ring to signed lease. Go find some towers.",
   },
 ];
 
