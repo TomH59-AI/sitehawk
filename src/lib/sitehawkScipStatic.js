@@ -195,6 +195,31 @@ export function buildFlum(t, token, fluFeature) {
   return overlayUrl({ style: LIGHT_STYLE, features, center: [lon, lat], zoom: 15, token });
 }
 
+// Regional context — wide satellite view (SARF ring + Target A) so reviewers
+// unfamiliar with the area see the surrounding towns, roads and terrain at a glance.
+export function buildRegional(srcLat, srcLon, radiusMi, token, targetA) {
+  if (!Number.isFinite(srcLat) || !Number.isFinite(srcLon) || !token) return null;
+  const features = [
+    ringFeature(srcLat, srcLon, radiusMi, BRAND_GOLD, 3),
+    pointFeature(srcLat, srcLon, BRAND_GOLD, "marker"),
+  ];
+  if (ok(targetA)) {
+    const { lat, lon } = tgt(targetA);
+    features.push(pointFeature(lat, lon, BRAND_GREEN, "communications-tower"));
+  }
+  const latR = (radiusMi / 69.0) * 8;
+  const lonR = (radiusMi / (69.0 * Math.cos((srcLat * Math.PI) / 180))) * 8;
+  const bbox = [srcLon - lonR, srcLat - latR, srcLon + lonR, srcLat + latR];
+  return overlayUrl({ style: SAT_STYLE, features, bbox, token });
+}
+
+// Access & streets — road network around Target A for the site-access discussion.
+export function buildStreets(t, token) {
+  if (!ok(t) || !token) return null;
+  const { lat, lon } = tgt(t);
+  return overlayUrl({ style: "streets-v12", features: targetMarkers(lat, lon), center: [lon, lat], zoom: 15, token });
+}
+
 // ── proximity maps (crow-flies line to nearest asset, with distance) ──
 function milesFeetLabel(mi) {
   if (!Number.isFinite(mi)) return null;

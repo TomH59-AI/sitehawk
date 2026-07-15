@@ -5,6 +5,7 @@ import SiteHawkInfoTable from "./SiteHawkInfoTable";
 import SiteHawkViewshedPage from "./SiteHawkViewshedPage";
 import SiteHawkDeedPage from "./SiteHawkDeedPage";
 import SiteHawkTowerSiterPage from "./SiteHawkTowerSiterPage";
+import SiteHawkPermitPage from "./SiteHawkPermitPage";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
 
@@ -51,7 +52,9 @@ export default function SiteHawkScipDoc({ record }) {
   // We ONLY render tiles that actually generated a URL — no blank "Not generated"
   // slots — so the printed maps section is always clean and full.
   const ALL_MAP_TILES = [
+    ["Regional Context", maps.regional],
     ["Aerial", maps.aerial],
+    ["Access & Streets", maps.streets],
     ["Topography", maps.topo],
     ["Floodplain Map", maps.fema],
     ["Zoning Map", maps.zoning],
@@ -260,6 +263,8 @@ export default function SiteHawkScipDoc({ record }) {
               ["Property Future Land Use", z.future_land_use],
               ["Property Current Usage", z.current_usage || a.land_use],
               ["Meets Minimum Lot Requirements?", z.meets_min_lot],
+              ["CUP / Special Exception Path", z.cup_or_special_exception],
+              ["PE Self-Certification", z.pe_self_certification],
             ]}
           />
           <SiteHawkInfoTable
@@ -271,11 +276,23 @@ export default function SiteHawkScipDoc({ record }) {
               ["Required Collocations (#)", z.collocations],
               ["Residential Separation", z.residential_separation],
               ["Tower Separation", z.tower_separation],
+              ["Measured From (base or center)", z.measured_from],
               ["Fall Zone Requirements", z.fall_zone],
+              ["Special Tower Landscaping?", z.landscaping],
             ]}
           />
           {z.notes && <SiteHawkInfoTable heading="Zoning Notes" rows={[["Notes", z.notes]]} />}
         </HawkScipSection>
+      )}
+
+      {/* ─────────── SITE PLAN & BUILDING PERMIT ─────────── */}
+      {(Object.values(z.site_plan || {}).some(Boolean) || Object.values(z.building_permit || {}).some(Boolean)) && (
+        <SiteHawkPermitPage
+          sitePlan={z.site_plan}
+          buildingPermit={z.building_permit}
+          jurisdiction={z.jurisdiction}
+          page={next()}
+        />
       )}
 
       {/* ─────────── TOWER SITER EXHIBIT — FINAL PAGE ─────────── */}

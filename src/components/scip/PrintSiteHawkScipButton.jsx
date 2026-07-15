@@ -9,6 +9,7 @@ import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
 import {
   buildSarfMap, buildAerial, buildTopo, buildFema, buildZoning,
   buildWetlands, buildParcel, buildWind, buildAirport, buildCellTower,
+  buildRegional, buildStreets,
 } from "@/lib/sitehawkScipStatic";
 
 const PRINT_STYLE_ID = "sitehawk-scip-print-styles";
@@ -91,7 +92,9 @@ export default function PrintSiteHawkScipButton({ scipId, scip, variant = "toolb
         : null;
 
       const maps = {
+        regional: buildRegional(srcLat, srcLon, radius, token, targetA),
         aerial: buildAerial(targetA, token),
+        streets: buildStreets(targetA, token),
         topo: buildTopo(targetA, token),
         fema: buildFema(targetA, token),
         zoning: buildZoning(targetA, token, cfg.zoneomicsApiKey),
@@ -132,6 +135,12 @@ export default function PrintSiteHawkScipButton({ scipId, scip, variant = "toolb
           ldc_reference: zr.ldc_reference,
           meets_min_lot: zr.meets_min_lot,
           contact: zr.contact,
+          measured_from: zr.measured_from,
+          landscaping: zr.landscaping,
+          cup_or_special_exception: zr.cup_or_special_exception,
+          pe_self_certification: zr.pe_self_certification,
+          site_plan: zr.site_plan || null,
+          building_permit: zr.building_permit || null,
           notes: zr.notes,
         },
         conditions: {

@@ -17,6 +17,7 @@ import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
 import {
   buildSarfMap, buildAerial, buildTopo, buildFema, buildZoning,
   buildWetlands, buildParcel, buildWind, buildAirport, buildCellTower, buildFlum,
+  buildRegional, buildStreets,
 } from "@/lib/sitehawkScipStatic";
 
 // Pull City / State / Zip out of a US parcel address string. Handles the common
@@ -210,7 +211,9 @@ export default function GenerateScipButton({
         : null;
 
       const maps = {
+        regional: buildRegional(srcLat, srcLon, radius, token, targetA),
         aerial: buildAerial(targetA, token),
+        streets: buildStreets(targetA, token),
         topo: buildTopo(targetA, token),
         fema: buildFema(targetA, token),
         zoning: buildZoning(targetA, token, cfg.zoneomicsApiKey),
@@ -299,6 +302,12 @@ export default function GenerateScipButton({
           residential_separation: z.residential_separation,
           tower_separation: z.tower_separation,
           fall_zone: z.fall_zone,
+          measured_from: z.measured_from,
+          landscaping: z.landscaping,
+          cup_or_special_exception: z.cup_or_special_exception,
+          pe_self_certification: z.pe_self_certification,
+          site_plan: z.site_plan || null,
+          building_permit: z.building_permit || null,
           notes: z.notes,
         },
         conditions: {

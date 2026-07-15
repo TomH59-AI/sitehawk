@@ -183,6 +183,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       // Emit zoning factor to the shared bus — Zoneomics canonical, Realie fallback.
       const zo = report?.zoning_overview || {};
       const tw = report?.tower_specifics || {};
+      const sp = report?.site_plan || {};
+      const bp = report?.building_permit || {};
       const val = (cell) => (cell?.value && !EMPTY_SENTINELS.includes(cell.value) ? cell.value : null);
       onData?.({
         zoning: {
@@ -211,7 +213,29 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
           collocations: val(tw.required_collocations),
           residential_separation: val(tw.residential_separation),
           tower_separation: val(tw.tower_separation),
+          measured_from: val(tw.measured_from_base_or_center),
+          landscaping: val(tw.special_tower_landscaping),
           notes: val(tw.fall_zone_requirements),
+          // Site Plan + Building Permit panels — printed on their own SCIP page.
+          site_plan: {
+            jurisdiction: val(sp.site_plan_jurisdiction),
+            contact: val(sp.site_plan_contact_info),
+            fees: val(sp.site_plan_fees),
+            timeframe: val(sp.site_plan_timeframe),
+            amend_existing: val(sp.existing_site_plan_amend),
+            concurrent: val(sp.concurrent_to_zoning_or_bp),
+            deadlines: val(sp.submittal_deadlines),
+            submission_format: val(sp.electronic_hard_or_both),
+          },
+          building_permit: {
+            jurisdiction: val(bp.building_permit_jurisdiction),
+            contact: val(bp.building_dept_contact_info),
+            gc_must_submit: val(bp.gc_must_submit),
+            fees: val(bp.building_permit_fees),
+            timeframe: val(bp.building_permit_timeframe),
+            bond_required: val(bp.bond_required),
+            e911: val(bp.e911_address_assigned),
+          },
         },
       });
       if (report) toast.success("Zoning ordinance provisions loaded.");

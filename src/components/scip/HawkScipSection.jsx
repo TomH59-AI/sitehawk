@@ -43,11 +43,15 @@ export default function HawkScipSection({ kicker, title, accent = HAWK.gold, rig
         {/* Branded header bar */}
         <div className="flex items-stretch rounded-lg overflow-hidden mb-4" style={{ border: `2px solid ${HAWK.navy}`, ...EXACT }}>
           <div style={{ width: 8, background: accent }} />
-          <div className="flex-1 px-4 py-2.5" style={{ background: HAWK.blue }}>
-            {kicker && (
-              <div className="text-[8pt] font-bold uppercase" style={{ color: HAWK.gold, letterSpacing: 3 }}>{kicker}</div>
-            )}
-            <div className="text-[15pt] font-bold text-white leading-tight">{title}</div>
+          <div className="flex-1 px-4 py-2.5 flex items-center gap-3" style={{ background: HAWK.blue }}>
+            {/* SkyHawk logo — identical on every page of every SCIP */}
+            <img src={HAWK.logo} alt="SiteHawk" crossOrigin="anonymous" style={{ height: 38, flexShrink: 0 }} />
+            <div>
+              {kicker && (
+                <div className="text-[8pt] font-bold uppercase" style={{ color: HAWK.gold, letterSpacing: 3 }}>{kicker}</div>
+              )}
+              <div className="text-[15pt] font-bold text-white leading-tight">{title}</div>
+            </div>
           </div>
           {right && (
             <div className="flex items-center px-4 text-[8.5pt] text-right" style={{ background: HAWK.navy, color: "#C7D2EA", maxWidth: "2.4in" }}>
