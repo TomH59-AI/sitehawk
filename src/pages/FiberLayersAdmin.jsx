@@ -64,7 +64,7 @@ export default function FiberLayersAdmin() {
       <h1 className="text-2xl font-bold">ScipHawk Fiber Layers — KMZ Import</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Upload each provider's KMZ. Re-importing a provider replaces its previous routes.
-        Layers appear in the <Link to="/InfrastructureIntelligence" className="text-primary underline">Infrastructure Command Center</Link> under "ScipHawk fiber (KMZ)".
+        Layers appear in the <Link to="/InfrastructureIntelligence" className="text-primary underline">Infrastructure Command Center</Link> under "Fiber optics map layers".
       </p>
       {dbStatus === "not_initialized" && (
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/50 bg-amber-500/10 p-3 text-sm text-amber-700">

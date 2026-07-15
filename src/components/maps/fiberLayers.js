@@ -12,13 +12,13 @@ export const FIBER_PROVIDERS = [
   { id: "crowncastle", name: "Crown Castle Fiber", color: "#FFD700", showSplicePoints: true },
   { id: "uniti", name: "Uniti Fiber", color: "#FF8C00", showSplicePoints: true },
   { id: "dfs", name: "Dark Fiber Systems (Florida)", color: "#00FF7F", showSplicePoints: true },
-  { id: "openinfra", name: "OpenInfraMap Fiber", color: "#1E90FF", showSplicePoints: false },
+  { id: "openinfra", name: "OpenInfraMap Fiber (OSM-derived)", color: "#1E90FF", showSplicePoints: false },
 ];
 
 // Command Center layer definitions — one toggleable layer per provider.
 export const FIBER_PROVIDER_LAYERS = FIBER_PROVIDERS.map((p) => ({
   id: `fiberkmz_${p.id}`,
-  group: "ScipHawk fiber (KMZ)",
+  group: "Fiber optics map layers",
   label: p.name,
   description: p.showSplicePoints ? "Imported KMZ routes & splice points" : "Imported KMZ routes",
   color: p.color,
