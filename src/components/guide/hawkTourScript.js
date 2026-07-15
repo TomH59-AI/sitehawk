@@ -82,19 +82,7 @@ export const TOUR_STOPS = [
     scrollTo: '[data-tour="map-topo"]',
     autoClick: '[data-tour="map-topo"] button',
     narration:
-      "We're showing off now — I just smashed the Run Topography Map button for you too. Each map in this suite runs one by one, and here comes number two. The topography map draws the contour lines across your ring and gives you the ground elevation in feet A-M-S-L — that's above mean sea level. Why does that matter? Tower height limits, FAA clearances, and your RF line-of-sight all start from that ground elevation number. Study the contours — tight lines mean steep terrain, and steep terrain means expensive site work. From here, keep working your way down the list — FEMA Floodplain, Zoning, Future Land Use, Wetlands, and the rest — each button unlocks the next, and every map lands in your SCIP document automatically. When you've seen enough, hit Next, press Play, and we'll head to the CRM.",
-  },
-  {
-    path: "/crm",
-    title: "CRM — track every deal",
-    narration:
-      "This is your deal pipeline. Every parcel you pursue becomes a deal card you drag through stages, from first contact to signed lease. Now, the big advantage: SiteHawk connects straight to HubSpot. That gives you enterprise-grade email sequences, call logging, and a full marketing engine your whole team already knows — and SiteHawk pushes your parcel data, owner info, and deals into it automatically, so your CRM always mirrors your site work without manual data entry. Connect it once and every deal you save here flows straight in.",
-  },
-  {
-    path: "/hubspot",
-    title: "HubSpot Integration",
-    narration:
-      "Connect your HubSpot account here. Once linked, SiteHawk pushes your contacts and deals directly into HubSpot's pipeline — owner name, parcel details, skip-traced phone numbers and all. That means your outreach team works in the CRM they already live in, while SiteHawk does the site intelligence. Set it up once and forget it.",
+      "We're showing off now — I just smashed the Run Topography Map button for you too. Each map in this suite runs one by one, and here comes number two. The topography map draws the contour lines across your ring and gives you the ground elevation in feet A-M-S-L — that's above mean sea level. Why does that matter? Tower height limits, FAA clearances, and your RF line-of-sight all start from that ground elevation number. Study the contours — tight lines mean steep terrain, and steep terrain means expensive site work. From here, keep working your way down the list — FEMA Floodplain, Zoning, Future Land Use, Wetlands, and the rest — each button unlocks the next, and every map lands in your SCIP document automatically. When you've seen enough, hit Next, press Play, and we'll check out Hawk Docs.",
   },
   {
     path: "/hawk-docs",
@@ -131,6 +119,18 @@ export const TOUR_STOPS = [
     title: "Coverage Analysis",
     narration:
       "Here you model RF coverage from any tower location. Set your transmitter height and frequency, run the propagation, and see exactly what a tower at your site would cover. Great for showing a carrier why your candidate beats the alternatives.",
+  },
+  {
+    path: "/crm",
+    title: "Time Savers — track every deal",
+    narration:
+      "Welcome to Time Savers — the toolkit that keeps you organized after the deal work starts. Every parcel you pursue becomes a deal you track from first contact to signed lease. Now, the big advantage: SiteHawk connects straight to HubSpot. That gives you enterprise-grade email sequences, call logging, and a full marketing engine your whole team already knows — and SiteHawk pushes your parcel data, owner info, and deals into it automatically, so your CRM always mirrors your site work without manual data entry. Connect it once and every deal you save here flows straight in.",
+  },
+  {
+    path: "/hubspot",
+    title: "HubSpot Integration",
+    narration:
+      "Connect your HubSpot account here. Once linked, SiteHawk pushes your contacts and deals directly into HubSpot's pipeline — owner name, parcel details, skip-traced phone numbers and all. That means your outreach team works in the CRM they already live in, while SiteHawk does the site intelligence. Set it up once and forget it.",
   },
   {
     path: "/billing",
