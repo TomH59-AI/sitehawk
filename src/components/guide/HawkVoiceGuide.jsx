@@ -94,6 +94,24 @@ export default function HawkVoiceGuide() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [index, open]);
 
+  // Timed scroll WALKTHROUGH (map suite recap): once narration starts playing,
+  // scroll from map to map on the script's schedule while the narrator explains
+  // each one. Stops immediately if the user hits Stop or leaves the stop.
+  useEffect(() => {
+    const seq = TOUR_STOPS[index]?.autoScrollSequence;
+    if (!seq || !open || !playing) return;
+    let cancelled = false;
+    let i = 0;
+    const step = () => {
+      if (cancelled || i >= seq.length) return;
+      const { selector, dwellMs = 12000 } = seq[i++];
+      document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(step, dwellMs);
+    };
+    step();
+    return () => { cancelled = true; };
+  }, [index, open, playing]);
+
   if (!stop || stop.path !== location.pathname) return null;
 
   const handlePlay = async () => {

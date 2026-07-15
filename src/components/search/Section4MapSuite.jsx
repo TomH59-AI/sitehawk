@@ -125,11 +125,41 @@ export default function Section4MapSuite({
     zoning: useRef(null), flum: useRef(null), wetlands: useRef(null), airport: useRef(null), celltower: useRef(null), parcel: useRef(null), wind: useRef(null), fiber: useRef(null), power: useRef(null), viewshed: useRef(null),
   };
   const maps = useRef({});
+  // Creation order of live Mapbox instances. Browsers cap live WebGL contexts
+  // (~16); beyond that, the OLDEST map canvases silently go blank ("close").
+  // We keep only the newest MAX_LIVE_MAPS live and freeze older ones into a
+  // static snapshot image — the map stays visible, it just stops being pannable.
+  const liveOrder = useRef([]);
+  const MAX_LIVE_MAPS = 3;
+
+  const retireOldMaps = useCallback(() => {
+    while (liveOrder.current.length > MAX_LIVE_MAPS) {
+      const oldStep = liveOrder.current.shift();
+      const m = maps.current[oldStep];
+      const container = refs[oldStep]?.current;
+      if (m) {
+        try {
+          const url = container ? m.getCanvas().toDataURL("image/jpeg", 0.9) : null;
+          m.remove();
+          if (url && container) {
+            const img = document.createElement("img");
+            img.src = url;
+            img.setAttribute("data-snapshot", "1");
+            img.style.cssText = "position:absolute;inset:0;width:100%;height:100%;object-fit:cover";
+            container.appendChild(img);
+          }
+        } catch { try { m.remove(); } catch { /* already gone */ } }
+      }
+      maps.current[oldStep] = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     return () => {
       Object.values(maps.current).forEach((m) => m?.remove?.());
       maps.current = {};
+      liveOrder.current = [];
     };
   }, []);
 
@@ -162,9 +192,11 @@ export default function Section4MapSuite({
       }
       await ensureMapboxLoaded();
 
-      // Dispose any prior instance for this step before re-rendering.
+      // Dispose any prior instance (and stale snapshot) for this step before re-rendering.
       maps.current[step]?.remove?.();
       maps.current[step] = null;
+      liveOrder.current = liveOrder.current.filter((s) => s !== step);
+      refs[step]?.current?.querySelectorAll('img[data-snapshot]')?.forEach((el) => el.remove());
       await new Promise((r) => requestAnimationFrame(r));
 
       let map;
@@ -364,6 +396,12 @@ export default function Section4MapSuite({
       }
 
       maps.current[step] = map;
+      if (map) {
+        liveOrder.current.push(step);
+        // Retire the oldest live map(s) AFTER this one is up — snapshot happens
+        // while the old canvas is still healthy, so nothing ever goes blank.
+        setTimeout(retireOldMaps, 3000);
+      }
       // Re-measure once the panel has settled so the map is properly centered —
       // Mapbox can mis-center when the canvas resizes right after init.
       if (map?.resize) {
