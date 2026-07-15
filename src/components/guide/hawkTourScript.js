@@ -67,6 +67,15 @@ export const TOUR_STOPS = [
       "Now THIS is my favorite part. See that Run Targets button in the green banner? Normally you'd smash that yourself — but you're riding shotgun with me, so I just smashed it for you. Right now SiteHawk is sweeping every single parcel inside your ring and scoring each one against real tower-siting criteria — acreage, zoning classification, flood risk, how well a compound fits, distance from residential. Then it hands you the three best candidates: Target A, Target B, and Target C, ranked and ready, with the owner's name and mailing address already attached. What used to take a site acquisition agent days at the county assessor's office happens right here in seconds. Target A becomes your lead site, and B and C are your backups if the owner says no. From here the rest of the pipeline runs on Target A — maps, siting, propagation, the whole SCIP. When the targets land, hit Next — and remember, every time a new page comes up, press Play and I'll keep talking you through it.",
   },
   {
+    path: "/search",
+    key: "/search/maps",
+    title: "Map Suite — the Target A deep dive",
+    scrollTo: '[data-tour="map-suite"]',
+    autoClick: '[data-tour="map-aerial"] button',
+    narration:
+      "Now that Target A is locked in, the map pipeline kicks in — the Hawk Target A Map Suite. This is fourteen maps and data pulls, run one at a time, each button unlocking the next: Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, ROW indicators, Wind Speed, Fiber Optics, Power Grid, and the 2D Viewshed — then the compliance pre-screen, the warranty deed, and a full skip-trace on the owner. To get you rolling, I just pressed the Run Aerial Map button for you — normally you'd click each one yourself as you review it. Work your way down the list, and every map lands in your SCIP document automatically. When you've seen enough, hit Next, press Play, and we'll head to the CRM.",
+  },
+  {
     path: "/crm",
     title: "CRM — track every deal",
     narration:

@@ -588,7 +588,7 @@ export default function Section4MapSuite({
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div data-tour="map-suite" className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Section banner */}
       <div className="px-4 py-3 flex items-center justify-between gap-2 text-white" style={{ background: BRAND_GREEN }}>
         <div className="flex items-center gap-2">
@@ -613,6 +613,7 @@ export default function Section4MapSuite({
       )}
 
       <div className="p-4 space-y-4">
+        <div data-tour="map-aerial">
         <MapSubStep
           index={1} title="Aerial Map" runLabel="Run Aerial Map"
           spinnerLabel="Generating Target A aerial map…"
@@ -621,6 +622,7 @@ export default function Section4MapSuite({
           onRun={() => beginAndRun("aerial")} mapRef={refs.aerial} banner={banners.aerial}
           error={errors.aerial}
         />
+        </div>
         <MapSubStep
           index={2} title="Topography Map" runLabel="Run Topography Map"
           spinnerLabel="Generating Target A topography map…"
