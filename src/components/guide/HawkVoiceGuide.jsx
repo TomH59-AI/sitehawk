@@ -58,6 +58,42 @@ export default function HawkVoiceGuide() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [index, open]);
 
+  // Run a full click SEQUENCE (the map suite): click each button in order,
+  // scrolling to it first. Each map's completion unlocks the next button, so
+  // polling for an enabled button naturally paces the run map-by-map.
+  useEffect(() => {
+    const seq = TOUR_STOPS[index]?.autoClickSequence;
+    if (!seq || !open) return;
+    let cancelled = false;
+    let i = 0;
+    const clickWhenReady = (selector) => {
+      let tries = 0;
+      const attempt = () => {
+        if (cancelled) return;
+        const btn = document.querySelector(selector);
+        if (btn && !btn.disabled) {
+          btn.scrollIntoView({ behavior: "smooth", block: "center" });
+          setTimeout(() => {
+            if (cancelled) return;
+            btn.click();
+            // brief pause, then start waiting for the next map's button
+            setTimeout(next, 2000);
+          }, 800);
+          return;
+        }
+        // Maps can take a while — keep polling generously (up to ~10 min each).
+        if (++tries < 600) setTimeout(attempt, 1000);
+      };
+      attempt();
+    };
+    const next = () => {
+      if (cancelled || i >= seq.length) return;
+      clickWhenReady(seq[i++]);
+    };
+    const t = setTimeout(next, 1800);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [index, open]);
+
   if (!stop || stop.path !== location.pathname) return null;
 
   const handlePlay = async () => {

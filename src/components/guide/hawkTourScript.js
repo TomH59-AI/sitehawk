@@ -68,69 +68,38 @@ export const TOUR_STOPS = [
   },
   {
     path: "/search",
-    key: "/search/maps",
-    title: "Map Suite — the Target A deep dive",
+    key: "/search/map-suite-full",
+    title: "Map Suite — I'll run all 14 for you",
     scrollTo: '[data-tour="map-suite"]',
-    autoClick: '[data-tour="map-aerial"] button',
+    // One continuous run: the guide clicks every map button in order, waiting
+    // for each map to finish (which unlocks the next button) before clicking on.
+    autoClickSequence: [
+      '[data-tour="map-aerial"] button',
+      '[data-tour="map-topo"] button',
+      '[data-tour="map-fema"] button',
+      '[data-tour="map-zoning"] button',
+      '[data-tour="map-flum"] button',
+      '[data-tour="map-wetlands"] button',
+      '[data-tour="map-airport"] button',
+      '[data-tour="map-celltower"] button',
+      '[data-tour="map-parcel"] button',
+      '[data-tour="map-row"] button',
+      '[data-tour="map-wind"] button',
+      '[data-tour="map-fiber"] button',
+      '[data-tour="map-power"] button',
+      '[data-tour="map-viewshed"] button',
+    ],
     narration:
-      "Now that Target A is locked in, the map pipeline kicks in — the Hawk Target A Map Suite. This is fourteen maps and data pulls, run one at a time, each button unlocking the next: Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, ROW indicators, Wind Speed, Fiber Optics, Power Grid, and the 2D Viewshed — then the compliance pre-screen, the warranty deed, and a full skip-trace on the owner. To get you rolling, I just pressed the Run Aerial Map button for you — normally you'd click each one yourself as you review it. Take a look at that aerial shot of Target A — and here's a pro tip: on this map and every map in this tutorial, feel free to grab it, scroll, pan, and zoom around for a better view. It won't disrupt me or the tour one bit, anywhere in this walkthrough. When you're ready, hit Next and press Play — I'll fire the next map for you.",
+      "Alright my friend, buckle up — this is the big one. The Hawk Target A Map Suite: fourteen maps and data pulls that turn Target A from a green shape on a map into a fully documented tower candidate. And here's the best part — you don't have to lift a finger. I'm going to run the entire suite for you, one map at a time, clicking every button myself while I talk you through it. Feel free to grab, pan, and zoom any map as it lands — it won't interrupt me one bit. Now, why does this matter so much? Because every map in this suite answers a question somebody is going to ask. The landowner wants to know their property is truly right for a tower before they sign anything. The community wants to know the site is safe, sensible, and out of harm's way. The jurisdiction wants proof you did your homework before you ever file. And the carrier wants to know the site will actually perform. This suite answers all four — in one sitting. Here we go. First, the Aerial Map — a crisp satellite look at Target A and everything around it. It's the first thing an owner, a planner, and a carrier all want to see: what's really on the ground. Next up, Topography — contour lines and ground elevation. Steep terrain means expensive site work for the owner and drainage questions for the jurisdiction. Now FEMA Floodplain — flood zones straight from FEMA. Flood risk drives engineering, insurance, and whether the community's emergency planners will ever be comfortable with the compound. Then the Zoning Map — the parcel's zoning district drawn right on the map, the jurisdiction's own rulebook made visible. Next, Future Land Use — the community's long-range plan. It tells you whether this area stays rural or transitions toward homes, which matters enormously to the neighbors and the planning board alike. Now the Wetlands Map — mapped wetland areas around the parcel. Wetlands protect the community's water and wildlife, and finding them now saves the owner from a permitting nightmare later. Next, the Nearest Airport — straight-line distance to the closest airfield. That's your early FAA signal: height limits and lighting requirements that matter to pilots and the whole community's airspace. Then the Nearest Cell Tower — existing infrastructure, ownership, and distance. Carriers care deeply about separation and coverage gaps, and jurisdictions often require this in the application. Map nine, the Parcel Map — the exact legal boundary of Target A with the premium parcel details. This is the owner's land, drawn to the inch. Next, Right of Way and parcel indicators — road access, frontage, and the practical route into the compound. No access road, no tower — simple as that. Now Wind Speed — the design wind criteria for this exact spot. This drives the structural engineering that keeps the tower standing through the worst storm the community will ever see. Then Fiber Optics — nearby lit buildings and backhaul routes. Without fiber, the carrier's signal has nowhere to go. Next, the Power Grid — the serving utility, substations, and transmission lines. Every tower needs reliable power, and the tie-in distance goes straight into the carrier's budget. And finally — map fourteen, my personal favorite, the 2D Viewshed. North, south, east, and west line-of-sight profiles from your proposed tower height, showing exactly where terrain or tree lines block the signal. This is the map that tells the carrier what this site will really do. And that's the full suite — fourteen answers for the owner, the community, the jurisdiction, and the carrier, generated in minutes instead of weeks. When the viewshed finishes, hit Next and press Play — because up next is the Compliance pre-screen, and trust me, it's the coolest thing in this whole pipeline.",
   },
   {
     path: "/search",
-    key: "/search/maps-topo",
-    title: "Topography Map — contours & elevation",
-    scrollTo: '[data-tour="map-topo"]',
-    autoClick: '[data-tour="map-topo"] button',
+    key: "/search/compliance",
+    title: "Compliance — Section 106 / NEPA",
+    scrollTo: '[data-tour="compliance"]',
+    autoClick: '[data-tour="compliance-run"]',
     narration:
-      "We're showing off now — I just smashed the Run Topography Map button for you too. Map number two draws the contour lines across the ring and gives you the Target A ground elevation above mean sea level. Tight contours mean steep terrain and potentially expensive site work. Hit Next when it finishes, tap Play, and we'll keep running the suite in order.",
-  },
-  {
-    path: "/search", key: "/search/maps-fema", title: "FEMA Floodplain Map", scrollTo: '[data-tour="map-fema"]', autoClick: '[data-tour="map-fema"] button',
-    narration: "Map three is the FEMA Floodplain Map, and I just started it for Target A. This checks the parcel centroid against FEMA flood data and overlays the floodplain so you can see whether the compound faces flood risk, added engineering, or insurance concerns. When it finishes, hit Next for zoning — and give that Play button a smash so I can walk you through it.",
-  },
-  {
-    path: "/search", key: "/search/maps-zoning", title: "Target A Zoning Map", scrollTo: '[data-tour="map-zoning"]', autoClick: '[data-tour="map-zoning"] button',
-    narration: "Now we're running the Target A Zoning Map. This resolves the parcel's zoning district and draws the available zoning geometry, giving you a visual check against the telecommunications rules we researched earlier. Hit Next when the zoning layer is ready, then Play — you know the drill by now.",
-  },
-  {
-    path: "/search", key: "/search/maps-flum", title: "Future Land Use Map", scrollTo: '[data-tour="map-flum"]', autoClick: '[data-tour="map-flum"] button',
-    narration: "Next is Future Land Use. I just pressed Run FLUM Map for Target A. Current zoning tells you what applies today; future land use shows the jurisdiction's long-range plan and can reveal whether the area is intended to stay rural, become commercial, or transition toward residential development. Next, then Play — keep me talking.",
-  },
-  {
-    path: "/search", key: "/search/maps-wetlands", title: "Wetlands Map", scrollTo: '[data-tour="map-wetlands"]', autoClick: '[data-tour="map-wetlands"] button',
-    narration: "Here comes the Wetlands Map. SiteHawk is overlaying mapped wetland areas around Target A so you can spot environmental constraints before a survey or site walk. Wetlands can affect compound placement, access, permitting, and construction cost. Hit Next when the map completes and press Play on the other side.",
-  },
-  {
-    path: "/search", key: "/search/maps-airport", title: "Nearest Airport Map", scrollTo: '[data-tour="map-airport"]', autoClick: '[data-tour="map-airport"] button',
-    narration: "I'm running the Nearest Airport Map now. It identifies the closest airport to Target A, measures the straight-line distance, and maps both locations. That proximity is an early indicator for FAA review and possible height or lighting considerations. When you're ready — Next, then Play.",
-  },
-  {
-    path: "/search", key: "/search/maps-celltower", title: "Nearest Cell Tower Map", scrollTo: '[data-tour="map-celltower"]', autoClick: '[data-tour="map-celltower"] button',
-    narration: "Now SiteHawk is finding and mapping the nearest existing cell tower to Target A. This gives you an immediate view of nearby infrastructure, ownership, structure type, and distance — useful context for separation rules, colocation options, and market coverage. Hit Next and hit Play — that button loves the attention.",
-  },
-  {
-    path: "/search", key: "/search/maps-parcel", title: "Target A Parcel Map", scrollTo: '[data-tour="map-parcel"]', autoClick: '[data-tour="map-parcel"] button',
-    narration: "Map nine is the Parcel Map. I just started the Target A parcel-boundary pull. This draws the parcel in the context of the full search ring and brings in the premium parcel details used by the next step. Review the shape and surrounding parcels, then hit Next and press Play.",
-  },
-  {
-    path: "/search", key: "/search/maps-row", title: "ROW & Parcel Indicators", scrollTo: '[data-tour="map-row"]', autoClick: '[data-tour="map-row"] button',
-    narration: "This is the right-of-way and premium parcel indicator step. It reuses the parcel data we just pulled to evaluate road access, frontage, parcel characteristics, and the other indicators that matter when you need a practical route into the proposed compound. Next and Play, my friend.",
-  },
-  {
-    path: "/search", key: "/search/maps-wind", title: "Wind Speed Map", scrollTo: '[data-tour="map-wind"]', autoClick: '[data-tour="map-wind"] button',
-    narration: "Now we're running the Wind Speed Map for Target A. SiteHawk pulls the design wind criteria and flags hurricane-prone or special-wind conditions. Those values matter directly to structural design, foundation engineering, and tower cost. Hit Next, hit Play — let's keep rolling.",
-  },
-  {
-    path: "/search", key: "/search/maps-fiber", title: "Fiber Optics Map", scrollTo: '[data-tour="map-fiber"]', autoClick: '[data-tour="map-fiber"] button',
-    narration: "Next is Fiber Optics. I just started the infrastructure search around Target A. This maps nearby lit and near-net buildings and identifies local carrier context, helping you understand whether backhaul is close or whether the site may need a longer, more expensive connection. You know what's next — Next, then Play.",
-  },
-  {
-    path: "/search", key: "/search/maps-power", title: "Power Grid Map", scrollTo: '[data-tour="map-power"]', autoClick: '[data-tour="map-power"] button',
-    narration: "Now we're mapping the power grid around Target A — the serving utility, nearby substations, and transmission corridors. Every tower needs reliable power, so this gives you an early look at likely service availability and potential tie-in distance. One more map to go — hit Next and press Play for the grand finale of the suite.",
-  },
-  {
-    path: "/search", key: "/search/maps-viewshed", title: "2D Viewshed Map", scrollTo: '[data-tour="map-viewshed"]', autoClick: '[data-tour="map-viewshed"] button',
-    narration: "This is map fourteen, the 2D Viewshed. SiteHawk is generating north, south, east, and west line-of-sight profiles from Target A using the proposed tower height and terrain elevation. This helps reveal where terrain or tree-line assumptions may obstruct coverage. Once this finishes, the full Target A Mapping Suite is complete. Hit Next, press Play, and we'll move on to Hawk Docs.",
+      "Welcome to my favorite flex — the Compliance pre-screen. I just pressed the Run Compliance Report button for you. Right now SiteHawk is checking Target A against the eight federal NEPA environmental triggers from 47 CFR 1.1307 — floodplain, wetlands, endangered species habitat, historic districts, residential zoning, hazardous waste sites, and tower lighting for migratory birds — using the data the map suite just collected. No re-typing, no second research pass. In seconds you'll see whether this site qualifies for a Categorical Exclusion or needs a deeper environmental assessment, plus the Section 106 historic-review posture and the 30-day FCC shot clock that governs tribal notification. This is the stuff that stalls projects for months when it's discovered late — SiteHawk surfaces it on day one. Flip any trigger yourself, then generate the full printable compliance report for your file. When you're ready, hit Next and press Play — we're heading to Hawk Docs.",
   },
   {
     path: "/hawk-docs",

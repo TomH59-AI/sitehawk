@@ -72,7 +72,7 @@ export default function ComplianceStep({
   // ── LOCKED — previous sub-step not complete ──
   if (!unlocked) {
     return (
-      <div className="rounded-xl border border-border bg-muted/40 overflow-hidden opacity-60 pointer-events-none select-none">
+      <div data-tour="compliance" className="rounded-xl border border-border bg-muted/40 overflow-hidden opacity-60 pointer-events-none select-none">
         <div className="px-4 py-3 flex items-center gap-2 text-white/80" style={{ background: "#3f5a54" }}>
           <Lock className="w-4 h-4" />
           <div>
@@ -88,7 +88,7 @@ export default function ComplianceStep({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div data-tour="compliance" className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between gap-2 flex-wrap text-white" style={{ background: HC.green }}>
         <div className="flex items-center gap-2">
           <Shield className="w-5 h-5" />
@@ -146,6 +146,7 @@ export default function ComplianceStep({
       {/* Run / Regenerate button row */}
       <div className="px-4 pb-4">
         <Button
+          data-tour="compliance-run"
           onClick={onRun}
           disabled={loading}
           variant={done ? "outline" : "default"}
