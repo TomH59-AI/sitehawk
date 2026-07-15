@@ -364,6 +364,16 @@ export default function Section4MapSuite({
       }
 
       maps.current[step] = map;
+      // Re-measure once the panel has settled so the map is properly centered —
+      // Mapbox can mis-center when the canvas resizes right after init.
+      if (map?.resize) {
+        const c = map.getCenter?.();
+        const z = map.getZoom?.();
+        setTimeout(() => {
+          map.resize();
+          if (c) map.jumpTo({ center: c, zoom: z });
+        }, 400);
+      }
       setCompleted((prev) => ({ ...prev, [step]: true }));
       toast.success(`${step.charAt(0).toUpperCase() + step.slice(1)} map generated for Target A.`);
     } catch (err) {
