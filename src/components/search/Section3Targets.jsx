@@ -470,7 +470,7 @@ export default function Section3Targets({
         </div>
         <div className="flex items-center gap-2">
           {!active ? (
-            <Button onClick={onRun} className="bg-white hover:bg-emerald-50 font-semibold shadow" style={{ color: HEADER_GREEN }}>
+            <Button data-tour="run-targets" onClick={onRun} className="bg-white hover:bg-emerald-50 font-semibold shadow" style={{ color: HEADER_GREEN }}>
               <Sparkles className="w-4 h-4 mr-2" /> Run Targets
             </Button>
           ) : done ? (
