@@ -1,0 +1,51 @@
+{
+  "name": "TourAudioClip",
+  "type": "object",
+  "description": "Hawk Voice Guide \u2014 cached ElevenLabs narration MP3s, one per (page_key, text_hash, voice_id). Generated once, replayed for every user so ElevenLabs credits are spent only on first play or script changes.",
+  "properties": {
+    "page_key": {
+      "type": "string",
+      "description": "Tour stop key (route path, e.g. '/dashboard')."
+    },
+    "text_hash": {
+      "type": "string",
+      "description": "Hash of the narration text so edited scripts regenerate audio."
+    },
+    "voice_id": {
+      "type": "string",
+      "description": "ElevenLabs voice id used."
+    },
+    "audio_url": {
+      "type": "string",
+      "description": "Stored MP3 file URL."
+    },
+    "characters": {
+      "type": "number",
+      "description": "Character count billed by ElevenLabs for this clip."
+    }
+  },
+  "required": [
+    "page_key",
+    "text_hash",
+    "voice_id",
+    "audio_url"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

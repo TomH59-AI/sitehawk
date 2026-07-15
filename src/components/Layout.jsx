@@ -5,6 +5,7 @@ import AppFooter from "./AppFooter";
 import AppErrorBoundary from "./AppErrorBoundary";
 import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
+import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
 import { Sun, Moon, ChevronLeft, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack } from "lucide-react";
@@ -267,6 +268,7 @@ export default function Layout() {
       <MobileTabBar />
       <HawkBotWidget />
       <SARFCoachTour />
+      <HawkVoiceGuide />
     </div>
   );
 }
