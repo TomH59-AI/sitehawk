@@ -40,12 +40,6 @@ export const TOUR_STOPS = [
       "Beautiful — look at that. The moment you hit Scan, SiteHawk landed your center coordinates dead-on and drew the half-mile search ring you selected right around them. That ring is your hunting ground — every parcel inside it is now in play. Before we move on, notice the top left corner of the map: those are your view toggles. Flip them on and off to see your search area from every angle — satellite, terrain, parcel lines, you name it. Now that we know exactly where we're hunting, we need to find out what the local ordinance says about telecommunications towers and antennas — the rules of the game before we pick a parcel. Hit Next and let's pull the zoning requirements.",
   },
   {
-    path: "/results",
-    title: "Scan Results",
-    narration:
-      "These are your scan results — every candidate parcel from your searches, scored and ranked. Click any candidate to review its zoning, flood risk, wind design, and buildability. From here you can push a winner into the CRM, send the owner a postcard, or open the full SCIP workflow on it.",
-  },
-  {
     path: "/crm",
     title: "CRM — track every deal",
     narration:
