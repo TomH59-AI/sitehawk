@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NLCD_LAYERS, NLCD_YEARS, nlcdTilesUrl } from "./nlcdLayers";
 import { FIBER_PROVIDER_LAYERS } from "./fiberLayers";
+import ParcelIntelPanel from "./ParcelIntelPanel";
 
 const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css";
 const MAPBOX_JS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js";
@@ -426,6 +427,7 @@ export async function fetchInfrastructureLayer(options) {
 export default function SiteHawkInfrastructureMap({
   mapboxToken,
   layerLoader,
+  parcelIntelLoader,
   initialCenter = DEFAULT_CENTER,
   initialZoom = 6,
   liveRefreshMs = 30000,
@@ -451,6 +453,9 @@ export default function SiteHawkInfrastructureMap({
   const [counts, setCounts] = useState({});
   const [opacity, setOpacity] = useState({});
   const [selected, setSelected] = useState(null);
+  const [intel, setIntel] = useState(null);
+  const intelLoaderRef = useRef(parcelIntelLoader);
+  const intelSeqRef = useRef(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mapStyle, setMapStyle] = useState("dark-v11");
   const [nlcdYear, setNlcdYear] = useState(2025);
@@ -458,6 +463,8 @@ export default function SiteHawkInfrastructureMap({
   const [liveEnabled, setLiveEnabled] = useState(true);
   const [lastSync, setLastSync] = useState(null);
   const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => { intelLoaderRef.current = parcelIntelLoader; }, [parcelIntelLoader]);
 
   const groupedLayers = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -499,7 +506,23 @@ export default function SiteHawkInfrastructureMap({
             `sitehawk-${layer.id}-points`,
           ]).filter((id) => map.getLayer(id));
           const feature = ids.length ? map.queryRenderedFeatures(event.point, { layers: ids })[0] : null;
-          if (feature) setSelected({ ...feature.properties, _coordinates: event.lngLat.toArray() });
+          if (feature) {
+            setIntel(null);
+            setSelected({ ...feature.properties, _coordinates: event.lngLat.toArray() });
+          } else if (intelLoaderRef.current) {
+            // Parcel Intelligence: empty-map click samples every GIS layer at the point
+            const { lng, lat } = event.lngLat;
+            const seq = ++intelSeqRef.current;
+            setSelected(null);
+            setIntel({ loading: true, lat, lon: lng });
+            intelLoaderRef.current({ lat, lon: lng })
+              .then((data) => {
+                if (intelSeqRef.current === seq) setIntel({ loading: false, lat, lon: lng, data });
+              })
+              .catch((error) => {
+                if (intelSeqRef.current === seq) setIntel({ loading: false, lat, lon: lng, error: error.message || String(error) });
+              });
+          }
         });
         map.on("mouseenter", () => { map.getCanvas().style.cursor = "crosshair"; });
         // Splice-point hover tooltip (spec §4)
@@ -788,6 +811,8 @@ export default function SiteHawkInfrastructureMap({
           </div>
         </aside>
       )}
+
+      <ParcelIntelPanel intel={intel} onClose={() => setIntel(null)} />
 
       {selected && (
         <section className="absolute bottom-8 right-4 z-20 w-80 max-w-[calc(100vw-32px)] rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-4 shadow-2xl backdrop-blur-xl">

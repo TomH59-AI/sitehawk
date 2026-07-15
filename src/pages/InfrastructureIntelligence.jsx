@@ -7,6 +7,7 @@ import { carrierFinderInfrastructure } from "@/functions/carrierFinderInfrastruc
 import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
 import { fiberProviderRoutes } from "@/functions/fiberProviderRoutes";
 import { infrastructureMap } from "@/functions/infrastructureMap";
+import { parcelClickIntel } from "@/functions/parcelClickIntel";
 
 const LIVE_DETAIL_LAYERS = new Set(["fiber_splice_points", "transformers", "utility_easements"]);
 const loadInfrastructureLayer = (payload) => LIVE_DETAIL_LAYERS.has(payload.layer)
@@ -20,6 +21,14 @@ const loadInfrastructureLayer = (payload) => LIVE_DETAIL_LAYERS.has(payload.laye
         : payload.layer.startsWith("fiber_")
           ? carrierFinderInfrastructure(payload)
           : hifldTransmissionLines(payload);
+
+// Parcel Intelligence — click an empty map spot to sample zoning, utility,
+// fiber proximity, flood, elevation/slope, soil, and NLCD land cover.
+const loadParcelIntel = async ({ lat, lon }) => {
+  const response = await parcelClickIntel({ lat, lon });
+  if (response?.data?.error) throw new Error(response.data.error);
+  return response.data;
+};
 
 export default function InfrastructureIntelligence() {
   const [params] = useSearchParams();
@@ -49,6 +58,7 @@ export default function InfrastructureIntelligence() {
       initialZoom={candidate ? 11 : 6}
       candidate={candidate}
       layerLoader={loadInfrastructureLayer}
+      parcelIntelLoader={loadParcelIntel}
       onOpen3D={({ center, zoom }) => {
         const params = new URLSearchParams({
           lng: String(center?.lng ?? ""),
