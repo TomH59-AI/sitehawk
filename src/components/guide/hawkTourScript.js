@@ -18,9 +18,9 @@ export const TOUR_STOPS = [
   },
   {
     path: "/search",
-    title: "Site Search — the SCIP pipeline",
+    title: "Site Search — enter your site",
     narration:
-      "This is the heart of SiteHawk. Enter your search ring coordinates, radius, and tower height in Section 1 to generate your SARF map. Section 2 pulls the local zoning and permitting rules automatically. Section 3 scores every parcel in your ring and picks your top three targets. Here's a pro move: use skip-trace on your Target A owner. Skip-trace digs up the owner's real phone numbers and email addresses — the ones that aren't in public records — so you can reach the decision maker directly instead of mailing a dead address. Sections 4 through 8 build your maps, compliance checks, infrastructure and RF coverage. Work top to bottom and the SCIP document builds itself.",
+      "Alright, this is where the magic starts. Let's fill out the Site Parameters form together, top to bottom. First, type your name, then give your ring a name — something like Site A, Tampa I-75 — that one's required. Next, enter your tower height in feet; one-fifty is a solid default. Now here's the easy button: the Address or Parcel ID field is completely optional, but if you have an address, type it in, add the state, and hit Find — SiteHawk pulls the exact coordinates for you automatically. County and State are optional too; they just help sharpen the lookup. Then pick your search radius and your compound size — one hundred by one hundred is the standard carrier ask. If you already know your latitude and longitude, just type them straight in, or hit Use My Location if you're standing on the site. Once your coordinates are locked in, smash that Scan button and watch SiteHawk sweep every parcel in your ring. When the scan finishes, press play on the next page and I'll show you what it found.",
   },
   {
     path: "/results",
