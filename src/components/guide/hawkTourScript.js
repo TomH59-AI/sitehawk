@@ -73,7 +73,16 @@ export const TOUR_STOPS = [
     scrollTo: '[data-tour="map-suite"]',
     autoClick: '[data-tour="map-aerial"] button',
     narration:
-      "Now that Target A is locked in, the map pipeline kicks in — the Hawk Target A Map Suite. This is fourteen maps and data pulls, run one at a time, each button unlocking the next: Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, ROW indicators, Wind Speed, Fiber Optics, Power Grid, and the 2D Viewshed — then the compliance pre-screen, the warranty deed, and a full skip-trace on the owner. To get you rolling, I just pressed the Run Aerial Map button for you — normally you'd click each one yourself as you review it. Work your way down the list, and every map lands in your SCIP document automatically. When you've seen enough, hit Next, press Play, and we'll head to the CRM.",
+      "Now that Target A is locked in, the map pipeline kicks in — the Hawk Target A Map Suite. This is fourteen maps and data pulls, run one at a time, each button unlocking the next: Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, ROW indicators, Wind Speed, Fiber Optics, Power Grid, and the 2D Viewshed — then the compliance pre-screen, the warranty deed, and a full skip-trace on the owner. To get you rolling, I just pressed the Run Aerial Map button for you — normally you'd click each one yourself as you review it. Take a look at that aerial shot of Target A, and when you're ready, hit Next and press Play — I'll fire the next map for you.",
+  },
+  {
+    path: "/search",
+    key: "/search/maps-topo",
+    title: "Topography Map — contours & elevation",
+    scrollTo: '[data-tour="map-topo"]',
+    autoClick: '[data-tour="map-topo"] button',
+    narration:
+      "We're showing off now — I just smashed the Run Topography Map button for you too. Each map in this suite runs one by one, and here comes number two. The topography map draws the contour lines across your ring and gives you the ground elevation in feet A-M-S-L — that's above mean sea level. Why does that matter? Tower height limits, FAA clearances, and your RF line-of-sight all start from that ground elevation number. Study the contours — tight lines mean steep terrain, and steep terrain means expensive site work. From here, keep working your way down the list — FEMA Floodplain, Zoning, Future Land Use, Wetlands, and the rest — each button unlocks the next, and every map lands in your SCIP document automatically. When you've seen enough, hit Next, press Play, and we'll head to the CRM.",
   },
   {
     path: "/crm",

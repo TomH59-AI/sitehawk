@@ -40,14 +40,22 @@ export default function HawkVoiceGuide() {
     return () => clearTimeout(t);
   }, [index, open]);
 
-  // Click the section's action button for the user (e.g. Run Zoning)
+  // Click the section's action button for the user (e.g. Run Zoning).
+  // Polls until the button exists and is enabled — map suite steps unlock
+  // one by one, so the target button may still be locked when we arrive.
   useEffect(() => {
     const selector = TOUR_STOPS[index]?.autoClick;
     if (!selector || !open) return;
-    const t = setTimeout(() => {
-      document.querySelector(selector)?.click();
-    }, 1800);
-    return () => clearTimeout(t);
+    let cancelled = false;
+    let tries = 0;
+    const attempt = () => {
+      if (cancelled) return;
+      const btn = document.querySelector(selector);
+      if (btn && !btn.disabled) { btn.click(); return; }
+      if (++tries < 90) setTimeout(attempt, 1000);
+    };
+    const t = setTimeout(attempt, 1800);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [index, open]);
 
   if (!stop || stop.path !== location.pathname) return null;

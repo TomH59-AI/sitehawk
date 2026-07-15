@@ -623,6 +623,7 @@ export default function Section4MapSuite({
           error={errors.aerial}
         />
         </div>
+        <div data-tour="map-topo">
         <MapSubStep
           index={2} title="Topography Map" runLabel="Run Topography Map"
           spinnerLabel="Generating Target A topography map…"
@@ -630,6 +631,7 @@ export default function Section4MapSuite({
           loading={loadingStep === "topo"} done={!!completed.topo}
           onRun={() => runStep("topo")} mapRef={refs.topo} banner={banners.topo}
         />
+        </div>
         <MapSubStep
           index={3} title="Floodplain (FEMA) Map" runLabel="Run FEMA Map"
           spinnerLabel="Generating Target A FEMA floodplain map…"
