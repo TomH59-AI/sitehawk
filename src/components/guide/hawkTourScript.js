@@ -19,13 +19,15 @@ export const TOUR_STOPS = [
   {
     path: "/search",
     title: "Site Search — enter your site",
+    scrollTo: '[data-coach="sarf-name"]',
     narration:
-      "Alright, this is where the magic starts. Let's fill out the Site Parameters form together, top to bottom. First, type your name, then give your ring a name — something like Site A, Tampa I-75 — that one's required. Next, enter your tower height in feet; one-fifty is a solid default. Now here's the easy button: the Address or Parcel ID field is completely optional, but if you have an address, type it in, add the state, and hit Find — SiteHawk pulls the exact coordinates for you automatically. County and State are optional too; they just help sharpen the lookup. Then pick your search radius and your compound size — one hundred by one hundred is the standard carrier ask. If you already know your latitude and longitude, just type them straight in, or hit Use My Location if you're standing on the site. Once your coordinates are locked in, smash that Scan button and watch SiteHawk sweep every parcel in your ring. When the scan finishes, press play on the next page and I'll show you what it found.",
+      "Alright, this is where the magic starts. Let's fill out the Site Parameters form together, and so you can follow along, I filled it out with my own info. For the name, I typed Tom. The ring name is required — I called mine Samson 75. Tower height: one hundred fifty feet. Now here's the easy button: the Address or Parcel ID field is completely optional — if you have an address, type it in, add the state, and hit Find, and SiteHawk pulls the exact coordinates for you automatically. County and State are optional too; they just sharpen the lookup. Then pick your search radius — I went with the half mile — and your compound size. For coordinates, I entered latitude 29.06452 and longitude negative 82.17241, but you can also hit Use My Location if you're standing on the site. Once your coordinates are locked in, smash that Scan button and watch SiteHawk sweep every parcel in your ring. When the scan finishes, hit Next and I'll walk you through the map.",
   },
   {
     path: "/search",
     key: "/search/sarf-map",
     title: "SARF Map — your search ring",
+    scrollTo: '[data-tour="sarf-map"]',
     narration:
       "Beautiful — look at that. The moment you hit Scan, SiteHawk landed your center coordinates dead-on and drew the half-mile search ring you selected right around them. That ring is your hunting ground — every parcel inside it is now in play. Before we move on, notice the top left corner of the map: those are your view toggles. Flip them on and off to see your search area from every angle — satellite, terrain, parcel lines, you name it. Now that we know exactly where we're hunting, we need to find out what the local ordinance says about telecommunications towers and antennas — the rules of the game before we pick a parcel. Hit Next and let's pull the zoning requirements.",
   },

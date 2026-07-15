@@ -30,6 +30,16 @@ export default function HawkVoiceGuide() {
     return () => stopAudio();
   }, [location.pathname]);
 
+  // Scroll the page to the section this stop is narrating
+  useEffect(() => {
+    const target = TOUR_STOPS[index]?.scrollTo;
+    if (!target || !open) return;
+    const t = setTimeout(() => {
+      document.querySelector(target)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [index, open]);
+
   if (!stop || stop.path !== location.pathname) return null;
 
   const handlePlay = async () => {

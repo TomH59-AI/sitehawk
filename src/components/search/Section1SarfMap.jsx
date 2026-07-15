@@ -345,7 +345,7 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   }
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-border" style={{ minHeight: "600px" }}>
+    <div data-tour="sarf-map" className="relative rounded-xl overflow-hidden border border-border" style={{ minHeight: "600px" }}>
       <div ref={containerRef} className="w-full" style={{ width: "100%", height: "600px" }} />
       <div className="absolute top-3 left-3 z-10 flex items-center gap-2 flex-wrap">
         <div className="flex rounded-lg overflow-hidden border border-white/15 shadow-lg text-[11px] font-semibold">
