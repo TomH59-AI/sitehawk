@@ -270,7 +270,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
         </div>
         <div className="flex items-center gap-2">
           {!active ? (
-            <Button onClick={onRun} className="bg-white text-blue-700 hover:bg-blue-50 font-semibold shadow">
+            <Button data-tour="run-zoning" onClick={onRun} className="bg-white text-blue-700 hover:bg-blue-50 font-semibold shadow">
               <Sparkles className="w-4 h-4 mr-2" /> Run Zoning
             </Button>
           ) : done ? (

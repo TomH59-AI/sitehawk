@@ -40,6 +40,16 @@ export default function HawkVoiceGuide() {
     return () => clearTimeout(t);
   }, [index, open]);
 
+  // Click the section's action button for the user (e.g. Run Zoning)
+  useEffect(() => {
+    const selector = TOUR_STOPS[index]?.autoClick;
+    if (!selector || !open) return;
+    const t = setTimeout(() => {
+      document.querySelector(selector)?.click();
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [index, open]);
+
   if (!stop || stop.path !== location.pathname) return null;
 
   const handlePlay = async () => {

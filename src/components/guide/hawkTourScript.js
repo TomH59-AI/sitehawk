@@ -44,8 +44,9 @@ export const TOUR_STOPS = [
     key: "/search/zoning",
     title: "Zoning — the rules of the game",
     scrollTo: '[data-tour="zoning"]',
+    autoClick: '[data-tour="run-zoning"]',
     narration:
-      "Here's Section Two — Zoning. Hit that Run Zoning button and SiteHawk pulls the local telecommunications ordinance for this exact jurisdiction: the maximum tower height they'll allow, setback rules, fall-zone requirements, separation from residential, whether stealth design is required, and the approval path — administrative review or a full public hearing. This is the stuff that kills deals late when you skip it early. SiteHawk reads the ordinance for you so you know the rules of the game before you ever pick a parcel. Once the zoning report is in, hit Next — because what comes after this is my favorite part.",
+      "Here's Section Two — Zoning. See that white Run Zoning button in the blue banner? Normally you'd click it yourself — but you're riding with me, so I just pressed it for you. Right now SiteHawk is pulling the local telecommunications ordinance for this exact jurisdiction: the maximum tower height they'll allow, setback rules, fall-zone requirements, separation from residential, whether stealth design is required, and the approval path — administrative review or a full public hearing. This is the stuff that kills deals late when you skip it early. SiteHawk reads the ordinance for you so you know the rules of the game before you ever pick a parcel. Once the report fills in below, hit Next — because what comes after this is my favorite part.",
   },
   {
     path: "/search",
