@@ -132,6 +132,12 @@ export default function HawkVoiceGuide() {
     if (playing) return stopAudio();
     setLoading(true);
     setError("");
+    // Create the Audio element synchronously inside the click so the browser
+    // keeps the user-gesture context — otherwise autoplay is blocked (silent)
+    // once we await the backend call below.
+    const audio = new Audio();
+    audioRef.current = audio;
+    audio.onended = () => setPlaying(false);
     try {
       // Bring the section into view first — don't start talking until it's visible.
       if (stop.scrollTo) {
@@ -144,9 +150,8 @@ export default function HawkVoiceGuide() {
         voice_id: GUIDE_VOICE_ID,
       });
       if (res.data?.error) throw new Error(res.data.error);
-      const audio = new Audio(res.data.audio_url);
-      audioRef.current = audio;
-      audio.onended = () => setPlaying(false);
+      if (audioRef.current !== audio) return; // stopped/changed while loading
+      audio.src = res.data.audio_url;
       await audio.play();
       setPlaying(true);
     } catch (e) {
