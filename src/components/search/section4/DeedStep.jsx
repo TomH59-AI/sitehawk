@@ -37,7 +37,7 @@ export default function DeedStep({
 }) {
   if (!unlocked) {
     return (
-      <div className="rounded-xl border border-border bg-muted/40 overflow-hidden opacity-60 select-none">
+      <div data-tour="deed" className="rounded-xl border border-border bg-muted/40 overflow-hidden opacity-60 select-none">
         <div className="px-4 py-3 flex items-center gap-2 text-white/80" style={{ background: "#3f5a54" }}>
           <Lock className="w-4 h-4" />
           <div>
@@ -54,7 +54,7 @@ export default function DeedStep({
   const transfers = Array.isArray(deed?.transfers) ? deed.transfers.slice(0, 8) : [];
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div data-tour="deed" className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap text-white" style={{ background: BRAND_GREEN }}>
         <div className="flex items-center gap-2">
           <ScrollText className="w-5 h-5" />
@@ -65,7 +65,7 @@ export default function DeedStep({
           </div>
         </div>
         {!done ? (
-          <Button onClick={onRun} disabled={loading} className="bg-white hover:bg-emerald-50 font-semibold shadow" style={{ color: BRAND_GREEN }}>
+          <Button data-tour="deed-run" onClick={onRun} disabled={loading} className="bg-white hover:bg-emerald-50 font-semibold shadow" style={{ color: BRAND_GREEN }}>
             <Sparkles className="w-4 h-4 mr-2" /> Run Deed Lookup
           </Button>
         ) : (

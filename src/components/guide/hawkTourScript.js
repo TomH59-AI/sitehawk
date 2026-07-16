@@ -128,6 +128,24 @@ export const TOUR_STOPS = [
       "Welcome to my favorite flex — the Compliance pre-screen. I just pressed the Run Compliance Report button for you. Right now SiteHawk is checking Target A against the eight federal NEPA environmental triggers from 47 CFR 1.1307 — floodplain, wetlands, endangered species habitat, historic districts, residential zoning, hazardous waste sites, and tower lighting for migratory birds — using the data the map suite just collected. No re-typing, no second research pass. In seconds you'll see whether this site qualifies for a Categorical Exclusion or needs a deeper environmental assessment, plus the Section 106 historic-review posture and the 30-day FCC shot clock that governs tribal notification. This is the stuff that stalls projects for months when it's discovered late — SiteHawk surfaces it on day one. Flip any trigger yourself, then generate the full printable compliance report for your file. When you're ready, hit Next and press Play — we're heading to Hawk Docs.",
   },
   {
+    path: "/search",
+    key: "/search/deed",
+    title: "Warranty Deed — proof of ownership",
+    scrollTo: '[data-tour="deed"]',
+    autoClick: '[data-tour="deed-run"]',
+    narration:
+      "Next stop — the Warranty Deed, and I just pressed the Run Deed Lookup button for you. SiteHawk is pulling Target A's deed of record straight from the county data: the deed type, document number, book and page, when the current owner took title, the last sale date and price, and even the legal description. And if there's a chain of title, you'll see every transfer — grantor to grantee, date and price — laid out in a clean table. Why does this matter? Because before you mail a landowner or pick up the phone, you want to be certain you're talking to the person who actually holds title — not a previous owner, not a tenant. This is your proof of ownership, one click, no courthouse trip. And speaking of talking to the owner — hit Next and press Play, because right below this I'm about to find you their phone number.",
+  },
+  {
+    path: "/search",
+    key: "/search/skiptrace",
+    title: "Hawk Skip-Trace — find the owner",
+    scrollTo: '[data-tour="skiptrace"]',
+    autoClick: '[data-tour="skiptrace-run"]',
+    narration:
+      "And now the money step — Hawk Skip-Trace. I just hit the Run Skip-Trace button for you. SiteHawk is sweeping multiple people-search sources — Enformion, Spokeo, and WhitePages — hunting down every phone number and email address on record for Target A's owner. This one takes its time — up to about ninety seconds — because we wait for every source to report back rather than missing a number. When it lands, you'll see the phones ranked freshest-first, with the best number flagged in green, mobile lines tagged, and a source badge on every hit so you know exactly where it came from. Every number is click-to-call and copy-ready. One heads up: if the owner is an LLC, a trust, or a corporation, people-search can't match it — I'll tell you right on screen so you know to look up the registered agent instead. A deed in one hand and a phone number in the other — that's how deals get started. Hit Next and press Play — Hawk Docs is up next.",
+  },
+  {
     path: "/hawk-docs",
     title: "Hawk Docs — upload your documents",
     narration:
