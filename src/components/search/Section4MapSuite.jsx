@@ -131,6 +131,13 @@ export default function Section4MapSuite({
   // static snapshot image — the map stays visible, it just stops being pannable.
   const liveOrder = useRef([]);
   const MAX_LIVE_MAPS = 3;
+  // Snapshot of each map captured the moment it finished rendering (while the
+  // WebGL canvas is guaranteed healthy). Retirement uses THIS image — capturing
+  // at retire time was returning blank frames once the browser evicted the
+  // context, which made earlier maps "close down" by map 14.
+  const snapshots = useRef({});
+
+  const looksBlank = (url) => !url || url.length < 5000; // blank JPEGs encode tiny
 
   const retireOldMaps = useCallback(() => {
     while (liveOrder.current.length > MAX_LIVE_MAPS) {
@@ -139,7 +146,10 @@ export default function Section4MapSuite({
       const container = refs[oldStep]?.current;
       if (m) {
         try {
-          const url = container ? m.getCanvas().toDataURL("image/jpeg", 0.9) : null;
+          // Try a live capture first; fall back to the healthy snapshot taken at load.
+          let url = null;
+          try { url = container ? m.getCanvas().toDataURL("image/jpeg", 0.9) : null; } catch { /* dead context */ }
+          if (looksBlank(url)) url = snapshots.current[oldStep] || url;
           m.remove();
           if (url && container) {
             const img = document.createElement("img");
@@ -397,6 +407,16 @@ export default function Section4MapSuite({
 
       maps.current[step] = map;
       if (map) {
+        // Capture a healthy snapshot as soon as the map fully renders — this is
+        // what retirement falls back to if the live canvas has gone blank.
+        const capture = () => {
+          try {
+            const url = map.getCanvas().toDataURL("image/jpeg", 0.9);
+            if (!looksBlank(url)) snapshots.current[step] = url;
+          } catch { /* capture is best-effort */ }
+        };
+        map.once("idle", capture);
+        setTimeout(capture, 8000); // second pass once tiles have settled
         liveOrder.current.push(step);
         // Retire the oldest live map(s) AFTER this one is up — snapshot happens
         // while the old canvas is still healthy, so nothing ever goes blank.
