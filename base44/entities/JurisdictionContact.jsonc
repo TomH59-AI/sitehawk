@@ -1,0 +1,74 @@
+{
+  "name": "JurisdictionContact",
+  "type": "object",
+  "description": "Department contact for a JurisdictionRegistry record (planning, zoning, building, permitting, etc.).",
+  "properties": {
+    "jurisdiction_id": {
+      "type": "string",
+      "description": "JurisdictionRegistry record id."
+    },
+    "department": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "zoning",
+        "building",
+        "permitting",
+        "engineering",
+        "clerk",
+        "fire",
+        "public_works",
+        "other"
+      ],
+      "default": "planning"
+    },
+    "contact_name": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "website_url": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "verified_on": {
+      "type": "string",
+      "format": "date"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "jurisdiction_id",
+    "department"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

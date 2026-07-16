@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ScanLine, Scale, GitCompareArrows } from "lucide-react";
+import { ScanLine, Scale, GitCompareArrows, Landmark } from "lucide-react";
 import PermitApplications from "../components/hawkdoc/PermitApplications";
+import JurisdictionResourceManager from "../components/jurisdiction/JurisdictionResourceManager";
 import LeaseAnalysis from "../components/hawklaw/LeaseAnalysis";
 import RedlineCounter from "../components/hawklaw/redline/RedlineCounter";
 import HawkLawDisclaimerBanner from "../components/hawklaw/HawkLawDisclaimerBanner";
@@ -52,6 +53,7 @@ export default function HawkDocs() {
           <TabsTrigger value="permits"><ScanLine className="w-4 h-4 mr-1.5" /> Permit Applications</TabsTrigger>
           <TabsTrigger value="lease"><Scale className="w-4 h-4 mr-1.5" /> Lease Analysis</TabsTrigger>
           <TabsTrigger value="redline"><GitCompareArrows className="w-4 h-4 mr-1.5" /> Redline Counter</TabsTrigger>
+          <TabsTrigger value="jurisdictions"><Landmark className="w-4 h-4 mr-1.5" /> Jurisdictions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="permits"><div id="hawkdocs-permits"><PermitApplications formImport={formImport} /></div></TabsContent>
@@ -64,6 +66,10 @@ export default function HawkDocs() {
         <TabsContent value="redline">
           <HawkLawDisclaimerBanner />
           <RedlineCounter />
+        </TabsContent>
+
+        <TabsContent value="jurisdictions">
+          <JurisdictionResourceManager />
         </TabsContent>
       </Tabs>
     </div>

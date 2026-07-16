@@ -1,0 +1,100 @@
+{
+  "name": "JurisdictionResource",
+  "type": "object",
+  "description": "One verified link/resource belonging to a JurisdictionRegistry record (zoning ordinance, permit portal, GIS map, etc.). A broken or unverified link must NEVER be presented as official/verified. URLs are never fabricated \u2014 blank until a human verifies them.",
+  "properties": {
+    "jurisdiction_id": {
+      "type": "string",
+      "description": "JurisdictionRegistry record id this resource belongs to."
+    },
+    "resource_type": {
+      "type": "string",
+      "enum": [
+        "zoning_ordinance",
+        "zoning_map",
+        "parcel_gis",
+        "wireless_telecom_ordinance",
+        "planning_department",
+        "building_department",
+        "permit_portal",
+        "permit_search",
+        "planning_application",
+        "building_permit_forms",
+        "conditional_use_or_special_use",
+        "fee_schedule",
+        "public_hearing_process",
+        "contact_page",
+        "other"
+      ],
+      "description": "What this link points to."
+    },
+    "title": {
+      "type": "string",
+      "description": "Display title, e.g. 'Rockledge LDR Chapter 62'."
+    },
+    "url": {
+      "type": "string",
+      "description": "The original source URL. Blank until verified \u2014 never invented."
+    },
+    "source_platform": {
+      "type": "string",
+      "description": "Where the link lives: Municode, eCode360, American Legal, Accela, Citizenserve, Tyler EnerGov, official jurisdiction website, ArcGIS, etc."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "verified",
+        "needs_review",
+        "broken",
+        "unavailable"
+      ],
+      "default": "needs_review",
+      "description": "Data-quality status. Only 'verified' links are presented as official."
+    },
+    "verified_on": {
+      "type": "string",
+      "format": "date",
+      "description": "Date a human last verified this URL."
+    },
+    "last_checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last time the link was checked (manual or automated)."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Verification/provenance notes."
+    },
+    "priority": {
+      "type": "number",
+      "default": 0,
+      "description": "Sort priority within its type (lower shows first)."
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "jurisdiction_id",
+    "resource_type"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

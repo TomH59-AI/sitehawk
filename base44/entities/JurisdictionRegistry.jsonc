@@ -1,0 +1,72 @@
+{
+  "name": "JurisdictionRegistry",
+  "type": "object",
+  "description": "Jurisdiction Resource Registry \u2014 one record per governing local jurisdiction (city, county, township, etc.). App-wide shared reference data serving every SCIP in that jurisdiction. Linked resources live in JurisdictionResource; contacts in JurisdictionContact. Separate from the legacy Jurisdiction (ordinance-rules) entity.",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Jurisdiction name, e.g. 'City of Rockledge' or 'Brevard County'."
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase state code, e.g. FL."
+    },
+    "county": {
+      "type": "string",
+      "description": "County name (without the word 'County'), e.g. 'Brevard'."
+    },
+    "jurisdiction_type": {
+      "type": "string",
+      "enum": [
+        "municipality",
+        "county",
+        "township",
+        "village",
+        "city",
+        "unincorporated_county",
+        "special_district"
+      ],
+      "default": "municipality",
+      "description": "Type of governing body."
+    },
+    "fips_code": {
+      "type": "string",
+      "description": "Optional FIPS place/county code for automated matching."
+    },
+    "official_website_url": {
+      "type": "string",
+      "description": "Official government website URL. Never fabricated \u2014 blank until verified."
+    },
+    "boundary_reference": {
+      "type": "string",
+      "description": "Optional boundary reference (GIS layer URL / GeoJSON file URL) for automated jurisdiction matching."
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "Inactive records are hidden from matching and SCIP cards."
+    }
+  },
+  "required": [
+    "name",
+    "state"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

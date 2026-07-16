@@ -304,6 +304,37 @@
       "default": false,
       "description": "Toggle \u2014 'Sync snapshot summaries to Notion'. When true, DataSourceSnapshot creates/refreshes are optionally mirrored to a human-readable Notion audit database. Notion is a review mirror only; Base44 remains the source of truth and sync failures never block SCIP work."
     },
+    "governing_jurisdiction_id": {
+      "type": "string",
+      "description": "JurisdictionRegistry id of the primary governing local jurisdiction matched to this SCIP."
+    },
+    "zoning_jurisdiction_id": {
+      "type": "string",
+      "description": "JurisdictionRegistry id of the jurisdiction controlling ZONING (may equal governing_jurisdiction_id)."
+    },
+    "permitting_jurisdiction_id": {
+      "type": "string",
+      "description": "JurisdictionRegistry id of the jurisdiction controlling BUILDING PERMITS \u2014 kept separate because a municipality may control zoning while the county controls permits."
+    },
+    "jurisdiction_match_confidence": {
+      "type": "number",
+      "description": "0-100 confidence of the parcel-to-jurisdiction match."
+    },
+    "jurisdiction_match_method": {
+      "type": "string",
+      "enum": [
+        "parcel_data",
+        "GIS_boundary",
+        "geocoding",
+        "manual_selection"
+      ],
+      "description": "How the jurisdiction was matched."
+    },
+    "jurisdiction_review_required": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the match was manual or low-confidence \u2014 flagged for admin review in the Jurisdiction Resource Manager."
+    },
     "status": {
       "type": "string",
       "enum": [

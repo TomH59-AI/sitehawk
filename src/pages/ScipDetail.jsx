@@ -21,6 +21,7 @@ import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
 import PrintSiteHawkScipButton from "../components/scip/PrintSiteHawkScipButton";
 import RunFullScipButton from "../components/scip/RunFullScipButton";
 import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
+import JurisdictionPermitsCard from "../components/jurisdiction/JurisdictionPermitsCard";
 
 // Thin, self-contained print row placed above each on-screen SCIP panel. Lets a
 // user print the ENTIRE branded SCIP from wherever they're reviewing — without
@@ -171,6 +172,11 @@ export default function ScipDetail() {
         {/* Optional Notion review-mirror toggle for data-source snapshots (not printed) */}
         <div className="mb-5 no-print">
           <NotionSyncToggle record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* Jurisdiction & Permits — verified registry links for this site (not printed) */}
+        <div className="mb-5 no-print">
+          <JurisdictionPermitsCard record={record} onUpdate={setRecord} />
         </div>
 
         {/* Section 1 — interactive parcel targeting (Target A/B/C) (not printed) */}
