@@ -402,7 +402,7 @@ async function fetchNWI(geo) {
     type: "FeatureCollection",
     features: data.features.map((f) => ({
       ...f,
-      properties: { ...f.properties, fill: "#10b981", "fill-opacity": 0.5, stroke: "#047857", "stroke-width": 1 },
+      properties: { ...f.properties, fill: "#d4a017", "fill-opacity": 0.5, stroke: "#8a6d0b", "stroke-width": 1 },
     })),
   };
   return { ok: true, geojson: styled, data_source: "fws_nwi" };
