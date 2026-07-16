@@ -166,6 +166,34 @@ async function cachePut(base44, key, mode, payload, parcelCount) {
   });
 }
 
+// ── USAGE COUNTER ────────────────────────────────────────────────────────────
+// Increment the global + per-user daily Regrid counter ONLY on a live fetch
+// (cache hits stay free and are not counted). `parcelsBilled` = parcel records
+// returned by this live pull, which is what Regrid bills against.
+async function bumpUsage(base44, userEmail, parcelsBilled) {
+  const date = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+  const inc = Math.max(1, Number(parcelsBilled) || 0);
+  for (const scope of ["global", "user"]) {
+    const q = scope === "global"
+      ? { scope: "global", date }
+      : { scope: "user", date, user_email: userEmail };
+    try {
+      const rows = await base44.asServiceRole.entities.RegridUsage.filter(q, "-date", 1);
+      if (rows?.[0]) {
+        await base44.asServiceRole.entities.RegridUsage.update(rows[0].id, {
+          count: (Number(rows[0].count) || 0) + inc,
+        });
+      } else {
+        await base44.asServiceRole.entities.RegridUsage.create({
+          date, scope, user_email: scope === "user" ? userEmail : null, count: inc,
+        });
+      }
+    } catch (e) {
+      console.warn(`[regridParcelRing] usage bump failed (${scope}):`, e.message);
+    }
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -220,6 +248,7 @@ Deno.serve(async (req) => {
       console.log(`[regridParcelRing/point] zoning=${target?.zoning} flu=${target?.land_use}`);
       const payload = { ok: true, parcel: target, parcels };
       try { await cachePut(base44, key, "point", payload, parcels.length); } catch (e) { console.warn("[regridParcelRing] cache write failed:", e.message); }
+      await bumpUsage(base44, user.email, parcels.length);
       return Response.json(payload);
     }
 
@@ -275,6 +304,7 @@ Deno.serve(async (req) => {
       },
     };
     try { await cachePut(base44, key, "ring", payload, parcels.length); } catch (e) { console.warn("[regridParcelRing] cache write failed:", e.message); }
+    await bumpUsage(base44, user.email, parcels.length);
     return Response.json(payload);
   } catch (err) {
     console.error("[regridParcelRing] error:", err.message);
