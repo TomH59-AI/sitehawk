@@ -481,12 +481,8 @@ export default function Photo3DViewer() {
         </div>
       )}
 
-      {/* Non-fatal tile warning */}
-      {tilesError && cesiumStatus !== "error_upgrade" && cesiumStatus !== "error_quota" && (
-        <div className="px-4 py-1.5 bg-yellow-900/20 border-b border-yellow-500/20 text-[11px] text-yellow-300 text-center">
-          ⚠ Tiles: {tilesError}
-        </div>
-      )}
+      {/* Non-fatal tile warning intentionally hidden — the viewer falls back
+          to Cesium Ion imagery silently instead of surfacing a Google error. */}
 
       {/* Body */}
       <div className="flex flex-1 min-h-0">
