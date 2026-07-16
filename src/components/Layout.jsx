@@ -145,9 +145,11 @@ export default function Layout() {
                   <item.icon className="w-4 h-4" />
                   {item.label}
                 </Link>
-                {/* On Site Search, mirror the live pipeline right under the menu item */}
+                {/* On Site Search, mirror the live pipeline right under the menu item.
+                    Kept compact + independently scrollable so it never pushes the
+                    rest of the main menu (Time Savers → Pricing) below the fold. */}
                 {item.path === "/search" && location.pathname === "/search" && (
-                  <div className="mt-1 mb-1 max-h-40 overflow-y-auto sidebar-scroll">
+                  <div className="mt-1 mb-1 max-h-28 overflow-y-auto sidebar-scroll shrink-0">
                     <PipelineSidebarNav />
                   </div>
                 )}
