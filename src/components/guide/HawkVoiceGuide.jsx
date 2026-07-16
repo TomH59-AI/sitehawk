@@ -100,21 +100,30 @@ export default function HawkVoiceGuide() {
   useEffect(() => {
     const seq = TOUR_STOPS[index]?.autoScrollSequence;
     if (!seq || !open || !playing) return;
-    let cancelled = false;
-    // Scale the script's relative dwell weights to the ACTUAL narration length
-    // so the scroll stays in lockstep with the voice for every map.
+    const audio = audioRef.current;
+    if (!audio) return;
+    // Drive the scroll off the audio's ACTUAL playback position (timeupdate),
+    // not timers — so whatever map the narrator is describing is always the one
+    // on screen, even if playback stalls, buffers, or the clip length shifts.
     const totalWeight = seq.reduce((s, e) => s + (e.dwellMs || 12000), 0);
-    const audioDur = audioRef.current?.duration;
-    const factor = Number.isFinite(audioDur) && audioDur > 0 ? (audioDur * 1000) / totalWeight : 1;
-    let i = 0;
-    const step = () => {
-      if (cancelled || i >= seq.length) return;
-      const { selector, dwellMs = 12000 } = seq[i++];
-      document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      setTimeout(step, dwellMs * factor);
+    const bounds = [];
+    let acc = 0;
+    for (const e of seq) { bounds.push(acc / totalWeight); acc += (e.dwellMs || 12000); }
+    let current = -1;
+    const onTime = () => {
+      const dur = audio.duration;
+      if (!Number.isFinite(dur) || dur <= 0) return;
+      const frac = audio.currentTime / dur;
+      let i = 0;
+      while (i < bounds.length - 1 && frac >= bounds[i + 1]) i++;
+      if (i !== current) {
+        current = i;
+        document.querySelector(seq[i].selector)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
     };
-    step();
-    return () => { cancelled = true; };
+    audio.addEventListener("timeupdate", onTime);
+    onTime();
+    return () => audio.removeEventListener("timeupdate", onTime);
   }, [index, open, playing]);
 
   if (!stop || stop.path !== location.pathname) return null;
