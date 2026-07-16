@@ -28,6 +28,7 @@ import SiterControls from "../components/towersiter/SiterControls";
 import ComplianceChips from "../components/towersiter/ComplianceChips";
 import RuleCard from "../components/towersiter/RuleCard";
 import ExhibitA from "../components/towersiter/ExhibitA";
+import ExportHawkProButton from "../components/towersiter/ExportHawkProButton";
 import SiterMap from "../components/towersiter/SiterMap";
 import UpgradeModal from "../components/towersiter/UpgradeModal";
 import SitingDeepDive from "../components/towersiter/SitingDeepDive";
@@ -516,6 +517,8 @@ export default function TowerSiter() {
                 disabled={savingRun}>
                 <Save className="w-3.5 h-3.5 mr-1" /> {savingRun ? "Saving…" : "Save Run"}
               </Button>
+              {/* TURTLE UP: ships dark behind HAWKPRO_EXPORT flag (renders null until approved) */}
+              <ExportHawkProButton parcel={parcel} result={result} controls={controls} rules={rules} />
               <Generate3DImageButton result={result} runId={savedRunId} controls={controls} parcel={parcel} />
               <GeneratePhoto3DButton
                 result={result}
