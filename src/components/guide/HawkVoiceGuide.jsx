@@ -101,12 +101,17 @@ export default function HawkVoiceGuide() {
     const seq = TOUR_STOPS[index]?.autoScrollSequence;
     if (!seq || !open || !playing) return;
     let cancelled = false;
+    // Scale the script's relative dwell weights to the ACTUAL narration length
+    // so the scroll stays in lockstep with the voice for every map.
+    const totalWeight = seq.reduce((s, e) => s + (e.dwellMs || 12000), 0);
+    const audioDur = audioRef.current?.duration;
+    const factor = Number.isFinite(audioDur) && audioDur > 0 ? (audioDur * 1000) / totalWeight : 1;
     let i = 0;
     const step = () => {
       if (cancelled || i >= seq.length) return;
       const { selector, dwellMs = 12000 } = seq[i++];
       document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      setTimeout(step, dwellMs);
+      setTimeout(step, dwellMs * factor);
     };
     step();
     return () => { cancelled = true; };

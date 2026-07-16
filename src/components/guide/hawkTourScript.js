@@ -99,21 +99,24 @@ export const TOUR_STOPS = [
     scrollTo: '[data-tour="map-aerial"]',
     // Timed scroll-down: once narration starts, the guide scrolls from map to
     // map on this schedule (ms per map) while the narrator explains each one.
+    // dwellMs values are RELATIVE weights sized to each map's narration word
+    // count — HawkVoiceGuide scales the whole schedule to the real audio
+    // duration, so the scroll stays locked to the voice top to bottom.
     autoScrollSequence: [
-      { selector: '[data-tour="map-aerial"]', dwellMs: 24000 },
-      { selector: '[data-tour="map-topo"]', dwellMs: 12000 },
-      { selector: '[data-tour="map-fema"]', dwellMs: 14000 },
-      { selector: '[data-tour="map-zoning"]', dwellMs: 10000 },
-      { selector: '[data-tour="map-flum"]', dwellMs: 15000 },
-      { selector: '[data-tour="map-wetlands"]', dwellMs: 14000 },
-      { selector: '[data-tour="map-airport"]', dwellMs: 15000 },
-      { selector: '[data-tour="map-celltower"]', dwellMs: 14000 },
+      { selector: '[data-tour="map-aerial"]', dwellMs: 31000 },
+      { selector: '[data-tour="map-topo"]', dwellMs: 10000 },
+      { selector: '[data-tour="map-fema"]', dwellMs: 11000 },
+      { selector: '[data-tour="map-zoning"]', dwellMs: 8000 },
+      { selector: '[data-tour="map-flum"]', dwellMs: 13000 },
+      { selector: '[data-tour="map-wetlands"]', dwellMs: 12000 },
+      { selector: '[data-tour="map-airport"]', dwellMs: 12000 },
+      { selector: '[data-tour="map-celltower"]', dwellMs: 11000 },
       { selector: '[data-tour="map-parcel"]', dwellMs: 11000 },
-      { selector: '[data-tour="map-row"]', dwellMs: 12000 },
-      { selector: '[data-tour="map-wind"]', dwellMs: 14000 },
-      { selector: '[data-tour="map-fiber"]', dwellMs: 9000 },
-      { selector: '[data-tour="map-power"]', dwellMs: 14000 },
-      { selector: '[data-tour="map-viewshed"]', dwellMs: 20000 },
+      { selector: '[data-tour="map-row"]', dwellMs: 10000 },
+      { selector: '[data-tour="map-wind"]', dwellMs: 12000 },
+      { selector: '[data-tour="map-fiber"]', dwellMs: 8000 },
+      { selector: '[data-tour="map-power"]', dwellMs: 11000 },
+      { selector: '[data-tour="map-viewshed"]', dwellMs: 24000 },
     ],
     narration:
       "Beautiful — all fourteen maps are open on the page. Now let's walk them together, top to bottom. I'll do the scrolling — you just watch, and feel free to hit Stop any time you want to linger on one. First, the Aerial Map — a crisp satellite look at Target A and everything around it. It's the first thing an owner, a planner, and a carrier all want to see: what's really on the ground. Next up, Topography — contour lines and ground elevation. Steep terrain means expensive site work for the owner and drainage questions for the jurisdiction. Now FEMA Floodplain — flood zones straight from FEMA. Flood risk drives engineering, insurance, and whether the community's emergency planners will ever be comfortable with the compound. Then the Zoning Map — the parcel's zoning district drawn right on the map, the jurisdiction's own rulebook made visible. Next, Future Land Use — the community's long-range plan. It tells you whether this area stays rural or transitions toward homes, which matters enormously to the neighbors and the planning board alike. Now the Wetlands Map — mapped wetland areas around the parcel. Wetlands protect the community's water and wildlife, and finding them now saves the owner from a permitting nightmare later. Next, the Nearest Airport — straight-line distance to the closest airfield. That's your early FAA signal: height limits and lighting requirements that matter to pilots and the whole community's airspace. Then the Nearest Cell Tower — existing infrastructure, ownership, and distance. Carriers care deeply about separation and coverage gaps, and jurisdictions often require this in the application. Map nine, the Parcel Map — the exact legal boundary of Target A with the premium parcel details. This is the owner's land, drawn to the inch. Next, Right of Way and parcel indicators — road access, frontage, and the practical route into the compound. No access road, no tower — simple as that. Now Wind Speed — the design wind criteria for this exact spot. This drives the structural engineering that keeps the tower standing through the worst storm the community will ever see. Then Fiber Optics — nearby lit buildings and backhaul routes. Without fiber, the carrier's signal has nowhere to go. Next, the Power Grid — the serving utility, substations, and transmission lines. Every tower needs reliable power, and the tie-in distance goes straight into the carrier's budget. And finally — my personal favorite, the 2D Viewshed. North, south, east, and west line-of-sight profiles from your proposed tower height, showing exactly where terrain or tree lines block the signal. This is the map that tells the carrier what this site will really do. And that's the full suite — fourteen answers for the owner, the community, the jurisdiction, and the carrier, generated in minutes instead of weeks. Hit Next and press Play — the Compliance pre-screen is up next, and trust me, it's the coolest thing in this whole pipeline.",
