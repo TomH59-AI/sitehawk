@@ -12,4 +12,4 @@ export const FEATURE_TOWER_SITER = true;
 // HAWKPRO_EXPORT — "Export HawkPro Package (.zip)" on Tower Siter. TURTLE UP:
 // ships DARK (button renders nothing while false). Flip to true ONLY after
 // Tom's explicit approval to expose the export in production.
-export const HAWKPRO_EXPORT = false;
+export const HAWKPRO_EXPORT = true;

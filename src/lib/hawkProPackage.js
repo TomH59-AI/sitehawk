@@ -129,6 +129,21 @@ export function buildHawkProLayers({ parcelGeoJSON, towerLonLat, heightFt, bpFra
 
   const { pct: fallPct, source: fallSource } = resolveFallPct(rules, H);
 
+  // ── BREAKPOINT GATE ──────────────────────────────────────────────────────
+  // The (1 − BP_FRAC) engineered fall-zone reduction may only be applied when
+  // the ordinance permits it (PE letter). We never present a reduced envelope
+  // as ordinance-derived unless we can confirm the jurisdiction allows it.
+  const peAllowed = rules?._raw?.pe_fall_zone_allowed;
+  //   true  → allowed. false → forbidden (omit). null/undefined → unknown.
+  const bpForbidden = peAllowed === false;
+  const bpUnknown = peAllowed == null && fallSource !== "default";
+  // When fallSource === "default" there's no ordinance to violate — build as-is.
+  const bpSource = bpForbidden
+    ? "omitted — ordinance does not permit engineered fall-zone reduction"
+    : bpUnknown
+      ? "model — VERIFY ordinance permits engineered fall-zone reduction (PE letter)"
+      : fallSource; // "ordinance-derived" or "default"
+
   // Distances (all feet)
   const dNonBp = fallPct * H;              // 1.10 × H  (or ordinance-derived)
   const dBp = fallPct * H * (1 - BP);      // 1.10 × H × (1 − BP_FRAC)
@@ -138,31 +153,43 @@ export function buildHawkProLayers({ parcelGeoJSON, towerLonLat, heightFt, bpFra
   const withProps = (geom, name, distanceFt, extra = {}) =>
     geom ? feature(geom, { name, distance_ft: Math.round(distanceFt * 100) / 100, ...extra }) : null;
 
+  // Breakpoint layers are only built when NOT forbidden by the ordinance.
+  const envBpGeom = bpForbidden ? null : inwardBuffer(parcelFeat, dBp);
+  const fallBpGeom = bpForbidden ? null : circleFt(towerLonLat, dBp);
+  const envNonBpGeom = inwardBuffer(parcelFeat, dNonBp);
+
   const layers = {
     parcel: feature(parcelFeat.geometry, { name: "parcel", distance_ft: 0 }),
-    envelope_breakpoint: withProps(inwardBuffer(parcelFeat, dBp), "envelope_breakpoint", dBp),
-    envelope_nonbreakpoint: withProps(inwardBuffer(parcelFeat, dNonBp), "envelope_nonbreakpoint", dNonBp),
-    fall_radius_bp: withProps(circleFt(towerLonLat, dBp), "fall_radius_bp", dBp),
+    envelope_breakpoint: withProps(envBpGeom, "envelope_breakpoint", dBp),
+    envelope_nonbreakpoint: withProps(envNonBpGeom, "envelope_nonbreakpoint", dNonBp),
+    fall_radius_bp: withProps(fallBpGeom, "fall_radius_bp", dBp),
     ring_nonbp: withProps(circleFt(towerLonLat, dNonBp), "ring_nonbp", dNonBp),
     ring_residential_2xH: withProps(circleFt(towerLonLat, dResidential), "ring_residential_2xH", dResidential),
     compound: withProps(squareFt(towerLonLat, compSide), "compound", compSide),
     tower: feature({ type: "Point", coordinates: [towerLonLat[0], towerLonLat[1]] }, { name: "tower", height_ft: H }),
   };
 
-  // Per-layer manifest for the README — distance + provenance.
-  const ordinanceOrDefault = fallSource; // fall-zone-derived layers share this source
+  // Collapsed = an inward buffer that couldn't fit (parcel smaller than setback).
+  // Only meaningful for the two inward-buffered envelope layers.
+  const COLLAPSED = "COLLAPSED — parcel is smaller than this setback (does not fit under this rule)";
+
+  const ordinanceOrDefault = fallSource; // ring/envelope non-BP layers share this source
   const manifest = [
     { stem: "parcel", distance_ft: null, source: "Realie parcel boundary", note: "Loaded parcel polygon" },
-    { stem: "envelope_breakpoint", distance_ft: dBp, source: ordinanceOrDefault, note: `parcel buffered inward by ${fallPct.toFixed(2)} × H × (1 − ${BP})` },
-    { stem: "envelope_nonbreakpoint", distance_ft: dNonBp, source: ordinanceOrDefault, note: `parcel buffered inward by ${fallPct.toFixed(2)} × H` },
-    { stem: "fall_radius_bp", distance_ft: dBp, source: ordinanceOrDefault, note: `circle at tower, radius ${fallPct.toFixed(2)} × H × (1 − ${BP})` },
+    bpForbidden
+      ? { stem: "envelope_breakpoint", distance_ft: dBp, source: bpSource, note: "not exported" }
+      : { stem: "envelope_breakpoint", distance_ft: dBp, source: envBpGeom ? bpSource : COLLAPSED, note: `parcel buffered inward by ${fallPct.toFixed(2)} × H × (1 − ${BP})` },
+    { stem: "envelope_nonbreakpoint", distance_ft: dNonBp, source: envNonBpGeom ? ordinanceOrDefault : COLLAPSED, note: `parcel buffered inward by ${fallPct.toFixed(2)} × H` },
+    bpForbidden
+      ? { stem: "fall_radius_bp", distance_ft: dBp, source: bpSource, note: "not exported" }
+      : { stem: "fall_radius_bp", distance_ft: dBp, source: bpSource, note: `circle at tower, radius ${fallPct.toFixed(2)} × H × (1 − ${BP})` },
     { stem: "ring_nonbp", distance_ft: dNonBp, source: ordinanceOrDefault, note: `circle at tower, radius ${fallPct.toFixed(2)} × H` },
     { stem: "ring_residential_2xH", distance_ft: dResidential, source: "default", note: "circle at tower, radius 2 × H" },
     { stem: "compound", distance_ft: compSide, source: "default (Siter compound setting)", note: "square centered on tower" },
     { stem: "tower", distance_ft: null, source: "user-placed point", note: `height_ft = ${H}` },
   ];
 
-  return { layers, manifest, meta: { H, BP, fallPct, fallSource, compSide } };
+  return { layers, manifest, meta: { H, BP, fallPct, fallSource, compSide, peAllowed: peAllowed ?? null } };
 }
 
 /**
