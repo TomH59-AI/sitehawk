@@ -8,9 +8,9 @@
 //    to fall back to the per-user 3-day clock).
 // ============================================================
 
-export const DEMO_CAMPAIGN_ENDS_AT = "2026-07-10T00:00:00-04:00"; // CAMPAIGN ENDED — promo access shut off
+export const DEMO_CAMPAIGN_ENDS_AT = "2026-07-19T00:00:00-04:00"; // 3-DAY OPEN TRIAL — everyone rides free through Sat July 18
 
-export const DEMO_CAMPAIGN_ENDS_LABEL = "Friday July 10";
+export const DEMO_CAMPAIGN_ENDS_LABEL = "Saturday July 18";
 
 export function isDemoCampaignOver() {
   if (!DEMO_CAMPAIGN_ENDS_AT) return false;

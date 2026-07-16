@@ -448,9 +448,15 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'lat and lon required' }, { status: 400 });
     }
 
+    // ── OPEN TRIAL WINDOW — everyone rides free until this cutoff ─────────────
+    // Matches src/lib/demoCampaign.js. After the cutoff, normal quotas resume.
+    const OPEN_TRIAL_ENDS_AT = '2026-07-19T00:00:00-04:00';
+    const openTrialActive = Date.now() < new Date(OPEN_TRIAL_ENDS_AT).getTime();
+    if (openTrialActive) console.log(`[OPEN TRIAL] gate bypassed for user=${user.email}`);
+
     // ── HAWKSCIP QUOTA GATE — runs BEFORE any paid Zoneomics/Realie call ──────
     // Admins bypass entirely. Demo users get 5 days from first SCIP. Others gated by tier.
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && !openTrialActive) {
       const siteKey = siteKeyFor(lat, lon);
       const existing = await base44.asServiceRole.entities.HawkScipSpend.filter({ user_email: user.email, site_key: siteKey });
       const alreadySpentHere = existing.length > 0;
