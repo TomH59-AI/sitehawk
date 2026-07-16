@@ -400,8 +400,11 @@ Deno.serve(async (req) => {
         reasons.push(zs.reason);
       }
 
-      // 3. Lot size scoring — NO hard disqualification by acreage.
-      //    The geometry engine (polylabel) makes the final call. We only score.
+      // 3. Lot size scoring — parcels that cannot contain the fall zone even
+      //    WITH PE/CUP relief are flagged too_small and always rank BELOW any
+      //    parcel that fits. They are never chosen as Target A while a fitting
+      //    parcel exists in the ring.
+      let tooSmall = false;
       if (acreage > 0 && !hardDisqualified) {
         const estR = estimatedInscriedCircleRadius(acreage);
         if (estR >= minInscriedR * 1.5) {
@@ -414,13 +417,13 @@ Deno.serve(async (req) => {
           score -= 10;
           reasons.push(`Lot (${acreage.toFixed(2)} ac) — tight without relief; feasible with ${reliefLabel} (reduced fall zone ${Math.round(reliefFall)} ft)`);
         } else if (acreage >= absoluteMinAcres * 0.5) {
-          // Small but not impossibly so — the parcel shape may work even if acreage is tight.
+          tooSmall = true;
           score -= 20;
-          reasons.push(`Lot (${acreage.toFixed(2)} ac) tight — verify parcel shape; solver will attempt placement`);
+          reasons.unshift(`⚠ DOES NOT FIT: lot (${acreage.toFixed(2)} ac) cannot contain the ${Math.round(reliefFall)} ft fall zone even with relief — do not pursue without engineering relief`);
         } else {
-          // Very small — strongly penalize but do NOT disqualify. User can manually try.
+          tooSmall = true;
           score -= 35;
-          reasons.push(`Lot (${acreage.toFixed(2)} ac) very small — likely needs PE letter + reduced fall zone`);
+          reasons.unshift(`⚠ DOES NOT FIT: lot (${acreage.toFixed(2)} ac) far too small for the ${Math.round(reliefFall)} ft fall zone — do not pursue`);
         }
       } else if (!hardDisqualified) {
         reasons.push("Lot size unknown — solver will attempt placement; verify dimensions");
@@ -442,6 +445,7 @@ Deno.serve(async (req) => {
 
       scored.push({
         raw: p,
+        too_small: tooSmall,
         hardDisqualified,
         needs_zoning_resolve: needsZoningResolve,
         flood_excluded: false, // set after FEMA
@@ -499,6 +503,9 @@ Deno.serve(async (req) => {
       return 4; // unknown/other — always retained for CUP review
     };
     const rankCmp = (a, b) => {
+      // 0. FITS FIRST — a parcel that cannot contain the fall zone NEVER
+      //    outranks one that can, regardless of zoning or score.
+      if (!!a.too_small !== !!b.too_small) return a.too_small ? 1 : -1;
       // 1. Dry first
       if (!!a.flood_excluded !== !!b.flood_excluded) return a.flood_excluded ? 1 : -1;
       // 2. Zoning tier (lower = better)
@@ -605,6 +612,7 @@ Deno.serve(async (req) => {
       return {
         label: labels[i],
         ...clean,
+        buildable_estimate: !t.too_small,
         zoning_classification: zone || null,
         zoning_status: zStatus,
         zoning_unverified: zStatus === "unverified",
@@ -633,6 +641,9 @@ Deno.serve(async (req) => {
       min_buildable_acres: Number(absoluteMinAcres.toFixed(3)),
       returned_count: targets.length,
       flood_only: dryCount === 0,
+      fit_warning: targets[0] && targets[0].buildable_estimate === false
+        ? "No parcel in this ring is estimated to fit the tower fall zone — Target A is shown for reference only. Widen the SARF radius or reduce tower height."
+        : null,
       targets,
       alternates,
     });

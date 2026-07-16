@@ -126,6 +126,8 @@ export default function Section3Targets({
   const [done, setDone] = useState(false);
   const [noData, setNoData] = useState(false);
   const [scanStats, setScanStats] = useState(null); // {scanned, required_acres} from scipBestParcels
+  // Ring-level fall-zone fit warning from scipBestParcels — shown as a red banner.
+  const [fitWarning, setFitWarning] = useState(null);
   // Per-column cascade results + loading flags for the Phone row.
   const [phoneResults, setPhoneResults] = useState([null, null, null]);
   const [phoneLoading, setPhoneLoading] = useState([false, false, false]);
@@ -316,6 +318,7 @@ export default function Section3Targets({
         setback: z?.setback ?? null,
       });
       const found = res.data?.targets || [];
+      setFitWarning(res.data?.fit_warning || null);
       setAlternates(res.data?.alternates || []);
       setScanStats({
         scanned: res.data?.count_in_ring ?? res.data?.count_scanned ?? 0,
@@ -518,6 +521,11 @@ export default function Section3Targets({
               )}
             </div>
           )}
+          {fitWarning && (
+            <div className="mx-4 mb-3 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm font-semibold text-red-800 dark:text-red-200">
+              ⚠ FALL-ZONE FIT WARNING: {fitWarning}
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm" style={{ fontFamily: "Inter, Calibri, sans-serif" }}>
               <thead>
@@ -540,6 +548,11 @@ export default function Section3Targets({
                           <span className="inline-flex items-center gap-1.5">
                             {c}
                             <RegridSourceBadge enrich={regrid[colIdx]} loading={regridLoading[colIdx]} />
+                            {targets[colIdx]?.buildable_estimate === false && (
+                              <span className="text-[9px] font-bold normal-case bg-red-600 text-white px-1.5 py-0.5 rounded">
+                                DOES NOT FIT
+                              </span>
+                            )}
                           </span>
                           {hasTarget && (
                             locked ? (
