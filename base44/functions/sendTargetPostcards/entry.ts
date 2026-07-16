@@ -107,8 +107,10 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'targets array is required' }, { status: 400 });
     }
     // Up to 3 primary targets ($12 flat) + up to 3 bonus targets ($1 flat add-on).
-    if (targets.length > 6) {
-      return Response.json({ error: 'You can mail at most 6 targets at a time (3 primary + 3 bonus).' }, { status: 400 });
+    // The free subscription path (action="send_free") allows up to 5 (Target A–E).
+    const maxTargets = body.action === 'send_free' ? 5 : 6;
+    if (targets.length > maxTargets) {
+      return Response.json({ error: `You can mail at most ${maxTargets} targets at a time.` }, { status: 400 });
     }
 
     // Validate addresses + build the charge preview.
@@ -193,6 +195,67 @@ Deno.serve(async (req) => {
       });
       console.log(`Target-postcard checkout created: ${validCount} cards ($${(totalCents / 100).toFixed(2)}) for ${user.email}`);
       return Response.json({ url: session.url });
+    }
+
+    // ── send_free: subscription-included mailing, no charge (Target A–E) ──
+    if (action === 'send_free') {
+      if (!sender?.name && !sender?.company) {
+        return Response.json({ error: 'Sender contact name or company is required.' }, { status: 400 });
+      }
+      if (validCount === 0) {
+        return Response.json({ error: 'No valid mailing addresses to send to.' }, { status: 400 });
+      }
+
+      const key = Deno.env.get('LOB_API_KEY_SECRET') || Deno.env.get('LOB_API_KEY');
+      if (!key) return Response.json({ error: 'Server missing Lob API key.' }, { status: 500 });
+      const mode = key.startsWith('live') ? 'LIVE' : 'TEST';
+      const auth = 'Basic ' + btoa(`${key}:`);
+
+      const results = [];
+      for (const r of validated) {
+        if (!r.valid) {
+          results.push({ owner_name: r.owner_name, status: 'skipped', reason: 'Invalid address' });
+          continue;
+        }
+        try {
+          const form = new URLSearchParams();
+          form.set('description', `SiteHawk target postcard (subscription) — ${r.owner_name || 'owner'}`);
+          form.set('to[name]', r.owner_name || 'Property Owner');
+          form.set('to[address_line1]', r.parsed.street);
+          form.set('to[address_city]', r.parsed.city);
+          form.set('to[address_state]', r.parsed.state);
+          form.set('to[address_zip]', r.parsed.zip || '');
+          form.set('from[name]', sender.company || sender.name);
+          const sParsed = parseMailingAddress(sender.address);
+          if (sParsed?.street && sParsed?.city && sParsed?.state) {
+            form.set('from[address_line1]', sParsed.street);
+            form.set('from[address_city]', sParsed.city);
+            form.set('from[address_state]', sParsed.state);
+            form.set('from[address_zip]', sParsed.zip || '');
+          }
+          form.set('front', postcardFront(r));
+          form.set('back', postcardBack(r, sender, r.message || message));
+          form.set('size', '6x9');
+
+          const resp = await fetch(LOB_POSTCARDS_URL, {
+            method: 'POST',
+            headers: { Authorization: auth, 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: form.toString(),
+          });
+          const data = await resp.json();
+          if (!resp.ok) {
+            results.push({ owner_name: r.owner_name, status: 'failed', reason: data?.error?.message || `Lob ${resp.status}` });
+          } else {
+            results.push({ owner_name: r.owner_name, status: 'sent', lob_id: data?.id, expected_delivery: data?.expected_delivery_date, url: data?.url });
+          }
+        } catch (e) {
+          results.push({ owner_name: r.owner_name, status: 'failed', reason: e.message });
+        }
+      }
+
+      const sent = results.filter((r) => r.status === 'sent').length;
+      console.log(`sendTargetPostcards(FREE): ${sent}/${validCount} sent (${mode}) by ${user.email}`);
+      return Response.json({ sent, total: validCount, mode, charged_usd: 0, results });
     }
 
     if (action === 'send') {

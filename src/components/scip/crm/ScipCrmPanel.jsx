@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
 import { SCIP_STAGES, SCIP_STAGE_LABEL } from "@/lib/scipCrm";
 import ScipCrmContacts from "./ScipCrmContacts";
+import ScipCrmMailer from "./ScipCrmMailer";
 import ScipCrmTasks from "./ScipCrmTasks";
 
 // SCIP-centric CRM workspace for one ScipRecord. Sits inside ScipDetail.
@@ -123,6 +124,12 @@ export default function ScipCrmPanel({ record }) {
           <div>
             <p className="text-[11px] font-bold uppercase tracking-wide mb-2" style={{ color: SKYWAVE.muted }}>Landlords / Owners</p>
             <ScipCrmContacts contacts={contacts} onUpdate={(u) => setContacts((cs) => cs.map((c) => c.id === u.id ? u : c))} />
+          </div>
+
+          {/* Postcard mailer — subscription-included, Target A–E */}
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wide mb-2" style={{ color: SKYWAVE.muted }}>Direct Mail</p>
+            <ScipCrmMailer contacts={contacts} />
           </div>
 
           {/* Tasks */}
