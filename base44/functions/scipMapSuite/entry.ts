@@ -553,6 +553,34 @@ async function queryArcGISLayer(layerUrl, lat, lon, zoneField) {
 }
 
 /**
+ * Query a public ArcGIS zoning layer over the whole map BBOX (not just the
+ * center point), so the zoning map shows EVERY zone in view — not only the
+ * parcel we want to lease. Also resolves the center-point zone_code separately
+ * (first feature that contains the center is a good-enough label).
+ */
+async function queryArcGISLayerBbox(layerUrl, bbox, zoneField) {
+  const [minLng, minLat, maxLng, maxLat] = bbox;
+  const params = new URLSearchParams({
+    geometry: `${minLng},${minLat},${maxLng},${maxLat}`,
+    geometryType: "esriGeometryEnvelope",
+    inSR: "4326",
+    outSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    outFields: zoneField || "*",
+    returnGeometry: "true",
+    f: "geojson",
+  });
+  const url = `${layerUrl}/query?${params}`;
+  const res = await fetchWithTimeout(url, {}, 15000);
+  if (!res.ok) return { ok: false, reason: res._err || `http_${res.status}` };
+  let data;
+  try { data = await res.json(); } catch (_) { return { ok: false, reason: "parse_error" }; }
+  if (!data.features || !data.features.length) return { ok: true, geojson: null };
+  const zone_code = zoneField ? (data.features[0]?.properties?.[zoneField] || null) : null;
+  return { ok: true, geojson: { type: "FeatureCollection", features: data.features }, zone_code };
+}
+
+/**
  * Try the county ArcGIS registry for zoning and/or FLU when zone-resolve
  * comes back empty. Returns { zoningGeojson, fluGeojson, zone_code } — any
  * field can be null if no data found.
@@ -746,24 +774,36 @@ async function buildZoningMap(ctx) {
   let zone_code = null;
   if (!layer) {
     cacheStats.misses++;
-    // Primary: zone-resolve (Supabase/ArcGIS)
-    const z = zoneResolveResult || await fetchZoneResolve(geo, Deno.env.get("ZONE_RESOLVE_ANON_KEY"));
-    if (z.ok && z.zoningGeojson) {
-      await cacheSet(base44, jurisdiction, "zone_resolve_zoning", z.zoningGeojson, z.data_source);
-      layer = { geojson: z.zoningGeojson, data_source: z.data_source };
-      zone_code = z.zone_code;
-      data_source = "zone_resolve";
-    } else {
-      // Fallback: county ArcGIS registry
-      const [minLng, minLat, maxLng, maxLat] = geo.bbox;
-      const cLat = (minLat + maxLat) / 2, cLon = (minLng + maxLng) / 2;
-      const fb = await fetchCountyArcGIS(cLat, cLon, county || jurisdiction);
-      if (fb.zoningGeojson) {
-        await cacheSet(base44, jurisdiction, "zone_resolve_zoning", fb.zoningGeojson, "county_arcgis");
-        layer = { geojson: fb.zoningGeojson, data_source: "county_arcgis" };
-        zone_code = fb.zone_code;
-        data_source = "county_arcgis";
-        console.log(`[INFO] ZONING county_arcgis fallback hit county=${county || jurisdiction}`);
+    // Primary: county ArcGIS zoning over the whole BBOX so the map shows EVERY
+    // zone in view — not just the single parcel we want to lease. This is the
+    // fix for "zoning map only shows the target parcel's zone."
+    const key = normalizeCounty(county || jurisdiction);
+    const entry = COUNTY_ARCGIS_REGISTRY[key];
+    if (entry?.zoning_url) {
+      const bboxZoning = await queryArcGISLayerBbox(entry.zoning_url, geo.bbox, entry.zoning_field);
+      if (bboxZoning.ok && bboxZoning.geojson) {
+        const styled = {
+          ...bboxZoning.geojson,
+          features: bboxZoning.geojson.features.map((f) => ({
+            ...f,
+            properties: { ...f.properties, fill: "#a855f7", "fill-opacity": 0.25, stroke: "#7c3aed", "stroke-width": 2 },
+          })),
+        };
+        await cacheSet(base44, jurisdiction, "zone_resolve_zoning", styled, "county_arcgis_bbox");
+        layer = { geojson: styled, data_source: "county_arcgis_bbox" };
+        zone_code = bboxZoning.zone_code;
+        data_source = "county_arcgis_bbox";
+        console.log(`[INFO] ZONING county_arcgis_bbox hit county=${key} features=${styled.features.length}`);
+      }
+    }
+    // Fallback: zone-resolve single center polygon (only the target parcel's zone)
+    if (!layer) {
+      const z = zoneResolveResult || await fetchZoneResolve(geo, Deno.env.get("ZONE_RESOLVE_ANON_KEY"));
+      if (z.ok && z.zoningGeojson) {
+        await cacheSet(base44, jurisdiction, "zone_resolve_zoning", z.zoningGeojson, z.data_source);
+        layer = { geojson: z.zoningGeojson, data_source: z.data_source };
+        zone_code = z.zone_code;
+        data_source = "zone_resolve";
       } else {
         fallbacks.push(`zoning:${z.reason || "no_features"}`);
         console.log(`[INFO] MAP_FALLBACK zoning:${z.reason || "no_features"}`);
