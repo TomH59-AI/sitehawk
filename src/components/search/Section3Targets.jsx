@@ -130,6 +130,8 @@ export default function Section3Targets({
   const [scanStats, setScanStats] = useState(null); // {scanned, required_acres} from scipBestParcels
   // Ring-level fall-zone fit warning from scipBestParcels — shown as a red banner.
   const [fitWarning, setFitWarning] = useState(null);
+  // Per-slot reasons a Target A/B/C column couldn't be filled (from scipBestParcels).
+  const [missingReasons, setMissingReasons] = useState([]);
   // Per-column cascade results + loading flags for the Phone row.
   const [phoneResults, setPhoneResults] = useState([null, null, null]);
   const [phoneLoading, setPhoneLoading] = useState([false, false, false]);
@@ -303,6 +305,7 @@ export default function Section3Targets({
   const runPipeline = useCallback(async () => {
     setLoading(true);
     setNoData(false);
+    setMissingReasons([]);
     setPhoneResults([null, null, null]);
     setPhoneLoading([false, false, false]);
     setRegrid([null, null, null]);
@@ -316,6 +319,9 @@ export default function Section3Targets({
         tower_height_ft: towerHeightFt, compound_side_ft: compoundSideFt,
         cup_or_special_exception: z?.cup_or_special_exception ?? null,
         pe_self_certification: z?.pe_self_certification ?? null,
+        // PE-sealed-letter fall-zone/setback relief scoured from the ordinance —
+        // when present, lets the selector shrink the required buildable footprint.
+        pe_letter: z?.pe_letter ?? null,
         fall_zone: z?.fall_zone ?? null,
         setback: z?.setback ?? null,
         // Section 2 ordinance HARD limits — parcels must satisfy these to
@@ -325,6 +331,7 @@ export default function Section3Targets({
       });
       const found = res.data?.targets || [];
       setFitWarning(res.data?.fit_warning || null);
+      setMissingReasons(res.data?.missing_reasons || []);
       setAlternates(res.data?.alternates || []);
       setScanStats({
         scanned: res.data?.count_in_ring ?? res.data?.count_scanned ?? 0,
@@ -530,6 +537,24 @@ export default function Section3Targets({
           {fitWarning && (
             <div className="mx-4 mb-3 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/30 px-4 py-3 text-sm font-semibold text-red-800 dark:text-red-200">
               ⚠ FALL-ZONE FIT WARNING: {fitWarning}
+            </div>
+          )}
+          {/* WHY A TARGET COULDN'T BE FOUND — per-slot reasons from the ring scan */}
+          {missingReasons.length > 0 && (
+            <div className="mx-4 mb-3 rounded-lg border border-amber-400 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200 space-y-2.5">
+              <p className="font-bold text-amber-800 dark:text-amber-300">
+                ⚠ {missingReasons.length === 1 ? "1 target slot" : `${missingReasons.length} target slots`} could not be filled — here's why:
+              </p>
+              {missingReasons.map((m) => (
+                <div key={m.slot} className="rounded bg-amber-100 dark:bg-amber-900/30 px-3 py-2">
+                  <p className="font-semibold">{m.label}</p>
+                  <ul className="list-disc pl-5 mt-1 space-y-0.5 opacity-90">
+                    {m.reasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           )}
           <div className="overflow-x-auto">

@@ -252,6 +252,10 @@ Deno.serve(async (req) => {
       tower_height_ft = 199, compound_side_ft = 100,
       setback_ft = 0, fall_zone_ft = 0, separation_ft = 0,
       cup_or_special_exception = null, pe_self_certification = null,
+      // PE-sealed-letter fall-zone/setback relief provision found in the ordinance
+      // (Section 2 tower_specifics.pe_letter). "YES — ..." means the ordinance
+      // lets a PE seal reduce the fall zone/setback, which helps us fit tighter parcels.
+      pe_letter = null,
       fall_zone = null, setback = null,
       // Section 2 ordinance HARD limits — a parcel must satisfy these to
       // qualify as Target A/B/C. Null = unknown (not enforced, only warned).
@@ -363,7 +367,11 @@ Deno.serve(async (req) => {
     // ── FALL ZONE: full vs. relief ──────────────────────────────────────────
     const ordFallFt = parseFeet(fall_zone, tower_height_ft);
     const baseFall = fall_zone_ft > 0 ? fall_zone_ft : (ordFallFt > 0 ? ordFallFt : tower_height_ft);
-    const peOk = indicatesYes(pe_self_certification);
+    // PE relief is available if the jurisdiction accepts PE self-certification OR
+    // the ordinance has a PE-sealed-letter fall-zone/setback reduction provision
+    // (pe_letter value starts with "YES").
+    const peLetterYes = typeof pe_letter === "string" && /^\s*yes\b/i.test(pe_letter);
+    const peOk = indicatesYes(pe_self_certification) || peLetterYes;
     const cupOk = indicatesYes(cup_or_special_exception);
     const setbackFt = parseFeet(setback, tower_height_ft);
     let reliefFall = baseFall;
@@ -616,6 +624,14 @@ Deno.serve(async (req) => {
         targets: [],
         no_buildable: true,
         message: "No non-residential parcels found in ring. Widen the SARF radius or enter a target manually.",
+        missing_reasons: [0, 1, 2].map((i) => ({
+          slot: i,
+          label: ["Target A", "Target B", "Target C"][i],
+          reasons: [
+            `All ${scored.length} parcel${scored.length !== 1 ? "s" : ""} scanned in the ring resolved as residential — towers are not permitted on residential-zoned land.`,
+            Number(radius_miles) < 1 ? "Widen the SARF radius to 1 mile to pull in non-residential rural/industrial parcels." : "Widen the SARF radius or enter a target manually.",
+          ],
+        })),
       });
     }
 
@@ -669,6 +685,14 @@ Deno.serve(async (req) => {
         targets: [],
         no_buildable: true,
         message: "All parcels in ring resolved as residential or no data. Widen the SARF radius or enter a target manually.",
+        missing_reasons: [0, 1, 2].map((i) => ({
+          slot: i,
+          label: ["Target A", "Target B", "Target C"][i],
+          reasons: [
+            "Every parcel in the ring resolved as residential (or had no zoning data) after Zoneomics verification — no tower-eligible land available.",
+            Number(radius_miles) < 1 ? "Widen the SARF radius to 1 mile, or enter a target manually." : "Widen the SARF radius or enter a target manually.",
+          ],
+        })),
       });
     }
 
@@ -721,6 +745,34 @@ Deno.serve(async (req) => {
     const dryCount = eligibleSet.filter((s) => !s.flood_excluded).length;
     const compliantCount = eligibleSet.filter((s) => !s.non_compliant).length;
 
+    // ── WHY A TARGET SLOT COULDN'T BE FILLED ─────────────────────────────────
+    // When the ring yields fewer than 3 buildable/compliant parcels, explain the
+    // specific reason(s) per empty slot so the user knows what to widen/relax.
+    // Indexed by slot 0/1/2 (Target A/B/C); only slots WITHOUT a target get a reason.
+    const missing_reasons = [];
+    const LABELS = ["Target A", "Target B", "Target C"];
+    // Count how the scanned parcels dropped out so the message is concrete.
+    const residentialCount = scored.filter((s) => s.hardDisqualified).length;
+    const tooSmallCount = scored.filter((s) => s.too_small && !s.hardDisqualified).length;
+    const heightCapCount = scored.filter((s) => s.non_compliant && !s.too_small && !s.hardDisqualified).length;
+    const floodCount = eligibleSet.filter((s) => s.flood_excluded).length;
+    for (let i = targets.length; i < 3; i++) {
+      const reasons = [];
+      if (seen.size === 0) {
+        reasons.push("No parcels were returned for this ring — parcel data may be unavailable for this county.");
+      } else {
+        if (residentialCount > 0) reasons.push(`${residentialCount} parcel${residentialCount !== 1 ? "s were" : " was"} residential-zoned (hard-excluded — towers not permitted).`);
+        if (tooSmallCount > 0) reasons.push(`${tooSmallCount} non-residential parcel${tooSmallCount !== 1 ? "s were" : " was"} too small to contain the ${Math.round(reliefFall)} ft fall zone${reliefLabel ? ` even with ${reliefLabel} relief` : ""}.`);
+        if (heightCapCount > 0 && maxHeightFt > 0) reasons.push(`${heightCapCount} parcel${heightCapCount !== 1 ? "s exceed" : " exceeds"} the ${Math.round(maxHeightFt)} ft ordinance height cap at ${tower_height_ft} ft.`);
+        if (floodCount > 0) reasons.push(`${floodCount} otherwise-buildable parcel${floodCount !== 1 ? "s sit" : " sits"} in a FEMA high-risk flood zone.`);
+        if (!reasons.length) reasons.push(`Only ${eligibleSet.length} qualifying parcel${eligibleSet.length !== 1 ? "s" : ""} found in the ring — not enough to fill this slot.`);
+      }
+      reasons.push(Number(radius_miles) < 1
+        ? "Try widening the SARF radius to 1 mile, lowering tower height, or shrinking the compound."
+        : "Try lowering tower height, shrinking the compound, or confirming a PE letter / CUP path to relax the fall zone.");
+      missing_reasons.push({ slot: i, label: LABELS[i], reasons });
+    }
+
     return Response.json({
       count_scanned: seen.size,
       count_in_ring: scored.length,
@@ -737,6 +789,7 @@ Deno.serve(async (req) => {
         : null,
       targets,
       alternates,
+      missing_reasons,
     });
   } catch (error) {
     console.error("scipBestParcels error:", error.message);

@@ -63,6 +63,7 @@ const PANELS = [
       ["Tower Separation (ft or %)", "tower_separation"],
       ["Measured from base or center", "measured_from_base_or_center"],
       ["Fall Zone Requirements", "fall_zone_requirements"],
+      ["PE Letter — Fall Zone / Setback Relief", "pe_letter"],
       ["Special Tower Landscaping?", "special_tower_landscaping"],
     ],
   },
@@ -196,6 +197,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
           permit_path: val(zo.zoning_process),
           cup_or_special_exception: val(zo.cup_or_special_exception),
           pe_self_certification: val(zo.pe_self_certification),
+          // PE-sealed-letter fall-zone/setback relief scoured from the ordinance.
+          pe_letter: val(tw.pe_letter),
           source: res.data?.zoneomics?.ok ? "zoneomics" : "realie_or_ai",
           conflict: res.data?.zoning_district_conflict || null,
           // Full SCIP document fields (Zoning Overview + Tower Specifics)
