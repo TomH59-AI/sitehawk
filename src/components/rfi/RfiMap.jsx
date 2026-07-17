@@ -7,7 +7,10 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import RfiFilters from "./RfiFilters";
 import RfiLegend from "./RfiLegend";
+import RfiSearchBox from "./RfiSearchBox";
+import RfiCompass from "./RfiCompass";
 import { CARRIER_COLORS, DEADZONE_COLOR, CARRIER_PRESET_KEY } from "./rfiConfig";
+import { magneticDeclination } from "@/lib/magneticDeclination";
 import * as turf from "@turf/turf";
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
@@ -21,6 +24,8 @@ export default function RfiMap() {
   const [loadingTowers, setLoadingTowers] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [towerCount, setTowerCount] = useState(0);
+  const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
+  const searchMarker = useRef(null);
 
   const [filters, setFilters] = useState({
     carriers: new Set(["ATT", "VZW", "TMO", "DISH", "OTHER"]),
@@ -128,7 +133,11 @@ export default function RfiMap() {
           loadTowersForView(map);
         });
 
-        map.on("moveend", () => loadTowersForView(map));
+        const updateDeclination = () => {
+          const c = map.getCenter();
+          setDeclination(magneticDeclination(c.lat, c.lng));
+        };
+        map.on("moveend", () => { loadTowersForView(map); updateDeclination(); });
         map.on("error", (ev) => console.error("[RFI map]", ev?.error?.message || ev));
       } catch (e) {
         if (!cancelled) setError(e.message || "Failed to load RF map.");
@@ -223,6 +232,21 @@ export default function RfiMap() {
     }
   }, [filters]);
 
+  // ── Jump to a searched address / coordinate + drop a marker ─────────────────
+  const handleGoTo = useCallback((lngLat, label) => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.flyTo({ center: lngLat, zoom: 12, essential: true });
+    setDeclination(magneticDeclination(lngLat[1], lngLat[0]));
+    if (searchMarker.current) searchMarker.current.remove();
+    searchMarker.current = new window.mapboxgl.Marker({ color: "#8B5CF6" })
+      .setLngLat(lngLat)
+      .setPopup(new window.mapboxgl.Popup({ offset: 24 }).setHTML(
+        `<div style="font-family:sans-serif;font-size:12px">${label || ""}</div>`
+      ))
+      .addTo(map);
+  }, []);
+
   if (error) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-slate-900 text-white/70 text-sm p-6 text-center">
@@ -253,6 +277,8 @@ export default function RfiMap() {
         />
       )}
       {ready && <RfiLegend />}
+      {ready && <RfiSearchBox onGoTo={handleGoTo} />}
+      {ready && <RfiCompass declination={declination} />}
     </div>
   );
 }
