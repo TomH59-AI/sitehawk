@@ -261,9 +261,10 @@ Deno.serve(async (req) => {
       // qualify as Target A/B/C. Null = unknown (not enforced, only warned).
       max_tower_height = null, residential_separation = null,
       max_parcels = DEFAULT_MAX_PARCELS,
-      // ReportAll is the primary (capped, billed) source. Realie is an optional
-      // supplement, OFF by default so a scan can't quietly rack up extra cost.
-      include_realie = false,
+      // BOTH parcel sources run by default so the ring is fully populated:
+      // Realie (strong in metros) + ReportAll USA (broad national coverage).
+      // Pass include_realie:false explicitly only to skip Realie for cost.
+      include_realie = true,
     } = body;
     if (lat == null || lon == null) return Response.json({ error: "lat and lon required" }, { status: 400 });
 
@@ -617,14 +618,21 @@ Deno.serve(async (req) => {
         count_buildable: 0,
         targets: [],
         no_buildable: true,
-        message: "No non-residential parcels found in ring. Widen the SARF radius or enter a target manually.",
+        message: seen.size === 0
+          ? "No parcel data was returned for this ring from Realie or ReportAll — parcel coverage may be unavailable for this location. Verify the coordinates or try a nearby point."
+          : "No non-residential parcels found in ring. Widen the SARF radius or enter a target manually.",
         missing_reasons: [0, 1, 2].map((i) => ({
           slot: i,
           label: ["Target A", "Target B", "Target C"][i],
-          reasons: [
-            `All ${scored.length} parcel${scored.length !== 1 ? "s" : ""} scanned in the ring resolved as residential — towers are not permitted on residential-zoned land.`,
-            Number(radius_miles) < 1 ? "Widen the SARF radius to 1 mile to pull in non-residential rural/industrial parcels." : "Widen the SARF radius or enter a target manually.",
-          ],
+          reasons: seen.size === 0
+            ? [
+                "The parcel providers (Realie + ReportAll USA) returned zero parcels for this ring — this is a data-coverage gap, NOT a residential exclusion.",
+                "Double-check the SARF center coordinates, or enter a target manually.",
+              ]
+            : [
+                `All ${scored.length} parcel${scored.length !== 1 ? "s" : ""} scanned in the ring resolved as residential — towers are not permitted on residential-zoned land.`,
+                Number(radius_miles) < 1 ? "Widen the SARF radius to 1 mile to pull in non-residential rural/industrial parcels." : "Widen the SARF radius or enter a target manually.",
+              ],
         })),
       });
     }
