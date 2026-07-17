@@ -138,6 +138,9 @@ Deno.serve(async (req) => {
       rpp: mode === 'point' ? '1' : '250',
       page: '1',
       return_geometry: 'true',
+      // Our POINT/POLYGON coordinates are WGS84 lon/lat; without si_srid=4326
+      // ReportAll treats them as Web Mercator and finds nothing.
+      si_srid: '4326',
     });
     if (mode === 'point') {
       params.set('spatial_intersect', `POINT(${lon} ${lat})`);
@@ -145,8 +148,14 @@ Deno.serve(async (req) => {
       params.set('spatial_intersect', circleWkt(lat, lon, radiusMiles));
     }
 
-    const url = `${API_URL}?${params.toString()}`;
-    const r = await fetch(url);
+    // ReportAll requires POST (form-encoded body) for long query strings — a
+    // ring's WKT polygon exceeds GET URL limits and gets truncated, which the
+    // API misreports as "invalid client value". POST works for point too.
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
     const text = await r.text();
     if (!r.ok) {
       console.error('ReportAll HTTP', r.status, text.slice(0, 300));
