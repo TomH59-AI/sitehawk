@@ -8,7 +8,7 @@ import SARFCoachTour from "./guide/SARFCoachTour";
 import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, ChevronLeft, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack } from "lucide-react";
+import { Sun, Moon, ChevronLeft, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack, Radar } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -30,6 +30,7 @@ const BASE_NAV = [
   { path: "/hawk-fill", icon: ClipboardEdit, label: "🪶 HawkFill" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
+  { path: "/rfi-engine", icon: Radar, label: "📡 RF Intelligence Engine" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },
 ];
 
