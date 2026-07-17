@@ -153,6 +153,12 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
 
           setReady(true);
           loadTowersForView(map);
+          // Embedded in the growing pipeline page, the container often has no
+          // settled height when Mapbox initializes, so tiles never paint. Force
+          // a resize on load (and once more after layout settles) so the map
+          // fills its box and the USGS base tiles render.
+          map.resize();
+          window.setTimeout(() => { try { map.resize(); } catch { /* unmounted */ } }, 300);
         });
 
         const updateDeclination = () => {
