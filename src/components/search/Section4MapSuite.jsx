@@ -54,6 +54,7 @@ import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
+import { reportAllParcels } from "@/functions/reportAllParcels";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
@@ -514,24 +515,32 @@ export default function Section4MapSuite({
     }
   }, [targetA, onData]);
 
-  // Warranty Deed lookup (Realie click) for Target A — shows the deed of record &
-  // chain of title, or "Not Available For This Target" when Realie has nothing.
+  // Warranty Deed lookup for Target A — pulls the deed of record & chain of
+  // title from Realie (click) first, then backfills any missing fields from
+  // ReportAll USA (point lookup). Shows "Not Available For This Target" only
+  // when NEITHER source returns deed data.
   const runDeed = useCallback(async () => {
     setErrors((p) => ({ ...p, deed: null }));
     setLoadingStep("deed");
     try {
-      const res = await realieParcelsInRing({ mode: "click", lat: targetA.latitude, lon: targetA.longitude }).catch(() => null);
-      const parcel = res?.data?.parcels?.[0] || null;
-      const deed = parcel ? {
-        owner_name: parcel.owner_name || targetA?.owner_name || "",
-        deed_type: parcel.deed_type,
-        deed_doc_num: parcel.deed_doc_num,
-        deed_book: parcel.deed_book,
-        ownership_start: parcel.ownership_start,
-        last_sale_date: parcel.last_sale_date,
-        last_sale_price: parcel.last_sale_price,
-        legal_description: parcel.legal_description,
-        transfers: parcel.transfers || [],
+      const [realieRes, reportAllRes] = await Promise.all([
+        realieParcelsInRing({ mode: "click", lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        reportAllParcels({ mode: "point", lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+      ]);
+      const rp = realieRes?.data?.parcels?.[0] || null;
+      const ra = reportAllRes?.data?.parcels?.[0] || null;
+      // Prefer Realie fields; fall back to ReportAll where Realie is blank.
+      const deed = (rp || ra) ? {
+        owner_name: rp?.owner_name || ra?.owner_name || targetA?.owner_name || "",
+        deed_type: rp?.deed_type || null,
+        deed_doc_num: rp?.deed_doc_num || null,
+        deed_book: rp?.deed_book || null,
+        ownership_start: rp?.ownership_start || null,
+        last_sale_date: rp?.last_sale_date || ra?.last_sale_date || null,
+        last_sale_price: rp?.last_sale_price || ra?.last_sale_price || null,
+        legal_description: rp?.legal_description || ra?.legal_description || null,
+        transfers: rp?.transfers || [],
+        source: rp && (rp.deed_type || rp.last_sale_date || rp.legal_description) ? "Realie" : (ra ? "ReportAll USA" : "Realie"),
       } : null;
       setDeedInfo(deed);
       setCompleted((prev) => ({ ...prev, deed: true }));

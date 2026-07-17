@@ -2,10 +2,10 @@
  * DeedStep — the "Warranty Deed" step inside the Target A Map Suite.
  *
  * Its own generate button (matching MapSubStep's look) that fetches Target A's
- * deed of record + chain of title from Realie (click lookup). If Realie returns
- * deed data it's shown on-screen; if not, a clean "Not Available For This Target"
- * notice. Screen-only — does NOT touch the printed SCIP deed page or any pipeline
- * business logic.
+ * deed of record + chain of title from Realie, backfilled by ReportAll USA. If
+ * either source returns deed data it's shown on-screen; if not, a clean
+ * "Not Available For This Target" notice. Screen-only — does NOT touch the
+ * printed SCIP deed page or any pipeline business logic.
  */
 import { format } from "date-fns";
 import { Lock, Sparkles, RefreshCw, AlertTriangle, ScrollText } from "lucide-react";
@@ -75,11 +75,11 @@ export default function DeedStep({
         )}
       </div>
 
-      {loading && <HawkFlightSpinner label="Pulling deed of record & chain of title from Realie…" />}
+      {loading && <HawkFlightSpinner label="Pulling deed of record & chain of title from Realie / ReportAll USA…" />}
 
       {!loading && !done && !error && (
         <div className="px-4 py-5 text-sm text-muted-foreground">
-          Click <span className="font-semibold text-foreground">Run Deed Lookup</span> to pull Target A's deed of record from Realie.
+          Click <span className="font-semibold text-foreground">Run Deed Lookup</span> to pull Target A's deed of record from Realie / ReportAll USA.
         </div>
       )}
 
@@ -104,7 +104,10 @@ export default function DeedStep({
           ) : (
             <>
               <div className="rounded-lg border border-border overflow-hidden">
-                <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white" style={{ background: BRAND_GREEN }}>Deed of Record</div>
+                <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-white flex items-center justify-between" style={{ background: BRAND_GREEN }}>
+                  <span>Deed of Record</span>
+                  {deed.source ? <span className="font-mono normal-case opacity-90">Source: {deed.source}</span> : null}
+                </div>
                 <Row label="Deed Type" value={deed.deed_type} />
                 <Row label="Document #" value={deed.deed_doc_num} />
                 <Row label="Book / Page" value={deed.deed_book} />
