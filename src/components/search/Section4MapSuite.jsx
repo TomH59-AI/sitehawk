@@ -65,6 +65,7 @@ import { scipViewshed } from "@/functions/scipViewshed";
 import ViewshedTiles from "./section4/ViewshedTiles";
 import RowIndicatorStep from "./section4/RowIndicatorStep";
 import RegridLayerToggle from "./section4/RegridLayerToggle";
+import CustomizeProbe from "@/components/maps/CustomizeProbe";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoningGrid, renderFlumPolygon, renderRegridZoningMap, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
@@ -579,6 +580,26 @@ export default function Section4MapSuite({
 
   const ownerLabel = targetA?.owner || targetA?.parcel_address || "";
 
+  // Physical-fit basis for the Customize probe on the Parcel Map: prefer Target
+  // A's own parcel geometry, else the ring parcel matching its APN, else the
+  // ring parcel nearest to Target A's coordinates.
+  const parcelGeometryForProbe = (() => {
+    if (targetA?.parcel_geometry) return targetA.parcel_geometry;
+    if (!Array.isArray(rowParcels) || !rowParcels.length) return null;
+    const byApn = targetA?.apn && rowParcels.find((p) => p.apn && String(p.apn) === String(targetA.apn));
+    if (byApn?.parcel_geometry) return byApn.parcel_geometry;
+    if (targetA?.latitude != null && targetA?.longitude != null) {
+      let best = null, bestD = Infinity;
+      for (const p of rowParcels) {
+        if (!p.parcel_geometry || p.latitude == null || p.longitude == null) continue;
+        const d = Math.hypot(p.latitude - targetA.latitude, p.longitude - targetA.longitude);
+        if (d < bestD) { bestD = d; best = p; }
+      }
+      if (best?.parcel_geometry) return best.parcel_geometry;
+    }
+    return null;
+  })();
+
   const banners = {
     aerial: null,
     topo: null,
@@ -801,6 +822,15 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("parcel")}
           loading={loadingStep === "parcel"} done={!!completed.parcel}
           onRun={() => runStep("parcel")} mapRef={refs.parcel} banner={banners.parcel}
+          overlay={completed.parcel && (
+            <CustomizeProbe
+              mapRef={{ current: maps.current["parcel"] }}
+              ready={!!completed.parcel}
+              parcelGeometry={parcelGeometryForProbe}
+              zoning={zoneInfo?.zone_code || targetA?.zoning_classification || null}
+              heightFt={Number(towerHeightFt) > 0 ? Number(towerHeightFt) : 199}
+            />
+          )}
         />
         <div data-tour="map-row">
         <RowIndicatorStep

@@ -120,6 +120,49 @@ function setbackFromZoning(zoning) {
   return m ? Number(m[1]) : DEFAULT_SETBACK_FT;
 }
 
+// PHYSICAL-FIT ONLY probe for the "Customize" mode. Verdict is decided PURELY
+// by where the tower is — does the tower + fall zone + compound physically fit
+// inside the parcel boundary? Zoning, water, and setbacks NEVER change the
+// works/doesn't-work answer here (setback = 0). Returns { status:'works'|'fails'
+// |'needs_review', reasons, fallZone, compound }. Zoning is passed back untouched
+// for INFO display only via the caller.
+export function computePhysicalFit({ parcelGeometry, towerLngLat, heightFt, widthFt, depthFt }) {
+  const fallZone = buildFallZone(towerLngLat, heightFt);
+  const compound = buildCompound(towerLngLat, widthFt, depthFt);
+  const reasons = [];
+
+  if (!parcelGeometry) {
+    return {
+      status: "needs_review",
+      reasons: ["No parcel boundary here — can't verify a tower would physically fit."],
+      fallZone, compound,
+    };
+  }
+
+  const parcelFeature = { type: "Feature", properties: {}, geometry: parcelGeometry };
+  const towerInside = turf.booleanPointInPolygon(turf.point(towerLngLat), parcelFeature);
+  const compoundInside = towerInside && allVerticesInside(compound, parcelFeature);
+  const fallZoneInside = towerInside && allVerticesInside(fallZone, parcelFeature);
+
+  let status = "works";
+  if (!towerInside) {
+    status = "fails";
+    reasons.push("This spot is outside the parcel — a tower here isn't on the property.");
+  }
+  if (towerInside && !fallZoneInside) {
+    status = "fails";
+    reasons.push(`Fall zone (${Math.round(heightFt)} ft radius) crosses the parcel line here — move inward or lower the height.`);
+  }
+  if (towerInside && !compoundInside) {
+    status = "fails";
+    reasons.push(`Compound (${Math.round(widthFt)}×${Math.round(depthFt)} ft) extends past the parcel line here.`);
+  }
+  if (status === "works") {
+    reasons.push("A tower would physically fit right here — fall zone and compound stay inside the parcel.");
+  }
+  return { status, reasons, fallZone, compound };
+}
+
 export function buildFallZone(lngLat, heightFt) {
   return turf.circle(lngLat, heightFt * FT_TO_KM, { steps: 64, units: "kilometers" });
 }

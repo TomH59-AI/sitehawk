@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { buildDimensionLabels } from "@/lib/parcelDimensions";
+import CustomizeProbe from "@/components/maps/CustomizeProbe";
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
 // HawkFit Map — interactive Mapbox map: parcel outline, draggable tower pin,
 // live fall-zone circle + compound rectangle.
-export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers }) {
+export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -135,5 +136,18 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
   if (loadError) {
     return <div className="w-full h-full flex items-center justify-center text-sm text-destructive">Map failed to load: {loadError}</div>;
   }
-  return <div ref={containerRef} className="w-full h-full rounded-xl overflow-hidden" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full rounded-xl overflow-hidden" />
+      <CustomizeProbe
+        mapRef={mapRef}
+        ready={ready}
+        parcelGeometry={siteTarget?.parcel_geometry || null}
+        zoning={siteTarget?.zoning || null}
+        heightFt={controls?.heightFt || 199}
+        widthFt={controls?.widthFt || 100}
+        depthFt={controls?.depthFt || 100}
+      />
+    </div>
+  );
 }

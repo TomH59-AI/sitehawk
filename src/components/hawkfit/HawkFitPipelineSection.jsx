@@ -253,6 +253,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                   onTowerMove={handleTowerMove}
                   fit={fit}
                   layers={layers}
+                  controls={controls}
                 />
               ) : (
                 <div className="w-full h-full min-h-[480px] rounded-xl border border-border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">

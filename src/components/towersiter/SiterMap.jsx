@@ -4,6 +4,7 @@ import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { setbackBandGeometry } from "@/lib/towerSitingRules";
 import ParcelLinesToggle from "@/components/maps/ParcelLinesToggle";
+import CustomizeProbe from "@/components/maps/CustomizeProbe";
 
 const EMPTY = { type: "FeatureCollection", features: [] };
 const fc = (items) => ({
@@ -473,9 +474,20 @@ export default function SiterMap({ parcelGeoJSON, result, liveSiting, buildingsF
         </div>
       )}
 
-      <div className="absolute bottom-2 left-2 z-10">
+      <div className="absolute bottom-12 left-2 z-10">
         <ParcelLinesToggle mapRef={mapRef} />
       </div>
+
+      {/* Customize buildability probe — Alt+Ctrl+Shift. Physical-fit only. */}
+      <CustomizeProbe
+        mapRef={mapRef}
+        ready={ready}
+        parcelGeometry={parcelGeoJSON || result?.parcel || null}
+        zoning={result?.zoning || result?.jurisdiction_zoning || null}
+        heightFt={result?.towerHeightFt || result?.tower_height_ft || 199}
+        widthFt={result?.compoundWidthFt || 100}
+        depthFt={result?.compoundDepthFt || 100}
+      />
       {clickMode && (
         <div className="absolute top-2 left-2 z-10 px-2.5 py-1 rounded-lg bg-blue-600 text-white text-[11px] font-semibold shadow">
           {clickMode === "parcel" ? "Click a parcel to load it" : clickMode === "rectCenter" ? "Click to place the rectangle center" : clickMode === "platAnchor" ? "Click to anchor the reconstructed plat" : "Click to add polygon points"}
