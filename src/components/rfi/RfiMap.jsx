@@ -156,6 +156,15 @@ export default function RfiMap() {
         };
         map.on("moveend", () => { loadTowersForView(map); updateDeclination(); });
         map.on("error", (ev) => console.error("[RFI map]", ev?.error?.message || ev));
+
+        // Safety net — if the style never finishes loading (e.g. Mapbox tile
+        // host blocked inside the editor iframe), surface a clear message
+        // instead of an endless "Loading RF map…" spinner.
+        window.setTimeout(() => {
+          if (!cancelled && !map.isStyleLoaded()) {
+            setError("The map couldn't load here (the map tile host may be blocked in the editor preview). It will work in the published app.");
+          }
+        }, 12000);
       } catch (e) {
         if (!cancelled) setError(e.message || "Failed to load RF map.");
       }
