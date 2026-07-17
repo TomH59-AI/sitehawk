@@ -6,7 +6,7 @@ export default function RfiCompass({ declination = 0 }) {
   const dir = dec >= 0 ? "E" : "W";
 
   return (
-    <div className="absolute bottom-4 left-4 z-20 rounded-xl bg-slate-900/85 backdrop-blur border border-white/10 shadow-lg p-2.5 flex flex-col items-center gap-1 select-none">
+    <div className="absolute bottom-4 right-4 z-20 rounded-xl bg-slate-900/85 backdrop-blur border border-white/10 shadow-lg p-2.5 flex flex-col items-center gap-1 select-none">
       <svg width="72" height="72" viewBox="0 0 100 100">
         {/* outer ring */}
         <circle cx="50" cy="50" r="46" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
