@@ -4,7 +4,7 @@ import { CARRIERS, CARRIER_COLORS, BAND_RAMP, SIGNAL_RAMP, DEADZONE_COLOR } from
 // signal-strength ramp, and the dead-zone swatch.
 export default function RfiLegend() {
   return (
-    <div className="absolute bottom-4 left-4 z-10 w-60 rounded-xl border border-white/10 bg-slate-900/85 backdrop-blur text-white p-3 space-y-3 text-xs shadow-2xl">
+    <div className="absolute bottom-4 left-40 z-10 w-60 rounded-xl border border-white/10 bg-slate-900/85 backdrop-blur text-white p-3 space-y-3 text-xs shadow-2xl">
       <div>
         <div className="font-heading font-bold text-[11px] tracking-wide uppercase text-white/70 mb-1.5">Carrier (tower fill)</div>
         <div className="grid grid-cols-2 gap-1">

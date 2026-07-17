@@ -57,3 +57,23 @@ export const CARRIER_PRESET_KEY = {
   DISH: "generic",
   OTHER: "generic",
 };
+
+// Base map options. "dark" is the native Mapbox style; the rest are free USGS
+// The National Map (apps.nationalmap.gov) ArcGIS raster tile services that we
+// render UNDER all RF layers so towers/coverage/dead zones stay on top.
+export const USGS_ATTRIBUTION = "USGS The National Map";
+export const BASE_LAYERS = [
+  { id: "dark", label: "Dark", type: "style" },
+  {
+    id: "usgs_topo", label: "USGS Topo", type: "raster",
+    tiles: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
+  },
+  {
+    id: "usgs_imagery_topo", label: "Imagery Topo", type: "raster",
+    tiles: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}",
+  },
+  {
+    id: "usgs_imagery", label: "Imagery", type: "raster",
+    tiles: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
+  },
+];

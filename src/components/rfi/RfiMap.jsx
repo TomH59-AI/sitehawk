@@ -9,7 +9,8 @@ import RfiFilters from "./RfiFilters";
 import RfiLegend from "./RfiLegend";
 import RfiSearchBox from "./RfiSearchBox";
 import RfiCompass from "./RfiCompass";
-import { CARRIER_COLORS, DEADZONE_COLOR, CARRIER_PRESET_KEY } from "./rfiConfig";
+import RfiBaseLayerSwitcher from "./RfiBaseLayerSwitcher";
+import { CARRIER_COLORS, DEADZONE_COLOR, CARRIER_PRESET_KEY, BASE_LAYERS, USGS_ATTRIBUTION } from "./rfiConfig";
 import { magneticDeclination } from "@/lib/magneticDeclination";
 import * as turf from "@turf/turf";
 
@@ -25,6 +26,7 @@ export default function RfiMap() {
   const [drawing, setDrawing] = useState(false);
   const [towerCount, setTowerCount] = useState(0);
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
+  const [baseLayer, setBaseLayer] = useState("dark");
   const searchMarker = useRef(null);
 
   const [filters, setFilters] = useState({
@@ -59,6 +61,21 @@ export default function RfiMap() {
         map.addControl(new window.mapboxgl.NavigationControl({ showCompass: false }), "top-left");
 
         map.on("load", () => {
+          // USGS National Map raster base — added first so it sits UNDER every
+          // RF layer. Hidden until a USGS base is chosen from the switcher.
+          map.addSource("usgs-base", {
+            type: "raster",
+            tiles: [BASE_LAYERS.find((b) => b.id === "usgs_topo").tiles],
+            tileSize: 256,
+            attribution: USGS_ATTRIBUTION,
+          });
+          map.addLayer({
+            id: "usgs-base",
+            type: "raster",
+            source: "usgs-base",
+            layout: { visibility: "none" },
+          });
+
           // Sources
           map.addSource("rfi-towers", { type: "geojson", data: EMPTY_FC });
           map.addSource("rfi-coverage", { type: "geojson", data: EMPTY_FC });
@@ -198,6 +215,19 @@ export default function RfiMap() {
     vis("rfi-deadzones", layers.deadzones);
   }, [layers, ready]);
 
+  // ── Base-map switch — swap USGS raster tiles or fall back to Mapbox dark ────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !map.getSource("usgs-base")) return;
+    const cfg = BASE_LAYERS.find((b) => b.id === baseLayer);
+    if (!cfg || cfg.type === "style") {
+      map.setLayoutProperty("usgs-base", "visibility", "none");
+      return;
+    }
+    map.getSource("usgs-base").setTiles([cfg.tiles]);
+    map.setLayoutProperty("usgs-base", "visibility", "visible");
+  }, [baseLayer, ready]);
+
   // ── On-demand CloudRF coverage + inverse dead zone at map center ────────────
   const handleDrawCoverage = useCallback(async () => {
     const map = mapRef.current;
@@ -277,6 +307,7 @@ export default function RfiMap() {
         />
       )}
       {ready && <RfiLegend />}
+      {ready && <RfiBaseLayerSwitcher baseLayer={baseLayer} onChange={setBaseLayer} />}
       {ready && <RfiSearchBox onGoTo={handleGoTo} />}
       {ready && <RfiCompass declination={declination} />}
     </div>
