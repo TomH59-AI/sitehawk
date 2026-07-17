@@ -63,7 +63,6 @@ export const CARRIER_PRESET_KEY = {
 // render UNDER all RF layers so towers/coverage/dead zones stay on top.
 export const USGS_ATTRIBUTION = "USGS The National Map";
 export const BASE_LAYERS = [
-  { id: "dark", label: "Dark", type: "style" },
   {
     id: "usgs_topo", label: "USGS Topo", type: "raster",
     tiles: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",

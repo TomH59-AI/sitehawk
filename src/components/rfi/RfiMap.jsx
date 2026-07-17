@@ -50,9 +50,25 @@ export default function RfiMap() {
         if (cancelled || !containerRef.current) return;
 
         window.mapboxgl.accessToken = token;
+        // Build the base style entirely from USGS National Map raster tiles
+        // (basemap.nationalmap.gov). These load without a token and are NOT
+        // blocked in the editor iframe, so the map opens with terrain immediately
+        // and never stalls waiting on Mapbox's blocked style host.
+        const initialBase = BASE_LAYERS.find((b) => b.id === "usgs_topo");
         const map = new window.mapboxgl.Map({
           container: containerRef.current,
-          style: "mapbox://styles/mapbox/dark-v11",
+          style: {
+            version: 8,
+            sources: {
+              "usgs-base": {
+                type: "raster",
+                tiles: [initialBase.tiles],
+                tileSize: 256,
+                attribution: USGS_ATTRIBUTION,
+              },
+            },
+            layers: [{ id: "usgs-base", type: "raster", source: "usgs-base" }],
+          },
           center: [-98.5, 39.5], // continental US
           zoom: 3.4,
           projection: "mercator",
@@ -61,20 +77,8 @@ export default function RfiMap() {
         map.addControl(new window.mapboxgl.NavigationControl({ showCompass: false }), "top-left");
 
         map.on("load", () => {
-          // USGS National Map raster base — added first so it sits UNDER every
-          // RF layer. Hidden until a USGS base is chosen from the switcher.
-          map.addSource("usgs-base", {
-            type: "raster",
-            tiles: [BASE_LAYERS.find((b) => b.id === "usgs_topo").tiles],
-            tileSize: 256,
-            attribution: USGS_ATTRIBUTION,
-          });
-          map.addLayer({
-            id: "usgs-base",
-            type: "raster",
-            source: "usgs-base",
-            layout: { visibility: "none" },
-          });
+          // usgs-base source + layer already exist from the initial style and
+          // sit UNDER every RF layer added below.
 
           // Sources
           map.addSource("rfi-towers", { type: "geojson", data: EMPTY_FC });
@@ -224,17 +228,13 @@ export default function RfiMap() {
     vis("rfi-deadzones", layers.deadzones);
   }, [layers, ready]);
 
-  // ── Base-map switch — swap USGS raster tiles or fall back to Mapbox dark ────
+  // ── Base-map switch — swap the USGS raster tile source ──────────────────────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready || !map.getSource("usgs-base")) return;
     const cfg = BASE_LAYERS.find((b) => b.id === baseLayer);
-    if (!cfg || cfg.type === "style") {
-      map.setLayoutProperty("usgs-base", "visibility", "none");
-      return;
-    }
+    if (!cfg?.tiles) return;
     map.getSource("usgs-base").setTiles([cfg.tiles]);
-    map.setLayoutProperty("usgs-base", "visibility", "visible");
   }, [baseLayer, ready]);
 
   // ── On-demand CloudRF coverage + inverse dead zone at map center ────────────
