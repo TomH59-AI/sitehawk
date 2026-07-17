@@ -97,9 +97,16 @@ export default function ScipCrmMailer({ contacts }) {
           <Gift className="w-3 h-3" /> Included — No Charge
         </span>
       </div>
-      <p className="text-[11px] mb-3" style={{ color: SKYWAVE.muted }}>
-        Mail engaging cell-tower-lease postcards to Target A–E, included in your subscription. HawkBot can draft the message for you.
-      </p>
+
+      {/* Prompt users to mail their fresh targets */}
+      {phase === "setup" && (
+        <div className="rounded-md p-2.5 mb-3 flex items-start gap-2" style={{ background: "rgba(27,63,174,0.06)", border: `1px solid ${SKYWAVE.blue}33` }}>
+          <Send className="w-4 h-4 mt-0.5 shrink-0" style={{ color: SKYWAVE.blue }} />
+          <p className="text-[11px]" style={{ color: SKYWAVE.navy }}>
+            <strong>{mailable.length} target owner{mailable.length !== 1 ? "s" : ""} ready to mail.</strong> Send postcards to Target A–E now — <span style={{ color: "#166534", fontWeight: 700 }}>free with your subscription</span>. HawkBot can draft the message for you.
+          </p>
+        </div>
+      )}
 
       {phase === "setup" && (
         <div className="space-y-3">
