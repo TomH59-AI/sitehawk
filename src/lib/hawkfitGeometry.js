@@ -4,6 +4,79 @@ import * as turf from "@turf/turf";
 
 const FT_TO_KM = 0.0003048;
 
+// Default zoning setback (ft) applied off the parcel line when the ordinance
+// setback is unknown. Towers must sit at least this far inside the boundary.
+const DEFAULT_SETBACK_FT = 25;
+
+// The interior clearance a tower needs from the parcel line so BOTH the fall
+// zone (radius = height) and half the compound diagonal stay inside, plus the
+// zoning setback. This is the inward buffer distance for auto-placement.
+export function requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt }) {
+  const compoundHalfDiag = Math.sqrt(widthFt * widthFt + depthFt * depthFt) / 2;
+  return Math.max(heightFt, compoundHalfDiag) + (setbackFt || 0);
+}
+
+// Auto-place the tower at the best interior point of the parcel for the given
+// settings: inward-buffer the parcel by the required clearance, then take the
+// "pole of inaccessibility" (the point furthest from any edge) of what remains.
+// Returns { lngLat, fits } — fits=false means no point can satisfy the settings
+// (parcel too small for this height/compound), and lngLat falls back to the
+// parcel's overall center so the tower stays visible.
+export function autoPlaceTower({ parcelGeometry, heightFt, widthFt, depthFt, zoning }) {
+  if (!parcelGeometry) return { lngLat: null, fits: false };
+  const parcelFeature = { type: "Feature", properties: {}, geometry: parcelGeometry };
+  const setbackFt = setbackFromZoning(zoning);
+  const clearanceKm = requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt }) * FT_TO_KM;
+
+  let interior = null;
+  try {
+    interior = turf.buffer(parcelFeature, -clearanceKm, { units: "kilometers" });
+  } catch { /* buffer can fail on odd geometries */ }
+
+  const hasArea = (f) => {
+    if (!f || !f.geometry) return false;
+    try { return turf.area(f) > 1; } catch { return false; }
+  };
+
+  if (hasArea(interior)) {
+    const center = poleOfInaccessibility(interior);
+    if (center) return { lngLat: center, fits: true };
+  }
+  // Parcel too small for these settings — fall back to the parcel center.
+  const center = poleOfInaccessibility(parcelFeature) || turf.centroid(parcelFeature).geometry.coordinates;
+  return { lngLat: center, fits: false };
+}
+
+// Furthest-from-edge interior point. Works on Polygon or MultiPolygon (picks the
+// largest ring). Uses a coarse grid search — no extra deps needed.
+function poleOfInaccessibility(feature) {
+  let bbox;
+  try { bbox = turf.bbox(feature); } catch { return null; }
+  const [minX, minY, maxX, maxY] = bbox;
+  const line = turf.polygonToLine(feature);
+  let best = null, bestDist = -1;
+  const STEPS = 24;
+  for (let i = 0; i <= STEPS; i++) {
+    for (let j = 0; j <= STEPS; j++) {
+      const x = minX + ((maxX - minX) * i) / STEPS;
+      const y = minY + ((maxY - minY) * j) / STEPS;
+      const pt = turf.point([x, y]);
+      if (!turf.booleanPointInPolygon(pt, feature)) continue;
+      let d;
+      try { d = turf.pointToLineDistance(pt, line, { units: "kilometers" }); } catch { continue; }
+      if (d > bestDist) { bestDist = d; best = [x, y]; }
+    }
+  }
+  return best;
+}
+
+// Parse a setback (ft) out of a zoning string, else the safe default.
+function setbackFromZoning(zoning) {
+  if (!zoning) return DEFAULT_SETBACK_FT;
+  const m = String(zoning).match(/setback[^0-9]*(\d+(?:\.\d+)?)\s*(?:ft|feet|')/i);
+  return m ? Number(m[1]) : DEFAULT_SETBACK_FT;
+}
+
 export function buildFallZone(lngLat, heightFt) {
   return turf.circle(lngLat, heightFt * FT_TO_KM, { steps: 64, units: "kilometers" });
 }
@@ -51,25 +124,30 @@ export function computeFit({ parcelGeometry, towerLngLat, heightFt, widthFt, dep
   const compoundInside = towerInside && allVerticesInside(compound, parcelFeature);
   const fallZoneInside = towerInside && allVerticesInside(fallZone, parcelFeature);
 
+  const setbackFt = setbackFromZoning(zoning);
+
   if (!towerInside) {
     status = "fails";
     reasons.push("Tower location is outside the parcel boundary.");
   }
   if (towerInside && !compoundInside) {
     status = "fails";
-    reasons.push("Compound extends beyond the parcel boundary.");
+    reasons.push(`Compound (${Math.round(widthFt)}×${Math.round(depthFt)} ft) extends beyond the parcel boundary — shrink the compound or move the tower.`);
   }
   if (towerInside && !fallZoneInside) {
     status = "fails";
-    reasons.push(`Fall zone (${Math.round(heightFt)} ft radius) crosses the parcel boundary.`);
+    reasons.push(`Fall zone (${Math.round(heightFt)} ft radius) crosses the parcel boundary — lower the tower height to fit.`);
+  }
+  if (status === "fails") {
+    reasons.push(`Needs ~${Math.round(requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt }))} ft of clearance from the parcel line (incl. ${setbackFt} ft setback).`);
   }
   if (status === "works" && !zoning) {
     status = "needs_review";
-    reasons.push("Zoning is unknown for this parcel — verify locally.");
+    reasons.push("Zoning is unknown for this parcel — verify the required setback locally.");
   }
   if (status === "works") {
-    reasons.push("Compound and fall zone are fully contained within the parcel.");
+    reasons.push(`Compound and fall zone fit inside the parcel with the ${setbackFt} ft zoning setback.`);
   }
 
-  return { status, reasons, fallZone, compound };
+  return { status, reasons, fallZone, compound, setbackFt };
 }

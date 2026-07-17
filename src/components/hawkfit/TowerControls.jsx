@@ -23,7 +23,7 @@ export default function TowerControls({ heightFt, widthFt, depthFt, onChange }) 
         {field("Compound W (ft)", "widthFt", widthFt)}
         {field("Compound D (ft)", "depthFt", depthFt)}
       </div>
-      <p className="text-xs text-muted-foreground">Fall-zone radius equals tower height. Drag the tower pin on the map.</p>
+      <p className="text-xs text-muted-foreground">Fall-zone radius equals tower height. Changing height or compound size auto-moves the tower to the best legal spot (fall zone + setback). Drag the pin to override.</p>
     </div>
   );
 }

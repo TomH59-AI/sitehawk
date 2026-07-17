@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Save, Loader2, Crosshair } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { computeFit } from "@/lib/hawkfitGeometry";
+import { computeFit, autoPlaceTower } from "@/lib/hawkfitGeometry";
 import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
 import { saveTowerScenario } from "@/functions/saveTowerScenario";
 import HawkFitMap from "@/components/hawkfit/HawkFitMap";
@@ -43,9 +43,20 @@ export default function HawkFit() {
       const res = await lookupRealieProperty(query);
       const target = res.data.target;
       setSiteTarget(target);
-      setTowerLngLat([target.longitude, target.latitude]);
+      // Start the tower at the best interior spot for the current settings
+      // rather than the raw centroid, so the initial verdict is meaningful.
+      const placed = target.parcel_geometry
+        ? autoPlaceTower({
+            parcelGeometry: target.parcel_geometry,
+            heightFt: controls.heightFt,
+            widthFt: controls.widthFt,
+            depthFt: controls.depthFt,
+            zoning: target.zoning || null,
+          })
+        : null;
+      setTowerLngLat(placed?.lngLat || [target.longitude, target.latitude]);
       setSavedScenario(null);
-      toast({ title: "Property loaded", description: target.address || "Target A ready — drag the tower pin." });
+      toast({ title: "Property loaded", description: target.address || "Target A ready — auto-placed for best fit. Drag to adjust." });
     } catch (e) {
       toast({
         title: "Lookup failed",
@@ -57,7 +68,36 @@ export default function HawkFit() {
   };
 
   const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
-  const handleControlChange = (key, value) => setControls((c) => ({ ...c, [key]: value }));
+
+  // When the user changes tower height or compound size, re-solve the best tower
+  // position for the new settings against the parcel (fall zone + compound +
+  // zoning setback) and move the pin there. If it can't fit anywhere, snap to the
+  // parcel center and let the Fit Status panel report the failure.
+  const handleControlChange = (key, value) => {
+    setControls((prev) => {
+      const next = { ...prev, [key]: value };
+      if (siteTarget?.parcel_geometry) {
+        const placed = autoPlaceTower({
+          parcelGeometry: siteTarget.parcel_geometry,
+          heightFt: next.heightFt,
+          widthFt: next.widthFt,
+          depthFt: next.depthFt,
+          zoning: siteTarget.zoning || null,
+        });
+        if (placed.lngLat) {
+          setTowerLngLat(placed.lngLat);
+          if (!placed.fits) {
+            toast({
+              title: "Won't fit at these settings",
+              description: "No spot on this parcel clears the fall zone, compound, and setback. Lower the height or shrink the compound.",
+              variant: "destructive",
+            });
+          }
+        }
+      }
+      return next;
+    });
+  };
   const handleLayerToggle = (key, value) => setLayers((l) => ({ ...l, [key]: value }));
 
   const handleSave = async () => {
