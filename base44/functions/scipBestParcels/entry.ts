@@ -577,38 +577,32 @@ Deno.serve(async (req) => {
     floodBatch.forEach((s, i) => {
       s._fema = femaResults[i];
       if (isHighRiskFlood(femaResults[i].code)) {
-        s.flood_excluded = true;
-        s.score = Math.max(0, s.score - 30);
-        s.score_reasons.push(`FEMA ${femaResults[i].code} — high-risk flood zone (down-scored; included if no dry alternatives)`);
+        // Informational only — flood is NOT a gate. A light score nudge keeps
+        // dry parcels slightly ahead when scores are otherwise tied, but a
+        // flood-zone parcel is never excluded or forced to the bottom.
+        s.score = Math.max(0, s.score - 5);
+        s.score_reasons.push(`FEMA ${femaResults[i].code} — high-risk flood zone (flagged for review; not excluded)`);
       } else if (femaResults[i].code !== "—") {
         s.score_reasons.push(`FEMA ${femaResults[i].code} (${femaResults[i].level})`);
       }
     });
 
-    // RANKING — multi-key, same priority order as before.
-    const ZONING_TIER = (s) => {
-      const z = `${s.zoning_classification || ""} ${s.land_use || ""}`.toLowerCase();
-      if (/(industrial|i-1|i-2|im|light industrial|heavy industrial|manufactur|warehouse|storage|distribution|logistics)/.test(z)) return 0;
-      if (/(agricultur|\ba-1\b|\ba-2\b|\bag\b|rural|farm|ranch|timberland|forest)/.test(z)) return 1;
-      if (/(commercial|\bc-1\b|\bc-2\b|\bc-3\b|business|\bcg\b|\bcc\b|retail|office|general business)/.test(z)) return 2;
-      if (/(utility|public|institution|government|vacant|conservation open|open space|recreation|park|church|school)/.test(z)) return 3;
-      return 4; // unknown/other — always retained for CUP review
-    };
+    // RANKING — liberal posture: only the hard gates reorder; score breaks ties.
     const rankCmp = (a, b) => {
-      // 0. COMPLIANCE FIRST — a parcel that violates the zoning ordinance
-      //    (height cap, setback/fall zone) NEVER outranks a compliant one.
-      if (!!a.non_compliant !== !!b.non_compliant) return a.non_compliant ? 1 : -1;
-      // 0b. FITS — a parcel that cannot contain the fall zone NEVER outranks
-      //    one that can, regardless of zoning or score.
+      // ── ONLY THREE HARD GATES ────────────────────────────────────────────
+      // Per the acquisition posture: be liberal. The jurisdiction will have its
+      // say, so we DON'T pre-judge on soft factors. A parcel only ranks below
+      // another if it fails one of the two remaining hard gates that survive
+      // ranking (residential is already removed upstream):
+      //   1. Can't fit the setbacks / fall zone (too_small)
+      //   2. Busts the ordinance height cap (non_compliant)
+      // Flood, zoning tier, and unverified zoning NO LONGER exclude or reorder
+      // past these — the human fights those out from here.
       if (!!a.too_small !== !!b.too_small) return a.too_small ? 1 : -1;
-      // 1. Dry first
-      if (!!a.flood_excluded !== !!b.flood_excluded) return a.flood_excluded ? 1 : -1;
-      // 2. Zoning tier (lower = better)
-      const zt = ZONING_TIER(a) - ZONING_TIER(b);
-      if (zt !== 0) return zt;
-      // 3. Score
+      if (!!a.non_compliant !== !!b.non_compliant) return a.non_compliant ? 1 : -1;
+      // Everything past the hard gates is ranked by suitability score, then by
+      // proximity to the ring center for coverage. No zoning-tier or flood gate.
       if (b.score !== a.score) return b.score - a.score;
-      // 4. Distance to center (closer = better coverage)
       const da = a.latitude ? haversineMiles(lat, lon, a.latitude, a.longitude) : 99;
       const db = b.latitude ? haversineMiles(lat, lon, b.latitude, b.longitude) : 99;
       return da - db;
@@ -742,7 +736,6 @@ Deno.serve(async (req) => {
     const targets = allRanked.slice(0, 3);
     const alternates = allRanked.slice(3, 5).map((t) => ({ ...t, is_alternate: true }));
 
-    const dryCount = eligibleSet.filter((s) => !s.flood_excluded).length;
     const compliantCount = eligibleSet.filter((s) => !s.non_compliant).length;
 
     // ── WHY A TARGET SLOT COULDN'T BE FILLED ─────────────────────────────────
@@ -755,7 +748,6 @@ Deno.serve(async (req) => {
     const residentialCount = scored.filter((s) => s.hardDisqualified).length;
     const tooSmallCount = scored.filter((s) => s.too_small && !s.hardDisqualified).length;
     const heightCapCount = scored.filter((s) => s.non_compliant && !s.too_small && !s.hardDisqualified).length;
-    const floodCount = eligibleSet.filter((s) => s.flood_excluded).length;
     for (let i = targets.length; i < 3; i++) {
       const reasons = [];
       if (seen.size === 0) {
@@ -764,7 +756,6 @@ Deno.serve(async (req) => {
         if (residentialCount > 0) reasons.push(`${residentialCount} parcel${residentialCount !== 1 ? "s were" : " was"} residential-zoned (hard-excluded — towers not permitted).`);
         if (tooSmallCount > 0) reasons.push(`${tooSmallCount} non-residential parcel${tooSmallCount !== 1 ? "s were" : " was"} too small to contain the ${Math.round(reliefFall)} ft fall zone${reliefLabel ? ` even with ${reliefLabel} relief` : ""}.`);
         if (heightCapCount > 0 && maxHeightFt > 0) reasons.push(`${heightCapCount} parcel${heightCapCount !== 1 ? "s exceed" : " exceeds"} the ${Math.round(maxHeightFt)} ft ordinance height cap at ${tower_height_ft} ft.`);
-        if (floodCount > 0) reasons.push(`${floodCount} otherwise-buildable parcel${floodCount !== 1 ? "s sit" : " sits"} in a FEMA high-risk flood zone.`);
         if (!reasons.length) reasons.push(`Only ${eligibleSet.length} qualifying parcel${eligibleSet.length !== 1 ? "s" : ""} found in the ring — not enough to fill this slot.`);
       }
       reasons.push(Number(radius_miles) < 1
@@ -778,12 +769,10 @@ Deno.serve(async (req) => {
       count_in_ring: scored.length,
       count_buildable: eligibleSet.length,
       count_compliant: compliantCount,
-      count_dry_buildable: dryCount,
       required_footprint_ft: Math.round(minInscriedR),
       required_acres: Number((Math.PI * minInscriedR * minInscriedR / 43560).toFixed(3)),
       min_buildable_acres: Number(absoluteMinAcres.toFixed(3)),
       returned_count: targets.length,
-      flood_only: dryCount === 0,
       fit_warning: targets[0] && targets[0].buildable_estimate === false
         ? "No parcel in this ring is estimated to fit the tower fall zone — Target A is shown for reference only. Widen the SARF radius or reduce tower height."
         : null,
