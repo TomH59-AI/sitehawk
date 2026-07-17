@@ -1,22 +1,87 @@
-/**
- * esriZoningFallback — nationwide zoning / land-use fallback via ESRI Living Atlas.
- *
- * Called when both Realie (parcel zoning field) and zoneResolve come up empty.
- * Queries the ArcGIS "USA Zoning" (Living Atlas) FeatureServer at a {lat, lon}
- * and returns the covering zoning polygon + code/description when one exists.
- *
- * Body: { lat, lon }
- * Returns: { found, zone_code, zone_name, zone_type, jurisdiction, zoning_polygon }
- *          zoning_polygon is a GeoJSON Feature the Section 4 zoning map can draw.
- *
- * Authenticates with ESRI_API_KEY. Best-effort: returns { found: false } (200)
- * when no zoning layer covers the point, so callers can fall through cleanly.
- */
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.39";
 
-// ESRI Living Atlas "USA Zoning" nationwide layer (public, token-authenticated).
-const USA_ZONING_URL =
-  "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Zoning/FeatureServer/0/query";
+/**
+ * esriZoningFallback — nationwide zoning resolver (name kept for caller compat).
+ *
+ * ESRI Living Atlas was dropped (no API key). This now returns zoning for a
+ * coordinate using the SAME parcel sources the pipeline already uses:
+ *   1. Realie (realieParcelsInRing, click mode) — PRIMARY.
+ *   2. ReportAll USA (reportAllParcels, point mode) — FALLBACK.
+ *
+ * Best-effort: returns { found: false } (200) when neither source has a zoning
+ * value, so callers fall through cleanly.
+ *
+ * Response shape (unchanged): { found, zoning, land_use, jurisdiction,
+ *   zoning_polygon, source }.  zoning_polygon is a GeoJSON Feature the
+ *   Section 4 zoning map can draw.
+ */
+
+const SUPABASE_FN_URL =
+  "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
+const REPORTALL_URL = "https://reportallusa.com/api/parcels";
+
+function feature(geom: unknown, props: Record<string, unknown>) {
+  if (!geom) return null;
+  return { type: "Feature", geometry: geom, properties: props };
+}
+
+async function realieZoning(lat: number, lon: number, supabaseKey: string) {
+  const r = await fetch(SUPABASE_FN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: supabaseKey },
+    body: JSON.stringify({ mode: "click", lat, lon }),
+  });
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  const items = data?.parcels || data?.properties || data?.results || (Array.isArray(data) ? data : []);
+  const p = items?.[0];
+  if (!p) return null;
+  const zoning = p.zoning || p.zoningCode || p.zoning_code || null;
+  const land_use = p.land_use || p.landUse || p.useDescription || null;
+  if (!zoning && !land_use) return null;
+  const geom = p.geometry || p.parcel_geometry || p.parcelGeometry || null;
+  return {
+    zoning,
+    land_use,
+    jurisdiction: p.county || p.county_name || null,
+    zoning_polygon: feature(geom, { zoning: zoning || land_use || "—", apn: p.apn || p.parcelId || "" }),
+    source: "Realie",
+  };
+}
+
+async function reportAllZoning(lat: number, lon: number, client: string) {
+  const params = new URLSearchParams({
+    client,
+    v: "9",
+    rpp: "1",
+    page: "1",
+    return_geometry: "true",
+    si_srid: "4326",
+    spatial_intersect: `POINT(${lon} ${lat})`,
+  });
+  const r = await fetch(REPORTALL_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  const p = data?.results?.[0];
+  if (!p) return null;
+  const zoning = p.zoning || null;
+  const land_use = p.land_use_class || p.land_use_code || null;
+  if (!zoning && !land_use) return null;
+  return {
+    zoning,
+    land_use,
+    jurisdiction: p.county_name || null,
+    // ReportAll geometry is WKT; the map's zoning renderer can consume the
+    // richer Realie polygon. Here we return null polygon and let the caller
+    // fall back to its own ring geometry if needed.
+    zoning_polygon: null,
+    source: "ReportAll USA",
+  };
+}
 
 Deno.serve(async (req) => {
   try {
@@ -24,58 +89,31 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const apiKey = Deno.env.get("ESRI_API_KEY");
-    if (!apiKey) return Response.json({ error: "ESRI_API_KEY not set" }, { status: 500 });
-
     const { lat, lon } = await req.json().catch(() => ({}));
     if (lat == null || lon == null) {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
 
-    const params = new URLSearchParams({
-      geometry: `${Number(lon)},${Number(lat)}`,
-      geometryType: "esriGeometryPoint",
-      inSR: "4326",
-      outSR: "4326",
-      spatialRel: "esriSpatialRelIntersects",
-      outFields: "*",
-      returnGeometry: "true",
-      f: "geojson",
-      token: apiKey,
-    });
+    const supabaseKey =
+      Deno.env.get("HAWK_SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
+    const reportClient = Deno.env.get("REPORT_API_TOKEN");
 
-    const res = await fetch(`${USA_ZONING_URL}?${params.toString()}`);
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || data?.error) {
-      console.error("esriZoningFallback upstream error:", res.status, JSON.stringify(data?.error || "")?.slice(0, 400));
-      return Response.json({ error: "ESRI zoning query failed", detail: data?.error ?? null }, { status: 502 });
+    let result = null;
+    if (supabaseKey) {
+      try { result = await realieZoning(Number(lat), Number(lon), supabaseKey); }
+      catch (e) { console.error("esriZoningFallback Realie error:", e.message); }
+    }
+    if (!result && reportClient) {
+      try { result = await reportAllZoning(Number(lat), Number(lon), reportClient); }
+      catch (e) { console.error("esriZoningFallback ReportAll error:", e.message); }
     }
 
-    const feature = Array.isArray(data?.features) ? data.features[0] : null;
-    if (!feature) {
-      console.log("esriZoningFallback: no zoning polygon at point", lat, lon);
-      return Response.json({ found: false });
+    if (!result) {
+      return Response.json({ found: false, zoning: null, land_use: null, jurisdiction: null, zoning_polygon: null });
     }
-
-    // Field names vary by contributing layer — probe the common ones.
-    const p = feature.properties || {};
-    const zoneCode = p.ZONE_CODE || p.zone_code || p.ZONING || p.Zone || p.ZONE || p.zoning || null;
-    const zoneName = p.ZONE_NAME || p.zone_name || p.DESCRIPTION || p.Description || p.LABEL || null;
-    const zoneType = p.ZONE_TYPE || p.zone_type || p.TYPE || p.CATEGORY || null;
-    const jurisdiction = p.JURISDICTION || p.CITY || p.PLACE || p.COUNTY || null;
-
-    return Response.json({
-      found: true,
-      zone_code: zoneCode,
-      zone_name: zoneName,
-      zone_type: zoneType,
-      jurisdiction,
-      zoning_polygon: { type: "Feature", geometry: feature.geometry, properties: { zoning: zoneCode || "—", zone_name: zoneName } },
-      source: "ESRI Living Atlas (USA Zoning)",
-    });
+    return Response.json({ found: true, ...result });
   } catch (error) {
-    console.error("esriZoningFallback error:", error?.message || error);
-    return Response.json({ error: error?.message || String(error) }, { status: 500 });
+    console.error("esriZoningFallback error:", error.message);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });

@@ -1,22 +1,74 @@
-/**
- * esriGeocode — ESRI World Geocoding Service fallback for the SiteHawk pipeline.
- *
- * Two modes (auto-detected from the body):
- *   FORWARD   — { address, city?, state? }  → { lat, lon, match_address, score }
- *   REVERSE   — { lat, lon }                → { county, city, jurisdiction, state, match_address }
- *
- * Used as a fallback when Realie can't geocode an address, or when a parcel's
- * governing county/jurisdiction can't be resolved from parcel data or zoneResolve
- * (this reverse path directly fixes wrong-jurisdiction matches nationwide).
- *
- * Authenticates with ESRI_API_KEY (ArcGIS Location Platform API key).
- */
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.39";
 
-const FIND_URL =
-  "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
-const REVERSE_URL =
-  "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode";
+/**
+ * esriGeocode — jurisdiction resolver (name kept for caller compatibility).
+ *
+ * ESRI was dropped (no API key). This now resolves the governing jurisdiction
+ * (county / city / state) for a coordinate using the SAME parcel sources the
+ * rest of the pipeline already uses:
+ *   1. Realie (realieParcelsInRing, click mode) — PRIMARY.
+ *   2. ReportAll USA (reportAllParcels, point mode) — FALLBACK, and the cleaner
+ *      source for county/state on rural parcels.
+ *
+ * Only REVERSE geocoding (coords → jurisdiction) is supported — that was the
+ * job ESRI was actually needed for. Forward geocoding (address → coords) is
+ * removed since the app drops coordinates directly on the map.
+ *
+ * Response shape (unchanged from the reverse path callers expect):
+ *   { county, city, state, match_address, source }
+ */
+
+const SUPABASE_FN_URL =
+  "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
+const REPORTALL_URL = "https://reportallusa.com/api/parcels";
+
+// Pull the single parcel under a point from Realie via Supabase.
+async function realiePoint(lat: number, lon: number, supabaseKey: string) {
+  const r = await fetch(SUPABASE_FN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: supabaseKey },
+    body: JSON.stringify({ mode: "click", lat, lon }),
+  });
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  const items = data?.parcels || data?.properties || data?.results || (Array.isArray(data) ? data : []);
+  const p = items?.[0];
+  if (!p) return null;
+  const city = p.situs_city || p.city || null;
+  const county = p.county || p.county_name || null;
+  const state = p.state || p.state_abbr || null;
+  const match_address = p.site_address || p.address || p.fullAddress || null;
+  if (!county && !state && !city) return null;
+  return { county, city, state, match_address, source: "Realie" };
+}
+
+// Pull the single parcel under a point from ReportAll USA.
+async function reportAllPoint(lat: number, lon: number, client: string) {
+  const params = new URLSearchParams({
+    client,
+    v: "9",
+    rpp: "1",
+    page: "1",
+    return_geometry: "false",
+    si_srid: "4326",
+    spatial_intersect: `POINT(${lon} ${lat})`,
+  });
+  const r = await fetch(REPORTALL_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  const p = data?.results?.[0];
+  if (!p) return null;
+  const county = p.county_name || null;
+  const state = p.state_abbr || null;
+  const city = p.situs_city || null;
+  const match_address = p.situs || [p.addr_number, p.addr_street_name, p.situs_city].filter(Boolean).join(" ") || null;
+  if (!county && !state && !city) return null;
+  return { county, city, state, match_address, source: "ReportAll USA" };
+}
 
 Deno.serve(async (req) => {
   try {
@@ -24,73 +76,32 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const apiKey = Deno.env.get("ESRI_API_KEY");
-    if (!apiKey) return Response.json({ error: "ESRI_API_KEY not set" }, { status: 500 });
-
-    const body = await req.json().catch(() => ({}));
-    const { address, city, state, lat, lon } = body || {};
-
-    // ── REVERSE geocode (coords → jurisdiction) ──
-    if (address == null && lat != null && lon != null) {
-      const params = new URLSearchParams({
-        location: `${Number(lon)},${Number(lat)}`,
-        outSR: "4326",
-        f: "json",
-        token: apiKey,
-      });
-      const res = await fetch(`${REVERSE_URL}?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok || data?.error) {
-        console.error("esriGeocode reverse error:", res.status, JSON.stringify(data?.error || data)?.slice(0, 400));
-        return Response.json({ error: "ESRI reverse geocode failed", detail: data?.error ?? null }, { status: 502 });
-      }
-      const a = data?.address || {};
-      // ESRI "Subregion" is the US county; "City" is the incorporated place / municipality.
-      return Response.json({
-        mode: "reverse",
-        match_address: a.LongLabel || a.Match_addr || null,
-        state: a.RegionAbbr || a.Region || null,
-        county: a.Subregion || null,
-        city: a.City || null,
-        jurisdiction: a.City || a.Subregion || null,
-        raw: a,
-      });
+    const { lat, lon } = await req.json().catch(() => ({}));
+    if (lat == null || lon == null) {
+      return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
 
-    // ── FORWARD geocode (address → coords) ──
-    if (!address) return Response.json({ error: "Provide `address` (forward) or `lat`+`lon` (reverse)" }, { status: 400 });
-    const singleLine = [address, city, state].filter(Boolean).join(", ");
-    const params = new URLSearchParams({
-      SingleLine: singleLine,
-      outFields: "Match_addr,Addr_type,StAddr,City,Subregion,RegionAbbr",
-      maxLocations: "1",
-      outSR: "4326",
-      countryCode: "USA",
-      f: "json",
-      token: apiKey,
-    });
-    const res = await fetch(`${FIND_URL}?${params.toString()}`);
-    const data = await res.json();
-    if (!res.ok || data?.error) {
-      console.error("esriGeocode forward error:", res.status, JSON.stringify(data?.error || data)?.slice(0, 400));
-      return Response.json({ error: "ESRI geocode failed", detail: data?.error ?? null }, { status: 502 });
+    const supabaseKey =
+      Deno.env.get("HAWK_SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
+    const reportClient = Deno.env.get("REPORT_API_TOKEN");
+
+    // Realie first (primary), then ReportAll (fallback + cleaner rural county/state).
+    let result = null;
+    if (supabaseKey) {
+      try { result = await realiePoint(Number(lat), Number(lon), supabaseKey); }
+      catch (e) { console.error("esriGeocode Realie error:", e.message); }
     }
-    const cand = data?.candidates?.[0];
-    if (!cand) return Response.json({ mode: "forward", found: false });
-    const attr = cand.attributes || {};
-    return Response.json({
-      mode: "forward",
-      found: true,
-      lat: cand.location?.y ?? null,
-      lon: cand.location?.x ?? null,
-      score: cand.score ?? null,
-      match_address: cand.address || attr.Match_addr || null,
-      county: attr.Subregion || null,
-      city: attr.City || null,
-      state: attr.RegionAbbr || null,
-    });
+    if (!result && reportClient) {
+      try { result = await reportAllPoint(Number(lat), Number(lon), reportClient); }
+      catch (e) { console.error("esriGeocode ReportAll error:", e.message); }
+    }
+
+    if (!result) {
+      return Response.json({ found: false, county: null, city: null, state: null, match_address: null });
+    }
+    return Response.json({ found: true, ...result });
   } catch (error) {
-    console.error("esriGeocode error:", error?.message || error);
-    return Response.json({ error: error?.message || String(error) }, { status: 500 });
+    console.error("esriGeocode error:", error.message);
+    return Response.json({ error: error.message }, { status: 500 });
   }
 });
