@@ -69,6 +69,7 @@ import HawkScip from './pages/HawkScip';
 import HawkDocs from './pages/HawkDocs';
 import HawkDocShareView from './pages/HawkDocShareView';
 import SubscriberCRM from './pages/SubscriberCRM';
+import UsageAnalytics from './pages/UsageAnalytics';
 import PlansSelection from './pages/PlansSelection';
 import HawkTracker from './pages/HawkTracker';
 import PilotTracker from './pages/PilotTracker';
@@ -156,6 +157,7 @@ const AuthenticatedApp = () => {
         <Route path="/crm" element={<CRM />} />
         <Route path="/hubspot" element={<HubSpotIntegration />} />
         <Route path="/subscriber-crm" element={<SubscriberCRM />} />
+        <Route path="/usage-analytics" element={<UsageAnalytics />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/mail-analytics" element={<MailAnalytics />} />
         <Route path="/scip" element={<SCIPPreview />} />

@@ -111,6 +111,16 @@ export const AuthProvider = ({ children }) => {
 
       // Keep the admin Subscriber CRM contact current (idempotent, non-blocking)
       subscriberCrmSync({}).catch(() => {});
+
+      // Stamp last-active so admin usage analytics can count real active users.
+      // Throttled to once per 6h per browser to avoid a write on every load.
+      try {
+        const lastStamp = Number(localStorage.getItem("sh_last_active_stamp") || 0);
+        if (Date.now() - lastStamp > 6 * 60 * 60 * 1000) {
+          base44.auth.updateMe({ last_active_at: new Date().toISOString() }).catch(() => {});
+          localStorage.setItem("sh_last_active_stamp", String(Date.now()));
+        }
+      } catch { /* ignore */ }
     } catch (error) {
       console.error('User auth check failed:', error);
       setIsLoadingAuth(false);
