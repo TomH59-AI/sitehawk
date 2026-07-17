@@ -26,7 +26,7 @@ export default function RfiMap() {
   const [drawing, setDrawing] = useState(false);
   const [towerCount, setTowerCount] = useState(0);
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
-  const [baseLayer, setBaseLayer] = useState("dark");
+  const [baseLayer, setBaseLayer] = useState("usgs_topo");
   const searchMarker = useRef(null);
 
   const [filters, setFilters] = useState({
