@@ -74,7 +74,7 @@ export default function RowIndicatorStep({
           <Lock className="w-4 h-4" />
           <div>
             <div className="text-[10px] font-mono tracking-[0.3em] opacity-70">MAP {index} · LOCKED</div>
-            <h3 className="font-heading font-bold text-base leading-tight">Regrid Premium Parcel Data</h3>
+            <h3 className="font-heading font-bold text-base leading-tight">Premium Parcel Data</h3>
           </div>
         </div>
         <div className="px-4 py-4 text-sm text-muted-foreground">
@@ -105,7 +105,7 @@ export default function RowIndicatorStep({
       <div className="px-4 py-3 flex items-center justify-between gap-3 flex-wrap text-white" style={{ background: BRAND_GREEN }}>
         <div className="flex items-center gap-2">
           <div>
-            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">STEP {index} · TARGET A · REGRID PREMIUM</div>
+            <div className="text-[10px] font-mono tracking-[0.3em] opacity-80">STEP {index} · TARGET A · REALIE PREMIUM</div>
             <h3 className="font-heading font-bold text-base leading-tight">ROW &amp; Premium Parcel Indicators</h3>
           </div>
         </div>
@@ -120,7 +120,7 @@ export default function RowIndicatorStep({
         )}
       </div>
 
-      {loading && <HawkFlightSpinner label="Loading Regrid Premium parcel indicators…" />}
+      {loading && <HawkFlightSpinner label="Loading premium parcel indicators…" />}
 
       {!loading && !done && !error && (
         <div className="px-4 py-5 text-sm text-muted-foreground">

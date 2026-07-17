@@ -32,7 +32,7 @@ export default function ParcelLinesToggle({ mapRef, className = "" }) {
   return (
     <button
       onClick={toggle}
-      title={error ? "Parcel lines unavailable" : "Toggle Regrid parcel boundaries"}
+      title={error ? "Parcel lines unavailable" : "Toggle parcel boundaries"}
       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold shadow-lg backdrop-blur border transition-all ${
         on
           ? "bg-emerald-600 text-white border-emerald-500"

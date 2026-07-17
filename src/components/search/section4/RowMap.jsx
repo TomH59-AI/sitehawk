@@ -146,7 +146,7 @@ export default function RowMap({ parcels = [], targetA, corridor = null }) {
         <div ref={containerRef} className="w-full rounded-lg overflow-hidden border border-border" style={{ height: 420 }} />
       )}
       <p className="text-[11px] text-muted-foreground">
-        Red polygons are Regrid ROW-flagged parcels (roadway / rail / utility rights-of-way). Click one for details. Private easements are not mapped — check the deed of record (Step 16).
+        Red polygons are ROW-flagged parcels (roadway / rail / utility rights-of-way). Click one for details. Private easements are not mapped — check the deed of record (Step 16).
       </p>
     </div>
   );

@@ -118,7 +118,7 @@ export default function RegridLayerToggle({ mapRef, fieldKey = "zoning", zoneInf
           })}
 
           <div className="pt-1 border-t border-border/50 text-[9px] text-muted-foreground px-1">
-            Source: Regrid Premium
+            Source: Realie
           </div>
         </div>
       )}
