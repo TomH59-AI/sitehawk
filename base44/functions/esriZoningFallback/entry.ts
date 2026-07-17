@@ -1,24 +1,26 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.39";
 
 /**
- * esriZoningFallback — nationwide zoning resolver (name kept for caller compat).
+ * esriZoningFallback — nationwide zoning resolver.
  *
- * ESRI Living Atlas was dropped (no API key). This now returns zoning for a
- * coordinate using the SAME parcel sources the pipeline already uses:
+ * Returns zoning for a coordinate using, in order:
  *   1. Realie (realieParcelsInRing, click mode) — PRIMARY.
  *   2. ReportAll USA (reportAllParcels, point mode) — FALLBACK.
+ *   3. ESRI Living Atlas "USA Zoning" layer (ESRI_API_KEY) — FINAL FALLBACK.
  *
- * Best-effort: returns { found: false } (200) when neither source has a zoning
+ * Best-effort: returns { found: false } (200) when no source has a zoning
  * value, so callers fall through cleanly.
  *
- * Response shape (unchanged): { found, zoning, land_use, jurisdiction,
- *   zoning_polygon, source }.  zoning_polygon is a GeoJSON Feature the
- *   Section 4 zoning map can draw.
+ * Response shape: { found, zoning, land_use, jurisdiction, zoning_polygon,
+ *   source }.  zoning_polygon is a GeoJSON Feature the Section 4 zoning map
+ *   can draw.
  */
 
 const SUPABASE_FN_URL =
   "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
 const REPORTALL_URL = "https://reportallusa.com/api/parcels";
+const USA_ZONING_URL =
+  "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Zoning/FeatureServer/0/query";
 
 function feature(geom: unknown, props: Record<string, unknown>) {
   if (!geom) return null;
@@ -75,11 +77,43 @@ async function reportAllZoning(lat: number, lon: number, client: string) {
     zoning,
     land_use,
     jurisdiction: p.county_name || null,
-    // ReportAll geometry is WKT; the map's zoning renderer can consume the
-    // richer Realie polygon. Here we return null polygon and let the caller
-    // fall back to its own ring geometry if needed.
     zoning_polygon: null,
     source: "ReportAll USA",
+  };
+}
+
+// ESRI Living Atlas "USA Zoning" nationwide layer.
+async function esriZoning(lat: number, lon: number, apiKey: string) {
+  const params = new URLSearchParams({
+    geometry: `${lon},${lat}`,
+    geometryType: "esriGeometryPoint",
+    inSR: "4326",
+    outSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    outFields: "*",
+    returnGeometry: "true",
+    f: "geojson",
+    token: apiKey,
+  });
+  const r = await fetch(`${USA_ZONING_URL}?${params.toString()}`);
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  if (data?.error) {
+    console.error("esriZoningFallback ESRI query error:", JSON.stringify(data.error));
+    return null;
+  }
+  const f = data?.features?.[0];
+  if (!f) return null;
+  const props = f.properties || {};
+  const zoning = props.ZONE_CODE || props.zone_code || props.ZONING || null;
+  const land_use = props.ZONE_TYPE || props.zone_type || props.GEN_USE || null;
+  if (!zoning && !land_use) return null;
+  return {
+    zoning,
+    land_use,
+    jurisdiction: props.JURISDICTN || props.jurisdiction || props.MUNICIPALITY || null,
+    zoning_polygon: f.geometry ? { type: "Feature", geometry: f.geometry, properties: { zoning: zoning || land_use || "—" } } : null,
+    source: "ESRI",
   };
 }
 
@@ -97,7 +131,9 @@ Deno.serve(async (req) => {
     const supabaseKey =
       Deno.env.get("HAWK_SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
     const reportClient = Deno.env.get("REPORT_API_TOKEN");
+    const esriKey = Deno.env.get("ESRI_API_KEY");
 
+    // Realie → ReportAll → ESRI.
     let result = null;
     if (supabaseKey) {
       try { result = await realieZoning(Number(lat), Number(lon), supabaseKey); }
@@ -106,6 +142,10 @@ Deno.serve(async (req) => {
     if (!result && reportClient) {
       try { result = await reportAllZoning(Number(lat), Number(lon), reportClient); }
       catch (e) { console.error("esriZoningFallback ReportAll error:", e.message); }
+    }
+    if (!result && esriKey) {
+      try { result = await esriZoning(Number(lat), Number(lon), esriKey); }
+      catch (e) { console.error("esriZoningFallback ESRI error:", e.message); }
     }
 
     if (!result) {

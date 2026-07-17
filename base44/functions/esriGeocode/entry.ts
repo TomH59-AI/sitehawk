@@ -1,26 +1,25 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.39";
 
 /**
- * esriGeocode — jurisdiction resolver (name kept for caller compatibility).
+ * esriGeocode — jurisdiction resolver.
  *
- * ESRI was dropped (no API key). This now resolves the governing jurisdiction
- * (county / city / state) for a coordinate using the SAME parcel sources the
- * rest of the pipeline already uses:
+ * Resolves the governing jurisdiction (county / city / state) for a coordinate
+ * using, in order:
  *   1. Realie (realieParcelsInRing, click mode) — PRIMARY.
- *   2. ReportAll USA (reportAllParcels, point mode) — FALLBACK, and the cleaner
- *      source for county/state on rural parcels.
+ *   2. ReportAll USA (reportAllParcels, point mode) — FALLBACK.
+ *   3. ESRI World Geocoding reverseGeocode (ESRI_API_KEY) — FINAL FALLBACK,
+ *      the verified nationwide source for rural / non-parcel coordinates.
  *
- * Only REVERSE geocoding (coords → jurisdiction) is supported — that was the
- * job ESRI was actually needed for. Forward geocoding (address → coords) is
- * removed since the app drops coordinates directly on the map.
+ * Only REVERSE geocoding (coords → jurisdiction) is supported.
  *
- * Response shape (unchanged from the reverse path callers expect):
- *   { county, city, state, match_address, source }
+ * Response shape: { found, county, city, state, match_address, source }.
  */
 
 const SUPABASE_FN_URL =
   "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
 const REPORTALL_URL = "https://reportallusa.com/api/parcels";
+const ESRI_REVERSE_URL =
+  "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode";
 
 // Pull the single parcel under a point from Realie via Supabase.
 async function realiePoint(lat: number, lon: number, supabaseKey: string) {
@@ -70,6 +69,31 @@ async function reportAllPoint(lat: number, lon: number, client: string) {
   return { county, city, state, match_address, source: "ReportAll USA" };
 }
 
+// ESRI World Geocoding reverse lookup — verified nationwide jurisdiction.
+async function esriReverse(lat: number, lon: number, apiKey: string) {
+  const params = new URLSearchParams({
+    location: `${lon},${lat}`,
+    f: "json",
+    token: apiKey,
+    outFields: "*",
+  });
+  const r = await fetch(`${ESRI_REVERSE_URL}?${params.toString()}`);
+  if (!r.ok) return null;
+  const data = await r.json().catch(() => null);
+  if (data?.error) {
+    console.error("esriGeocode reverse error:", JSON.stringify(data.error));
+    return null;
+  }
+  const a = data?.address;
+  if (!a) return null;
+  const county = a.Subregion ? String(a.Subregion).replace(/ County$/i, "") : null;
+  const city = a.City || null;
+  const state = a.RegionAbbr || a.Region || null;
+  const match_address = a.Match_addr || a.LongLabel || null;
+  if (!county && !state && !city) return null;
+  return { county, city, state, match_address, source: "ESRI" };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -84,8 +108,9 @@ Deno.serve(async (req) => {
     const supabaseKey =
       Deno.env.get("HAWK_SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
     const reportClient = Deno.env.get("REPORT_API_TOKEN");
+    const esriKey = Deno.env.get("ESRI_API_KEY");
 
-    // Realie first (primary), then ReportAll (fallback + cleaner rural county/state).
+    // Realie → ReportAll → ESRI.
     let result = null;
     if (supabaseKey) {
       try { result = await realiePoint(Number(lat), Number(lon), supabaseKey); }
@@ -94,6 +119,10 @@ Deno.serve(async (req) => {
     if (!result && reportClient) {
       try { result = await reportAllPoint(Number(lat), Number(lon), reportClient); }
       catch (e) { console.error("esriGeocode ReportAll error:", e.message); }
+    }
+    if (!result && esriKey) {
+      try { result = await esriReverse(Number(lat), Number(lon), esriKey); }
+      catch (e) { console.error("esriGeocode ESRI error:", e.message); }
     }
 
     if (!result) {
