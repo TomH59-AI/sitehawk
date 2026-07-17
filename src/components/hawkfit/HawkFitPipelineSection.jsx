@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Crosshair, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { computeFit } from "@/lib/hawkfitGeometry";
+import { computeFit, autoPlaceTower } from "@/lib/hawkfitGeometry";
 import { resolveActiveTargetA, resolve3DContext } from "@/lib/hawkfitTargetResolver";
 import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
 import { saveTowerScenario } from "@/functions/saveTowerScenario";
+import { hawkfitWaterBodies } from "@/functions/hawkfitWaterBodies";
 import HawkFitMap from "@/components/hawkfit/HawkFitMap";
 import PropertyLookupForm from "@/components/hawkfit/PropertyLookupForm";
 import SiteTargetSummary from "@/components/hawkfit/SiteTargetSummary";
@@ -34,6 +35,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   const [saveBusy, setSaveBusy] = useState(false);
   const [threeD, setThreeD] = useState(null);
   const [manualBusy, setManualBusy] = useState(false);
+  const [water, setWater] = useState(null); // water-body FeatureCollection near the target
 
   // Refresh whenever the pipeline's active Target A changes (Target promotion /
   // active_target_index advance flows through the targetA prop coordinates).
@@ -59,9 +61,31 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       if (cancelled) return;
       setSiteTarget(t);
       setResolvedFrom(res?.source || null);
-      setTowerLngLat(t ? [t.longitude, t.latitude] : null);
       setResolving(false);
-      if (t) resolve3DContext(t).then((ctx) => { if (!cancelled) setThreeD(ctx); });
+      if (t) {
+        // Fetch nearby water, then auto-place the tower on dry land inside the parcel.
+        let waterFC = null;
+        try {
+          const { data } = await hawkfitWaterBodies({ lat: t.latitude, lon: t.longitude });
+          waterFC = data?.water || null;
+        } catch { /* no water data — placement falls back to boundary-only */ }
+        if (cancelled) return;
+        setWater(waterFC);
+        let placed = [t.longitude, t.latitude];
+        if (t.parcel_geometry) {
+          const auto = autoPlaceTower({
+            parcelGeometry: t.parcel_geometry,
+            heightFt: controls.heightFt, widthFt: controls.widthFt, depthFt: controls.depthFt,
+            zoning: t.zoning || null, waterFeatures: waterFC,
+          });
+          if (auto?.lngLat) placed = auto.lngLat;
+        }
+        setTowerLngLat(placed);
+        resolve3DContext(t).then((ctx) => { if (!cancelled) setThreeD(ctx); });
+      } else {
+        setWater(null);
+        setTowerLngLat(null);
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,8 +100,9 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       widthFt: controls.widthFt,
       depthFt: controls.depthFt,
       zoning: siteTarget?.zoning || null,
+      waterFeatures: water,
     });
-  }, [siteTarget, towerLngLat, controls]);
+  }, [siteTarget, towerLngLat, controls, water]);
 
   const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
 
@@ -87,11 +112,27 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
     setManualBusy(true);
     try {
       const { data } = await lookupRealieProperty(query);
-      setSiteTarget(data.target);
+      const t = data.target;
+      setSiteTarget(t);
       setResolvedFrom("manual lookup");
-      setTowerLngLat([data.target.longitude, data.target.latitude]);
       setSavedScenario(null);
-      resolve3DContext(data.target).then(setThreeD);
+      let waterFC = null;
+      try {
+        const wr = await hawkfitWaterBodies({ lat: t.latitude, lon: t.longitude });
+        waterFC = wr?.data?.water || null;
+      } catch { /* no water data */ }
+      setWater(waterFC);
+      let placed = [t.longitude, t.latitude];
+      if (t.parcel_geometry) {
+        const auto = autoPlaceTower({
+          parcelGeometry: t.parcel_geometry,
+          heightFt: controls.heightFt, widthFt: controls.widthFt, depthFt: controls.depthFt,
+          zoning: t.zoning || null, waterFeatures: waterFC,
+        });
+        if (auto?.lngLat) placed = auto.lngLat;
+      }
+      setTowerLngLat(placed);
+      resolve3DContext(t).then(setThreeD);
     } catch (e) {
       toast({ title: "Lookup failed", description: e?.response?.data?.error || e.message, variant: "destructive" });
     }

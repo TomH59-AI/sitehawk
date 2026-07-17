@@ -22,7 +22,7 @@ export function requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt }) {
 // Returns { lngLat, fits } — fits=false means no point can satisfy the settings
 // (parcel too small for this height/compound), and lngLat falls back to the
 // parcel's overall center so the tower stays visible.
-export function autoPlaceTower({ parcelGeometry, heightFt, widthFt, depthFt, zoning }) {
+export function autoPlaceTower({ parcelGeometry, heightFt, widthFt, depthFt, zoning, waterFeatures }) {
   if (!parcelGeometry) return { lngLat: null, fits: false };
   const parcelFeature = { type: "Feature", properties: {}, geometry: parcelGeometry };
   const setbackFt = setbackFromZoning(zoning);
@@ -32,6 +32,10 @@ export function autoPlaceTower({ parcelGeometry, heightFt, widthFt, depthFt, zon
   try {
     interior = turf.buffer(parcelFeature, -clearanceKm, { units: "kilometers" });
   } catch { /* buffer can fail on odd geometries */ }
+
+  // Carve any water bodies out of the buildable interior so the placer can
+  // never drop the tower in a lake/pond/river.
+  interior = subtractWater(interior, waterFeatures);
 
   const hasArea = (f) => {
     if (!f || !f.geometry) return false;
@@ -70,6 +74,45 @@ function poleOfInaccessibility(feature) {
   return best;
 }
 
+// Subtract water polygons from a buildable-interior feature. Returns the
+// largest dry remainder, or the original feature if there's no water / the
+// subtraction fails. Accepts a GeoJSON FeatureCollection of water polygons.
+function subtractWater(feature, waterFeatures) {
+  const features = waterFeatures?.features || (Array.isArray(waterFeatures) ? waterFeatures : []);
+  if (!feature || !features.length) return feature;
+  let dry = feature;
+  for (const water of features) {
+    if (!water?.geometry) continue;
+    try {
+      const diff = turf.difference(dry, water);
+      if (diff && turf.area(diff) > 1) dry = diff;
+    } catch { /* skip bad water polygon */ }
+  }
+  // If the result is a MultiPolygon, keep the largest dry piece for placement.
+  try {
+    if (dry?.geometry?.type === "MultiPolygon") {
+      let best = null, bestArea = -1;
+      for (const coords of dry.geometry.coordinates) {
+        const poly = turf.polygon(coords);
+        const a = turf.area(poly);
+        if (a > bestArea) { bestArea = a; best = poly; }
+      }
+      if (best) return best;
+    }
+  } catch { /* fall through */ }
+  return dry;
+}
+
+// True if the point lies inside any water polygon.
+function pointOnWater(lngLat, waterFeatures) {
+  const features = waterFeatures?.features || (Array.isArray(waterFeatures) ? waterFeatures : []);
+  if (!lngLat || !features.length) return false;
+  const pt = turf.point(lngLat);
+  return features.some((w) => {
+    try { return w?.geometry && turf.booleanPointInPolygon(pt, w); } catch { return false; }
+  });
+}
+
 // Parse a setback (ft) out of a zoning string, else the safe default.
 function setbackFromZoning(zoning) {
   if (!zoning) return DEFAULT_SETBACK_FT;
@@ -104,7 +147,7 @@ function allVerticesInside(feature, parcelFeature) {
 }
 
 // Returns { status: 'works'|'fails'|'needs_review', reasons: [], fallZone, compound }
-export function computeFit({ parcelGeometry, towerLngLat, heightFt, widthFt, depthFt, zoning }) {
+export function computeFit({ parcelGeometry, towerLngLat, heightFt, widthFt, depthFt, zoning, waterFeatures }) {
   const fallZone = buildFallZone(towerLngLat, heightFt);
   const compound = buildCompound(towerLngLat, widthFt, depthFt);
   const reasons = [];
@@ -129,6 +172,10 @@ export function computeFit({ parcelGeometry, towerLngLat, heightFt, widthFt, dep
   if (!towerInside) {
     status = "fails";
     reasons.push("Tower location is outside the parcel boundary.");
+  }
+  if (pointOnWater(towerLngLat, waterFeatures)) {
+    status = "fails";
+    reasons.push("Tower sits on a water body (lake/pond/river) — move it onto dry land.");
   }
   if (towerInside && !compoundInside) {
     status = "fails";
