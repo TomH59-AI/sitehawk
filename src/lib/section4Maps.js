@@ -664,14 +664,15 @@ export async function renderRegridZoningMap(container, target, token, parcelsFC,
   const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 15);
   map.on("error", (e) => console.error("[REGRID ZONING DIAG] Mapbox error event:", e?.error || e));
 
-  // Build a deterministic color per unique zone code.
+  // Build a deterministic BRIGHT color per unique zone code. Higher saturation +
+  // lightness so surrounding parcels read as vivid zoning colors on satellite.
   const codeSet = new Set((parcelsFC?.features || []).map((f) => f.properties?.[fieldKey] || "—"));
   const palette = {};
   let hueStep = 0;
   for (const code of codeSet) {
     // Spread hues evenly, avoid red (0°) for ROW parcels confusion
     const h = (30 + hueStep * 137.5) % 360; // golden-angle spread
-    palette[code] = `hsl(${Math.round(h)}, 65%, 55%)`;
+    palette[code] = `hsl(${Math.round(h)}, 90%, 62%)`; // brighter: 90% sat, 62% light
     hueStep++;
   }
 
@@ -689,14 +690,28 @@ export async function renderRegridZoningMap(container, target, token, parcelsFC,
         })),
       };
       map.addSource("s4-rg-zone", { type: "geojson", data: colored });
-      map.addLayer({ id: "s4-rg-zone-fill", type: "fill", source: "s4-rg-zone", paint: { "fill-color": ["get", "_color"], "fill-opacity": 0.4 } });
-      map.addLayer({ id: "s4-rg-zone-line", type: "line", source: "s4-rg-zone", paint: { "line-color": ["get", "_color"], "line-width": 1.5, "line-opacity": 0.85 } });
+      // Brighter fill + bolder outlines so surrounding zoning colors pop.
+      map.addLayer({ id: "s4-rg-zone-fill", type: "fill", source: "s4-rg-zone", paint: { "fill-color": ["get", "_color"], "fill-opacity": 0.6 } });
+      map.addLayer({ id: "s4-rg-zone-line", type: "line", source: "s4-rg-zone", paint: { "line-color": ["get", "_color"], "line-width": 2, "line-opacity": 1 } });
 
-      // 2) Highlight Target A parcel boundary in brand green
+      // 2) Highlight Target A parcel boundary in brand green + a clear pill label.
       const targetGeom = (parcelsFC?.features || []).find((f) => f.properties?.apn === target.apn || f.properties?.apn === target.parcel_id);
       if (targetGeom) {
         map.addSource("s4-rg-target", { type: "geojson", data: targetGeom });
-        map.addLayer({ id: "s4-rg-target-line", type: "line", source: "s4-rg-target", paint: { "line-color": BRAND_GREEN, "line-width": 3.5 } });
+        map.addLayer({ id: "s4-rg-target-fill", type: "fill", source: "s4-rg-target", paint: { "fill-color": BRAND_GREEN, "fill-opacity": 0.25 } });
+        map.addLayer({ id: "s4-rg-target-line", type: "line", source: "s4-rg-target", paint: { "line-color": BRAND_GREEN, "line-width": 4 } });
+        // "TARGET A" pill anchored on the target parcel centroid.
+        const tc = parcelCentroid(targetGeom.geometry);
+        if (tc) {
+          const tEl = document.createElement("div");
+          tEl.textContent = "TARGET A";
+          tEl.style.cssText = `
+            font: 700 11px/1 ui-sans-serif, system-ui, sans-serif; color:#fff; letter-spacing:0.08em;
+            background:${BRAND_GREEN}; padding:5px 10px; border-radius:9999px;
+            white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.5); border:1.5px solid #fff;
+          `;
+          new window.mapboxgl.Marker({ element: tEl, anchor: "center" }).setLngLat([tc.lon, tc.lat]).addTo(map);
+        }
       }
 
       // 3) Hover popup showing zone code + owner

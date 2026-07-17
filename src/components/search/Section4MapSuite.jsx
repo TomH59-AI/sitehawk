@@ -253,12 +253,20 @@ export default function Section4MapSuite({
         onData?.({ fema: { flood_zone: fz } });
       } else if (step === "zoning") {
         // Realie is the primary parcel/zoning source (geometry + zoning included).
-        const [rgRes, zfres] = await Promise.all([
+        // Pull the whole SARF ring of parcels (not just the click point) so all
+        // surrounding parcels get colored by their zoning — Target A's own zoning
+        // still comes from the click parcel below.
+        const [clickRes, ringRes, zfres] = await Promise.all([
           realieParcelsInRing({ lat: targetA.latitude, lon: targetA.longitude, mode: "click" }).catch(() => null),
+          realieParcelsInRing({ lat: srcLat, lon: srcLon, radius_miles: radiusMiles }).catch(() => null),
           zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         ]);
-        const rgParcels = rgRes?.data?.parcels || [];
-        const rgParcel = rgParcels[0] || null;
+        // Prefer the richer ring result for coloring; fall back to the click parcels.
+        const ringParcels = ringRes?.data?.parcels || [];
+        const clickParcels = clickRes?.data?.parcels || [];
+        const rgParcels = ringParcels.length ? ringParcels : clickParcels;
+        // Target A's zoning label comes from the click parcel (the parcel at the point).
+        const rgParcel = clickParcels[0] || rgParcels[0] || null;
         const rgZoning = rgParcel?.zoning || rgParcel?.zoning_description || null;
         const rgZoningType = rgParcel?.zoning_type || null;
 
