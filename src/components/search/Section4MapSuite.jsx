@@ -63,7 +63,6 @@ import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import { scipViewshed } from "@/functions/scipViewshed";
 import ViewshedTiles from "./section4/ViewshedTiles";
-import RowIndicatorStep from "./section4/RowIndicatorStep";
 import RegridLayerToggle from "./section4/RegridLayerToggle";
 import CustomizeProbe from "@/components/maps/CustomizeProbe";
 import {
@@ -78,7 +77,7 @@ import { zoneResolve } from "@/functions/zoneResolve";
 import ZoningLegend from "./section4/ZoningLegend";
 import { SOURCE_LABELS } from "@/lib/brandedLabels";
 
-const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "row", "wind", "fiber", "power", "viewshed", "compliance"];
+const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "wind", "fiber", "power", "viewshed", "compliance"];
 
 // Build the ROW-step enrichment (Target A parcel) + ring stats from the Realie
 // ring parcels — replaces the fields Regrid used to return as target_a_enrichment
@@ -737,7 +736,7 @@ export default function Section4MapSuite({
       {/* Idle — armed, waiting for the first Run click */}
       {!active && (
         <div className="px-4 pt-6 text-sm text-muted-foreground">
-          Generate fourteen Target A maps &amp; data steps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, ROW &amp; Premium Parcel Indicators, Wind Speed, Fiber Optics, Power Grid, 2D Viewshed — then the Section 106 / NEPA compliance report.
+          Generate thirteen Target A maps &amp; data steps one at a time — Aerial, Topography, FEMA Floodplain, Zoning, Future Land Use, Wetlands, Nearest Airport, Nearest Cell Tower, Parcel, Wind Speed, Fiber Optics, Power Grid, 2D Viewshed — then the Section 106 / NEPA compliance report.
           Click <span className="font-semibold text-foreground">Run Aerial Map</span> below to begin.
         </div>
       )}
@@ -840,43 +839,29 @@ export default function Section4MapSuite({
             />
           )}
         />
-        <div data-tour="map-row">
-        <RowIndicatorStep
-          index={10}
-          unlocked={active && isUnlocked("row")}
-          loading={loadingStep === "row"}
-          done={!!completed.row}
-          enrichment={rowEnrichment}
-          ringStats={rowRingStats}
-          parcels={rowParcels}
-          targetA={targetA}
-          error={errors.row}
-          onRun={() => runStep("row")}
-        />
-        </div>
         <MapSubStep
-          index={11} title="Wind Speed Map" runLabel="Run Wind Speed Map" tourKey="map-wind"
+          index={10} title="Wind Speed Map" runLabel="Run Wind Speed Map" tourKey="map-wind"
           spinnerLabel="Generating Target A wind speed map…"
           unlocked={active && isUnlocked("wind")}
           loading={loadingStep === "wind"} done={!!completed.wind}
           onRun={() => runStep("wind")} mapRef={refs.wind} banner={banners.wind}
         />
         <MapSubStep
-          index={12} title="Fiber Optics Map" runLabel="Run Fiber Optics Map" tourKey="map-fiber"
+          index={11} title="Fiber Optics Map" runLabel="Run Fiber Optics Map" tourKey="map-fiber"
           spinnerLabel="Finding fiber optics infrastructure near Target A…"
           unlocked={active && isUnlocked("fiber")}
           loading={loadingStep === "fiber"} done={!!completed.fiber}
           onRun={() => runStep("fiber")} mapRef={refs.fiber} banner={banners.fiber}
         />
         <MapSubStep
-          index={13} title="Power Map" runLabel="Run Power Map" tourKey="map-power"
+          index={12} title="Power Map" runLabel="Run Power Map" tourKey="map-power"
           spinnerLabel="Mapping power grid, substations & transmission lines near Target A…"
           unlocked={active && isUnlocked("power")}
           loading={loadingStep === "power"} done={!!completed.power}
           onRun={() => runStep("power")} mapRef={refs.power} banner={banners.power}
         />
         <MapSubStep
-          index={14} title="2D Viewshed Map" runLabel="Run 2D Viewshed Map" tourKey="map-viewshed"
+          index={13} title="2D Viewshed Map" runLabel="Run 2D Viewshed Map" tourKey="map-viewshed"
           spinnerLabel="Generating Target A N/S/E/W viewshed maps & line-of-sight profiles…"
           unlocked={active && isUnlocked("viewshed")}
           loading={loadingStep === "viewshed"} done={!!completed.viewshed}
