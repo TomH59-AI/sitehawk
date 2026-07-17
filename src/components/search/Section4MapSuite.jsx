@@ -51,7 +51,6 @@ import SkipTraceStep from "./section4/SkipTraceStep";
 import DeedStep from "./section4/DeedStep";
 import ComplianceStep from "./section4/ComplianceStep";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
-import { regridParcelRing } from "@/functions/regridParcelRing";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -78,6 +77,28 @@ import ZoningLegend from "./section4/ZoningLegend";
 import { SOURCE_LABELS } from "@/lib/brandedLabels";
 
 const STEPS = ["aerial", "topo", "fema", "zoning", "flum", "wetlands", "airport", "celltower", "parcel", "row", "wind", "fiber", "power", "viewshed", "compliance"];
+
+// Build the ROW-step enrichment (Target A parcel) + ring stats from the Realie
+// ring parcels — replaces the fields Regrid used to return as target_a_enrichment
+// and ring_stats, so the ROW / Premium Indicators panel keeps working on Realie.
+function deriveRingEnrichment(parcels, lat, lon) {
+  if (!Array.isArray(parcels) || !parcels.length) {
+    return { target: null, stats: { total: 0, row_count: 0, stacked_count: 0, vacant_count: 0 } };
+  }
+  let target = parcels[0], best = Infinity;
+  for (const p of parcels) {
+    if (p.latitude == null || p.longitude == null) continue;
+    const d = Math.hypot(p.latitude - lat, p.longitude - lon);
+    if (d < best) { best = d; target = p; }
+  }
+  const stats = {
+    total: parcels.length,
+    row_count: parcels.filter((p) => p.row_flag === true || p.row_type).length,
+    stacked_count: parcels.filter((p) => p.stacked).length,
+    vacant_count: parcels.filter((p) => p.usps_vacancy === "V").length,
+  };
+  return { target, stats };
+}
 
 export default function Section4MapSuite({
   unlocked, active, targetA, srcLat, srcLon, radiusMiles = 0.5, ringName, towerHeightFt = 0, sectionData = {}, onRun, onComplete, onData, onClear,
@@ -229,13 +250,13 @@ export default function Section4MapSuite({
         // Emit FEMA factor to the bus — §4 centroid lookup is canonical for FEMA.
         onData?.({ fema: { flood_zone: fz } });
       } else if (step === "zoning") {
-        // Try Regrid first for zoning data (premium plan includes zoning + geometry)
+        // Realie is the primary parcel/zoning source (geometry + zoning included).
         const [rgRes, zfres] = await Promise.all([
-          regridParcelRing({ lat: targetA.latitude, lon: targetA.longitude, mode: "point" }).catch(() => null),
+          realieParcelsInRing({ lat: targetA.latitude, lon: targetA.longitude, mode: "click" }).catch(() => null),
           zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         ]);
-        const rgParcel = rgRes?.data?.parcel || null;
         const rgParcels = rgRes?.data?.parcels || [];
+        const rgParcel = rgParcels[0] || null;
         const rgZoning = rgParcel?.zoning || rgParcel?.zoning_description || null;
         const rgZoningType = rgParcel?.zoning_type || null;
 
@@ -274,11 +295,11 @@ export default function Section4MapSuite({
         let fluFeature = null;
 
         const [rgRes, fres] = await Promise.all([
-          regridParcelRing({ lat: targetA.latitude, lon: targetA.longitude, mode: "point" }).catch(() => null),
+          realieParcelsInRing({ lat: targetA.latitude, lon: targetA.longitude, mode: "click" }).catch(() => null),
           zoneResolve({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
         ]);
-        const rgParcel = rgRes?.data?.parcel || null;
         const rgParcels = rgRes?.data?.parcels || [];
+        const rgParcel = rgParcels[0] || null;
 
         // zoneResolve FLU (FL GeoPlan) — polygon + code
         const flu = fres?.data?.flu || null;
@@ -338,27 +359,30 @@ export default function Section4MapSuite({
         onData?.({ tower: { owner: nt.licensee || null, distance_miles: Number(nt.distance_miles), height_ft: nt.overall_height_ft ?? null, source: cres.data?.source || "FCC ASR / OpenCellID" } });
         map = await renderCellTower(refs.celltower.current, targetA, tower, token);
       } else if (step === "parcel") {
-        // Regrid handles the parcel map overlay — Realie handles SARF + Targets.
-        // Regrid credits are spent ONLY here; all other parcel calls stay on Realie.
-        const pres = await regridParcelRing({
+        // Realie is the primary parcel source for the ring overlay (geometry,
+        // ownership, ROW/tax/deed fields all included).
+        const pres = await realieParcelsInRing({
           lat: srcLat, lon: srcLon, radius_miles: radiusMiles,
         }).catch(() => null);
         const parcels = pres?.data?.parcels || [];
-        // Cache the enrichment + parcels for the ROW step (same API call, no extra credit)
-        if (pres?.data?.target_a_enrichment) setRowEnrichment(pres.data.target_a_enrichment);
-        if (pres?.data?.ring_stats) setRowRingStats(pres.data.ring_stats);
+        // Cache the enrichment + parcels for the ROW step (same call, no re-fetch).
+        const enr = deriveRingEnrichment(parcels, srcLat, srcLon);
+        if (enr.target) setRowEnrichment(enr.target);
+        setRowRingStats(enr.stats);
         if (parcels.length) setRowParcels(parcels);
         map = await renderParcel(refs.parcel.current, targetA, parcels, token, cfg.zoneomicsApiKey, ringName, srcLat, srcLon, radiusMiles);
       } else if (step === "row") {
-        // ROW step: data already fetched during the Parcel Map step — no new API call.
+        // ROW step: data already fetched during the Parcel Map step — no new call.
         // If for some reason it's missing, re-fetch now.
         if (!rowEnrichment) {
-          const pres = await regridParcelRing({
+          const pres = await realieParcelsInRing({
             lat: srcLat, lon: srcLon, radius_miles: radiusMiles,
           }).catch(() => null);
-          if (pres?.data?.target_a_enrichment) setRowEnrichment(pres.data.target_a_enrichment);
-          if (pres?.data?.ring_stats) setRowRingStats(pres.data.ring_stats);
-          if (pres?.data?.parcels?.length) setRowParcels(pres.data.parcels);
+          const parcels = pres?.data?.parcels || [];
+          const enr = deriveRingEnrichment(parcels, srcLat, srcLon);
+          if (enr.target) setRowEnrichment(enr.target);
+          setRowRingStats(enr.stats);
+          if (parcels.length) setRowParcels(parcels);
         }
         onData?.({ regrid_premium: rowEnrichment });
         map = null; // no Mapbox canvas for this step

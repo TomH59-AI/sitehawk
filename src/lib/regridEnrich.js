@@ -1,12 +1,16 @@
 /**
- * regridEnrich — Regrid precision enrichment layer for the parcel pipeline.
- * Calls the Supabase edge function regrid-parcel-search (mode=click) per target
- * lat/lon. Additive only — never blocks or replaces base Realie data.
+ * regridEnrich — per-target precision enrichment layer for the parcel pipeline.
+ * NOW ROUTED THROUGH REALIE. Calls the authenticated `realieParcelsInRing`
+ * backend function in click mode (single parcel under the target lat/lon), so
+ * every per-target enrichment is served by Realie — our primary provider — not
+ * Regrid. Additive only — never blocks or replaces base parcel data.
  * In-memory cache keyed by coordinates so re-renders never re-fetch.
+ *
+ * (Kept the historical `regridEnrichTarget`/`normalizeRegridEnrich` names so the
+ * many call sites don't need touching; the data now comes from Realie.)
  */
 
-const ENDPOINT = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
-const APIKEY = "sb_publishable_GMm2u8HJeCv8vboySM8CNg_IAdbCS27";
+import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 
 // coords key → Promise (dedupes in-flight requests too)
 const cache = new Map();
@@ -14,18 +18,8 @@ const cache = new Map();
 export async function regridEnrichTarget(lat, lon) {
   const key = `${Number(lat).toFixed(6)},${Number(lon).toFixed(6)}`;
   if (cache.has(key)) return cache.get(key);
-  const promise = fetch(ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: APIKEY,
-      Authorization: `Bearer ${APIKEY}`,
-    },
-    body: JSON.stringify({ mode: "click", lat: Number(lat), lon: Number(lon) }),
-  }).then(async (res) => {
-    if (!res.ok) throw new Error(`Regrid enrichment failed (${res.status})`);
-    return res.json();
-  });
+  const promise = realieParcelsInRing({ mode: "click", lat: Number(lat), lon: Number(lon) })
+    .then((res) => res?.data ?? res);
   cache.set(key, promise);
   try {
     return await promise;
@@ -35,16 +29,18 @@ export async function regridEnrichTarget(lat, lon) {
   }
 }
 
-// Normalize the edge-function response (flat or nested under `parcel`) into
-// the fields the UI displays.
+// Normalize the enrichment response into the fields the UI displays.
+// Prefers the Realie click-mode shape ({ parcel } or { parcels:[...] } with
+// flat zoning/land_use/data_source fields); falls back to the legacy
+// site_intel/lbcs shape for any older cached responses.
 export function normalizeRegridEnrich(raw) {
   if (!raw) return null;
-  const p = raw.parcel || raw.result || raw;
+  const p = raw.parcel || raw.result || raw.parcels?.[0] || raw;
   return {
-    data_source: raw.data_source || p.data_source || null,
-    zoning: p.zoning || p.site_intel?.zoning || null,
-    zoning_description: p.zoning_description || p.site_intel?.zoning_description || null,
-    zoning_type: p.zoning_type || p.site_intel?.zoning_type || null,
+    data_source: raw.data_source || p.data_source || "realie",
+    zoning: p.zoning || p.zoning_code || p.site_intel?.zoning || null,
+    zoning_description: p.zoning_description || p.land_use || p.site_intel?.zoning_description || null,
+    zoning_type: p.zoning_type || p.zone_class || p.site_intel?.zoning_type || null,
     zoning_code_link: p.zoning_code_link || raw.zoning_code_link || null,
     site_intel: p.site_intel || raw.site_intel || null,
     lbcs: p.lbcs || raw.lbcs || null,
@@ -53,7 +49,7 @@ export function normalizeRegridEnrich(raw) {
 }
 
 export const isRegridSource = (e) =>
-  e?.data_source === "regrid" || e?.data_source === "regrid-cache";
+  e?.data_source === "realie" || e?.data_source === "regrid" || e?.data_source === "regrid-cache";
 
 // "AG-1 — Agricultural District (Agriculture)" style label from Regrid zoning fields.
 export function regridZoningLabel(e) {

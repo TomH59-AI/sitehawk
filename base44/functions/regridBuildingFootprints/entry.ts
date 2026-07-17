@@ -69,55 +69,18 @@ Deno.serve(async (req) => {
     if (lat == null || lon == null) {
       return Response.json({ error: 'lat and lon required' }, { status: 400 });
     }
-    const token = Deno.env.get('REGRID_API_KEY');
-    if (!token) return Response.json({ error: 'REGRID_API_KEY not set' }, { status: 500 });
 
     const radiusM = Math.min(Math.round(Number(radius_ft) * 0.3048), 762); // cap ~2500 ft
 
-    const url = new URL('https://app.regrid.com/api/v2/parcels/point');
-    url.searchParams.set('lat', String(lat));
-    url.searchParams.set('lon', String(lon));
-    url.searchParams.set('radius', String(radiusM));
-    url.searchParams.set('limit', '100');
-    url.searchParams.set('return_matched_buildings', 'true');
-    url.searchParams.set('token', token);
-
-    const r = await fetch(url.toString());
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      console.warn(`Regrid matched buildings unavailable (${r.status}); using OpenStreetMap building footprints.`);
-      const buildings = await osmBuildings(Number(lat), Number(lon), radiusM);
-      return Response.json({ buildings, count: buildings.features.length, parcels_scanned: 0, source: "OpenStreetMap" });
-    }
-
-    const parcelFeats = j?.parcels?.features || [];
-    const buildings = [];
-    for (const f of parcelFeats) {
-      const p = f?.properties?.fields || f?.properties || {};
-      const ctx = {
-        parcel_address: p.address || p.saddress || null,
-        usedesc: p.usedesc || null,
-        zoning: p.zoning || null,
-        residential: isResidential(p),
-      };
-      // Matched buildings appear under properties.buildings (array of features
-      // or geometries) — handle both shapes defensively.
-      const blds = f?.properties?.buildings || f?.buildings || [];
-      for (const b of blds) {
-        const geom = b?.geometry || (b?.type && b?.coordinates ? b : null);
-        if (!geom || (geom.type !== 'Polygon' && geom.type !== 'MultiPolygon')) continue;
-        buildings.push({
-          type: 'Feature',
-          properties: { ...ctx, ...(b?.properties || {}) },
-          geometry: geom,
-        });
-      }
-    }
-
+    // Building footprints come from OpenStreetMap (free) — Regrid's per-parcel
+    // matched-buildings add-on is intentionally NOT called, so no Regrid credits
+    // are spent here. Realie is our primary provider; OSM covers footprints.
+    const buildings = await osmBuildings(Number(lat), Number(lon), radiusM);
     return Response.json({
-      buildings: { type: 'FeatureCollection', features: buildings },
-      count: buildings.length,
-      parcels_scanned: parcelFeats.length,
+      buildings,
+      count: buildings.features.length,
+      parcels_scanned: 0,
+      source: "OpenStreetMap",
     });
   } catch (error) {
     console.log(`[ERROR] regridBuildingFootprints: ${error.message}`);
