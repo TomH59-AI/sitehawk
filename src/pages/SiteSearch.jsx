@@ -11,7 +11,6 @@ import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section9Colocation from "../components/search/Section9Colocation";
-import Section8Propagation from "../components/search/Section8Propagation";
 import Section5TowerSiter from "../components/search/Section5TowerSiter";
 import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
 import TargetLanePipeline from "../components/search/TargetLanePipeline";
@@ -65,7 +64,7 @@ export default function SiteSearch() {
   // Clearing a section also rolls back the parent readiness flags for it AND
   // every section downstream, so the pipeline correctly re-locks after it.
   const [clearKeys, setClearKeys] = useState({
-    sarf: 0, zoning: 0, targets: 0, maps: 0, propagation: 0,
+    sarf: 0, zoning: 0, targets: 0, maps: 0,
   });
   const bumpKeys = (steps) =>
     setClearKeys((prev) => {
@@ -116,24 +115,17 @@ export default function SiteSearch() {
     });
   };
 
-  // Ordered pipeline steps (sarf is Section 1, always present). Section 8
-  // (propagation) is standalone — it gates nothing, so clearing it only remounts
-  // itself and does not roll back any other section.
+  // Ordered pipeline steps (sarf is Section 1, always present).
   const PIPELINE_ORDER = ["zoning", "targets", "maps"];
 
   // Clear ONE section and everything downstream of it: remount those sections
   // (wipes their internal state) and roll back the parent readiness flags so the
   // pipeline re-locks correctly. The cleared step becomes the active step again.
   const clearFrom = (step) => {
-    if (step === "propagation") {
-      // Standalone — just remount Section 8, touch nothing else.
-      bumpKeys(["propagation"]);
-      return;
-    }
     const startIdx = PIPELINE_ORDER.indexOf(step);
     if (startIdx === -1) return;
     const affected = PIPELINE_ORDER.slice(startIdx);
-    bumpKeys([...affected, "propagation"]); // propagation depends on Target A
+    bumpKeys(affected);
 
     // Roll back readiness flags from the cleared step onward.
     if (affected.includes("zoning")) setZoningReady(false);
@@ -158,7 +150,7 @@ export default function SiteSearch() {
     setSearchCenter(null);
     setGeneratedLabels([]);
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps", "propagation"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps"]);
   };
 
   // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
@@ -481,19 +473,6 @@ export default function SiteSearch() {
           onData={mergeSectionData}
         />
         </div>
-      )}
-
-      {/* SECTION 8 — HAWK RF PROPAGATION VISION. STANDALONE — unlocked as soon as
-          Target A exists; does NOT gate or block any other section. */}
-      {coordsReady && sarfReady && zoningReady && (
-        <Section8Propagation
-          key={`propagation-${clearKeys.propagation}`}
-          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
-          onClear={() => clearFrom("propagation")}
-          targetA={targetA}
-          towerHeightFt={searchParams.tower_height_ft || 150}
-          onData={mergeSectionData}
-        />
       )}
 
       {/* SECTION 5 — TOWER SITER. Unlocks when Target A is resolved.
