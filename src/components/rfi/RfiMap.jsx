@@ -10,6 +10,7 @@ import RfiLegend from "./RfiLegend";
 import RfiSearchBox from "./RfiSearchBox";
 import RfiCompass from "./RfiCompass";
 import RfiBaseLayerSwitcher from "./RfiBaseLayerSwitcher";
+import RfiOverlays from "./RfiOverlays";
 import { CARRIER_COLORS, DEADZONE_COLOR, CARRIER_PRESET_KEY, BASE_LAYERS, USGS_ATTRIBUTION } from "./rfiConfig";
 import { magneticDeclination } from "@/lib/magneticDeclination";
 import * as turf from "@turf/turf";
@@ -17,7 +18,7 @@ import * as turf from "@turf/turf";
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
 // Nationwide RF Intelligence Engine map. Standalone — no pipeline coupling.
-export default function RfiMap() {
+export default function RfiMap({ overlays = { sites: true, rings: true } }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -319,6 +320,7 @@ export default function RfiMap() {
       {ready && <RfiBaseLayerSwitcher baseLayer={baseLayer} onChange={setBaseLayer} />}
       {ready && <RfiSearchBox onGoTo={handleGoTo} />}
       {ready && <RfiCompass declination={declination} />}
+      {ready && <RfiOverlays map={mapRef.current} ready={ready} show={overlays} />}
     </div>
   );
 }
