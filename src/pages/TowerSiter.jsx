@@ -8,6 +8,7 @@ import Generate3DImageButton from "@/components/towersiter/Generate3DImageButton
 import GeneratePhoto3DButton from "@/components/towersiter/GeneratePhoto3DButton";
 import HawkFitPipelineSection from "@/components/hawkfit/HawkFitPipelineSection";
 import NlcdLandCoverSection from "@/components/nlcd/NlcdLandCoverSection";
+import TerrainMapSection from "@/components/terrain/TerrainMapSection";
 
 import { recompute, makeFrame, polygonFromFrame, compoundRect, polygonFromCalls } from "@/lib/towerSiterEngine";
 import { siterEntitlements, DEMO_PARCEL } from "@/lib/towerSiterAccess";
@@ -684,6 +685,12 @@ export default function TowerSiter() {
           centered on the SAME active Target A. */}
       {hawkFitTarget && (
         <NlcdLandCoverSection unlocked={true} targetA={hawkFitTarget} />
+      )}
+
+      {/* TERRAIN EXPLORER — the LAST map, centered on the SAME active Target A,
+          with basemap-style "looks" toggles + optional 3D terrain. */}
+      {hawkFitTarget && (
+        <TerrainMapSection unlocked={true} targetA={hawkFitTarget} />
       )}
 
       <UpgradeModal open={!!upgrade} onClose={() => setUpgrade(null)} reason={upgrade} />
