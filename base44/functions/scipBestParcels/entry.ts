@@ -253,6 +253,9 @@ Deno.serve(async (req) => {
       setback_ft = 0, fall_zone_ft = 0, separation_ft = 0,
       cup_or_special_exception = null, pe_self_certification = null,
       fall_zone = null, setback = null,
+      // Section 2 ordinance HARD limits — a parcel must satisfy these to
+      // qualify as Target A/B/C. Null = unknown (not enforced, only warned).
+      max_tower_height = null, residential_separation = null,
       max_parcels = DEFAULT_MAX_PARCELS,
       // ReportAll is the primary (capped, billed) source. Realie is an optional
       // supplement, OFF by default so a scan can't quietly rack up extra cost.
@@ -373,6 +376,13 @@ Deno.serve(async (req) => {
       reliefLabel = peOk && cupOk ? "PE letter + CUP" : (cupOk ? "CUP/special exception" : "PE letter");
     }
 
+    // ── ORDINANCE HARD LIMITS (from Section 2 zoning) ───────────────────────
+    // A parcel that violates these does NOT qualify as a top-3 target — it is
+    // marked non-compliant and always ranks below every compliant parcel.
+    const maxHeightFt = parseFeet(max_tower_height, tower_height_ft);
+    const heightCapViolated = maxHeightFt > 0 && tower_height_ft > maxHeightFt;
+    const resSepFt = parseFeet(residential_separation, tower_height_ft);
+
     // Minimum inscribed circle radius the parcel must have to host the tower.
     // This is the correct geometric test: can the solver find a point inside
     // the setback-inset envelope that also keeps the fall zone inside the parcel?
@@ -481,9 +491,45 @@ Deno.serve(async (req) => {
         else if (distMi > radius * 0.85) { score -= 5; reasons.push("Near ring edge — verify tower separation & coverage"); }
       }
 
+      // ── ZONING COMPLIANCE GATE ──────────────────────────────────────────
+      // Build the per-parcel compliance verdict against the Section 2 ordinance
+      // limits. A parcel is NON-COMPLIANT (never a top-3 target while a
+      // compliant one exists) if it busts the height cap or cannot physically
+      // hold the fall zone even with PE/CUP relief (too_small).
+      const complianceChecks = [];
+      let nonCompliant = false;
+      // Zoning classification — confirmed non-residential is the entry ticket.
+      complianceChecks.push({
+        criterion: "Zoning classification",
+        pass: !hardDisqualified,
+        detail: hardDisqualified ? "Residential — disqualified" : (zoningKnown ? "Non-residential" : "Pending verification"),
+      });
+      // Height restriction
+      if (maxHeightFt > 0) {
+        complianceChecks.push({
+          criterion: "Height restriction",
+          pass: !heightCapViolated,
+          detail: heightCapViolated
+            ? `Tower ${tower_height_ft} ft exceeds ${Math.round(maxHeightFt)} ft cap`
+            : `Within ${Math.round(maxHeightFt)} ft cap`,
+        });
+        if (heightCapViolated) { nonCompliant = true; score = Math.max(0, score - 40); reasons.unshift(`⚠ HEIGHT CAP: tower ${tower_height_ft} ft exceeds the ${Math.round(maxHeightFt)} ft ordinance limit`); }
+      }
+      // Setback + fall zone containment (from the too_small geometry test above)
+      complianceChecks.push({
+        criterion: "Setbacks & fall zone",
+        pass: !tooSmall,
+        detail: tooSmall
+          ? `Cannot contain the ${Math.round(reliefFall)} ft fall zone / setback`
+          : `Fits the ${Math.round(reliefFall)} ft fall zone${reliefLabel ? ` (with ${reliefLabel})` : ""}`,
+      });
+      if (tooSmall) nonCompliant = true;
+
       scored.push({
         raw: p,
         too_small: tooSmall,
+        non_compliant: nonCompliant,
+        compliance: { pass: !nonCompliant && !hardDisqualified, checks: complianceChecks },
         hardDisqualified,
         needs_zoning_resolve: needsZoningResolve,
         flood_excluded: false, // set after FEMA
@@ -541,8 +587,11 @@ Deno.serve(async (req) => {
       return 4; // unknown/other — always retained for CUP review
     };
     const rankCmp = (a, b) => {
-      // 0. FITS FIRST — a parcel that cannot contain the fall zone NEVER
-      //    outranks one that can, regardless of zoning or score.
+      // 0. COMPLIANCE FIRST — a parcel that violates the zoning ordinance
+      //    (height cap, setback/fall zone) NEVER outranks a compliant one.
+      if (!!a.non_compliant !== !!b.non_compliant) return a.non_compliant ? 1 : -1;
+      // 0b. FITS — a parcel that cannot contain the fall zone NEVER outranks
+      //    one that can, regardless of zoning or score.
       if (!!a.too_small !== !!b.too_small) return a.too_small ? 1 : -1;
       // 1. Dry first
       if (!!a.flood_excluded !== !!b.flood_excluded) return a.flood_excluded ? 1 : -1;
@@ -651,6 +700,8 @@ Deno.serve(async (req) => {
         label: labels[i],
         ...clean,
         buildable_estimate: !t.too_small,
+        zoning_compliant: !t.non_compliant && !t.hardDisqualified,
+        compliance: t.compliance || { pass: !t.non_compliant, checks: [] },
         zoning_classification: zone || null,
         zoning_status: zStatus,
         zoning_unverified: zStatus === "unverified",
@@ -668,11 +719,13 @@ Deno.serve(async (req) => {
     const alternates = allRanked.slice(3, 5).map((t) => ({ ...t, is_alternate: true }));
 
     const dryCount = eligibleSet.filter((s) => !s.flood_excluded).length;
+    const compliantCount = eligibleSet.filter((s) => !s.non_compliant).length;
 
     return Response.json({
       count_scanned: seen.size,
       count_in_ring: scored.length,
       count_buildable: eligibleSet.length,
+      count_compliant: compliantCount,
       count_dry_buildable: dryCount,
       required_footprint_ft: Math.round(minInscriedR),
       required_acres: Number((Math.PI * minInscriedR * minInscriedR / 43560).toFixed(3)),

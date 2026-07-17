@@ -25,6 +25,7 @@ import { scipBestParcels } from "@/functions/scipBestParcels";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import { withRateLimitRetry } from "@/lib/quietLookup";
 import PhoneCascadeCell from "./section3/PhoneCascadeCell";
+import ComplianceCell from "./section3/ComplianceCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import SaveToHubSpotButton from "@/components/crm/SaveToHubSpotButton";
 import PushToTrackerButton from "./section3/PushToTrackerButton";
@@ -53,6 +54,7 @@ const ROWS = [
   ["Parcel Size (acres):", "acreage"],
   ["Boundaries", "boundaries"],
   ["Zoning Classification:", "zoning_classification"],
+  ["Zoning Compliance:", "zoning_compliance"],
   ["Zoning Status:", "zoning_status"],
   ["CUP / Special Exception:", "cup_note"],
   ["PE Letter (Fall Zone Relief):", "pe_note"],
@@ -316,6 +318,10 @@ export default function Section3Targets({
         pe_self_certification: z?.pe_self_certification ?? null,
         fall_zone: z?.fall_zone ?? null,
         setback: z?.setback ?? null,
+        // Section 2 ordinance HARD limits — parcels must satisfy these to
+        // qualify as Target A/B/C (height cap + residential separation).
+        max_tower_height: z?.max_tower_height ?? z?.maximum_tower_height ?? null,
+        residential_separation: z?.residential_separation ?? null,
       });
       const found = res.data?.targets || [];
       setFitWarning(res.data?.fit_warning || null);
@@ -585,7 +591,7 @@ export default function Section3Targets({
               <tbody>
                 {ROWS.map(([label, key], rowIdx) => {
                   // Compliance/posture rows get a distinct teal-tinted background
-                  const isPostureRow = key === "zoning_status" || key === "cup_note" || key === "pe_note";
+                  const isPostureRow = key === "zoning_compliance" || key === "zoning_status" || key === "cup_note" || key === "pe_note";
                   const rowBg = isPostureRow
                     ? "bg-emerald-50 dark:bg-emerald-950/20"
                     : rowIdx % 2 === 0 ? "bg-background" : "bg-muted/40";
@@ -607,7 +613,9 @@ export default function Section3Targets({
                         : "";
                       return (
                       <td key={colIdx} className={`border border-border p-0 align-top ${locked ? "opacity-50 pointer-events-none bg-muted/30" : ""}`}>
-                        {key === "phone" ? (
+                        {key === "zoning_compliance" ? (
+                          <ComplianceCell target={targets[colIdx]} />
+                        ) : key === "phone" ? (
                           <PhoneCascadeCell
                             result={phoneResults[colIdx]}
                             loading={phoneLoading[colIdx]}
