@@ -1,5 +1,8 @@
+import { useState } from "react";
+import { Map, Box } from "lucide-react";
 import { SKYWAVE } from "@/lib/skywave";
 import ViewshedProfileChart from "./ViewshedProfileChart";
+import ViewshedCesium3D from "./ViewshedCesium3D";
 
 // One direction's viewshed: pitched 2D map with a transparent RF cone overlay + terrain/LOS profile.
 function DirectionBlock({ d }) {
@@ -45,13 +48,47 @@ function DirectionBlock({ d }) {
   );
 }
 
-export default function ScipViewshedPage({ viewshed, siteName }) {
+export default function ScipViewshedPage({ viewshed, siteName, fallbackLat, fallbackLon }) {
+  const [mode, setMode] = useState("2d");
   if (!viewshed) return null;
   const dirs = viewshed.directions || [];
 
+  // Backfill coordinates for the 3D globe from the caller when a viewshed was
+  // saved before tower_lat/tower_lon were persisted.
+  const viewshed3D = {
+    ...viewshed,
+    tower_lat: viewshed.tower_lat ?? fallbackLat,
+    tower_lon: viewshed.tower_lon ?? fallbackLon,
+  };
+
+  const TabBtn = ({ id, icon: Icon, label }) => (
+    <button
+      onClick={() => setMode(id)}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+      style={
+        mode === id
+          ? { background: SKYWAVE.blue, color: "#fff" }
+          : { background: "transparent", color: SKYWAVE.muted, border: `1px solid ${SKYWAVE.line}` }
+      }
+    >
+      <Icon className="w-4 h-4" /> {label}
+    </button>
+  );
+
   return (
-    <div className="grid grid-cols-2 gap-3">
-      {dirs.map((d) => <DirectionBlock key={d.short} d={d} />)}
+    <div className="space-y-3 no-print">
+      <div className="flex items-center gap-2">
+        <TabBtn id="2d" icon={Map} label="2D Maps" />
+        <TabBtn id="3d" icon={Box} label="3D View" />
+      </div>
+
+      {mode === "2d" ? (
+        <div className="grid grid-cols-2 gap-3">
+          {dirs.map((d) => <DirectionBlock key={d.short} d={d} />)}
+        </div>
+      ) : (
+        <ViewshedCesium3D viewshed={viewshed3D} />
+      )}
     </div>
   );
 }

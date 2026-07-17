@@ -200,7 +200,9 @@ Deno.serve(async (req) => {
 
     console.log(`scipViewshed for ${latN},${lonN} tower=${towerFt}ft user=${user.email}`);
     return Response.json({
-      viewshed: { aerial_ring_url, tower_height_ft: towerFt, directions },
+      // tower_lat/tower_lon/ring_miles are additive fields used by the 3D
+      // viewshed globe; the 2D output ignores them.
+      viewshed: { aerial_ring_url, tower_height_ft: towerFt, tower_lat: latN, tower_lon: lonN, ring_miles: ring, directions },
     });
   } catch (error) {
     console.error("scipViewshed error:", error.message);

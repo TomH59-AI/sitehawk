@@ -65,7 +65,14 @@ export default function HawkViewshed({ record, onUpdate }) {
       </p>
 
       <SectionStaleBanner record={record} sectionKey={SECTION_KEYS.viewshed} hasData={!!vs} />
-      {vs && <ScipViewshedPage viewshed={vs} siteName={record.site_name} />}
+      {vs && (
+        <ScipViewshedPage
+          viewshed={vs}
+          siteName={record.site_name}
+          fallbackLat={Number(target?.latitude ?? record.latitude)}
+          fallbackLon={Number(target?.longitude ?? record.longitude)}
+        />
+      )}
     </div>
   );
 }
