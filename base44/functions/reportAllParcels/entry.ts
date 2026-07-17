@@ -132,10 +132,15 @@ Deno.serve(async (req) => {
     const mode = body.mode === 'point' ? 'point' : 'ring';
     const radiusMiles = Math.min(Number(body.radius_miles ?? 0.5), 2.0);
 
+    // BILLING CAP — ReportAll charges 1 quota credit per parcel RETURNED.
+    // rpp bounds how many parcels a single ring scan can pull (and bill).
+    // Default 100, hard ceiling 250, floor 1. Point queries always pull 1.
+    const maxParcels = Math.max(1, Math.min(Number(body.max_parcels ?? 100), 250));
+
     const params = new URLSearchParams({
       client,
       v: API_VERSION,
-      rpp: mode === 'point' ? '1' : '250',
+      rpp: mode === 'point' ? '1' : String(maxParcels),
       page: '1',
       return_geometry: 'true',
       // Our POINT/POLYGON coordinates are WGS84 lon/lat; without si_srid=4326
@@ -183,6 +188,9 @@ Deno.serve(async (req) => {
       mode,
       count: parcels.length,
       total: data.count ?? parcels.length,
+      max_parcels: mode === 'ring' ? maxParcels : undefined,
+      // total_available lets the UI warn "showing 100 of 271 in this ring".
+      total_available: data.count ?? parcels.length,
       radius_miles: mode === 'ring' ? radiusMiles : undefined,
       center: { lat, lon },
       quota_used: r.headers.get('x-reportall-api-parcels-request-quota-used') || null,

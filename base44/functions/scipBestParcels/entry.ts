@@ -15,9 +15,30 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 // Returns: { count_scanned, targets: [ {label, ...parcel fields..., score, score_reasons} x3 ] }
 
 const REALIE_URL = "https://app.realie.ai/api/public/property/location/";
-// Regrid/Supabase proxy — broader parcel coverage than Realie alone (especially small towns).
-const REGRID_SUPABASE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
+// ReportAll USA — primary ring parcel source. BILLED PER PARCEL RETURNED, so a
+// hard cap (max_parcels) bounds the worst-case cost of any single target scan.
+const REPORTALL_URL = "https://reportallusa.com/api/parcels";
+const REPORTALL_VERSION = "9";
+// Default per-ring parcel cap for target selection — keeps the bill predictable.
+// Overridable via the request body (`max_parcels`), hard ceiling 250.
+const DEFAULT_MAX_PARCELS = 100;
 const FEMA_URL = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query";
+
+// WKT circle approximating the SARF ring, for ReportAll's spatial_intersect.
+function circleWkt(lat, lon, radiusMiles, steps = 24) {
+  const R = 3958.8;
+  const d = radiusMiles / R;
+  const latR = (lat * Math.PI) / 180;
+  const lonR = (lon * Math.PI) / 180;
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const brng = (2 * Math.PI * i) / steps;
+    const lat2 = Math.asin(Math.sin(latR) * Math.cos(d) + Math.cos(latR) * Math.sin(d) * Math.cos(brng));
+    const lon2 = lonR + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(latR), Math.cos(d) - Math.sin(latR) * Math.sin(lat2));
+    pts.push(`${((lon2 * 180) / Math.PI).toFixed(6)} ${((lat2 * 180) / Math.PI).toFixed(6)}`);
+  }
+  return `POLYGON((${pts.join(",")}))`;
+}
 
 // Residential tokens — only CLEAR residential matches; ambiguous codes are NOT residential.
 // Shorter list avoids false-positives on "R" in irrelevant strings.
@@ -232,11 +253,17 @@ Deno.serve(async (req) => {
       setback_ft = 0, fall_zone_ft = 0, separation_ft = 0,
       cup_or_special_exception = null, pe_self_certification = null,
       fall_zone = null, setback = null,
+      max_parcels = DEFAULT_MAX_PARCELS,
+      // ReportAll is the primary (capped, billed) source. Realie is an optional
+      // supplement, OFF by default so a scan can't quietly rack up extra cost.
+      include_realie = false,
     } = body;
     if (lat == null || lon == null) return Response.json({ error: "lat and lon required" }, { status: 400 });
 
-    const apiKey = Deno.env.get("REALIE_API_KEY");
-    const supabaseKey = Deno.env.get("HAWK_SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
+    const apiKey = include_realie ? Deno.env.get("REALIE_API_KEY") : null;
+    const reportAllKey = Deno.env.get("REPORT_API_TOKEN");
+    // Bill guard — cap parcels pulled from ReportAll for this scan (1 credit each).
+    const cap = Math.max(1, Math.min(Number(max_parcels) || DEFAULT_MAX_PARCELS, 250));
 
     const radius = Math.min(radius_miles, 2.0);
 
@@ -267,54 +294,65 @@ Deno.serve(async (req) => {
       console.log(`Realie: ${seen.size} parcels`);
     }
 
-    // ── SOURCE 2: Regrid via Supabase proxy ────────────────────────────────
-    // Regrid has broader coverage, especially small towns / rural counties.
-    // Always query it — results are merged and deduped with Realie by APN.
-    if (supabaseKey) {
+    // ── SOURCE 2: ReportAll USA (capped) ───────────────────────────────────
+    // Broad national parcel coverage. BILLED PER PARCEL, so rpp = `cap` bounds
+    // both how many parcels we pull AND the credits this scan can ever spend.
+    if (reportAllKey) {
       try {
-        const r = await fetch(REGRID_SUPABASE_URL, {
+        const params = new URLSearchParams({
+          client: reportAllKey,
+          v: REPORTALL_VERSION,
+          rpp: String(cap),
+          page: "1",
+          return_geometry: "true",
+          si_srid: "4326",
+          spatial_intersect: circleWkt(lat, lon, radius),
+        });
+        // POST form-encoded — a ring's WKT polygon exceeds GET URL limits.
+        const r = await fetch(REPORTALL_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json", apikey: supabaseKey },
-          body: JSON.stringify({ mode: "ring", lat, lon, radius_miles: radius }),
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: params.toString(),
         });
         if (r.ok) {
           const data = await r.json();
-          const items = data.parcels || data.properties || data.results || (Array.isArray(data) ? data : []);
-          let regridAdded = 0;
+          const items = data.results || [];
+          let raAdded = 0;
           for (const p of items) {
-            // Normalize Regrid field names to match Realie's shape so the scorer below works uniformly.
+            const acres = p.acreage != null ? Number(p.acreage) : (p.calc_acreage != null ? Number(p.calc_acreage) : null);
+            const addr = p.situs || [p.addr_number, p.addr_street_name, p.situs_city].filter(Boolean).join(" ") || null;
             const normalized = {
-              apn: p.apn || p.parcel_id || p.parcelId || null,
-              ownerName: p.owner_name || p.ownerName || null,
-              address: p.parcel_address || p.site_address || p.address || null,
-              addressRaw: p.parcel_address || p.site_address || p.address || null,
-              fullAddress: p.parcel_address || p.site_address || p.address || null,
-              acres: p.acreage != null ? p.acreage : (p.acres != null ? p.acres : null),
-              zoningCode: p.land_use || p.zoning || null,
-              landUse: p.land_use || null,
-              useDescription: p.land_use || null,
-              latitude: p.latitude || null,
-              longitude: p.longitude || null,
-              mailerAddress: p.mailing_address || null,
+              apn: p.parcel_id || p.robust_id || null,
+              ownerName: p.owner || null,
+              address: addr,
+              addressRaw: addr,
+              fullAddress: addr,
+              acres,
+              zoningCode: p.zoning || p.land_use_class || p.land_use_code || null,
+              landUse: p.land_use_class || p.land_use_code || null,
+              useDescription: p.land_use_class || null,
+              latitude: p.latitude != null ? Number(p.latitude) : null,
+              longitude: p.longitude != null ? Number(p.longitude) : null,
+              mailerAddress: [p.mail_address1, p.mail_address2, p.mail_address3].filter(Boolean).join(", ") || null,
               mailingCity: null,
               mailingState: null,
               mailingZip5: null,
-              county: p.county || null,
-              state: p.state || null,
-              _source: "regrid",
+              county: p.county_name || null,
+              state: p.state_abbr || null,
+              _source: "reportall",
             };
             const key = normalized.apn || `${normalized.addressRaw}|${normalized.latitude}`;
             const prev = seen.get(key);
             if (!prev || fieldCount(normalized) > fieldCount(prev)) {
               seen.set(key, normalized);
-              regridAdded++;
+              raAdded++;
             }
           }
-          console.log(`Regrid: ${items.length} parcels, ${regridAdded} new/richer`);
+          console.log(`ReportAll: ${items.length} parcels (cap ${cap}, available ${data.count ?? "?"}), ${raAdded} new/richer, quota_used=${r.headers.get("x-reportall-api-parcels-request-quota-used")}`);
         } else {
-          console.error("Regrid fetch failed", r.status);
+          console.error("ReportAll fetch failed", r.status, (await r.text()).slice(0, 200));
         }
-      } catch (e) { console.error("Regrid fetch error:", e.message); }
+      } catch (e) { console.error("ReportAll fetch error:", e.message); }
     }
 
     console.log(`Combined: ${seen.size} unique parcels in ring`);
