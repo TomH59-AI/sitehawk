@@ -145,7 +145,7 @@ export default function HawkBotWidget() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open HawkBot"
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/30 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all"
+          className="fixed bottom-5 left-5 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/30 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all"
         >
           <MessageCircle className="w-5 h-5" />
           <span className="font-heading font-bold text-sm hidden sm:inline">Ask HawkBot</span>
@@ -154,7 +154,7 @@ export default function HawkBotWidget() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-5 right-5 z-50 w-[min(440px,calc(100vw-2.5rem))] h-[min(680px,calc(100vh-6rem))] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed bottom-5 left-5 z-50 w-[min(440px,calc(100vw-2.5rem))] h-[min(680px,calc(100vh-6rem))] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
             <div className="flex items-center gap-2">
