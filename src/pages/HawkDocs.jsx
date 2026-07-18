@@ -35,7 +35,7 @@ export default function HawkDocs() {
           <ScanLine className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="font-heading font-bold text-2xl leading-tight">Hawk Document Intelligence</h1>
+          <h1 className="font-heading font-bold text-2xl leading-tight">Document Intelligence</h1>
           <p className="text-sm text-muted-foreground">Permit applications, lease analysis, and redline counters — all in one place.</p>
         </div>
       </div>
