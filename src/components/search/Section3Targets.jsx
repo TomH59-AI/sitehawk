@@ -35,6 +35,8 @@ import ConnectivityPanel from "./section3/ConnectivityPanel";
 import SectionClearButton from "./SectionClearButton";
 import { regridEnrichTarget, normalizeRegridEnrich, regridZoningLabel, regridFemaLabel, regridFloodComposition, regridSfhaWarning, regridNriLabel, regridFirmDateLabel } from "@/lib/regridEnrich";
 import RegridSourceBadge from "@/components/search/regrid/RegridSourceBadge";
+import AIEquationScreenBadge from "./section3/AIEquationScreenBadge";
+import { buildOrdinanceRules, screenParcel } from "@/lib/aiEquation";
 import RegridEnrichRows from "@/components/search/regrid/RegridEnrichRows";
 import RegridDemographics from "@/components/search/regrid/RegridDemographics";
 
@@ -143,6 +145,9 @@ export default function Section3Targets({
   // the base Realie data. Keyed by column index; lib caches by coordinates.
   const [regrid, setRegrid] = useState([null, null, null]);
   const [regridLoading, setRegridLoading] = useState([false, false, false]);
+  // AI Equation pre-screen per target — same equation HawkPerch runs, applied
+  // parcel-wide at selection time so you know up front which targets will work.
+  const [aiScreens, setAiScreens] = useState([null, null, null]);
 
   const enrichCol = useCallback(async (colIdx, tLat, tLon) => {
     setRegridLoading((p) => { const n = [...p]; n[colIdx] = true; return n; });
@@ -346,6 +351,15 @@ export default function Section3Targets({
       found.slice(0, 3).forEach((t, i) => { slots[i] = t; });
       setTargets(slots);
       setSelectedCol(0); // default lead = Target A
+      // AI Equation pre-screen — vet each chosen target against the connected
+      // ordinance rules (deferred a tick so the table paints first).
+      setAiScreens([null, null, null]);
+      const aiRules = buildOrdinanceRules(zoningResult);
+      setTimeout(() => {
+        setAiScreens(slots.map((t) => t
+          ? screenParcel({ parcelGeometry: t.parcel_geometry || null, requestedHeightFt: towerHeightFt, rules: aiRules })
+          : null));
+      }, 0);
       // Additive: expose ALL three targets so B and C can run their own
       // fully isolated pipelines. Does not change the Target A lead flow.
       onAllTargets?.(slots);
@@ -575,6 +589,7 @@ export default function Section3Targets({
                           <span className="inline-flex items-center gap-1.5">
                             {c}
                             <RegridSourceBadge enrich={regrid[colIdx]} loading={regridLoading[colIdx]} />
+                            <AIEquationScreenBadge screen={aiScreens[colIdx]} />
                             {targets[colIdx]?.buildable_estimate === false && (
                               <span className="text-[9px] font-bold normal-case bg-red-600 text-white px-1.5 py-0.5 rounded">
                                 DOES NOT FIT

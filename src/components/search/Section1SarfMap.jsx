@@ -41,6 +41,8 @@ import ParcelLinesToggle from "@/components/maps/ParcelLinesToggle";
 import ZayoFiberToggle from "@/components/maps/ZayoFiberToggle";
 import ParcelIdentifyCard from "@/components/maps/ParcelIdentifyCard";
 import { queryParcelAt, highlightParcel, setParcelLinesVisible, PARCEL_LINES_LAYER_ID } from "@/lib/regridParcelTiles";
+import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
+import { buildParcelZoningFC, addSarfZoningLayers, ZONE_STYLES } from "@/lib/sarfRingParcels";
 
 // Basemap options — Streets is the colorful, high-detail default; the others
 // are one-click visual swaps. Switching NEVER touches coordinates or workflow state.
@@ -156,6 +158,10 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   const [clickedParcel, setClickedParcel] = useState(null); // { lat, lng, headline }
   const [basemap, setBasemap] = useState("streets"); // colorful Streets is the default
   const basemapRef = useRef("streets");
+  // Realie ring parcels + zoning classifications — drawn on the SARF as soon as
+  // the lookup returns so targets are easier to eyeball. Never blocks onReady.
+  const zoningFcRef = useRef(null);
+  const [zoningCount, setZoningCount] = useState(0);
 
   // Visual-only basemap swap: setStyle preserves center/zoom/bearing/pitch and
   // DOM markers. We only re-add the ring layers (and parcel lines if they were on).
@@ -170,6 +176,7 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
     map.setStyle(BASEMAP_STYLES[key].style);
     map.once("style.load", () => {
       if (Number.isFinite(lat) && Number.isFinite(lon)) addRingLayers(map, lat, lon, radiusMiles);
+      if (zoningFcRef.current) addSarfZoningLayers(map, zoningFcRef.current);
       if (parcelOn) setParcelLinesVisible(map, true).catch(() => {});
     });
   };
@@ -297,6 +304,20 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
         );
         lastKeyRef.current = geoKey;
         onReady?.();
+
+        // Realie parcel boundaries + zoning classifications inside the ring —
+        // additive overlay fired AFTER the map is ready; failure is silent.
+        zoningFcRef.current = null;
+        setZoningCount(0);
+        realieParcelsInRing({ lat, lon, radius_miles: radiusMiles })
+          .then(({ data }) => {
+            if (cancelled || !mapRef.current) return;
+            const fc = buildParcelZoningFC(data?.parcels);
+            zoningFcRef.current = fc;
+            setZoningCount(fc.features.length);
+            addSarfZoningLayers(mapRef.current, fc);
+          })
+          .catch(() => { /* zoning overlay is best-effort */ });
       });
 
       // Parcel click-to-identify — only fires when the Parcel Lines layer is on.
@@ -366,6 +387,17 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
         <ParcelLinesToggle mapRef={mapRef} />
         <ZayoFiberToggle mapRef={mapRef} />
       </div>
+      {zoningCount > 0 && (
+        <div className="absolute bottom-8 right-3 z-10 rounded-lg bg-slate-900/85 border border-white/15 shadow-lg px-3 py-2 space-y-1">
+          <div className="text-[10px] font-bold text-white/90 uppercase tracking-wide">Ring Zoning · {zoningCount} parcels</div>
+          {Object.entries(ZONE_STYLES).map(([k, v]) => (
+            <div key={k} className="flex items-center gap-1.5 text-[10px] text-white/80">
+              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: v.color }} />
+              {v.label}
+            </div>
+          ))}
+        </div>
+      )}
       {clickedParcel && (
         <div className="absolute top-3 right-14 z-10">
           <ParcelIdentifyCard

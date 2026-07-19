@@ -344,4 +344,38 @@ export function buildBuildableOverlay({ parcelGeometry, requestedHeightFt, rules
   };
 }
 
+// ── TARGET PRE-SCREEN ───────────────────────────────────────────────────────
+// Run the same AI Equation over a whole parcel to answer: "will the requested
+// tower height work ANYWHERE good on this parcel?" Used by Section 3 to vet
+// Target A/B/C candidates at selection time.
+export function screenParcel({ parcelGeometry, requestedHeightFt, rules }) {
+  if (!parcelGeometry) {
+    return { color: "yellow", maxHeightFt: null, bestPoint: null, reasons: ["No parcel boundary geometry — AI Equation cannot verify tower fit. Manual review required."] };
+  }
+  const overlay = buildBuildableOverlay({ parcelGeometry, requestedHeightFt, rules, waterFeatures: null });
+  if (!overlay) {
+    return { color: "yellow", maxHeightFt: null, bestPoint: null, reasons: ["Parcel geometry could not be analyzed. Manual review required."] };
+  }
+  let { bestPoint, conditional, buildableAcres, buildablePct } = overlay.stats;
+  if (!bestPoint) {
+    // Nothing supports the requested height — find the parcel's TRUE max height
+    // so the failure message says exactly how tall a tower could go.
+    const probe = buildBuildableOverlay({ parcelGeometry, requestedHeightFt: 0, rules, waterFeatures: null });
+    const trueMax = probe?.stats?.bestPoint?.maxHeightFt ?? 0;
+    return {
+      color: "red", maxHeightFt: trueMax, bestPoint: probe?.stats?.bestPoint || null,
+      reasons: [`Requested ${Math.round(requestedHeightFt)} ft — the best position on this parcel supports only ${Math.round(trueMax)} ft under the connected ordinance rules.`],
+    };
+  }
+  if (requestedHeightFt < 100) {
+    return { color: "red", maxHeightFt: bestPoint.maxHeightFt, bestPoint, reasons: [`Requested height ${Math.round(requestedHeightFt)} ft is below the 100 ft minimum.`] };
+  }
+  const reasons = [
+    `Best base point supports ${bestPoint.maxHeightFt} ft (${bestPoint.edgeDistanceFt} ft to nearest boundary).`,
+    `Buildable: ${buildableAcres.toFixed(2)} ac (${buildablePct.toFixed(0)}% of parcel).`,
+  ];
+  if (conditional) reasons.push("Ordinance data incomplete or assumed — manual ordinance review required before relying on this result.");
+  return { color: conditional ? "yellow" : "green", maxHeightFt: bestPoint.maxHeightFt, bestPoint, buildableAcres, buildablePct, reasons };
+}
+
 export const ftToMiles = (ft) => (ft == null ? null : ft / 5280);
