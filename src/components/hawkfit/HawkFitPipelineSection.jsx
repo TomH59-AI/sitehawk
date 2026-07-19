@@ -109,7 +109,6 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
 
   const handleMapSelect = useCallback((point) => {
-    dismiss();
     const slot = savedTargets.findIndex((target) => !target);
     if (slot === -1 || !siteTarget) return;
     const pointLngLat = [point.lng, point.lat];
@@ -126,12 +125,13 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
     if (pointFit.status !== "works") {
       const reason = pointFit.reasons?.[0] || "The selected point does not meet the active HawkPerch requirements.";
       setRejectedPoint({ ...point, reason });
+      toast({ title: "Location rejected", description: reason, variant: "destructive" });
       return;
     }
     setRejectedPoint(null);
     onSaveTarget?.(slot, point);
     toast({ title: `Target ${["D", "E", "F"][slot]} saved`, description: `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` });
-  }, [savedTargets, siteTarget, controls, water, onSaveTarget, toast, dismiss]);
+  }, [savedTargets, siteTarget, controls, water, onSaveTarget, toast]);
 
   // Manual lookup stays available but never replaces the pipeline order —
   // the section re-resolves from the pipeline whenever Target A changes.
