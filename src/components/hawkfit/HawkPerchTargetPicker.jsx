@@ -8,7 +8,17 @@ export default function HawkPerchTargetPicker({ targets, rejection, onClear, onR
   return (
     <div className="rounded-xl border border-border bg-card p-3 space-y-2">
       <div>
-        <h3 className="font-heading font-bold text-sm text-foreground">Pick Three More Sites</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-heading font-bold text-sm text-foreground">Pick Three More Sites</h3>
+          {targets.some(Boolean) && (
+            <button
+              onClick={() => targets.forEach((target, index) => target && onClear(index))}
+              className="inline-flex items-center gap-1 rounded border border-destructive/40 px-2 py-1 text-[10px] font-bold text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-3 h-3" /> Clear D/E/F
+            </button>
+          )}
+        </div>
         <p className="text-[11px] text-muted-foreground">
           {nextLabel ? `Click an allowable point on the HawkPerch map to save ${nextLabel}.` : "Targets D, E, and F are saved."}
         </p>
