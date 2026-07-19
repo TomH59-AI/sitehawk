@@ -2,7 +2,7 @@ import { Copy, Play, Trash2 } from "lucide-react";
 
 const LABELS = ["Target D", "Target E", "Target F"];
 
-export default function HawkPerchTargetPicker({ targets, rejection, onClear, onRun }) {
+export default function HawkPerchTargetPicker({ targets, rejection, onClearRejection, onClear, onRun }) {
   const copy = (target) => navigator.clipboard.writeText(`${target.lat.toFixed(6)}, ${target.lng.toFixed(6)}`);
   const nextLabel = LABELS[targets.findIndex((target) => !target)];
   return (
@@ -25,7 +25,10 @@ export default function HawkPerchTargetPicker({ targets, rejection, onClear, onR
       </div>
       {rejection && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2">
-          <p className="text-xs font-extrabold text-destructive">REJECTED</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-extrabold text-destructive">REJECTED</p>
+            <button onClick={onClearRejection} className="text-[10px] font-bold text-destructive underline underline-offset-2">Clear</button>
+          </div>
           <p className="font-mono text-[10px] text-destructive">{rejection.lat.toFixed(6)}, {rejection.lng.toFixed(6)}</p>
           <p className="mt-1 text-[11px] leading-snug text-destructive">{rejection.reason}</p>
         </div>
