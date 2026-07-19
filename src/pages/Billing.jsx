@@ -6,11 +6,10 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { TIERS } from "@/lib/billingConfig";
 import { hawkBillingPortal } from "@/functions/hawkBillingPortal";
-import { hawkBillingCheckout } from "@/functions/hawkBillingCheckout";
 import { Button } from "@/components/ui/button";
-import { CreditCard, CheckCircle2, AlertTriangle, ExternalLink, ArrowRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { CreditCard, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
 import DeleteAccountSection from "@/components/billing/DeleteAccountSection";
+import BillingUsageSection from "@/components/billing/BillingUsageSection";
 
 const STATUS_BADGE = {
   active: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
@@ -24,7 +23,6 @@ export default function Billing() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
-  const [checkoutLoading, setCheckoutLoading] = useState(null);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
@@ -51,26 +49,6 @@ export default function Billing() {
     } else {
       setError(res.data?.error || "Could not open billing portal");
       setPortalLoading(false);
-    }
-  };
-
-  const handleCheckout = async (priceId) => {
-    if (window.self !== window.top) {
-      alert("Checkout works only from the published app.");
-      return;
-    }
-    setCheckoutLoading(priceId);
-    setError(null);
-    const res = await hawkBillingCheckout({
-      price_id: priceId,
-      success_url: `${window.location.origin}/billing?success=1`,
-      cancel_url: window.location.href,
-    });
-    if (res.data?.url) {
-      window.location.href = res.data.url;
-    } else {
-      setError(res.data?.error || "Could not start checkout");
-      setCheckoutLoading(null);
     }
   };
 
@@ -109,9 +87,6 @@ export default function Billing() {
           <div>
             <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Current Plan</div>
             <div className="text-2xl font-bold text-foreground">{tier.label || "Free"}</div>
-            {tier.monthly_usd && (
-              <div className="text-muted-foreground text-sm">${tier.monthly_usd}/month</div>
-            )}
           </div>
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_BADGE[status]}`}>
             {status === "active" ? "Active" : status === "trialing" ? "Trial" : status === "past_due" ? "Past Due" : status === "canceled" ? "Canceled" : "—"}
@@ -154,42 +129,8 @@ export default function Billing() {
         )}
       </div>
 
-      {/* Upgrade options (show other tiers) */}
-      {tierKey !== "hawk_command" && (
-        <div className="space-y-3">
-          <div className="text-sm font-semibold text-foreground">Available Plans</div>
-          {["hawk_site", "hawk_site_law", "hawk_vision", "hawk_vision_law"].filter(k => k !== tierKey).map(k => {
-            const t = TIERS[k];
-            return (
-              <div key={k} className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3 gap-3">
-                <div>
-                  <div className="font-medium text-sm text-foreground">{t.label}</div>
-                  <div className="text-xs text-muted-foreground">${t.monthly_usd}/month</div>
-                </div>
-                <Button
-                  size="sm"
-                  variant={k === "hawk_vision_law" ? "default" : "outline"}
-                  disabled={checkoutLoading === t.priceId}
-                  onClick={() => handleCheckout(t.priceId)}
-                  className="gap-1"
-                >
-                  {checkoutLoading === t.priceId ? "…" : "Switch"}
-                  <ArrowRight className="w-3 h-3" />
-                </Button>
-              </div>
-            );
-          })}
-          <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3 gap-3">
-            <div>
-              <div className="font-medium text-sm text-foreground">HawkCommand</div>
-              <div className="text-xs text-muted-foreground">Enterprise — contact for pricing</div>
-            </div>
-            <Link to="/pricing#hawk-command">
-              <Button size="sm" variant="outline" className="gap-1">Contact <ArrowRight className="w-3 h-3" /></Button>
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* Per-customer usage */}
+      <BillingUsageSection leaseSiteCap={tier.lease_site_cap} />
 
       {/* Danger zone */}
       <DeleteAccountSection />
