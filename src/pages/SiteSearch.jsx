@@ -534,6 +534,8 @@ export default function SiteSearch() {
           unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           targetA={targetA}
           towerHeightFt={searchParams.tower_height_ft || 150}
+          zoningResult={zoningResult}
+          searchCenter={searchCenter}
           savedTargets={perchTargets}
           onSaveTarget={savePerchTarget}
           onClearTarget={(slot) => setPerchTargets((prev) => prev.map((target, index) => index === slot ? null : target))}

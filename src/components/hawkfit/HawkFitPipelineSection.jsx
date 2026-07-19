@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Crosshair, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { computeFit, autoPlaceTower } from "@/lib/hawkfitGeometry";
+import { buildOrdinanceRules, evaluatePoint, COLOR_HEX } from "@/lib/aiEquation";
 import { resolveActiveTargetA, resolve3DContext } from "@/lib/hawkfitTargetResolver";
 import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
 import { saveTowerScenario } from "@/functions/saveTowerScenario";
@@ -17,6 +18,7 @@ import ExportMapButton from "@/components/hawkfit/ExportMapButton";
 import Preview3DButton from "@/components/hawkfit/Preview3DButton";
 import HawkPerchTargetPicker from "@/components/hawkfit/HawkPerchTargetPicker";
 import HawkPerch3DView from "@/components/hawkfit/HawkPerch3DView";
+import AIEquationPanel from "@/components/hawkfit/AIEquationPanel";
 
 const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v != null && v !== ""));
 
@@ -24,7 +26,7 @@ const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, 
 // Preliminary Tower Siting Exhibit. Consumes the SAME active Target A as the
 // SCIP pipeline (ScipRecord.parcel_targets → SearchResult → TowerSitingRun →
 // TowerVisualization → Tower3DRender) and runs deterministic turf fit checks.
-export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget }) {
+export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget, zoningResult = null, searchCenter = null }) {
   const { toast, dismiss } = useToast();
   const [expanded, setExpanded] = useState(false);
   const [rejectedPoint, setRejectedPoint] = useState(null);
@@ -39,6 +41,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   const [threeD, setThreeD] = useState(null);
   const [manualBusy, setManualBusy] = useState(false);
   const [water, setWater] = useState(null); // water-body FeatureCollection near the target
+  const [aiOverlay, setAiOverlay] = useState(null); // AI Equation buildable-area FeatureCollection
 
   // Refresh whenever the pipeline's active Target A changes (Target promotion /
   // active_target_index advance flows through the targetA prop coordinates).
@@ -108,6 +111,22 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   }, [siteTarget, towerLngLat, controls, water]);
 
   const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
+
+  // AI Equation — structured ordinance rules from the pipeline's Section 2
+  // zoning result, evaluated live at the current cursor position.
+  const aiRules = useMemo(() => buildOrdinanceRules(zoningResult), [zoningResult]);
+  const aiEval = useMemo(() => {
+    if (!towerLngLat) return null;
+    return evaluatePoint({
+      parcelGeometry: siteTarget?.parcel_geometry || null,
+      towerLngLat,
+      requestedHeightFt: controls.heightFt,
+      rules: aiRules,
+      waterFeatures: water,
+      carrierCenter: searchCenter,
+      targetA,
+    });
+  }, [siteTarget, towerLngLat, controls.heightFt, aiRules, water, searchCenter, targetA]);
 
   const handleMapSelect = useCallback((point) => {
     const slot = savedTargets.findIndex((target) => !target);
@@ -297,6 +316,8 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                       selectionEnabled={savedTargets.some((target) => !target)}
                       onMapSelect={handleMapSelect}
                       onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
+                      overlay={aiOverlay}
+                      cursorColor={aiEval ? COLOR_HEX[aiEval.color] : null}
                     />
                   </div>
                   <div className="min-h-[480px]">
@@ -316,6 +337,20 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
               )}
             </div>
           </div>
+
+          {siteTarget && (
+            <AIEquationPanel
+              siteTarget={siteTarget}
+              towerLngLat={towerLngLat}
+              requestedHeightFt={controls.heightFt}
+              onHeightChange={(h) => setControls((c) => ({ ...c, heightFt: h }))}
+              rules={aiRules}
+              evalResult={aiEval}
+              water={water}
+              targetA={targetA}
+              onOverlayChange={setAiOverlay}
+            />
+          )}
 
           <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
             Preliminary screen — NOT final engineering, NOT a stamped survey, and NOT a final zoning determination.

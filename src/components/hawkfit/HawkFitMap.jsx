@@ -7,7 +7,25 @@ const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
 // HawkFit Map — interactive Mapbox map: parcel outline, draggable tower pin,
 // live fall-zone circle + compound rectangle.
-export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], selectionEnabled = false, onMapSelect, onClearSavedTargets }) {
+// Cellular-tower shaped cursor — the exact bottom-center point is the tower base.
+function createTowerCursorEl(color) {
+  const el = document.createElement("div");
+  el.style.cssText = "width:34px;height:52px;cursor:grab;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))";
+  el.innerHTML = `<svg viewBox="0 0 34 52" width="34" height="52">
+    <g stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round">
+      <line x1="13" y1="6" x2="9" y2="50"/><line x1="21" y1="6" x2="25" y2="50"/>
+      <line x1="11.5" y1="16" x2="22.5" y2="16"/><line x1="10.5" y1="28" x2="23.5" y2="28"/><line x1="9.5" y1="40" x2="24.5" y2="40"/>
+      <line x1="11.5" y1="16" x2="23.5" y2="28"/><line x1="22.5" y1="16" x2="10.5" y2="28"/>
+      <line x1="10.5" y1="28" x2="24.5" y2="40"/><line x1="23.5" y1="28" x2="9.5" y2="40"/>
+      <line x1="17" y1="1" x2="17" y2="6"/>
+    </g>
+    <circle cx="17" cy="50" r="2.5" fill="currentColor"/>
+  </svg>`;
+  el.style.color = color;
+  return el;
+}
+
+export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], selectionEnabled = false, onMapSelect, onClearSavedTargets, overlay = null, cursorColor = null }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -35,6 +53,8 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
           map.addSource("hf-fallzone", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-compound", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-dims", { type: "geojson", data: EMPTY_FC });
+          map.addSource("hf-ai-overlay", { type: "geojson", data: EMPTY_FC });
+          map.addLayer({ id: "hf-ai-overlay-fill", type: "fill", source: "hf-ai-overlay", paint: { "fill-color": ["get", "fill"], "fill-opacity": 0.35 } });
           map.addLayer({ id: "hf-parcel-fill", type: "fill", source: "hf-parcel", paint: { "fill-color": "#00A3FF", "fill-opacity": 0.08 } });
           map.addLayer({ id: "hf-parcel-line", type: "line", source: "hf-parcel", paint: { "line-color": "#00A3FF", "line-width": 3 } });
           map.addLayer({ id: "hf-fallzone-fill", type: "fill", source: "hf-fallzone", paint: { "fill-color": "#EF4444", "fill-opacity": 0.12 } });
@@ -94,12 +114,13 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     }
   }, [ready, siteTarget]);
 
-  // Draggable tower marker
+  // Draggable tower cursor — the bottom-center point is the proposed tower base.
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map || !towerLngLat) return;
+    const color = cursorColor || (fit?.status === "works" ? "#10B981" : fit?.status === "needs_review" ? "#F59E0B" : "#E11D48");
     if (!markerRef.current) {
-      const marker = new window.mapboxgl.Marker({ draggable: true, color: fit?.status === "works" ? "#10B981" : "#E11D48" })
+      const marker = new window.mapboxgl.Marker({ element: createTowerCursorEl(color), draggable: true, anchor: "bottom" })
         .setLngLat(towerLngLat)
         .addTo(map);
       const report = () => {
@@ -114,10 +135,16 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
       if (Math.abs(cur.lng - towerLngLat[0]) > 1e-9 || Math.abs(cur.lat - towerLngLat[1]) > 1e-9) {
         markerRef.current.setLngLat(towerLngLat);
       }
-      const markerColor = fit?.status === "works" ? "#10B981" : "#E11D48";
-      markerRef.current.getElement().querySelectorAll("svg path").forEach((path) => path.setAttribute("fill", markerColor));
+      markerRef.current.getElement().style.color = color;
     }
-  }, [ready, towerLngLat, onTowerMove, fit?.status]);
+  }, [ready, towerLngLat, onTowerMove, fit?.status, cursorColor]);
+
+  // AI Equation buildable-area overlay
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    map.getSource("hf-ai-overlay").setData(overlay || EMPTY_FC);
+  }, [ready, overlay]);
 
   // Live fall zone + compound updates
   useEffect(() => {
