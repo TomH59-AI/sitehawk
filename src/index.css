@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -12,73 +12,73 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 222 47% 11%;
+    --primary: 192 91% 36%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
+    --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 96%;
+    --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 187 92% 53%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 217 91% 60%;
-    --chart-1: 222 47% 11%;
-    --chart-2: 217 91% 60%;
-    --chart-3: 215 16% 47%;
-    --chart-4: 220 14% 96%;
-    --chart-5: 217 33% 25%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 192 91% 36%;
+    --chart-1: 192 91% 36%;
+    --chart-2: 187 92% 53%;
+    --chart-3: 222 47% 11%;
+    --chart-4: 217 33% 17%;
+    --chart-5: 215 16% 47%;
     --radius: 0.75rem;
     --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 192 91% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 215 25% 27%;
-    --sidebar-ring: 217 91% 60%;
-    --brand-cyan: 217 91% 60%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 217 33% 25%;
+    --sidebar-ring: 187 92% 53%;
+    --brand-cyan: 187 92% 53%;
 
-    --font-heading: 'Bebas Neue', sans-serif;
-    --font-body: 'Manrope', sans-serif;
+    --font-heading: 'Space Grotesk', sans-serif;
+    --font-body: 'Outfit', sans-serif;
   }
 
   .dark {
     --background: 222 47% 11%;
-    --foreground: 0 0% 100%;
+    --foreground: 210 40% 96%;
     --card: 217 33% 17%;
-    --card-foreground: 0 0% 100%;
+    --card-foreground: 210 40% 96%;
     --popover: 217 33% 17%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 217 91% 60%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 192 91% 36%;
     --primary-foreground: 0 0% 100%;
     --secondary: 217 33% 17%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary-foreground: 210 40% 96%;
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 187 92% 53%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 63% 42%;
     --destructive-foreground: 0 0% 100%;
-    --border: 215 25% 27%;
-    --input: 215 25% 27%;
-    --ring: 217 91% 60%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 0 0% 100%;
-    --chart-3: 215 20% 65%;
+    --border: 217 33% 25%;
+    --input: 217 33% 25%;
+    --ring: 187 92% 53%;
+    --chart-1: 187 92% 53%;
+    --chart-2: 192 91% 36%;
+    --chart-3: 210 40% 96%;
     --chart-4: 217 33% 17%;
-    --chart-5: 217 91% 75%;
+    --chart-5: 215 20% 65%;
     --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 192 91% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 215 25% 27%;
-    --sidebar-ring: 217 91% 60%;
-    --brand-cyan: 217 91% 60%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 217 33% 25%;
+    --sidebar-ring: 187 92% 53%;
+    --brand-cyan: 187 92% 53%;
   }
 }
 
@@ -93,8 +93,8 @@
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
-    letter-spacing: 0.02em;
-    font-weight: 400;
+    letter-spacing: -0.01em;
+    font-weight: 700;
   }
 
   img {
@@ -106,7 +106,7 @@
     @apply select-none;
   }
 
-  /* Secondary is now a light surface — typed text stays dark for legibility */
+  /* Secondary is a light surface in light mode — typed text stays dark for legibility */
   input.bg-secondary,
   textarea.bg-secondary,
   select.bg-secondary {
