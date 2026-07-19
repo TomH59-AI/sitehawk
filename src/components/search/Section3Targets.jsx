@@ -649,7 +649,7 @@ export default function Section3Targets({
                           <div className="px-4 py-2 text-sm text-foreground space-y-1">
                             <div>
                               {regridFemaLabel(regrid[colIdx])}
-                              <span className="ml-2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">⚡ Regrid</span>
+                              <span className="ml-2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">⚡ Realie</span>
                             </div>
                             {regridFloodComposition(regrid[colIdx]) && (
                               <div className="text-xs text-muted-foreground">Composition: {regridFloodComposition(regrid[colIdx])}</div>
