@@ -11,7 +11,7 @@ export default function PipelineSidebarNav() {
   const activeIndex = PIPELINE_STEPS.findIndex((s) => s.key === activeStep);
 
   return (
-    <div className="px-3 py-3 rounded-xl bg-sidebar-accent/40 border border-sidebar-border">
+    <div className="px-3 py-3 rounded-xl bg-slate-50 border border-slate-200">
       <div className="text-[10px] font-mono tracking-[0.25em] text-primary mb-2 px-1">
         SITE SEARCH PIPELINE
       </div>
@@ -29,8 +29,8 @@ export default function PipelineSidebarNav() {
                 isActive
                   ? "bg-primary/15 text-primary"
                   : isDone
-                  ? "text-foreground"
-                  : "text-muted-foreground/60"
+                  ? "text-slate-900"
+                  : "text-slate-500"
               }`}
             >
               {/* Step indicator */}
@@ -40,7 +40,7 @@ export default function PipelineSidebarNav() {
                     ? "bg-emerald-500 text-white"
                     : isActive
                     ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-muted-foreground"
+                    : "bg-slate-200 text-slate-600"
                 }`}
               >
                 {isDone ? <Check className="w-3 h-3" /> : isLocked ? <Lock className="w-2.5 h-2.5" /> : idx + 1}

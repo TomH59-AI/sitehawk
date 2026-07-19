@@ -116,13 +116,13 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex bg-background font-body pb-[env(safe-area-inset-bottom)]">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-sidebar fixed inset-y-0 left-0 z-30">
-        <div className="p-6 border-b border-border">
+      <aside className="hidden lg:flex flex-col w-64 border-r border-slate-200 bg-white fixed inset-y-0 left-0 z-30">
+        <div className="p-6 border-b border-slate-200">
           <Link to="/" className="flex items-center gap-3">
             <HawkIcon size={40} />
             <div>
-              <h1 className="font-heading font-bold text-lg text-sidebar-foreground tracking-tight">SiteHawk</h1>
-              <p className="text-[10px] text-sidebar-foreground/70 font-medium italic">"When you need the AI Vision"™</p>
+              <h1 className="font-heading font-bold text-lg text-black tracking-tight">SiteHawk</h1>
+              <p className="text-[10px] text-slate-600 font-medium italic">"When you need the AI Vision"™</p>
             </div>
           </Link>
           <div className="mt-4">
@@ -141,7 +141,7 @@ export default function Layout() {
                   className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActive
                       ? "bg-primary/10 text-primary border border-primary/20"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                      : "text-slate-800 hover:text-black hover:bg-slate-100"
                   }`}
                 >
                   <item.icon className="w-4 h-4" />
@@ -159,9 +159,9 @@ export default function Layout() {
             );
           })}
         </nav>
-        <div className="p-3 border-t border-border space-y-0.5">
+        <div className="p-3 border-t border-slate-200 space-y-0.5">
           <HubSpotSidebarConnect />
-          <div className="border-t border-border/50 my-1" />
+          <div className="border-t border-slate-200 my-1" />
           {location.pathname === "/search" && (
             <div className="flex items-center justify-end pb-1">
               <RestartTourButton />
@@ -169,28 +169,28 @@ export default function Layout() {
           )}
           <button
             onClick={toggle}
-            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-800 hover:text-black hover:bg-slate-100 w-full transition-all duration-200"
           >
             {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             {theme === "dark" ? "Light Mode" : "Dark Mode"}
           </button>
           <Link
             to="/billing"
-            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-800 hover:text-black hover:bg-slate-100 w-full transition-all duration-200"
           >
             <Settings className="w-4 h-4" />
             Billing
           </Link>
           <Link
             to="/about"
-            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-800 hover:text-black hover:bg-slate-100 w-full transition-all duration-200"
           >
             <Info className="w-4 h-4" />
             About
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-slate-800 hover:text-black hover:bg-slate-100 w-full transition-all duration-200"
           >
             <LogOut className="w-4 h-4" />
             Sign Out
@@ -199,7 +199,7 @@ export default function Layout() {
       </aside>
 
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 min-h-16 pt-[env(safe-area-inset-top)] bg-sidebar border-b border-border z-30 flex items-center justify-between px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 min-h-16 pt-[env(safe-area-inset-top)] bg-white border-b border-slate-200 z-30 flex items-center justify-between px-4">
         {isSubRoute ? (
           <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm font-medium text-foreground py-2 -ml-1">
             <ChevronLeft className="w-5 h-5" /> Back
@@ -207,7 +207,7 @@ export default function Layout() {
         ) : (
           <Link to="/" className="flex items-center gap-2">
             <HawkIcon size={32} />
-            <span className="font-heading font-bold text-sidebar-foreground">SiteHawk</span>
+            <span className="font-heading font-bold text-black">SiteHawk</span>
           </Link>
         )}
         <div className="flex items-center gap-1">
@@ -225,7 +225,7 @@ export default function Layout() {
       {/* Mobile Menu */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-20 bg-background/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)}>
-          <div className="absolute top-16 left-0 right-0 bg-sidebar border-b border-border p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute top-16 left-0 right-0 bg-white border-b border-slate-200 p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
             {navItems.map((item) => {
               const isActive = item.path === "/dashboard"
                 ? location.pathname === item.path
@@ -236,7 +236,7 @@ export default function Layout() {
                   to={item.path}
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+                    isActive ? "bg-primary/10 text-primary" : "text-slate-800 hover:text-black"
                   }`}
                 >
                   <item.icon className="w-4 h-4" />
@@ -244,15 +244,15 @@ export default function Layout() {
                 </Link>
               );
             })}
-            <Link to="/billing" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground w-full">
+            <Link to="/billing" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-800 hover:text-black w-full">
               <Settings className="w-4 h-4" />
               Billing
             </Link>
-            <Link to="/about" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground w-full">
+            <Link to="/about" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-800 hover:text-black w-full">
               <Info className="w-4 h-4" />
               About
             </Link>
-            <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground w-full">
+            <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-800 hover:text-black w-full">
               <LogOut className="w-4 h-4" />
               Sign Out
             </button>
