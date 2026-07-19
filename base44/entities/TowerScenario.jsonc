@@ -1,7 +1,7 @@
 {
   "name": "TowerScenario",
   "type": "object",
-  "description": "HawkFit Map \u2014 one saved proposed-tower placement on a SiteTarget parcel, with its feasibility result embedded.",
+  "description": "HawkPerch \u2014 one saved proposed-tower placement on a SiteTarget parcel, with its live feasibility result and solver configuration embedded.",
   "properties": {
     "site_target_id": {
       "type": "string",
@@ -36,7 +36,7 @@
         "fails",
         "needs_review"
       ],
-      "description": "Feasibility verdict at save time."
+      "description": "HawkPerch feasibility verdict at save time."
     },
     "fit_reasons": {
       "type": "array",
@@ -44,6 +44,48 @@
         "type": "string"
       },
       "description": "Why the verdict was reached."
+    },
+    "hawkperch_error_code": {
+      "type": "string",
+      "enum": [
+        "ERR_EXT_P",
+        "ERR_STBK",
+        "ERR_FZ_S",
+        "ERR_H_MIN"
+      ],
+      "description": "HawkPerch validation code when the location is unallowable."
+    },
+    "edge_distance_ft": {
+      "type": "number",
+      "description": "Nearest parcel-boundary distance at save time."
+    },
+    "max_available_height_ft": {
+      "type": "number",
+      "description": "Highest allowable tower height at the saved position."
+    },
+    "hawkperch_config": {
+      "type": "object",
+      "description": "Solver inputs: setbacks, height limit, PE Letter state, and engineered multiplier.",
+      "properties": {
+        "front_setback_ft": {
+          "type": "number"
+        },
+        "side_setback_ft": {
+          "type": "number"
+        },
+        "rear_setback_ft": {
+          "type": "number"
+        },
+        "max_height_ft": {
+          "type": "number"
+        },
+        "has_pe_letter": {
+          "type": "boolean"
+        },
+        "fall_zone_multiplier": {
+          "type": "number"
+        }
+      }
     },
     "notes": {
       "type": "string"

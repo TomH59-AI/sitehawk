@@ -11,9 +11,9 @@ const DEFAULT_SETBACK_FT = 25;
 // The interior clearance a tower needs from the parcel line so BOTH the fall
 // zone (radius = height) and half the compound diagonal stay inside, plus the
 // zoning setback. This is the inward buffer distance for auto-placement.
-export function requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt }) {
+export function requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt, fallZoneMultiplier = 1 }) {
   const compoundHalfDiag = Math.sqrt(widthFt * widthFt + depthFt * depthFt) / 2;
-  return Math.max(heightFt, compoundHalfDiag) + (setbackFt || 0);
+  return Math.max(heightFt * fallZoneMultiplier, compoundHalfDiag, setbackFt || 0);
 }
 
 // Auto-place the tower at the best interior point of the parcel for the given
@@ -22,11 +22,12 @@ export function requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt }) {
 // Returns { lngLat, fits } — fits=false means no point can satisfy the settings
 // (parcel too small for this height/compound), and lngLat falls back to the
 // parcel's overall center so the tower stays visible.
-export function autoPlaceTower({ parcelGeometry, heightFt, widthFt, depthFt, zoning, waterFeatures }) {
+export function autoPlaceTower({ parcelGeometry, heightFt, widthFt, depthFt, zoning, waterFeatures, frontSetbackFt, sideSetbackFt, rearSetbackFt, hasPELetter = false, fallZoneMultiplier = 0.5 }) {
   if (!parcelGeometry) return { lngLat: null, fits: false };
   const parcelFeature = { type: "Feature", properties: {}, geometry: parcelGeometry };
-  const setbackFt = setbackFromZoning(zoning);
-  const clearanceKm = requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt }) * FT_TO_KM;
+  const setbackFt = Math.max(frontSetbackFt || 0, sideSetbackFt || 0, rearSetbackFt || 0, setbackFromZoning(zoning));
+  const multiplier = hasPELetter ? Math.min(0.9, Math.max(0.1, fallZoneMultiplier)) : 1;
+  const clearanceKm = requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt, fallZoneMultiplier: multiplier }) * FT_TO_KM;
 
   let interior = null;
   try {
@@ -163,8 +164,8 @@ export function computePhysicalFit({ parcelGeometry, towerLngLat, heightFt, widt
   return { status, reasons, fallZone, compound };
 }
 
-export function buildFallZone(lngLat, heightFt) {
-  return turf.circle(lngLat, heightFt * FT_TO_KM, { steps: 64, units: "kilometers" });
+export function buildFallZone(lngLat, heightFt, multiplier = 1) {
+  return turf.circle(lngLat, heightFt * multiplier * FT_TO_KM, { steps: 64, units: "kilometers" });
 }
 
 export function buildCompound(lngLat, widthFt, depthFt) {
@@ -189,55 +190,70 @@ function allVerticesInside(feature, parcelFeature) {
   return coords.every((c) => turf.booleanPointInPolygon(turf.point(c), parcelFeature));
 }
 
-// Returns { status: 'works'|'fails'|'needs_review', reasons: [], fallZone, compound }
-export function computeFit({ parcelGeometry, towerLngLat, heightFt, widthFt, depthFt, zoning, waterFeatures }) {
-  const fallZone = buildFallZone(towerLngLat, heightFt);
+// HawkPerch live solver. Turf performs geodesic measurements and returns decimal
+// feet, avoiding degree-based distance distortion across a parcel.
+export function computeFit({
+  parcelGeometry, towerLngLat, heightFt, widthFt, depthFt, zoning, waterFeatures,
+  frontSetbackFt = 50, sideSetbackFt = 25, rearSetbackFt = 25,
+  maxHeightFt = 199, hasPELetter = false, fallZoneMultiplier = 0.5,
+}) {
+  const multiplier = hasPELetter ? Math.min(0.9, Math.max(0.1, fallZoneMultiplier)) : 1;
+  const fallZone = buildFallZone(towerLngLat, heightFt, multiplier);
   const compound = buildCompound(towerLngLat, widthFt, depthFt);
   const reasons = [];
-  let status = "works";
 
   if (!parcelGeometry) {
-    return {
-      status: "needs_review",
-      reasons: ["No parcel boundary geometry available — containment cannot be verified."],
-      fallZone,
-      compound,
-    };
+    return { status: "needs_review", errorCode: null, reasons: ["No parcel boundary geometry available — containment cannot be verified."], fallZone, compound, edgeDistanceFt: 0, maxAvailableHeight: 0 };
   }
 
   const parcelFeature = { type: "Feature", properties: {}, geometry: parcelGeometry };
-  const towerInside = turf.booleanPointInPolygon(turf.point(towerLngLat), parcelFeature);
+  const point = turf.point(towerLngLat);
+  const towerInside = turf.booleanPointInPolygon(point, parcelFeature);
+  const edgeDistanceFt = towerInside ? distanceToBoundaryFt(point, parcelFeature) : 0;
+  const setbackFt = Math.max(frontSetbackFt, sideSetbackFt, rearSetbackFt, setbackFromZoning(zoning));
+  const geometricHeight = multiplier > 0 ? edgeDistanceFt / multiplier : 0;
+  const maxAvailableHeight = Math.min(maxHeightFt, geometricHeight);
   const compoundInside = towerInside && allVerticesInside(compound, parcelFeature);
   const fallZoneInside = towerInside && allVerticesInside(fallZone, parcelFeature);
 
-  const setbackFt = setbackFromZoning(zoning);
-
+  let errorCode = null;
   if (!towerInside) {
-    status = "fails";
-    reasons.push("Tower location is outside the parcel boundary.");
-  }
-  if (pointOnWater(towerLngLat, waterFeatures)) {
-    status = "fails";
-    reasons.push("Tower sits on a water body (lake/pond/river) — move it onto dry land.");
-  }
-  if (towerInside && !compoundInside) {
-    status = "fails";
-    reasons.push(`Compound (${Math.round(widthFt)}×${Math.round(depthFt)} ft) extends beyond the parcel boundary — shrink the compound or move the tower.`);
-  }
-  if (towerInside && !fallZoneInside) {
-    status = "fails";
-    reasons.push(`Fall zone (${Math.round(heightFt)} ft radius) crosses the parcel boundary — lower the tower height to fit.`);
-  }
-  if (status === "fails") {
-    reasons.push(`Needs ~${Math.round(requiredClearanceFt({ heightFt, widthFt, depthFt, setbackFt }))} ft of clearance from the parcel line (incl. ${setbackFt} ft setback).`);
-  }
-  if (status === "works" && !zoning) {
-    status = "needs_review";
-    reasons.push("Zoning is unknown for this parcel — verify the required setback locally.");
-  }
-  if (status === "works") {
-    reasons.push(`Compound and fall zone fit inside the parcel with the ${setbackFt} ft zoning setback.`);
+    errorCode = "ERR_EXT_P";
+    reasons.push("Outside Parcel Boundary — move the tower inside Target A.");
+  } else if (pointOnWater(towerLngLat, waterFeatures)) {
+    errorCode = "ERR_STBK";
+    reasons.push("Tower sits on a mapped water body — move it onto dry land.");
+  } else if (edgeDistanceFt < setbackFt || !compoundInside) {
+    errorCode = "ERR_STBK";
+    reasons.push(`Setback Violation — ${Math.round(edgeDistanceFt)} ft available; ${Math.round(setbackFt)} ft required.`);
+    if (!compoundInside) reasons.push(`The ${Math.round(widthFt)}×${Math.round(depthFt)} ft compound crosses the parcel line.`);
+  } else if (maxAvailableHeight < 100) {
+    errorCode = "ERR_H_MIN";
+    reasons.push(`Below Minimum 100ft Height — this position supports only ${Math.round(maxAvailableHeight)} ft.`);
+  } else if (!fallZoneInside || heightFt > maxAvailableHeight) {
+    errorCode = "ERR_FZ_S";
+    reasons.push(`Fall Zone Spillover — requested ${Math.round(heightFt)} ft; highest allowable here is ${Math.round(maxAvailableHeight)} ft.`);
   }
 
-  return { status, reasons, fallZone, compound, setbackFt };
+  if (!errorCode) {
+    reasons.push(`Allowable site — ${Math.round(edgeDistanceFt)} ft to the nearest boundary and a ${Math.round(heightFt * multiplier)} ft fall zone.`);
+    reasons.push(hasPELetter ? `PE-certified multiplier active at ${multiplier.toFixed(2)}×.` : "Standard 100% fall-zone multiplier active.");
+  }
+
+  return {
+    status: errorCode ? "fails" : "works", errorCode, reasons, fallZone, compound,
+    setbackFt, edgeDistanceFt, maxAvailableHeight, fallZoneMultiplier: multiplier,
+  };
+}
+
+function distanceToBoundaryFt(point, parcelFeature) {
+  let minKm = Infinity;
+  try {
+    const lines = turf.polygonToLine(parcelFeature);
+    turf.flattenEach(lines, (line) => {
+      const km = turf.pointToLineDistance(point, line, { units: "kilometers" });
+      if (km < minKm) minKm = km;
+    });
+  } catch { return 0; }
+  return Number.isFinite(minKm) ? minKm / FT_TO_KM : 0;
 }

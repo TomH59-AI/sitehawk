@@ -39,6 +39,10 @@ Deno.serve(async (req) => {
       compound_depth_ft: scenario.compound_depth_ft ?? 100,
       fit_status: fitStatus,
       fit_reasons: scenario.fit_reasons || [],
+      hawkperch_error_code: scenario.hawkperch_error_code || undefined,
+      edge_distance_ft: scenario.edge_distance_ft ?? undefined,
+      max_available_height_ft: scenario.max_available_height_ft ?? undefined,
+      hawkperch_config: scenario.hawkperch_config || undefined,
       notes: scenario.notes || undefined,
     };
 

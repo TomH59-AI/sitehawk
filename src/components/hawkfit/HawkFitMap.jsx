@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { buildDimensionLabels } from "@/lib/parcelDimensions";
-import CustomizeProbe from "@/components/maps/CustomizeProbe";
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
@@ -97,7 +96,7 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     const map = mapRef.current;
     if (!ready || !map || !towerLngLat) return;
     if (!markerRef.current) {
-      const marker = new window.mapboxgl.Marker({ draggable: true, color: "#E11D48" })
+      const marker = new window.mapboxgl.Marker({ draggable: true, color: fit?.status === "works" ? "#10B981" : "#E11D48" })
         .setLngLat(towerLngLat)
         .addTo(map);
       const report = () => {
@@ -112,8 +111,10 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
       if (Math.abs(cur.lng - towerLngLat[0]) > 1e-9 || Math.abs(cur.lat - towerLngLat[1]) > 1e-9) {
         markerRef.current.setLngLat(towerLngLat);
       }
+      const markerColor = fit?.status === "works" ? "#10B981" : "#E11D48";
+      markerRef.current.getElement().querySelectorAll("svg path").forEach((path) => path.setAttribute("fill", markerColor));
     }
-  }, [ready, towerLngLat, onTowerMove]);
+  }, [ready, towerLngLat, onTowerMove, fit?.status]);
 
   // Live fall zone + compound updates
   useEffect(() => {
@@ -121,6 +122,9 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     if (!ready || !map) return;
     map.getSource("hf-fallzone").setData(fit?.fallZone || EMPTY_FC);
     map.getSource("hf-compound").setData(fit?.compound || EMPTY_FC);
+    const color = fit?.status === "works" ? "#10B981" : "#EF4444";
+    map.setPaintProperty("hf-fallzone-fill", "fill-color", color);
+    map.setPaintProperty("hf-fallzone-line", "line-color", color);
   }, [ready, fit]);
 
   // Layer visibility toggles
@@ -139,15 +143,11 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full rounded-xl overflow-hidden" />
-      <CustomizeProbe
-        mapRef={mapRef}
-        ready={ready}
-        parcelGeometry={siteTarget?.parcel_geometry || null}
-        zoning={siteTarget?.zoning || null}
-        heightFt={controls?.heightFt || 199}
-        widthFt={controls?.widthFt || 100}
-        depthFt={controls?.depthFt || 100}
-      />
+      {fit && (
+        <div className={`absolute left-3 top-3 z-10 rounded-full border px-3 py-1.5 text-xs font-bold shadow ${fit.status === "works" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-red-300 bg-red-50 text-red-700"}`}>
+          HawkPerch · {fit.status === "works" ? "ALLOWABLE" : fit.errorCode || "UNALLOWABLE"}
+        </div>
+      )}
     </div>
   );
 }

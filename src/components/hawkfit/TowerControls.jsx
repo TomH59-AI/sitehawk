@@ -17,13 +17,13 @@ export default function TowerControls({ heightFt, widthFt, depthFt, onChange }) 
   );
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-      <h3 className="font-heading font-semibold text-sm text-foreground">Tower Controls</h3>
+      <h3 className="font-heading font-semibold text-sm text-foreground">HawkPerch Site Controls</h3>
       <div className="grid grid-cols-3 gap-3">
         {field("Height (ft)", "heightFt", heightFt)}
         {field("Compound W (ft)", "widthFt", widthFt)}
         {field("Compound D (ft)", "depthFt", depthFt)}
       </div>
-      <p className="text-xs text-muted-foreground">Fall-zone radius equals tower height. Changing height or compound size auto-moves the tower to the best legal spot (fall zone + setback). Drag the pin to override.</p>
+      <p className="text-xs text-muted-foreground">Changes re-solve immediately. Drag the tower pin to test every position in real time.</p>
     </div>
   );
 }

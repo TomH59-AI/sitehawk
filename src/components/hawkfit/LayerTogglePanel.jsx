@@ -11,7 +11,7 @@ const LAYERS = [
 export default function LayerTogglePanel({ layers, onToggle }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-      <h3 className="font-heading font-semibold text-sm text-foreground">Layers</h3>
+      <h3 className="font-heading font-semibold text-sm text-foreground">HawkPerch Site Toggles</h3>
       {LAYERS.map((l) => (
         <div key={l.key} className="flex items-center justify-between">
           <Label className="text-xs">{l.label}</Label>

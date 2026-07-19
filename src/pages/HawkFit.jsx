@@ -11,6 +11,7 @@ import SiteTargetSummary from "@/components/hawkfit/SiteTargetSummary";
 import TowerControls from "@/components/hawkfit/TowerControls";
 import FitStatusPanel from "@/components/hawkfit/FitStatusPanel";
 import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
+import HawkPerchControls from "@/components/hawkfit/HawkPerchControls";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
 
 // HawkFit Map — interactive tower-siting: Realie property lookup, parcel
@@ -19,7 +20,11 @@ export default function HawkFit() {
   const { toast } = useToast();
   const [siteTarget, setSiteTarget] = useState(null);
   const [towerLngLat, setTowerLngLat] = useState(null);
-  const [controls, setControls] = useState({ heightFt: 199, widthFt: 100, depthFt: 100 });
+  const [controls, setControls] = useState({
+    heightFt: 199, widthFt: 100, depthFt: 100,
+    frontSetbackFt: 50, sideSetbackFt: 25, rearSetbackFt: 25,
+    maxHeightFt: 199, hasPELetter: false, fallZoneMultiplier: 0.5,
+  });
   const [layers, setLayers] = useState({ parcel: true, fallZone: true, compound: true });
   const [lookupBusy, setLookupBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
@@ -34,6 +39,7 @@ export default function HawkFit() {
       widthFt: controls.widthFt,
       depthFt: controls.depthFt,
       zoning: siteTarget?.zoning || null,
+      ...controls,
     });
   }, [siteTarget, towerLngLat, controls]);
 
@@ -52,6 +58,7 @@ export default function HawkFit() {
             widthFt: controls.widthFt,
             depthFt: controls.depthFt,
             zoning: target.zoning || null,
+            ...controls,
           })
         : null;
       setTowerLngLat(placed?.lngLat || [target.longitude, target.latitude]);
@@ -83,13 +90,14 @@ export default function HawkFit() {
           widthFt: next.widthFt,
           depthFt: next.depthFt,
           zoning: siteTarget.zoning || null,
+          ...next,
         });
         if (placed.lngLat) {
           setTowerLngLat(placed.lngLat);
           if (!placed.fits) {
             toast({
               title: "Won't fit at these settings",
-              description: "No spot on this parcel clears the fall zone, compound, and setback. Lower the height or shrink the compound.",
+              description: "No spot clears the active HawkPerch fall zone, compound, and ordinance settings.",
               variant: "destructive",
             });
           }
@@ -115,6 +123,17 @@ export default function HawkFit() {
           compound_depth_ft: controls.depthFt,
           fit_status: fit.status,
           fit_reasons: fit.reasons,
+          hawkperch_error_code: fit.errorCode || undefined,
+          edge_distance_ft: fit.edgeDistanceFt,
+          max_available_height_ft: fit.maxAvailableHeight,
+          hawkperch_config: {
+            front_setback_ft: controls.frontSetbackFt,
+            side_setback_ft: controls.sideSetbackFt,
+            rear_setback_ft: controls.rearSetbackFt,
+            max_height_ft: controls.maxHeightFt,
+            has_pe_letter: controls.hasPELetter,
+            fall_zone_multiplier: controls.hasPELetter ? controls.fallZoneMultiplier : 1,
+          },
         },
       });
       // Remember the saved SiteTarget + TowerScenario ids so re-saves update, not duplicate.
@@ -134,8 +153,8 @@ export default function HawkFit() {
           <Crosshair className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="font-heading font-bold text-2xl text-foreground">HawkFit Map</h1>
-          <p className="text-sm text-muted-foreground">Look up a Target A property and test tower placement live.</p>
+          <h1 className="font-heading font-bold text-2xl text-foreground">HawkPerch</h1>
+          <p className="text-sm text-muted-foreground">SiteHawk AI siting solver — test Target A placement live.</p>
         </div>
       </div>
 
@@ -146,6 +165,7 @@ export default function HawkFit() {
             <>
               <SiteTargetSummary target={siteTarget} />
               <TowerControls {...controls} onChange={handleControlChange} />
+              <HawkPerchControls controls={controls} onChange={handleControlChange} />
               <FitStatusPanel fit={fit} />
               <LayerTogglePanel layers={layers} onToggle={handleLayerToggle} />
               <div className="space-y-2">
@@ -174,6 +194,7 @@ export default function HawkFit() {
             onTowerMove={handleTowerMove}
             fit={fit}
             layers={layers}
+            controls={controls}
           />
         </div>
       </div>
