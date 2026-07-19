@@ -206,7 +206,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
           <div>
             <div className="font-heading font-bold text-foreground">HawkFit Map</div>
             <div className="text-xs text-muted-foreground">
-              Deterministic fall-zone + compound fit checks on the active Target A — runs after the Tower Siter / Preliminary Tower Siting Exhibit.
+              Deterministic fall-zone + compound fit checks on the active Target A.
             </div>
           </div>
         </div>
