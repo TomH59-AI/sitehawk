@@ -7,7 +7,7 @@ const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
 // HawkFit Map — interactive Mapbox map: parcel outline, draggable tower pin,
 // live fall-zone circle + compound rectangle.
-export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], pickSlot = null, onPickTarget }) {
+export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], selectionEnabled = false, onMapSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -156,12 +156,12 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
-    map.getCanvas().style.cursor = pickSlot == null ? "" : "crosshair";
-    if (pickSlot == null) return;
-    const pick = (event) => onPickTarget?.(pickSlot, { lat: event.lngLat.lat, lng: event.lngLat.lng });
+    map.getCanvas().style.cursor = selectionEnabled ? "crosshair" : "";
+    if (!selectionEnabled) return;
+    const pick = (event) => onMapSelect?.({ lat: event.lngLat.lat, lng: event.lngLat.lng });
     map.on("click", pick);
     return () => { map.off("click", pick); map.getCanvas().style.cursor = ""; };
-  }, [ready, pickSlot, onPickTarget]);
+  }, [ready, selectionEnabled, onMapSelect]);
 
   if (loadError) {
     return <div className="w-full h-full flex items-center justify-center text-sm text-destructive">Map failed to load: {loadError}</div>;

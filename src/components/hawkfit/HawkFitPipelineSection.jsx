@@ -26,7 +26,6 @@ const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, 
 export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget }) {
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
-  const [pickSlot, setPickSlot] = useState(null);
   const [resolving, setResolving] = useState(false);
   const [siteTarget, setSiteTarget] = useState(null);
   const [resolvedFrom, setResolvedFrom] = useState(null);
@@ -107,6 +106,28 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   }, [siteTarget, towerLngLat, controls, water]);
 
   const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
+
+  const handleMapSelect = useCallback((point) => {
+    const slot = savedTargets.findIndex((target) => !target);
+    if (slot === -1 || !siteTarget) return;
+    const pointLngLat = [point.lng, point.lat];
+    const pointFit = computeFit({
+      parcelGeometry: siteTarget.parcel_geometry || null,
+      towerLngLat: pointLngLat,
+      heightFt: controls.heightFt,
+      widthFt: controls.widthFt,
+      depthFt: controls.depthFt,
+      zoning: siteTarget.zoning || null,
+      waterFeatures: water,
+    });
+    setTowerLngLat(pointLngLat);
+    if (pointFit.status !== "works") {
+      toast({ title: "Location not saved", description: pointFit.reasons?.[0] || "The selected point does not meet the active HawkPerch requirements.", variant: "destructive" });
+      return;
+    }
+    onSaveTarget?.(slot, point);
+    toast({ title: `Target ${["D", "E", "F"][slot]} saved`, description: `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` });
+  }, [savedTargets, siteTarget, controls, water, onSaveTarget, toast]);
 
   // Manual lookup stays available but never replaces the pipeline order —
   // the section re-resolves from the pipeline whenever Target A changes.
@@ -218,8 +239,6 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
               {siteTarget && (
                 <HawkPerchTargetPicker
                   targets={savedTargets}
-                  activeSlot={pickSlot}
-                  onArm={setPickSlot}
                   onClear={onClearTarget}
                   onRun={onRunTarget}
                 />
@@ -266,8 +285,8 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                   layers={layers}
                   controls={controls}
                   savedTargets={savedTargets}
-                  pickSlot={pickSlot}
-                  onPickTarget={(slot, point) => { onSaveTarget?.(slot, point); setPickSlot(null); }}
+                  selectionEnabled={savedTargets.some((target) => !target)}
+                  onMapSelect={handleMapSelect}
                   />
               ) : (
                 <div className="w-full h-full min-h-[480px] rounded-xl border border-border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">
