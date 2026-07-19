@@ -16,6 +16,7 @@ import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
 import Preview3DButton from "@/components/hawkfit/Preview3DButton";
 import HawkPerchTargetPicker from "@/components/hawkfit/HawkPerchTargetPicker";
+import HawkPerch3DView from "@/components/hawkfit/HawkPerch3DView";
 
 const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v != null && v !== ""));
 
@@ -283,18 +284,31 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
 
             <div className="min-h-[480px]">
               {siteTarget ? (
-                <HawkFitMap
-                  siteTarget={siteTarget}
-                  towerLngLat={towerLngLat}
-                  onTowerMove={handleTowerMove}
-                  fit={fit}
-                  layers={layers}
-                  controls={controls}
-                  savedTargets={savedTargets}
-                  selectionEnabled={savedTargets.some((target) => !target)}
-                  onMapSelect={handleMapSelect}
-                  onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
-                  />
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 h-full">
+                  <div className="min-h-[480px]">
+                    <HawkFitMap
+                      siteTarget={siteTarget}
+                      towerLngLat={towerLngLat}
+                      onTowerMove={handleTowerMove}
+                      fit={fit}
+                      layers={layers}
+                      controls={controls}
+                      savedTargets={savedTargets}
+                      selectionEnabled={savedTargets.some((target) => !target)}
+                      onMapSelect={handleMapSelect}
+                      onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
+                    />
+                  </div>
+                  <div className="min-h-[480px]">
+                    <HawkPerch3DView
+                      siteTarget={siteTarget}
+                      towerLngLat={towerLngLat}
+                      fit={fit}
+                      controls={controls}
+                      savedTargets={savedTargets}
+                    />
+                  </div>
+                </div>
               ) : (
                 <div className="w-full h-full min-h-[480px] rounded-xl border border-border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">
                   Resolve a Target A to open the HawkFit map.
