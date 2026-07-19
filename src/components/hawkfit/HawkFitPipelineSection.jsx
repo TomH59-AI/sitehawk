@@ -26,6 +26,7 @@ const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, 
 export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget }) {
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
+  const [rejectedPoint, setRejectedPoint] = useState(null);
   const [resolving, setResolving] = useState(false);
   const [siteTarget, setSiteTarget] = useState(null);
   const [resolvedFrom, setResolvedFrom] = useState(null);
@@ -122,9 +123,12 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
     });
     setTowerLngLat(pointLngLat);
     if (pointFit.status !== "works") {
-      toast({ title: "Location not saved", description: pointFit.reasons?.[0] || "The selected point does not meet the active HawkPerch requirements.", variant: "destructive" });
+      const reason = pointFit.reasons?.[0] || "The selected point does not meet the active HawkPerch requirements.";
+      setRejectedPoint({ ...point, reason });
+      toast({ title: "Location rejected", description: reason, variant: "destructive" });
       return;
     }
+    setRejectedPoint(null);
     onSaveTarget?.(slot, point);
     toast({ title: `Target ${["D", "E", "F"][slot]} saved`, description: `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` });
   }, [savedTargets, siteTarget, controls, water, onSaveTarget, toast]);
@@ -239,6 +243,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
               {siteTarget && (
                 <HawkPerchTargetPicker
                   targets={savedTargets}
+                  rejection={rejectedPoint}
                   onClear={onClearTarget}
                   onRun={onRunTarget}
                 />
