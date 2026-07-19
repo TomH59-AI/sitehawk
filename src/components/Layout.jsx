@@ -125,9 +125,6 @@ export default function Layout() {
               <p className="text-[10px] text-sidebar-foreground/70 font-medium italic">"When you need the AI Vision"™</p>
             </div>
           </Link>
-          <div className="mt-4">
-            <UsageBadge />
-          </div>
         </div>
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto min-h-0 sidebar-scroll">
           {navItems.map((item) => {
@@ -181,6 +178,9 @@ export default function Layout() {
             <Settings className="w-4 h-4" />
             Billing
           </Link>
+          <div className="px-4 py-1">
+            <UsageBadge />
+          </div>
           <Link
             to="/about"
             className="flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary w-full transition-all duration-200"
