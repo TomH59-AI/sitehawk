@@ -53,6 +53,8 @@ export default function SiteSearch() {
   const [targetA, setTargetA] = useState(null);
   // ALL three targets from Section 3 (additive) — feed the isolated B/C lanes.
   const [allTargets, setAllTargets] = useState([null, null, null]);
+  // User-picked backup coordinates from HawkPerch at the bottom of the pipeline.
+  const [perchTargets, setPerchTargets] = useState([null, null, null]);
   // Which independent target lanes are open. Each lane owns its own state.
   const [lanesOpen, setLanesOpen] = useState({ B: false, C: false });
   // SEQUENTIAL SCIP LADDER — which target labels have a generated SCIP
@@ -131,7 +133,7 @@ export default function SiteSearch() {
 
     // Roll back readiness flags from the cleared step onward.
     if (affected.includes("zoning")) setZoningReady(false);
-    if (affected.includes("targets")) { setTargetA(null); setAllTargets([null, null, null]); setLanesOpen({ B: false, C: false }); }
+    if (affected.includes("targets")) { setTargetA(null); setAllTargets([null, null, null]); setPerchTargets([null, null, null]); setLanesOpen({ B: false, C: false }); }
     if (affected.includes("maps")) setMapsComplete(false);
 
     // Drop bus data emitted by the cleared sections so the scorecard can't read stale values.
@@ -146,6 +148,7 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setAllTargets([null, null, null]);
+    setPerchTargets([null, null, null]);
     setLanesOpen({ B: false, C: false });
     setMapsComplete(false);
     setSectionData({});
@@ -233,6 +236,7 @@ export default function SiteSearch() {
     setZoningReady(false);
     setTargetA(null);
     setAllTargets([null, null, null]);
+    setPerchTargets([null, null, null]);
     setLanesOpen({ B: false, C: false });
     setMapsComplete(false);
     setSectionData({});
@@ -249,6 +253,31 @@ export default function SiteSearch() {
     setSarfReady(false);
     setSearchCenter(null);
     setPipelineStep("sarf");
+  };
+
+  const savePerchTarget = (slot, point) => {
+    setPerchTargets((prev) => {
+      const next = [...prev];
+      next[slot] = point;
+      return next;
+    });
+  };
+
+  const runPerchTarget = (point, label) => {
+    setScanError(null);
+    setLoading(true);
+    setSarfReady(false);
+    setZoningReady(false);
+    setTargetA(null);
+    setAllTargets([null, null, null]);
+    setLanesOpen({ B: false, C: false });
+    setMapsComplete(false);
+    setSectionData({});
+    setSearchParams((prev) => ({ ...prev, ring_name: `${prev.ring_name || "Search Ring"} — ${label}` }));
+    setSearchCenter({ lat: round4(point.lat), lon: round4(point.lng) });
+    setPipelineStep("sarf");
+    bumpKeys(["sarf", "zoning", "targets", "maps"]);
+    setTimeout(() => document.querySelector('[data-coach="sarf-map"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
   if (pageLoading) {
@@ -523,6 +552,10 @@ export default function SiteSearch() {
           unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           targetA={targetA}
           towerHeightFt={searchParams.tower_height_ft || 150}
+          savedTargets={perchTargets}
+          onSaveTarget={savePerchTarget}
+          onClearTarget={(slot) => setPerchTargets((prev) => prev.map((target, index) => index === slot ? null : target))}
+          onRunTarget={runPerchTarget}
         />
       )}
 

@@ -7,10 +7,11 @@ const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
 // HawkFit Map — interactive Mapbox map: parcel outline, draggable tower pin,
 // live fall-zone circle + compound rectangle.
-export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls }) {
+export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], pickSlot = null, onPickTarget }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const savedMarkerRefs = useRef([]);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
@@ -64,6 +65,8 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     return () => {
       cancelled = true;
       if (markerRef.current) markerRef.current.remove();
+      savedMarkerRefs.current.forEach((marker) => marker.remove());
+      savedMarkerRefs.current = [];
       if (mapRef.current) mapRef.current.remove();
       mapRef.current = null;
       markerRef.current = null;
@@ -136,6 +139,29 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     vis(["hf-fallzone-fill", "hf-fallzone-line"], layers.fallZone);
     vis(["hf-compound-fill", "hf-compound-line"], layers.compound);
   }, [ready, layers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    savedMarkerRefs.current.forEach((marker) => marker.remove());
+    savedMarkerRefs.current = savedTargets.map((target, index) => {
+      if (!target) return null;
+      const el = document.createElement("div");
+      el.textContent = ["D", "E", "F"][index];
+      el.style.cssText = "width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#7c3aed;color:#fff;border:2px solid #fff;font:700 12px sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.45)";
+      return new window.mapboxgl.Marker({ element: el }).setLngLat([target.lng, target.lat]).addTo(map);
+    }).filter(Boolean);
+  }, [ready, savedTargets]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    map.getCanvas().style.cursor = pickSlot == null ? "" : "crosshair";
+    if (pickSlot == null) return;
+    const pick = (event) => onPickTarget?.(pickSlot, { lat: event.lngLat.lat, lng: event.lngLat.lng });
+    map.on("click", pick);
+    return () => { map.off("click", pick); map.getCanvas().style.cursor = ""; };
+  }, [ready, pickSlot, onPickTarget]);
 
   if (loadError) {
     return <div className="w-full h-full flex items-center justify-center text-sm text-destructive">Map failed to load: {loadError}</div>;

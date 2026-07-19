@@ -15,6 +15,7 @@ import FitStatusPanel from "@/components/hawkfit/FitStatusPanel";
 import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
 import Preview3DButton from "@/components/hawkfit/Preview3DButton";
+import HawkPerchTargetPicker from "@/components/hawkfit/HawkPerchTargetPicker";
 
 const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v != null && v !== ""));
 
@@ -22,9 +23,10 @@ const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, 
 // Preliminary Tower Siting Exhibit. Consumes the SAME active Target A as the
 // SCIP pipeline (ScipRecord.parcel_targets → SearchResult → TowerSitingRun →
 // TowerVisualization → Tower3DRender) and runs deterministic turf fit checks.
-export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt }) {
+export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget }) {
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
+  const [pickSlot, setPickSlot] = useState(null);
   const [resolving, setResolving] = useState(false);
   const [siteTarget, setSiteTarget] = useState(null);
   const [resolvedFrom, setResolvedFrom] = useState(null);
@@ -214,6 +216,15 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
               {siteTarget && <FitStatusPanel fit={fit} />}
               {siteTarget && <LayerTogglePanel layers={layers} onToggle={(k, v) => setLayers((l) => ({ ...l, [k]: v }))} />}
               {siteTarget && (
+                <HawkPerchTargetPicker
+                  targets={savedTargets}
+                  activeSlot={pickSlot}
+                  onArm={setPickSlot}
+                  onClear={onClearTarget}
+                  onRun={onRunTarget}
+                />
+              )}
+              {siteTarget && (
                 <div className="space-y-2">
                   <Button onClick={handleSave} disabled={saveBusy || !fit} className="w-full">
                     {saveBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -254,7 +265,10 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                   fit={fit}
                   layers={layers}
                   controls={controls}
-                />
+                  savedTargets={savedTargets}
+                  pickSlot={pickSlot}
+                  onPickTarget={(slot, point) => { onSaveTarget?.(slot, point); setPickSlot(null); }}
+                  />
               ) : (
                 <div className="w-full h-full min-h-[480px] rounded-xl border border-border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">
                   Resolve a Target A to open the HawkFit map.
