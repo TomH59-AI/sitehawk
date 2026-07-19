@@ -292,6 +292,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                   savedTargets={savedTargets}
                   selectionEnabled={savedTargets.some((target) => !target)}
                   onMapSelect={handleMapSelect}
+                  onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
                   />
               ) : (
                 <div className="w-full h-full min-h-[480px] rounded-xl border border-border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">

@@ -7,7 +7,7 @@ const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
 // HawkFit Map — interactive Mapbox map: parcel outline, draggable tower pin,
 // live fall-zone circle + compound rectangle.
-export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], selectionEnabled = false, onMapSelect }) {
+export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], selectionEnabled = false, onMapSelect, onClearSavedTargets }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -173,6 +173,15 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
         <div className={`absolute left-3 top-3 z-10 rounded-full border px-3 py-1.5 text-xs font-bold shadow ${fit.status === "works" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-red-300 bg-red-50 text-red-700"}`}>
           HawkPerch · {fit.status === "works" ? "ALLOWABLE" : fit.errorCode || "UNALLOWABLE"}
         </div>
+      )}
+      {savedTargets.some(Boolean) && (
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onClearSavedTargets?.(); }}
+          className="absolute bottom-3 right-3 z-10 rounded-lg border border-destructive/50 bg-card px-3 py-2 text-xs font-extrabold text-destructive shadow-lg hover:bg-destructive/10"
+        >
+          Clear D/E/F
+        </button>
       )}
     </div>
   );
