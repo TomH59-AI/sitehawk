@@ -64,6 +64,9 @@ export const CARRIER_PRESET_KEY = {
 export const USGS_ATTRIBUTION = "USGS The National Map";
 export const BASE_LAYERS = [
   {
+    id: "mapbox_us", label: "Mapbox US", type: "mapbox",
+  },
+  {
     id: "usgs_topo", label: "USGS Topo", type: "raster",
     tiles: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}",
   },

@@ -27,7 +27,7 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
   const [drawing, setDrawing] = useState(false);
   const [towerCount, setTowerCount] = useState(0);
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
-  const [baseLayer, setBaseLayer] = useState("usgs_topo");
+  const [baseLayer, setBaseLayer] = useState("mapbox_us");
   const searchMarker = useRef(null);
 
   const [filters, setFilters] = useState({
@@ -68,14 +68,18 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
         map.addControl(new window.mapboxgl.NavigationControl({ showCompass: false }), "top-left");
 
         map.on("load", () => {
-          // USGS raster base drawn over the Mapbox style, under every RF layer.
+          // Optional USGS raster overlay over the Mapbox base, under every RF
+          // layer. Hidden by default — the "Mapbox US" base map is the default.
           map.addSource("usgs-base", {
             type: "raster",
             tiles: [initialBase.tiles],
             tileSize: 256,
             attribution: USGS_ATTRIBUTION,
           });
-          map.addLayer({ id: "usgs-base", type: "raster", source: "usgs-base" });
+          map.addLayer({
+            id: "usgs-base", type: "raster", source: "usgs-base",
+            layout: { visibility: "none" },
+          });
 
           // Sources
           map.addSource("rfi-towers", { type: "geojson", data: EMPTY_FC });
@@ -231,13 +235,18 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
     vis("rfi-deadzones", layers.deadzones);
   }, [layers, ready]);
 
-  // ── Base-map switch — swap the USGS raster tile source ──────────────────────
+  // ── Base-map switch — Mapbox base or a USGS raster overlay on top of it ────
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready || !map.getSource("usgs-base")) return;
     const cfg = BASE_LAYERS.find((b) => b.id === baseLayer);
-    if (!cfg?.tiles) return;
-    map.getSource("usgs-base").setTiles([cfg.tiles]);
+    if (!cfg) return;
+    if (cfg.type === "mapbox") {
+      map.setLayoutProperty("usgs-base", "visibility", "none");
+    } else {
+      map.getSource("usgs-base").setTiles([cfg.tiles]);
+      map.setLayoutProperty("usgs-base", "visibility", "visible");
+    }
   }, [baseLayer, ready]);
 
   // ── On-demand CloudRF coverage + inverse dead zone at map center ────────────
