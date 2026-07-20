@@ -1,19 +1,15 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 
-// Authenticated proxy to the Supabase `regrid-parcel-search` (v43, Realie-primary)
-// edge function. Base44 NEVER calls the Realie API directly — all Realie traffic
-// flows through Supabase so usage metering / the api_call_ledger stays accurate.
+// Realie parcel search — now calls the Realie API DIRECTLY with REALIE_API_KEY.
+// (Previously proxied through a Supabase edge function; Supabase is no longer
+// in the path.) Response shape is unchanged so all Section 4 renderers,
+// GenerateScipButton, and the verification map keep working as-is.
 //
-// Supports two modes (spec body shape):
+// Modes (same contract as before):
 //   - ring:  { mode:"ring",  lat, lon, radius_miles (≤2), min_acres, max_acres }
 //   - click: { mode:"click", lat, lon }   ← single parcel under a map click
-//
-// Returns the Supabase response largely unchanged, with a normalized `parcels`
-// array layered on top so existing Section 4 renderers keep working. Every v43
-// field (tax, deed, transfers, geometry) is preserved on each normalized parcel.
 
-const SUPABASE_FN_URL =
-  "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/regrid-parcel-search";
+const REALIE_BASE = "https://app.realie.ai/api";
 
 // ── zone_class: collapse Realie useCode/zoningCode into one of six stable buckets ──
 const OS_EXPLICIT = new Set([714, 752, 4025, 4027, 4028, 9202]);
@@ -46,40 +42,49 @@ function resolveZoneClass(p) {
   return classifyZoningString(p.zoningCode ?? p.zoning_code ?? p.zoning ?? p.land_use);
 }
 
-// Map a raw v43 parcel onto the shape the frontend already consumes, while
-// passing through every new tax / deed / title field untouched.
+// Owner mailing address assembled from the Realie owner* fields.
+function mailingAddress(p) {
+  if (p.mailing_address || p.ownerMailingAddress) return p.mailing_address || p.ownerMailingAddress;
+  const line = [p.ownerAddressLine1, p.ownerCity, [p.ownerState, p.ownerZipCode].filter(Boolean).join(" ")]
+    .filter(Boolean).join(", ");
+  return line || null;
+}
+
+// Map a raw Realie property onto the shape the frontend already consumes.
+// Handles both the direct-API camelCase names and the legacy v43 snake_case
+// names so nothing downstream changes.
 function normalize(p) {
   return {
     apn: p.apn || p.parcelId || p.parcel_id || p.parcel_number || null,
     owner_name: p.owner_name || p.ownerName || p.owner || null,
-    mailing_address: p.mailing_address || p.ownerMailingAddress || null,
-    parcel_address: p.site_address || p.address || p.fullAddress || null,
+    mailing_address: mailingAddress(p),
+    parcel_address: p.site_address || p.address || p.addressFull || p.fullAddress || null,
     acreage: p.acres ?? p.acreage ?? p.lotSizeAcres ?? null,
     acres_formatted: p.acres_formatted || null,
     lot_frontage_ft: p.lotFrontage || p.frontage || p.lot_frontage || null,
-    lot_depth_ft: p.lotDepth || p.depth || p.lot_depth || null,
-    lot_size_sqft: p.lotSizeSqFt || p.lot_size_sqft || null,
-    land_use: p.land_use || p.landUse || p.useDescription || p.zoning || null,
-    // ── Tax assessment (v43) ──
+    lot_depth_ft: p.lotDepth || p.depthSize || p.depth || p.lot_depth || null,
+    lot_size_sqft: p.lotSizeSqFt || p.landArea || p.lot_size_sqft || null,
+    land_use: p.land_use || p.landUse || p.useDescription || p.useCode || p.zoning || null,
+    // ── Tax assessment ──
     assessed_value: p.total_assessed ?? p.totalAssessedValue ?? p.assessedValue ?? null,
-    total_assessed: p.total_assessed ?? null,
-    land_value: p.land_value ?? null,
-    improvement_value: p.improvement_value ?? null,
-    market_value: p.market_value ?? null,
-    annual_tax: p.annual_tax ?? null,
-    tax_year: p.tax_year ?? null,
-    // ── Sale / deed (v43) ──
-    last_sale_date: p.last_sale_date || p.lastSaleDate || null,
-    last_sale_price: p.last_sale_price ?? p.lastSalePrice ?? null,
-    deed_type: p.deed_type || null,
-    deed_doc_num: p.deed_doc_num || null,
-    deed_book: p.deed_book || null,
-    ownership_start: p.ownership_start || null,
-    // ── Chain of title (v43) ──
+    total_assessed: p.total_assessed ?? p.totalAssessedValue ?? null,
+    land_value: p.land_value ?? p.totalLandValue ?? null,
+    improvement_value: p.improvement_value ?? p.totalBuildingValue ?? null,
+    market_value: p.market_value ?? p.totalMarketValue ?? null,
+    annual_tax: p.annual_tax ?? p.taxValue ?? null,
+    tax_year: p.tax_year ?? p.taxYear ?? null,
+    // ── Sale / deed ──
+    last_sale_date: p.last_sale_date || p.lastSaleDate || p.transferDate || null,
+    last_sale_price: p.last_sale_price ?? p.lastSalePrice ?? p.transferPrice ?? null,
+    deed_type: p.deed_type || p.documentType || null,
+    deed_doc_num: p.deed_doc_num || p.documentNum || null,
+    deed_book: p.deed_book || p.bookNum || null,
+    ownership_start: p.ownership_start || p.transferDate || null,
+    // ── Chain of title ──
     transfers: Array.isArray(p.transfers) ? p.transfers : [],
-    legal_description: p.legal_description || null,
-    plss_formatted: p.plss_formatted || null,
-    data_source: p.data_source || null,
+    legal_description: p.legal_description || p.legalDesc || null,
+    plss_formatted: p.plss_formatted || p.secTwnRng || null,
+    data_source: p.data_source || "realie",
     latitude: p.latitude ?? p.lat ?? (p.location?.coordinates?.[1]) ?? null,
     longitude: p.longitude ?? p.lon ?? p.lng ?? (p.location?.coordinates?.[0]) ?? null,
     // GeoJSON parcel polygon (Realie returns a MultiPolygon under `geometry`).
@@ -87,6 +92,20 @@ function normalize(p) {
     // Zone bucket: RES | COMM | IND | AG | OS | OTHER
     zone_class: resolveZoneClass(p),
   };
+}
+
+async function realieLocation(apiKey, lat, lon, radius, limit, offset) {
+  const url = `${REALIE_BASE}/public/property/location/?${new URLSearchParams({
+    latitude: String(lat), longitude: String(lon), radius: String(radius),
+    limit: String(limit), offset: String(offset), includeUnassignedAddress: "true",
+  })}`;
+  const r = await fetch(url, { headers: { Authorization: apiKey } });
+  if (r.status === 404) return { properties: [] };
+  if (!r.ok) {
+    const text = await r.text().catch(() => "");
+    throw new Error(`Realie HTTP ${r.status}: ${text.slice(0, 200)}`);
+  }
+  return r.json();
 }
 
 Deno.serve(async (req) => {
@@ -101,47 +120,46 @@ Deno.serve(async (req) => {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
 
-    // Supabase anon/publishable key for the `apikey` header (HAWK project first).
-    const supabaseKey =
-      Deno.env.get("HAWK_SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
-    if (!supabaseKey) {
-      return Response.json({ error: "Supabase anon key not set" }, { status: 500 });
-    }
+    const apiKey = Deno.env.get("REALIE_API_KEY");
+    if (!apiKey) return Response.json({ error: "REALIE_API_KEY not set" }, { status: 500 });
 
-    // Build the spec body. Default to ring mode for backward compatibility with
-    // existing callers that only send { lat, lon, radius_miles }.
     const reqMode = mode === "click" ? "click" : "ring";
-    const payload = { mode: reqMode, lat, lon };
+    let rawParcels = [];
+    let radiusMiles;
+
+    if (reqMode === "click") {
+      // Small-radius nearest-parcel lookup under the click point.
+      const data = await realieLocation(apiKey, lat, lon, 0.03, 1, 0);
+      rawParcels = data.properties || [];
+    } else {
+      radiusMiles = Math.min(Number(body.radius_miles ?? 1.0), 2.0);
+      // Paginate up to 3 pages (300 parcels) — matches prior practical caps.
+      let offset = 0;
+      for (let page = 0; page < 3; page++) {
+        const data = await realieLocation(apiKey, lat, lon, radiusMiles, 100, offset);
+        const items = data.properties || [];
+        rawParcels.push(...items);
+        if (items.length < 100) break;
+        offset += 100;
+      }
+    }
+
+    let parcels = rawParcels.map(normalize).filter((p) => p.apn || p.owner_name || p.parcel_address);
+
+    // Acreage filters (previously applied upstream).
     if (reqMode === "ring") {
-      payload.radius_miles = Math.min(Number(body.radius_miles ?? 1.0), 2.0);
-      if (body.min_acres != null) payload.min_acres = body.min_acres;
-      if (body.max_acres != null) payload.max_acres = body.max_acres;
+      const minA = body.min_acres != null ? Number(body.min_acres) : null;
+      const maxA = body.max_acres != null ? Number(body.max_acres) : null;
+      if (minA != null) parcels = parcels.filter((p) => p.acreage == null || Number(p.acreage) >= minA);
+      if (maxA != null) parcels = parcels.filter((p) => p.acreage == null || Number(p.acreage) <= maxA);
     }
 
-    const r = await fetch(SUPABASE_FN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: supabaseKey },
-      body: JSON.stringify(payload),
-    });
-    if (!r.ok) {
-      const text = await r.text();
-      console.error("regrid-parcel-search HTTP", r.status, text.slice(0, 300));
-      return Response.json({ error: `Supabase HTTP ${r.status}: ${text.slice(0, 300)}` }, { status: 502 });
-    }
-
-    const data = await r.json();
-    const items = data.parcels || data.properties || data.results || (Array.isArray(data) ? data : []);
-    const parcels = items.map(normalize).filter((p) => p.apn || p.owner_name || p.parcel_address);
-
-    // Return the Supabase response shape, with a normalized parcels array on top.
     return Response.json({
-      ...data,
-      ok: data.ok ?? true,
+      ok: true,
       mode: reqMode,
-      // `clicked` distinguishes an exact polygon hit from a nearest-parcel match.
-      clicked: reqMode === "click" ? !!data.clicked : undefined,
+      clicked: reqMode === "click" ? parcels.length > 0 : undefined,
       count: parcels.length,
-      radius_miles: reqMode === "ring" ? payload.radius_miles : undefined,
+      radius_miles: reqMode === "ring" ? radiusMiles : undefined,
       center: { lat, lon },
       parcels,
     });

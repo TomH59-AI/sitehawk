@@ -1,0 +1,77 @@
+{
+  "name": "TelecomOrdinance",
+  "type": "object",
+  "description": "Telecom (cell tower) ordinance rules per jurisdiction \u2014 migrated from the legacy Supabase telecom_ordinances table. App-wide shared reference data used by HawkPerch / Tower Siter ordinance lookups.",
+  "properties": {
+    "jurisdiction": {
+      "type": "string",
+      "description": "Jurisdiction name as published (e.g. 'City of Rockledge')."
+    },
+    "jurisdiction_normalized": {
+      "type": "string",
+      "description": "UPPERCASE name with 'CITY OF'/'COUNTY' stripped \u2014 used for fuzzy matching."
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase state code."
+    },
+    "height_limit_ft": {
+      "type": "number"
+    },
+    "setback_ft": {
+      "type": "number"
+    },
+    "fall_zone_ft": {
+      "type": "number"
+    },
+    "residential_separation_ft": {
+      "type": "number"
+    },
+    "tower_separation_ft": {
+      "type": "number"
+    },
+    "permit_type": {
+      "type": "string"
+    },
+    "setback_rule": {
+      "type": "string"
+    },
+    "pe_fall_zone_allowed": {
+      "type": "boolean"
+    },
+    "stealth_required": {
+      "type": "boolean"
+    },
+    "collocation_required": {
+      "type": "boolean"
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "section_ref": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "jurisdiction",
+    "state"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
