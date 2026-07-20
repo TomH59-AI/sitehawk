@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { Sigma, ChevronDown, ChevronUp, Layers, Save, Loader2, Eraser } from "lucide-react";
-import { buildBuildableOverlay } from "@/lib/aiEquation";
+import { buildBuildableOverlay, TALONFIT_NAME, TALONFIT_TAGLINE, TALONFIT_DEFINITION } from "@/lib/aiEquation";
 import { saveTowerScenario } from "@/functions/saveTowerScenario";
 import AIEquationResults from "@/components/hawkfit/AIEquationResults";
 import AIEquationComparison from "@/components/hawkfit/AIEquationComparison";
@@ -90,7 +90,10 @@ export default function AIEquationPanel({
             <Sigma className="w-4 h-4 text-primary" />
           </div>
           <div>
-            <div className="font-heading font-bold text-sm text-foreground">AI Equation – Tower Placement Analyzer</div>
+            <div className="font-heading font-bold text-sm text-foreground flex items-center gap-2">
+              {TALONFIT_NAME} — Tower Placement Feasibility Engine
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/15 text-primary">{TALONFIT_TAGLINE}</span>
+            </div>
             <div className="text-[11px] text-muted-foreground">Drag the tower cursor — live max-height equation, ordinance rules, buildable overlay & candidates.</div>
           </div>
         </div>
@@ -99,6 +102,9 @@ export default function AIEquationPanel({
 
       {open && (
         <div className="border-t border-border p-4 space-y-4">
+          <p className="text-[11px] leading-relaxed text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 border border-border">
+            {TALONFIT_DEFINITION}
+          </p>
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label className="text-[11px] font-semibold text-muted-foreground block mb-1">Proposed tower height (ft)</label>

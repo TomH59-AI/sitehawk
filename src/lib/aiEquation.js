@@ -6,6 +6,12 @@ import * as turf from "@turf/turf";
 
 const FT_TO_KM = 0.0003048;
 
+// ── BRAND ───────────────────────────────────────────────────────────────────
+export const TALONFIT_NAME = "TalonFit™";
+export const TALONFIT_TAGLINE = "Patent Pending";
+export const TALONFIT_DEFINITION =
+  "TalonFit™ is SiteHawk's proprietary tower-placement feasibility engine. It converts local telecom ordinances into a structured rule set (height caps, fall-zone multipliers, property-line setbacks, tower and residential separation), then solves a geodesic max-allowed-height equation at any point on a parcel — Max Height = min(ordinance cap, setback-derived height, fall-zone-derived height, separation-derived height). The same equation screens every Target A/B/C candidate at selection and drives the live drag-to-place fit verdict in HawkFit.";
+
 export const AI_EQUATION_NOTICE =
   "AI Equation provides preliminary site-acquisition feasibility analysis using available parcel, mapping, zoning, and ordinance information. It is not a boundary survey, legal opinion, zoning approval, FAA determination, or professional engineering certification. Final feasibility must be confirmed by the appropriate government authority, surveyor, engineer, carrier, and other required professionals.";
 
