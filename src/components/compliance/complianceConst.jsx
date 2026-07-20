@@ -17,7 +17,7 @@ export const TRIGGERS = [
   { key: "wetlands", label: "Wetlands", source: "NWI (Section 4)" },
   { key: "listedSpeciesHabitat", label: "Listed Species Habitat", source: "USFWS Critical Habitat" },
   { key: "historicDistrict", label: "Historic District", source: "NPS National Register" },
-  { key: "indianReligiousSite", label: "Indian Religious Site", source: "Manual entry" },
+  { key: "indianReligiousSite", label: "Indian Religious Site", source: "BIA tribal lands + manual" },
   { key: "residentialArea", label: "Residential Area", source: "Zoning (Section 2)" },
   { key: "hazardousWasteSite", label: "Hazardous Waste Site", source: "EPA Cleanups" },
   { key: "lightingMigratoryBirdImpact", label: "Lighting / Migratory Bird Impact", source: "Tower height (Section 1)" },

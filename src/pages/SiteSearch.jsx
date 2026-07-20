@@ -19,6 +19,7 @@ import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { historicSitesLookup } from "@/functions/historicSitesLookup";
 import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
 import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
+import { tribalLandLookup } from "@/functions/tribalLandLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
 import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
 import ExportSvpButton from "../components/search/ExportSvpButton";
@@ -191,12 +192,14 @@ export default function SiteSearch() {
         ["historic", () => historicSitesLookup({ lat, lon })],
         ["species", () => usfwsSpeciesLookup({ lat, lon })],
         ["hazwaste", () => epaHazWasteLookup({ lat, lon })],
+        ["tribal", () => tribalLandLookup({ lat, lon })],
       ],
       (name, d) => {
         if (name === "wetlands") mergeSectionData({ wetlands: { present: !!d.wetlands_present, type: d.wetland_type || (d.wetland_types?.[0] ?? null) } });
         else if (name === "historic") mergeSectionData({ historic: { present: !!d.historic_present, count: d.historic_count || 0, site_names: d.site_names || [] } });
         else if (name === "species") mergeSectionData({ species: { present: !!d.species_present, count: d.species_count || 0, names: d.species_names || [] } });
         else if (name === "hazwaste") mergeSectionData({ hazwaste: { present: !!d.hazwaste_present, count: d.hazwaste_count || 0, npl_count: d.npl_count || 0, site_names: d.site_names || [] } });
+        else if (name === "tribal") mergeSectionData({ tribal: { present: !!d.tribal_present, on_site: !!d.on_site, proximity: d.proximity || null, names: d.names || [] } });
       }
     );
     return cancel;

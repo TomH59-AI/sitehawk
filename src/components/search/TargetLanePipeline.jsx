@@ -6,6 +6,7 @@ import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { historicSitesLookup } from "@/functions/historicSitesLookup";
 import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
 import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
+import { tribalLandLookup } from "@/functions/tribalLandLookup";
 import { runQuietLookups } from "@/lib/quietLookup";
 import LocalAuthoritiesTable from "@/components/scip/LocalAuthoritiesTable";
 
@@ -44,12 +45,14 @@ export default function TargetLanePipeline({
         ["historic", () => historicSitesLookup({ lat, lon })],
         ["species", () => usfwsSpeciesLookup({ lat, lon })],
         ["hazwaste", () => epaHazWasteLookup({ lat, lon })],
+        ["tribal", () => tribalLandLookup({ lat, lon })],
       ],
       (name, d) => {
         if (name === "wetlands") merge({ wetlands: { present: !!d.wetlands_present, type: d.wetland_type || (d.wetland_types?.[0] ?? null) } });
         else if (name === "historic") merge({ historic: { present: !!d.historic_present, count: d.historic_count || 0, site_names: d.site_names || [] } });
         else if (name === "species") merge({ species: { present: !!d.species_present, count: d.species_count || 0, names: d.species_names || [] } });
         else if (name === "hazwaste") merge({ hazwaste: { present: !!d.hazwaste_present, count: d.hazwaste_count || 0, npl_count: d.npl_count || 0, site_names: d.site_names || [] } });
+        else if (name === "tribal") merge({ tribal: { present: !!d.tribal_present, on_site: !!d.on_site, proximity: d.proximity || null, names: d.names || [] } });
       }
     );
     return cancel;

@@ -59,6 +59,14 @@ export function preScreenFromBus(targetA, sectionData = {}, towerHeightFt = 0) {
     notes.push(`Hazardous waste: ${c} EPA cleanup site${c !== 1 ? "s" : ""}${npl > 0 ? ` (${npl} Superfund/NPL)` : ""} within 0.5 mi${sectionData.hazwaste.site_names?.[0] ? ` (e.g. ${sectionData.hazwaste.site_names[0]})` : ""}.`);
   }
 
+  // 5. Tribal land — from the quiet BIA LAR lookup (bus). Flags the Indian
+  //    Religious Site trigger when the site is on or within ~0.5 mi of federal
+  //    reservation/trust land — a THPO/TCNS review flag, not a determination.
+  if (sectionData?.tribal?.present === true) {
+    flags.indianReligiousSite = true;
+    notes.push(`Tribal land: ${sectionData.tribal.names?.[0] || "federal Indian land"} ${sectionData.tribal.proximity || "nearby"} (BIA LAR) — THPO/TCNS review likely required.`);
+  }
+
   // 6. Residential zoning — from Zoneomics district (bus) or Target A classification.
   const zoning =
     sectionData?.zoneomicsDistrict?.zone_code ||
