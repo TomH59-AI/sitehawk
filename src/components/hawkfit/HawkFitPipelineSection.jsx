@@ -17,7 +17,6 @@ import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
 import Preview3DButton from "@/components/hawkfit/Preview3DButton";
 import HawkPerchTargetPicker from "@/components/hawkfit/HawkPerchTargetPicker";
-import HawkPerch3DView from "@/components/hawkfit/HawkPerch3DView";
 import AIEquationPanel from "@/components/hawkfit/AIEquationPanel";
 
 const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v != null && v !== ""));
@@ -303,32 +302,21 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
 
             <div className="min-h-[480px]">
               {siteTarget ? (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 h-full">
-                  <div className="min-h-[480px]">
-                    <HawkFitMap
-                      siteTarget={siteTarget}
-                      towerLngLat={towerLngLat}
-                      onTowerMove={handleTowerMove}
-                      fit={fit}
-                      layers={layers}
-                      controls={controls}
-                      savedTargets={savedTargets}
-                      selectionEnabled={savedTargets.some((target) => !target)}
-                      onMapSelect={handleMapSelect}
-                      onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
-                      overlay={aiOverlay}
-                      cursorColor={aiEval ? COLOR_HEX[aiEval.color] : null}
-                    />
-                  </div>
-                  <div className="min-h-[480px]">
-                    <HawkPerch3DView
-                      siteTarget={siteTarget}
-                      towerLngLat={towerLngLat}
-                      fit={fit}
-                      controls={controls}
-                      savedTargets={savedTargets}
-                    />
-                  </div>
+                <div className="min-h-[480px] h-full">
+                  <HawkFitMap
+                    siteTarget={siteTarget}
+                    towerLngLat={towerLngLat}
+                    onTowerMove={handleTowerMove}
+                    fit={fit}
+                    layers={layers}
+                    controls={controls}
+                    savedTargets={savedTargets}
+                    selectionEnabled={savedTargets.some((target) => !target)}
+                    onMapSelect={handleMapSelect}
+                    onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
+                    overlay={aiOverlay}
+                    cursorColor={aiEval ? COLOR_HEX[aiEval.color] : null}
+                  />
                 </div>
               ) : (
                 <div className="w-full h-full min-h-[480px] rounded-xl border border-border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">
