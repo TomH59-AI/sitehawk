@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import HawkFlightSpinner from "../HawkFlightSpinner";
 
 const BRAND_GREEN = "#628C83";
-const BADGE_COLORS = { Enformion: "#0e7490", Spokeo: "#7c3aed", WhitePages: "#b45309", TruthFinder: "#be123c" };
+const BADGE_COLORS = { CyberBackgroundChecks: "#0e7490", Spokeo: "#7c3aed", WhitePages: "#b45309", TruthFinder: "#be123c" };
 const badgeStyle = (s) => (!s ? { background: "#64748b" } : s.startsWith("Aggregated") ? { background: "#628C83" } : { background: BADGE_COLORS[s] || "#475569" });
 
 const copy = (val, what) => { navigator.clipboard?.writeText(val); toast.success(`${what} copied`); };
@@ -66,7 +66,7 @@ export default function SkipTraceStep({
         )}
       </div>
 
-      {loading && <HawkFlightSpinner label="Tracing across Enformion, Spokeo & WhitePages… (this can take ~90s)" />}
+      {loading && <HawkFlightSpinner label="Searching TruthFinder, WhitePages, Spokeo & CyberBackgroundChecks… (this can take ~60s)" />}
 
       {!loading && !done && !error && (
         <div className="px-4 py-5 text-sm text-muted-foreground">

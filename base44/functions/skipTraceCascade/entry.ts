@@ -1,56 +1,52 @@
 /*
  * ============================================================================
- *  SKIP-TRACE CASCADE v1 — 2026-06-01
+ *  CONTACT DATA (Scrapfly) v2 — 2026-07-20
  * ----------------------------------------------------------------------------
- *  Multi-source owner-phone resolution for Section 3 Target Parcels. Replaces
- *  the old "Enformion-only, stop at first hit" path (~40% hit rate) with a
- *  cascade that COLLECTS phones from every source, dedupes, and ranks them.
+ *  Owner phone/email resolution for the bottom-of-page "Hawk Skip-Trace"
+ *  contact step. This REPLACES the previous Enformion + Apify cascade with
+ *  Scrapfly-powered scraping of public people-search services, per the
+ *  "contactdata" workspace skill.
  *
- *  SOURCES (4, mapped to the REAL working actors that return phone numbers —
- *  there are no standalone WhitePages / TruthFinder actors on Apify; the
- *  one-api actor already scrapes TruePeopleSearch, FastPeopleSearch,
- *  Truthfinder, Spokeo, BeenVerified & PeopleFinders, and brilliant_gum scrapes
- *  ThatsThem + Radaris + Spokeo):
- *    1. Enformion   — devapi.endato.com Contact/Enrich        (cheapest, first)
- *    2. one-api      — apify: one-api~skip-trace               (Spokeo/Truthfinder/TPS/etc.)
- *    3. brilliant_gum — apify: brilliant_gum~skip-trace-people-search (ThatsThem/Radaris/Spokeo)
- *    4. (TruthFinder coverage is folded into one-api — it is one of its sites)
+ *  SOURCES (order of preference, all scraped through Scrapfly's ASP + JS render):
+ *    1. TruthFinder            (https://www.truthfinder.com/)
+ *    2. WhitePages             (https://www.whitepages.com/)
+ *    3. Spokeo                 (https://www.spokeo.com/)
+ *    4. CyberBackgroundChecks  (https://www.cyberbackgroundchecks.com/)
  *
- *  CASCADE ORDER: Enformion runs FIRST (synchronous, cheapest). If it returns a
- *  phone we still fire the two Apify actors IN PARALLEL to enrich the popup,
- *  but if Enformion already has a hit and the parallel actors miss/time out we
- *  return immediately. Per-actor timeout 30s, total budget ~35s.
+ *  Each source is scraped in parallel. Phone numbers + emails are extracted
+ *  from the rendered page text, deduped (E.164), and ranked by how many
+ *  sources reported the number. Nothing is fabricated — a source that returns
+ *  no verifiable number simply contributes nothing.
  *
- *  ENV VARS USED: ENFORMION_AP_NAME, ENFORMION_AP_PASSWORD, APIFY_API_TOKEN.
- *  If APIFY_API_TOKEN is missing → logs a warning and runs Enformion-only.
+ *  ENV VARS USED: SCRAPFLY_API_KEY.
  *
- *  AGGREGATION: every phone normalized to E.164 (US +1), deduped, mobile
- *  preferred over landline, most-recently-reported preferred. confidence =
- *  number of distinct sources that returned the winning number.
- *
- *  ENTITY OWNERS (LLC/Trust/Corp): people-search can't match them, but we CAN
- *  look them up on Google Maps via lurkapi/google-maps-business-leads-scraper.
- *  That actor searches by business name + city/state and returns phone, email,
- *  and website. If it hits, we return those contacts. If it misses, we still
- *  set is_entity_owner:true so the UI knows it's a business.
+ *  I/O CONTRACT is UNCHANGED from v1 so the frontend (SkipTraceStep,
+ *  Section4MapSuite, TargetLanePipeline) keeps working without edits:
+ *    in : { owner_name, mailing_address, target_label }
+ *    out: { is_entity_owner, phone, display, source, source_count, phones[],
+ *           email, email_source, emails[], _meta }
  * ============================================================================
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 
-const APIFY_BASE = "https://api.apify.com/v2";
-const ACTOR_ONE_API = "one-api~skip-trace";
-const ACTOR_BRILLIANT_GUM = "brilliant_gum~skip-trace-people-search";
-const ENFORMION_URL = "https://devapi.endato.com/Contact/Enrich";
-
-// one-api/Spokeo returns in ~25-30s. brilliant_gum (ThatsThem/Radaris/Spokeo via
-// residential proxy) is slower — 60-92s observed — so it gets a longer cap.
-// "Try hard, never miss" mode: we wait the full window rather than racing.
-const PER_ACTOR_TIMEOUT_MS = 30000;
-const BRILLIANT_GUM_TIMEOUT_MS = 110000;
-const TOTAL_BUDGET_MS = 120000;
-
-const ACTOR_GOOGLE_MAPS_BIZ = "lurkapi~google-maps-business-leads-scraper";
+const SCRAPFLY_URL = "https://api.scrapfly.io/scrape";
+const PER_SOURCE_TIMEOUT_MS = 45000;
+const TOTAL_BUDGET_MS = 60000;
 const VALID_PHONE_RX = /^[\d\-\+\(\)\s\.]{7,20}$/;
+
+const US_STATES = {
+  AL: "alabama", AK: "alaska", AZ: "arizona", AR: "arkansas", CA: "california",
+  CO: "colorado", CT: "connecticut", DE: "delaware", FL: "florida", GA: "georgia",
+  HI: "hawaii", ID: "idaho", IL: "illinois", IN: "indiana", IA: "iowa",
+  KS: "kansas", KY: "kentucky", LA: "louisiana", ME: "maine", MD: "maryland",
+  MA: "massachusetts", MI: "michigan", MN: "minnesota", MS: "mississippi", MO: "missouri",
+  MT: "montana", NE: "nebraska", NV: "nevada", NH: "new-hampshire", NJ: "new-jersey",
+  NM: "new-mexico", NY: "new-york", NC: "north-carolina", ND: "north-dakota", OH: "ohio",
+  OK: "oklahoma", OR: "oregon", PA: "pennsylvania", RI: "rhode-island", SC: "south-carolina",
+  SD: "south-dakota", TN: "tennessee", TX: "texas", UT: "utah", VT: "vermont",
+  VA: "virginia", WA: "washington", WV: "west-virginia", WI: "wisconsin", WY: "wyoming",
+  DC: "district-of-columbia",
+};
 
 function isValidPhone(p) {
   if (!p || typeof p !== "string") return false;
@@ -58,12 +54,13 @@ function isValidPhone(p) {
   return digits.length >= 10 && digits.length <= 15 && VALID_PHONE_RX.test(p);
 }
 
-// Normalize a US phone to E.164 (+1XXXXXXXXXX) for dedupe.
 function toE164(raw) {
   if (!raw) return null;
   let d = String(raw).replace(/\D/g, "");
   if (d.length === 11 && d.startsWith("1")) d = d.slice(1);
   if (d.length !== 10) return null;
+  // First digit of area code + exchange must be 2-9 (valid NANP).
+  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(d)) return null;
   return `+1${d}`;
 }
 
@@ -71,10 +68,6 @@ function prettyPhone(e164) {
   if (!e164) return "";
   const d = e164.replace(/\D/g, "").slice(-10);
   return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
-}
-
-function isMobile(type) {
-  return typeof type === "string" && /wireless|mobile|cell/i.test(type);
 }
 
 // "LAST, FIRST" or "FIRST LAST"; flags business entities (can't be skip-traced).
@@ -106,240 +99,119 @@ function parseAddress(addr) {
   return { street, city, state, zip };
 }
 
-async function fetchWithTimeout(url, opts = {}, timeoutMs = PER_ACTOR_TIMEOUT_MS) {
+// ── Scrapfly fetch — ASP (anti-bot bypass) + JS render, US proxy ─────────────
+async function scrapfly(targetUrl, timeoutMs) {
+  const key = Deno.env.get("SCRAPFLY_API_KEY");
+  if (!key) return { ok: false, error: "missing_scrapfly_key", html: "" };
+  const u = new URL(SCRAPFLY_URL);
+  u.searchParams.set("key", key);
+  u.searchParams.set("url", targetUrl);
+  u.searchParams.set("asp", "true");
+  u.searchParams.set("render_js", "true");
+  u.searchParams.set("country", "us");
+
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const r = await fetch(url, { ...opts, signal: ctl.signal });
+    const r = await fetch(u.toString(), { signal: ctl.signal });
     const text = await r.text();
     let json;
-    try { json = JSON.parse(text); } catch { json = { raw: text }; }
-    return { ok: r.ok, status: r.status, json };
+    try { json = JSON.parse(text); } catch { json = null; }
+    const html = json?.result?.content || "";
+    return { ok: r.ok, status: r.status, html };
   } catch (e) {
-    return { ok: false, status: 0, error: e.message };
+    return { ok: false, status: 0, error: e.message, html: "" };
   } finally {
     clearTimeout(t);
   }
 }
 
-// A "found phone" record: { phone (E.164), source, type, lastReported }
-function pushPhone(out, raw, source, type, lastReported) {
+// Strip scripts/styles/tags and pull cleanly-formatted US phone numbers.
+function extractPhones(html) {
+  if (!html || html.length < 500) return [];
+  if (/captcha|are you a human|access denied|request blocked/i.test(html.slice(0, 4000))) return [];
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  // (XXX) XXX-XXXX or XXX-XXX-XXXX / XXX.XXX.XXXX — area code starts 2-9.
+  const matches = text.match(/\(?\b[2-9]\d{2}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g) || [];
+  return matches.slice(0, 25);
+}
+
+function extractEmails(html, sourceDomain) {
+  if (!html) return [];
+  const all = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+  // Drop the site's own support/no-reply addresses.
+  return all
+    .filter((e) => !e.toLowerCase().includes(sourceDomain))
+    .filter((e) => !/(no-?reply|support|privacy|abuse|help|info)@/i.test(e))
+    // Drop asset filenames that look like emails (logo@2x.png, sprite@1.5x.webp…).
+    .filter((e) => !/\.(png|jpe?g|gif|svg|webp|ico|css|js|woff2?)$/i.test(e))
+    .filter((e) => /\.[a-z]{2,}$/i.test(e) && !/@\dx?\./i.test(e))
+    .slice(0, 15);
+}
+
+// A "found phone" record: { phone (E.164), source }
+function pushPhone(out, raw, source) {
   const e164 = isValidPhone(raw) ? toE164(raw) : null;
   if (!e164) return;
-  out.push({ phone: e164, source, type: type || null, lastReported: lastReported || null });
+  out.push({ phone: e164, source });
 }
-
-const EMAIL_RX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-function isValidEmail(e) {
-  return typeof e === "string" && EMAIL_RX.test(e.trim());
-}
-// A "found email" record: { email (lowercased), source }
 function pushEmail(out, raw, source) {
-  if (!isValidEmail(raw)) return;
-  out.push({ email: String(raw).trim().toLowerCase(), source });
+  const e = String(raw || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) return;
+  out.push({ email: e, source });
 }
 
-// ── SOURCE 1: Enformion ─────────────────────────────────────────────────────
-async function srcEnformion({ firstName, lastName, street, city, state, zip }, diag, emailsOut = []) {
-  const apName = Deno.env.get("ENFORMION_AP_NAME");
-  const apPwd = Deno.env.get("ENFORMION_AP_PASSWORD");
-  const out = [];
-  if (!apName || !apPwd) { diag("Enformion", "missing_credentials", 0); return out; }
-  if (!firstName || !lastName) { diag("Enformion", "missing_name", 0); return out; }
-
-  const res = await fetchWithTimeout(ENFORMION_URL, {
-    method: "POST",
-    headers: {
-      "galaxy-ap-name": apName, "galaxy-ap-password": apPwd,
-      "galaxy-search-type": "DevAPIContactEnrich", "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      FirstName: firstName, LastName: lastName,
-      Address: { AddressLine1: street, AddressLine2: [city, state, zip].filter(Boolean).join(" ") },
-    }),
-  }, 20000);
-
-  if (!res.ok) { diag("Enformion", res.error || `http_${res.status}`, 0); return out; }
-  const d = res.json?.person || res.json?.Person || res.json || {};
-  const phones = d.phones || d.Phones || [];
-  for (const p of phones) {
-    pushPhone(out, p.phoneNumber || p.PhoneNumber || p.number, "Enformion", p.phoneType || p.PhoneType, p.lastReportedDate);
-  }
-  const emails = d.emails || d.Emails || [];
-  for (const e of emails) {
-    pushEmail(emailsOut, typeof e === "string" ? e : (e.email || e.Email || e.emailAddress || e.EmailAddress), "Enformion");
-  }
-  diag("Enformion", "ok", out.length);
-  return out;
+// ── Per-source scrapers ──────────────────────────────────────────────────────
+async function scrapeSource(sourceName, targetUrl, sourceDomain, diag, phonesOut, emailsOut) {
+  const res = await scrapfly(targetUrl, PER_SOURCE_TIMEOUT_MS);
+  if (!res.ok) { diag(sourceName, res.error || `http_${res.status}`, 0); return; }
+  const phones = extractPhones(res.html);
+  for (const p of phones) pushPhone(phonesOut, p, sourceName);
+  for (const e of extractEmails(res.html, sourceDomain)) pushEmail(emailsOut, e, sourceName);
+  diag(sourceName, "ok", phones.length);
 }
 
-// ── SOURCE 0 (entity path): Google Maps Business Leads (lurkapi) ─────────────
-// Used ONLY when the owner is a business entity (LLC, Corp, Trust, etc.).
-// Searches Google Maps by business name + city/state and extracts phone + email.
-async function srcGoogleMapsBusiness({ businessName, city, state }, token, diag, emailsOut = []) {
-  const out = [];
-  if (!token) { diag("GoogleMaps/lurkapi", "missing_apify_token", 0); return out; }
-  const location = [city, state].filter(Boolean).join(", ") || "";
-  const input = {
-    searchTerms: [businessName],
-    location: location || "United States",
-    maxPlacesPerSearch: 3,
-    outputPhone: true,
-    outputEmail: true,
-    outputWebsite: true,
-    outputTitle: true,
-    outputAddress: true,
-  };
+function buildUrls({ firstName, lastName, city, state }) {
+  const first = (firstName || "").toLowerCase().replace(/[^a-z]/g, "");
+  const last = (lastName || "").toLowerCase().replace(/[^a-z]/g, "");
+  const nameSlug = [first, last].filter(Boolean).join("-");
+  const stateFull = state ? US_STATES[state.toUpperCase()] : null;
+  const citySlug = city ? city.toLowerCase().replace(/[^a-z]+/g, "-") : null;
+  const nameQuery = [firstName, lastName].filter(Boolean).join(" ");
 
-  const url = `${APIFY_BASE}/acts/${ACTOR_GOOGLE_MAPS_BIZ}/run-sync-get-dataset-items?token=${token}&maxItems=3&maxTotalChargeUsd=0.05`;
-  const res = await fetchWithTimeout(url, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
-  }, 45000);
-
-  if (!res.ok) {
-    diag("GoogleMaps/lurkapi", res.error || `http_${res.status}`, 0);
-    return out;
+  const urls = {};
+  if (nameSlug) {
+    urls.CyberBackgroundChecks = `https://www.cyberbackgroundchecks.com/people/${nameSlug}${stateFull ? `/${stateFull}` : ""}`;
+    urls.Spokeo = `https://www.spokeo.com/${firstName}-${lastName}${stateFull ? `/${stateFull}` : ""}`.replace(/\s+/g, "-");
+    urls.WhitePages = citySlug && state
+      ? `https://www.whitepages.com/name/${firstName}-${lastName}/${citySlug}-${state.toUpperCase()}`.replace(/\s+/g, "-")
+      : `https://www.whitepages.com/name/${firstName}-${lastName}`.replace(/\s+/g, "-");
   }
-
-  const items = Array.isArray(res.json) ? res.json : [];
-  if (!items.length) { diag("GoogleMaps/lurkapi", "no_results", 0); return out; }
-
-  // Take the first (best) match
-  const rec = items[0];
-  pushPhone(out, rec.phone || rec.primaryPhone, "GoogleMaps", null, null);
-  pushEmail(emailsOut, rec.email || rec.primaryEmail, "GoogleMaps");
-
-  // Also scrape any additional emails from the result
-  const extraEmails = rec.emails || rec.allEmails || [];
-  for (const e of extraEmails) pushEmail(emailsOut, typeof e === "string" ? e : e?.email, "GoogleMaps");
-
-  diag("GoogleMaps/lurkapi", "ok", out.length);
-  return out;
+  if (nameQuery) {
+    urls.TruthFinder = `https://www.truthfinder.com/results/?firstName=${encodeURIComponent(firstName || "")}&lastName=${encodeURIComponent(lastName || "")}${state ? `&state=${state.toUpperCase()}` : ""}`;
+  }
+  return urls;
 }
 
-// ── SOURCE 2: one-api (Spokeo / Truthfinder / TruePeopleSearch / etc.) ───────
-async function srcOneApi({ ownerName, street, city, state, zip }, token, diag, emailsOut = []) {
-  const out = [];
-  if (!token) { diag("Spokeo/one-api", "missing_apify_token", 0); return out; }
-  const csz = [city, state, zip].filter(Boolean).join(", ");
-  const input = {
-    max_results: 3,
-    name: ownerName && csz ? [`${ownerName}; ${csz}`] : ownerName ? [ownerName] : undefined,
-    street_citystatezip: street && csz ? [`${street}; ${csz}`] : undefined,
-  };
-  Object.keys(input).forEach((k) => input[k] === undefined && delete input[k]);
-
-  // one-api/skip-trace is a pay-per-result actor — the run-sync endpoint REQUIRES
-  // a maxItems billing cap > 0 or it returns http_400 (max-items-must-be-greater-than-zero).
-  const url = `${APIFY_BASE}/acts/${ACTOR_ONE_API}/run-sync-get-dataset-items?token=${token}&maxItems=5`;
-  const res = await fetchWithTimeout(url, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
-  }, PER_ACTOR_TIMEOUT_MS);
-
-  if (!res.ok) {
-    const detail = res.error || `http_${res.status}: ${JSON.stringify(res.json).slice(0, 200)}`;
-    diag("Spokeo/one-api", detail, 0);
-    return out;
-  }
-  const items = Array.isArray(res.json) ? res.json : [];
-  // Read EVERY returned match, not just the first — owners with common names
-  // often come back as 2-3 records and the right one isn't always first.
-  for (const rec of items.slice(0, 3)) {
-    for (let i = 1; i <= 5; i++) {
-      // "Phone-N Type" = Wireless/LandLine (mobile detection);
-      // "Phone-N Last Reported" = most-recent-use date (recency ranking).
-      pushPhone(out, rec[`Phone-${i}`], "Spokeo", rec[`Phone-${i} Type`], rec[`Phone-${i} Last Reported`]);
-    }
-    // "Email-N" columns carry the owner's reported email addresses.
-    for (let i = 1; i <= 5; i++) pushEmail(emailsOut, rec[`Email-${i}`] || rec[`Email ${i}`], "Spokeo");
-  }
-  diag("Spokeo/one-api", "ok", out.length);
-  return out;
-}
-
-// ── SOURCE 3: brilliant_gum (ThatsThem / Radaris / Spokeo) ───────────────────
-async function srcBrilliantGum({ firstName, lastName, street, city, state, zip }, token, diag, emailsOut = []) {
-  const out = [];
-  if (!token) { diag("WhitePages/brilliant_gum", "missing_apify_token", 0); return out; }
-  const input = {
-    searchType: "name",
-    firstName: firstName || undefined, lastName: lastName || undefined,
-    city: city || undefined, state: state || undefined, street: street || undefined, zip: zip || undefined,
-    sources: ["thatsThem", "radaris", "spokeo"], maxResults: 3,
-    proxyConfiguration: { useApifyProxy: true, apifyProxyGroups: ["RESIDENTIAL"], apifyProxyCountry: "US" },
-  };
-  Object.keys(input).forEach((k) => input[k] === undefined && delete input[k]);
-
-  const url = `${APIFY_BASE}/acts/${ACTOR_BRILLIANT_GUM}/run-sync-get-dataset-items?token=${token}`;
-  const res = await fetchWithTimeout(url, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
-  }, BRILLIANT_GUM_TIMEOUT_MS);
-
-  if (!res.ok) { diag("WhitePages/brilliant_gum", res.error || `http_${res.status}`, 0); return out; }
-  const items = Array.isArray(res.json) ? res.json : [];
-  // Read every returned match — the correct person isn't always the first record.
-  for (const rec of items.slice(0, 3)) {
-    const phones = rec.phones || rec.phoneNumbers || [];
-    for (const p of phones) {
-      const num = p?.number || p?.phone || (typeof p === "string" ? p : null);
-      pushPhone(out, num, "WhitePages", p?.type || p?.lineType, p?.lastReported || p?.date);
-    }
-    const emails = rec.emails || rec.emailAddresses || [];
-    for (const e of emails) {
-      pushEmail(emailsOut, typeof e === "string" ? e : (e?.email || e?.address || e?.value), "WhitePages");
-    }
-  }
-  diag("WhitePages/brilliant_gum", "ok", out.length);
-  return out;
-}
-
-// Parse a "last reported" label into a sortable epoch (ms). Sources report it as
-// free text like "Last reported Jul 2018", "Mar 2026", or ISO dates — plain string
-// compare sorts those alphabetically (wrong). Returns 0 when unparseable.
-const MONTHS = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
-function reportedToEpoch(raw) {
-  if (!raw) return 0;
-  const s = String(raw);
-  // "Mon YYYY" (with or without a "Last reported" prefix).
-  const m = s.match(/([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{4})/);
-  if (m && MONTHS[m[1].toLowerCase()] != null) return Date.UTC(Number(m[2]), MONTHS[m[1].toLowerCase()], 1);
-  // Bare 4-digit year.
-  const y = s.match(/\b(19|20)\d{2}\b/);
-  if (y) return Date.UTC(Number(y[0]), 0, 1);
-  // ISO / parseable date string.
-  const t = Date.parse(s);
-  return Number.isFinite(t) ? t : 0;
-}
-
-// Aggregate: dedupe by E.164, count sources, prefer mobile then recency.
+// Dedupe by E.164, count sources, rank by source count.
 function aggregate(found) {
   const byNum = new Map();
   for (const f of found) {
-    const cur = byNum.get(f.phone) || { phone: f.phone, sources: new Set(), mobile: false, lastReported: null, reportedEpoch: 0 };
+    const cur = byNum.get(f.phone) || { phone: f.phone, sources: new Set() };
     cur.sources.add(f.source);
-    if (isMobile(f.type)) cur.mobile = true;
-    const epoch = reportedToEpoch(f.lastReported);
-    // Keep the MOST RECENT report label/date seen for this number.
-    if (epoch > cur.reportedEpoch) { cur.reportedEpoch = epoch; cur.lastReported = f.lastReported; }
-    else if (!cur.lastReported && f.lastReported) cur.lastReported = f.lastReported;
     byNum.set(f.phone, cur);
   }
   const list = [...byNum.values()].map((x) => ({
     phone: x.phone, display: prettyPhone(x.phone),
-    sources: [...x.sources], source_count: x.sources.size, mobile: x.mobile,
-    lastReported: x.lastReported, reportedEpoch: x.reportedEpoch,
+    sources: [...x.sources], source_count: x.sources.size, mobile: false, lastReported: null,
   }));
-  // Rank: most recently reported → more sources → mobile. Recency first so a
-  // fresh, callable number always beats a decade-old one.
-  list.sort((a, b) =>
-    b.reportedEpoch - a.reportedEpoch ||
-    b.source_count - a.source_count ||
-    (b.mobile === a.mobile ? 0 : b.mobile ? 1 : -1)
-  );
+  list.sort((a, b) => b.source_count - a.source_count || a.phone.localeCompare(b.phone));
   return list;
 }
 
-// Aggregate emails: dedupe by address, count distinct sources, rank by source count.
 function aggregateEmails(found) {
   const byAddr = new Map();
   for (const f of found) {
@@ -364,64 +236,51 @@ Deno.serve(async (req) => {
     const { owner_name, mailing_address, target_label = "" } = (await req.json()) || {};
     if (!owner_name) return Response.json({ error: "owner_name required" }, { status: 400 });
 
-    const apifyToken = Deno.env.get("APIFY_API_TOKEN");
-    if (!apifyToken) {
-      console.warn(`[SKIPTRACE DIAG] APIFY_API_TOKEN missing — Enformion-only mode (no Apify fallback).`);
+    if (!Deno.env.get("SCRAPFLY_API_KEY")) {
+      console.warn(`[CONTACTDATA DIAG] SCRAPFLY_API_KEY missing — cannot scrape.`);
     }
 
     const { firstName, lastName, isEntity } = parseOwnerName(owner_name);
-    const { street, city, state, zip } = parseAddress(mailing_address || "");
+    const { city, state } = parseAddress(mailing_address || "");
 
     const diag = (source, result, count) =>
-      console.log(`[SKIPTRACE DIAG] source=${source} target=${target_label || "?"} owner="${owner_name}" result=${result} count=${count}`);
+      console.log(`[CONTACTDATA DIAG] source=${source} target=${target_label || "?"} owner="${owner_name}" result=${result} count=${count}`);
 
-    // ── Entity gate — business owners get Google Maps lookup instead of people-search ──
+    // Entity owners (LLC/Trust/Corp) can't be matched by people-search.
     if (isEntity) {
-      diag("entity_gate", "entity_owner_google_maps_lookup", 0);
-      const bizEmailsFound = [];
-      const bizPhones = apifyToken
-        ? await srcGoogleMapsBusiness({ businessName: owner_name, city, state }, apifyToken, diag, bizEmailsFound).catch((e) => { diag("GoogleMaps/lurkapi", e.message, 0); return []; })
-        : [];
-      const phones = aggregate(bizPhones);
-      const emails = aggregateEmails(bizEmailsFound);
-      const top = phones[0] || null;
-      const topEmail = emails[0] || null;
+      diag("entity_gate", "entity_owner", 0);
       return Response.json({
         is_entity_owner: true,
-        phone: top?.phone || null,
-        display: top?.display || "",
-        source: top ? top.sources[0] : null,
-        source_count: top?.source_count || 0,
-        phones,
-        email: topEmail?.email || null,
-        email_source: topEmail ? topEmail.sources[0] : null,
-        emails,
+        phone: null, display: "", source: null, source_count: 0, phones: [],
+        email: null, email_source: null, emails: [],
         _meta: { owner_name, target_label, is_entity: true, duration_ms: Date.now() - t0 },
       });
     }
 
-    // Shared sink — every source also drops any emails it returns here.
+    const urls = buildUrls({ firstName, lastName, city, state });
+    const domains = {
+      TruthFinder: "truthfinder.com",
+      WhitePages: "whitepages.com",
+      Spokeo: "spokeo.com",
+      CyberBackgroundChecks: "cyberbackgroundchecks.com",
+    };
+
+    const phonesFound = [];
     const emailsFound = [];
 
-    // ── SOURCE 1: Enformion (synchronous, cheapest) ──
-    const enformionPhones = await srcEnformion({ firstName, lastName, street, city, state, zip }, diag, emailsFound);
+    // Scrape all available sources in parallel, within the total budget.
+    const guard = (pms) => Promise.race([
+      pms,
+      new Promise((resolve) => setTimeout(resolve, TOTAL_BUDGET_MS)),
+    ]);
+    await Promise.all(
+      Object.entries(urls).map(([name, url]) =>
+        guard(scrapeSource(name, url, domains[name], diag, phonesFound, emailsFound))
+          .catch((e) => diag(name, e.message, 0))
+      )
+    );
 
-    // ── SOURCES 2 & 3: Apify actors IN PARALLEL (only if token present) ──
-    let apifyResults = [[], []];
-    if (apifyToken) {
-      const remaining = Math.max(5000, TOTAL_BUDGET_MS - (Date.now() - t0));
-      const guard = (pms) => Promise.race([
-        pms,
-        new Promise((resolve) => setTimeout(() => resolve([]), remaining)),
-      ]);
-      apifyResults = await Promise.all([
-        guard(srcOneApi({ ownerName: owner_name, street, city, state, zip }, apifyToken, diag, emailsFound)).catch((e) => { diag("Spokeo/one-api", e.message, 0); return []; }),
-        guard(srcBrilliantGum({ firstName, lastName, street, city, state, zip }, apifyToken, diag, emailsFound)).catch((e) => { diag("WhitePages/brilliant_gum", e.message, 0); return []; }),
-      ]);
-    }
-
-    const found = [...enformionPhones, ...apifyResults[0], ...apifyResults[1]];
-    const phones = aggregate(found);
+    const phones = aggregate(phonesFound);
     const top = phones[0] || null;
     const emails = aggregateEmails(emailsFound);
     const topEmail = emails[0] || null;
@@ -441,13 +300,14 @@ Deno.serve(async (req) => {
       emails,
       _meta: {
         owner_name, target_label,
-        apify_enabled: !!apifyToken,
-        total_found: found.length,
+        scrapfly_enabled: !!Deno.env.get("SCRAPFLY_API_KEY"),
+        sources_tried: Object.keys(urls),
+        total_found: phonesFound.length,
         duration_ms: Date.now() - t0,
       },
     });
   } catch (error) {
-    console.log(`[SKIPTRACE DIAG] fatal error=${error.message}`);
-    return Response.json({ is_entity_owner: false, phone: null, display: "", source: null, source_count: 0, phones: [], _meta: { error: error.message } });
+    console.log(`[CONTACTDATA DIAG] fatal error=${error.message}`);
+    return Response.json({ is_entity_owner: false, phone: null, display: "", source: null, source_count: 0, phones: [], emails: [], _meta: { error: error.message } });
   }
 });
