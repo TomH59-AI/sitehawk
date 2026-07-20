@@ -101,6 +101,7 @@ import RfiEngine from './pages/RfiEngine';
 import ZoningVerifier from './pages/ZoningVerifier';
 import OrdinanceHunter from './pages/OrdinanceHunter';
 import ComplianceDashboard from './pages/ComplianceDashboard';
+import AnthemNetScip from './pages/AnthemNetScip';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -185,6 +186,8 @@ const AuthenticatedApp = () => {
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}
         <Route path="/scip/:id/studio" element={<ScipStudio />} />
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
+        {/* AnthemNet-format SCIP — auto-populated carrier submittal package */}
+        <Route path="/scip/:id/anthemnet" element={<AnthemNetScip />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
         <Route path="/hawk-fill" element={<HawkFill />} />
         {/* HawkFit Map — interactive tower-siting with Realie lookup */}

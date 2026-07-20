@@ -157,6 +157,7 @@ export default function ScipDetail() {
             <ToolbarBtn icon={RefreshCw} label="Regenerate Map" onClick={handleRegenerate} busy={busy} />
             <ToolbarBtn icon={FileText} label="Hawk SCIP" onClick={() => navigate(`/scip/${record.id}/hawk`)} />
             <ToolbarBtn icon={Layers} label="Doc Studio" onClick={() => navigate(`/scip/${record.id}/studio`)} />
+            <ToolbarBtn icon={FileText} label="AnthemNet SCIP" onClick={() => navigate(`/scip/${record.id}/anthemnet`)} />
             <PrintSiteHawkScipButton scip={record} variant="toolbar" />
             <ToolbarBtn icon={Printer} label="Print SCIP (Classic)" onClick={handlePrint} />
             <ToolbarBtn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />
