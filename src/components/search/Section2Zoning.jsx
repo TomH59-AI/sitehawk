@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import SourceBadge, { normalizeSource } from "./section2/SourceBadge";
+import NZACrossCheckCard from "./section2/NZACrossCheckCard";
 import SectionClearButton from "./SectionClearButton";
 import { generateZoningPermitReport } from "@/functions/generateZoningPermitReport";
 import { useScipPaywall } from "@/lib/scipPaywall";
@@ -369,6 +370,9 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
               Zoning district conflict detected — confirm manually.
             </div>
           )}
+
+          {/* Free second-source verification via the NZA public map */}
+          <NZACrossCheckCard jurisdiction={jurLabel} lat={lat} lon={lon} />
 
           <div className="divide-y divide-border">
             {PANELS.map((panel) => (
