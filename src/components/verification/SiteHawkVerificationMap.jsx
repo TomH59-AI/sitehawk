@@ -4,6 +4,9 @@ import { Loader2, ShieldCheck } from "lucide-react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { rfiTowersInBBox } from "@/functions/rfiTowersInBBox";
+import { cloudRFCoverage } from "@/functions/cloudRFCoverage";
+import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
+import { base44 } from "@/api/base44Client";
 import VerificationSidebar from "./VerificationSidebar";
 import { THEME, BASEMAPS, RASTER_OVERLAYS, VECTOR_OVERLAYS, scoreColor } from "./verificationConfig";
 
@@ -24,7 +27,10 @@ export default function SiteHawkVerificationMap({
   const [layers, setLayers] = useState({
     wetlands: false, hydro: false, nlcd: false,
     substations: false, transmission: false, towers: false,
+    rf: false, fiber: false, db_airports: false, db_cellsites: false,
   });
+  const fetchedRef = useRef({});
+  const [busy, setBusy] = useState({});
   const [opacity, setOpacity] = useState(80);
   const [basemap, setBasemap] = useState("satellite");
   layersRef.current = layers;
@@ -147,6 +153,53 @@ export default function SiteHawkVerificationMap({
             paint: { "circle-radius": 4.5, "circle-color": THEME.accent, "circle-stroke-width": 1, "circle-stroke-color": "#0a0e17" },
           });
 
+          // CarrierFinder fiber lit buildings — green OnNet, amber NearNet.
+          map.addSource("verif-fiber", { type: "geojson", data: EMPTY_FC });
+          map.addLayer({
+            id: "verif-fiber", type: "circle", source: "verif-fiber",
+            layout: { visibility: "none" },
+            paint: {
+              "circle-radius": 5.5,
+              "circle-color": ["match", ["get", "xnet_code"], "O", "#10b981", "#f59e0b"],
+              "circle-stroke-width": 1, "circle-stroke-color": "#0a0e17",
+            },
+          });
+
+          // SiteHawk database layers — Airports + Cellular Sites directories.
+          map.addSource("verif-db-airports", { type: "geojson", data: EMPTY_FC });
+          map.addLayer({
+            id: "verif-db-airports", type: "circle", source: "verif-db-airports",
+            layout: { visibility: "none" },
+            paint: { "circle-radius": 5, "circle-color": "#f472b6", "circle-stroke-width": 1, "circle-stroke-color": "#0a0e17" },
+          });
+          map.addSource("verif-db-cellsites", { type: "geojson", data: EMPTY_FC });
+          map.addLayer({
+            id: "verif-db-cellsites", type: "circle", source: "verif-db-cellsites",
+            layout: { visibility: "none" },
+            paint: { "circle-radius": 5, "circle-color": "#a3e635", "circle-stroke-width": 1, "circle-stroke-color": "#0a0e17" },
+          });
+
+          // Click popups for point overlays.
+          const clickPopup = (layerId, html) => {
+            map.on("click", layerId, (e) => {
+              const p = e.features?.[0]?.properties || {};
+              new window.mapboxgl.Popup({ offset: 10 })
+                .setLngLat(e.lngLat)
+                .setHTML(`<div style="font-family:sans-serif;font-size:12px;line-height:1.5;color:#111">${html(p)}</div>`)
+                .addTo(map);
+            });
+            map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
+            map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = ""; });
+          };
+          clickPopup("verif-fiber", (p) =>
+            `<b>${p.carrier || "Fiber Building"}</b><br/>${p.street || ""} ${p.city || ""}<br/>${p.xnet_description || ""}${p.distance ? ` · ${p.distance}` : ""}`);
+          clickPopup("verif-db-airports", (p) =>
+            `<b>${p.name || "Airport"}</b><br/>${p.type || ""}<br/><span style="font-family:monospace">${p.ident || ""}</span>`);
+          clickPopup("verif-db-cellsites", (p) =>
+            `<b>${p.name || "Cell Site"}</b><br/>${p.market || ""}<br/>${p.address || ""}`);
+          clickPopup("verif-towers", (p) =>
+            `<b>${p.carrier || "Existing Tower"}</b><br/>${p.source || ""}`);
+
           // SARF center marker — red.
           new window.mapboxgl.Marker({ color: "#ef4444" })
             .setLngLat([targetLon, targetLat])
@@ -190,6 +243,72 @@ export default function SiteHawkVerificationMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetLat, targetLon]);
 
+  // ── Lazy loaders: CloudRF coverage, CarrierFinder fiber, SiteHawk DB data ──
+  const withBusy = useCallback(async (key, fn) => {
+    setBusy((p) => ({ ...p, [key]: true }));
+    try { await fn(); fetchedRef.current[key] = true; }
+    catch (e) { console.error(`[VerificationMap] ${key}`, e); }
+    finally { setBusy((p) => ({ ...p, [key]: false })); }
+  }, []);
+
+  const loadRf = useCallback(() => withBusy("rf", async () => {
+    const map = mapRef.current;
+    const { data } = await cloudRFCoverage({ lat: targetLat, lon: targetLon, height_ft: 199, radius_mi: 3, site_name: targetLabel });
+    if (!map || !data?.png_url || !data?.bounds) throw new Error(data?.error || "No CloudRF coverage returned.");
+    const [n, e, s, w] = data.bounds.map(Number);
+    if (!map.getSource("verif-rf")) {
+      map.addSource("verif-rf", { type: "image", url: data.png_url, coordinates: [[w, n], [e, n], [e, s], [w, s]] });
+      map.addLayer({ id: "verif-rf", type: "raster", source: "verif-rf", paint: { "raster-opacity": 0.7 } });
+    }
+  }), [withBusy, targetLat, targetLon, targetLabel]);
+
+  const loadFiber = useCallback(() => withBusy("fiber", async () => {
+    const map = mapRef.current;
+    const res = await carrierFinderFiber({ lat: targetLat, lon: targetLon, radius_miles: 1.0 });
+    const body = res?.data ?? res;
+    const feats = (body?.lit_buildings || [])
+      .filter((b) => Number.isFinite(b.lat) && Number.isFinite(b.lon))
+      .map((b) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [b.lon, b.lat] },
+        properties: { carrier: b.carrier || "", street: b.street || "", city: b.city || "", xnet_code: b.xnet_code || "", xnet_description: b.xnet_description || "", distance: b.distance || "" },
+      }));
+    map?.getSource("verif-fiber")?.setData({ type: "FeatureCollection", features: feats });
+  }), [withBusy, targetLat, targetLon]);
+
+  const loadDb = useCallback((kind) => withBusy(kind, async () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const b = map.getBounds();
+    if (kind === "db_airports") {
+      const rows = await base44.entities.Airport.filter({
+        latitude_deg: { $gte: b.getSouth(), $lte: b.getNorth() },
+        longitude_deg: { $gte: b.getWest(), $lte: b.getEast() },
+      }, null, 300);
+      map.getSource("verif-db-airports")?.setData({
+        type: "FeatureCollection",
+        features: rows.map((r) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [r.longitude_deg, r.latitude_deg] },
+          properties: { name: r.airport_name || "", type: r.airport_type || "", ident: r.airport_callnumber || "" },
+        })),
+      });
+    } else {
+      const rows = await base44.entities.CellularSite.filter({
+        latitude: { $gte: b.getSouth(), $lte: b.getNorth() },
+        longitude: { $gte: b.getWest(), $lte: b.getEast() },
+      }, null, 300);
+      map.getSource("verif-db-cellsites")?.setData({
+        type: "FeatureCollection",
+        features: rows.map((r) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [r.longitude, r.latitude] },
+          properties: { name: r.site_name || "", market: r.market || "", address: r.site_address || "" },
+        })),
+      });
+    }
+  }), [withBusy]);
+
   // ── Layer visibility toggles ────────────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
@@ -201,7 +320,16 @@ export default function SiteHawkVerificationMap({
     vis("verif-substations", layers.substations);
     vis("verif-transmission", layers.transmission);
     vis("verif-towers", layers.towers);
+    vis("verif-fiber", layers.fiber);
+    vis("verif-db-airports", layers.db_airports);
+    vis("verif-db-cellsites", layers.db_cellsites);
+    vis("verif-rf", layers.rf);
     if (layers.substations || layers.transmission || layers.towers) fetchVectors();
+    if (layers.rf && !fetchedRef.current.rf && !busy.rf) loadRf();
+    if (layers.fiber && !fetchedRef.current.fiber && !busy.fiber) loadFiber();
+    if (layers.db_airports && !fetchedRef.current.db_airports && !busy.db_airports) loadDb("db_airports");
+    if (layers.db_cellsites && !fetchedRef.current.db_cellsites && !busy.db_cellsites) loadDb("db_cellsites");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layers, ready, fetchVectors]);
 
   // ── Raster overlay opacity ──────────────────────────────────────────────────
@@ -260,6 +388,7 @@ export default function SiteHawkVerificationMap({
           )}
         </div>
         <VerificationSidebar
+          busy={busy}
           layers={layers} setLayers={setLayers}
           opacity={opacity} setOpacity={setOpacity}
           basemap={basemap} setBasemap={setBasemap}

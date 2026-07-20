@@ -6,7 +6,7 @@ import { THEME, OVERLAY_LABELS, BASEMAPS, scoreColor } from "./verificationConfi
 // raster opacity slider, and click-to-fly candidate cards.
 export default function VerificationSidebar({
   layers, setLayers, opacity, setOpacity, basemap, setBasemap,
-  candidateSites = [], onFlyTo,
+  candidateSites = [], onFlyTo, busy = {},
 }) {
   const toggle = (id) => setLayers((p) => ({ ...p, [id]: !p[id] }));
   const anyRaster = layers.wetlands || layers.hydro || layers.nlcd;
@@ -44,6 +44,7 @@ export default function VerificationSidebar({
             <label key={id} className="flex items-center gap-2 text-slate-200 cursor-pointer">
               <input type="checkbox" checked={!!layers[id]} onChange={() => toggle(id)} className="accent-cyan-400" />
               {OVERLAY_LABELS[id]}
+              {busy[id] && <span className="text-[10px] animate-pulse" style={{ color: THEME.accent }}>loading…</span>}
             </label>
           ))}
         </div>

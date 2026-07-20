@@ -69,5 +69,9 @@ export const OVERLAY_LABELS = {
   nlcd: "NLCD Land Cover",
   substations: "Electric Substations",
   transmission: "Transmission Lines",
-  towers: "Existing Towers",
+  towers: "Existing Towers (OpenCellID)",
+  rf: "RF Coverage (CloudRF)",
+  fiber: "Fiber Lit Buildings (CarrierFinder)",
+  db_airports: "Airports (SiteHawk Data)",
+  db_cellsites: "Cell Sites (SiteHawk Data)",
 };
