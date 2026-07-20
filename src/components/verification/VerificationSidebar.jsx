@@ -1,5 +1,5 @@
 import { Layers, MapPin } from "lucide-react";
-import { THEME, OVERLAY_LABELS, BASEMAPS, scoreColor } from "./verificationConfig";
+import { THEME, OVERLAY_LABELS, BASEMAPS } from "./verificationConfig";
 
 // Layer control / candidate data sidebar for SiteHawkVerificationMap.
 // Dark Midnight Hawk styling — checkboxes for overlays, basemap radios,
@@ -62,39 +62,16 @@ export default function VerificationSidebar({
         )}
       </div>
 
-      {/* Candidate sites — click-to-fly */}
+      {/* Candidate sites — click the map instead of sidebar cards */}
       <div>
         <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-2 flex items-center gap-1.5" style={{ color: THEME.accent }}>
-          <MapPin className="w-3 h-3" /> Candidate Sites ({candidateSites.length})
+          <MapPin className="w-3 h-3" /> Candidate Sites
         </div>
-        {candidateSites.length === 0 && (
-          <div className="text-slate-500 text-xs">No candidate sites resolved yet.</div>
-        )}
-        <div className="space-y-2">
-          {candidateSites.map((c, i) => (
-            <button
-              key={`${c.parcel_id || i}`}
-              onClick={() => onFlyTo(i)}
-              className="w-full text-left rounded-lg p-3 transition-colors hover:brightness-125"
-              style={{ background: THEME.bg, border: `1px solid ${THEME.border}` }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-slate-100 truncate">
-                  {i + 1}. {c.site_name || "Candidate"}
-                </span>
-                <span
-                  className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
-                  style={{ background: scoreColor(c.score), color: "#0a0e17" }}
-                >
-                  {c.score != null ? Math.round(c.score) : "—"}
-                </span>
-              </div>
-              <div className="text-[11px] text-slate-400 mt-1 truncate">
-                {c.owner || "Owner unknown"}{c.zoning ? ` · ${c.zoning}` : ""}
-              </div>
-              {c.parcel_id && <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate">APN {c.parcel_id}</div>}
-            </button>
-          ))}
+        <div
+          className="rounded-lg p-3 text-slate-300 text-xs"
+          style={{ background: THEME.bg, border: `1px solid ${THEME.border}` }}
+        >
+          Click The Map To Check Other Potential Siting
         </div>
       </div>
     </div>
