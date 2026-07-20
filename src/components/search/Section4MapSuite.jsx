@@ -51,6 +51,7 @@ import SkipTraceStep from "./section4/SkipTraceStep";
 import DeedStep from "./section4/DeedStep";
 import ComplianceStep from "./section4/ComplianceStep";
 import RfiPipelineSection from "@/components/rfi/RfiPipelineSection";
+import RfIntelligenceEmbed from "@/components/rfi/RfIntelligenceEmbed";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
@@ -871,6 +872,8 @@ export default function Section4MapSuite({
         />
         {/* RF Intelligence Map — after the Viewshed maps, before Compliance */}
         <RfiPipelineSection />
+        {/* "The RF Intelligence Map" — embedded randymajors.org county/city map */}
+        <RfIntelligenceEmbed lat={srcLat} lon={srcLon} />
         <ComplianceStep
           unlocked={active && isUnlocked("compliance")}
           loading={loadingStep === "compliance"}
