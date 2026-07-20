@@ -32,7 +32,7 @@ export default function LocalAuthoritiesRows({ data, editing, draft, setDraft })
   const rows = [
     { label: "Police Department", name: ["police", "name"], address: ["police", "address"], phone: ["police", "phone"] },
     { label: "Fire Department (Non-Emergency)", name: ["fire", "name"], address: ["fire", "address"], phone: ["fire", "phone"] },
-    { label: "911 Non-Emergency", name: ["dispatchName"], address: null, phone: ["nonEmergency911"] },
+    { label: "911 Non-Emergency (Local Dispatch)", name: ["dispatchName"], address: null, phone: ["nonEmergency911"] },
   ];
   const get = (path) => (path ? (path.length === 1 ? src[path[0]] : src[path[0]]?.[path[1]]) : null);
 
