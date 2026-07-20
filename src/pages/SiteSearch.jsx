@@ -20,6 +20,7 @@ import { historicSitesLookup } from "@/functions/historicSitesLookup";
 import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
 import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
+import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
 import ExportSvpButton from "../components/search/ExportSvpButton";
 import { round4 } from "@/lib/coords";
 import { runQuietLookups } from "@/lib/quietLookup";
@@ -588,6 +589,13 @@ export default function SiteSearch() {
           SCIP (and pick pages from their printer) without scrolling back up. */}
       {coordsReady && (
         <div className="flex flex-col items-center gap-3 pt-4 pb-6 border-t border-border">
+          {/* Local Governing Authorities & Area Profile — auto-populated from the
+              site's resolved coordinates (Target A, falling back to the SARF
+              center). Always sits directly above the Generate SCIP button. */}
+          <LocalAuthoritiesTable
+            lat={Number.isFinite(targetA?.latitude) ? targetA.latitude : Number(searchCenter.lat)}
+            lng={Number.isFinite(targetA?.longitude) ? targetA.longitude : Number(searchCenter.lon)}
+          />
           <p className="text-sm text-muted-foreground text-center">
             Finished the pipeline? Generate the full SiteHawk SCIP — then Print / Save PDF and choose which pages to print.
           </p>

@@ -7,6 +7,7 @@ import { historicSitesLookup } from "@/functions/historicSitesLookup";
 import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
 import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
 import { runQuietLookups } from "@/lib/quietLookup";
+import LocalAuthoritiesTable from "@/components/scip/LocalAuthoritiesTable";
 
 /**
  * TargetLanePipeline — a COMPLETELY ISOLATED full-pipeline run for one target
@@ -113,6 +114,10 @@ export default function TargetLanePipeline({
         towerHeightFt={towerHeightFt}
         onData={merge}
       />
+
+      {/* Local Governing Authorities & Area Profile for THIS lane's target —
+          cached per county+state, so it reuses the main pipeline's lookup. */}
+      <LocalAuthoritiesTable lat={target.latitude} lng={target.longitude} />
     </div>
   );
 }

@@ -1,0 +1,84 @@
+{
+  "name": "LocalAuthorities",
+  "type": "object",
+  "description": "Local Governing Authorities & Area Profile cache \u2014 one record per county+state. Auto-resolved from the PublicSafetyAgency/PSAP directories + census lookup, then user-editable/verifiable. Stored non-emergency 911 value is the source of truth (SCIP HawkBit). App-wide shared cache, not user-scoped.",
+  "properties": {
+    "county": {
+      "type": "string",
+      "description": "County name, normalized UPPERCASE without the word 'County' (cache key part 1)."
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase state code (cache key part 2)."
+    },
+    "police": {
+      "type": "object",
+      "description": "Local police department: { name, address, phone } (non-emergency line). Never fabricated \u2014 null fields until verified.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        }
+      }
+    },
+    "fire": {
+      "type": "object",
+      "description": "Local fire department (non-emergency): { name, address, phone }.",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        }
+      }
+    },
+    "dispatch_name": {
+      "type": "string",
+      "description": "911 dispatch center (PSAP) name \u2014 displayed as the 'Local Dispatch' row name."
+    },
+    "non_emergency_911": {
+      "type": "string",
+      "description": "The area's published 911 NON-emergency dispatch phone number. Stored value is the source of truth (HawkBit); never 911 itself."
+    },
+    "census": {
+      "type": "object",
+      "description": "Brief census / area profile: { population, summary } \u2014 summary is 1-2 sentences max.",
+      "properties": {
+        "population": {
+          "type": "number"
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the underlying directory/census lookup last ran."
+    }
+  },
+  "required": [
+    "county",
+    "state"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {},
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
