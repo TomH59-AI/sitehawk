@@ -51,35 +51,31 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
         if (cancelled || !containerRef.current) return;
 
         window.mapboxgl.accessToken = token;
-        // Build the base style entirely from USGS National Map raster tiles
-        // (basemap.nationalmap.gov). These load without a token and are NOT
-        // blocked in the editor iframe, so the map opens with terrain immediately
-        // and never stalls waiting on Mapbox's blocked style host.
+        // Base style: Mapbox Dark (proven to load in this app's other live maps).
+        // The selected USGS National Map raster layer is drawn ON TOP of it —
+        // if USGS tiles ever fail to load, the Mapbox base still shows instead
+        // of a blank canvas.
         const initialBase = BASE_LAYERS.find((b) => b.id === "usgs_topo");
         const map = new window.mapboxgl.Map({
           container: containerRef.current,
-          style: {
-            version: 8,
-            sources: {
-              "usgs-base": {
-                type: "raster",
-                tiles: [initialBase.tiles],
-                tileSize: 256,
-                attribution: USGS_ATTRIBUTION,
-              },
-            },
-            layers: [{ id: "usgs-base", type: "raster", source: "usgs-base" }],
-          },
+          style: "mapbox://styles/mapbox/dark-v11",
           center: [-98.5, 39.5], // continental US
           zoom: 3.4,
           projection: "mercator",
+          preserveDrawingBuffer: true,
         });
         mapRef.current = map;
         map.addControl(new window.mapboxgl.NavigationControl({ showCompass: false }), "top-left");
 
         map.on("load", () => {
-          // usgs-base source + layer already exist from the initial style and
-          // sit UNDER every RF layer added below.
+          // USGS raster base drawn over the Mapbox style, under every RF layer.
+          map.addSource("usgs-base", {
+            type: "raster",
+            tiles: [initialBase.tiles],
+            tileSize: 256,
+            attribution: USGS_ATTRIBUTION,
+          });
+          map.addLayer({ id: "usgs-base", type: "raster", source: "usgs-base" });
 
           // Sources
           map.addSource("rfi-towers", { type: "geojson", data: EMPTY_FC });
