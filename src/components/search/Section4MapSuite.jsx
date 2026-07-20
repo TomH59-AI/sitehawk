@@ -50,7 +50,6 @@ import MapSubStep from "./section4/MapSubStep";
 import SkipTraceStep from "./section4/SkipTraceStep";
 import DeedStep from "./section4/DeedStep";
 import ComplianceStep from "./section4/ComplianceStep";
-import RfiPipelineSection from "@/components/rfi/RfiPipelineSection";
 import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
@@ -869,9 +868,6 @@ export default function Section4MapSuite({
           onRun={() => runStep("viewshed")} mapRef={refs.viewshed} banner={banners.viewshed}
           fillContent={<ViewshedTiles viewshed={viewshedInfo} />}
         />
-        {/* RF Intelligence Map — after the Viewshed maps, before Compliance.
-            Includes "The RF Intelligence Map" embed wired to Target A. */}
-        <RfiPipelineSection targetA={targetA} />
         <ComplianceStep
           unlocked={active && isUnlocked("compliance")}
           loading={loadingStep === "compliance"}
