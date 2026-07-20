@@ -71,9 +71,14 @@ Deno.serve(async (req) => {
     const token = connection?.accessToken;
     if (!token) return Response.json({ error: 'Notion is not connected' }, { status: 500 });
 
-    // Resolve parent page
+    // Resolve parent page. The env value may be a raw ID or a full Notion URL —
+    // extract the 32-hex ID and format it as a UUID either way.
     let parentId: string | null = null;
-    const masterId = Deno.env.get('NOTION_MASTER_ZONING_PAGE_ID');
+    const rawMaster = Deno.env.get('NOTION_MASTER_ZONING_PAGE_ID') || '';
+    const hex = (rawMaster.replace(/-/g, '').match(/[0-9a-f]{32}/i) || [])[0];
+    const masterId = hex
+      ? `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+      : null;
     if (masterId) {
       parentId = (await findStateFolder(masterId, state, token)) || masterId;
     } else {
@@ -107,7 +112,7 @@ Deno.serve(async (req) => {
     });
     if (!create.ok) {
       console.error('notionSaveOrdinance create failed:', create.status, JSON.stringify(create.data)?.slice(0, 300));
-      return Response.json({ error: `Notion page create failed (HTTP ${create.status})` }, { status: 502 });
+      return Response.json({ error: `Notion page create failed (HTTP ${create.status}): ${create.data?.message || 'unknown'}`, parent_id_used: parentId }, { status: 502 });
     }
 
     console.log(`notionSaveOrdinance: saved "${title}" for ${user.email}`);
