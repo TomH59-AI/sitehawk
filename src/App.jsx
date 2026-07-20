@@ -98,6 +98,7 @@ import HawkLawClauses from './pages/hawklaw/HawkLawClauses';
 import HawkLawHistory from './pages/hawklaw/HawkLawHistory';
 import FiberLayersAdmin from './pages/FiberLayersAdmin';
 import RfiEngine from './pages/RfiEngine';
+import ZoningVerifier from './pages/ZoningVerifier';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -171,6 +172,8 @@ const AuthenticatedApp = () => {
         <Route path="/fiber-layers-admin" element={<FiberLayersAdmin />} />
         {/* RF Intelligence Engine — standalone nationwide RF map module */}
         <Route path="/rfi-engine" element={<RfiEngine />} />
+        {/* Hawk Zoning Verifier — AI agent for zoning accuracy checks */}
+        <Route path="/zoning-verifier" element={<ZoningVerifier />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}

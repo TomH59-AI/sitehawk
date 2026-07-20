@@ -22,18 +22,18 @@ const titleCase = (s) =>
 async function fetchFlu(lat, lon) {
   const params = new URLSearchParams({
     f: "geojson",
-    geometry: `${lon},${lat}`,
+    geometry: JSON.stringify({ x: lon, y: lat, spatialReference: { wkid: 4326 } }),
     geometryType: "esriGeometryPoint",
-    inSR: "4326",
     spatialRel: "esriSpatialRelIntersects",
     outFields: "JURISDICT,COUNTY,FLU_L1,FLU_L1_DESC,FLU_L2,FLU_L2_DESC,DESCRIPT",
     returnGeometry: "true",
     outSR: "4326",
-    resultRecordCount: "1",
+    where: "1=1",
   });
   const r = await fetch(`${FLU_URL}?${params}`);
   if (!r.ok) throw new Error(`FLU ArcGIS HTTP ${r.status}`);
   const fc = await r.json();
+  if (fc?.error) throw new Error(`FLU ArcGIS: ${fc.error.message || JSON.stringify(fc.error.details || [])}`);
   const feat = fc?.features?.[0] || null;
   if (!feat) return null;
   const a = feat.properties || {};
@@ -63,8 +63,13 @@ async function fetchCensus(lat, lon) {
   const place = (g["Incorporated Places"] || [])[0] || null;
   const county = (g["Counties"] || [])[0] || null;
   const state = (g["States"] || [])[0] || null;
+  // Census place NAMEs carry a lowercase type suffix ("Rockledge city") —
+  // strip it so ordinance-registry matching works.
+  const cleanPlace = place?.NAME
+    ? place.NAME.replace(/\s+(city|town|village|borough|municipality|CDP)$/i, "").trim()
+    : null;
   return {
-    place: place?.NAME || null,
+    place: cleanPlace,
     county: county?.BASENAME || county?.NAME || null,
     state: state?.STUSAB || null,
   };
