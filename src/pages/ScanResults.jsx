@@ -7,6 +7,7 @@ import HeadlineSatelliteMap from "../components/scan/HeadlineSatelliteMap";
 import HeadlineMapErrorBoundary from "../components/scan/HeadlineMapErrorBoundary";
 import HeadlineMapSidebar from "../components/scan/HeadlineMapSidebar";
 import AIChatPanel from "../components/search/AIChatPanel";
+import SiteHawkVerificationMap from "@/components/verification/SiteHawkVerificationMap";
 import { applyFiltersAndSort } from "../components/scan/ResultsFilterSort";
 import { FEATURE_LEAFLET_MAP } from "@/lib/featureFlags";
 import { getEffectiveTier, hasUnlimitedAccess } from "@/lib/testAccess";
@@ -142,6 +143,29 @@ export default function ScanResults() {
           />
         </div>
       </div>
+
+      {/* VERY BOTTOM — SiteHawk Verification Map for the selected search result */}
+      {(() => {
+        const selectedSearchResult = selectedIndex != null ? shown[selectedIndex] : shown?.[0];
+        if (!selectedSearchResult) return null;
+        return (
+          <div className="p-4 border-t border-[#1e293b]">
+            <SiteHawkVerificationMap
+              key={selectedSearchResult.id || `${selectedSearchResult.latitude},${selectedSearchResult.longitude}`}
+              targetLat={selectedSearchResult.latitude}
+              targetLon={selectedSearchResult.longitude}
+              targetLabel={selectedSearchResult.site_name}
+              searchRadiusMiles={selectedSearchResult.radius_miles || searchParams?.radius_miles || 0.5}
+              parcelGeometry={selectedSearchResult.parcel_geometry}
+              candidateSites={(shown || []).map((c) => ({
+                lat: c.latitude, lon: c.longitude, score: c.match_score,
+                site_name: c.site_name, owner: c.owner_name,
+                zoning: c.zoning_classification, parcel_id: c.parcel_id,
+              }))}
+            />
+          </div>
+        );
+      })()}
 
       <AIChatPanel
         open={chatOpen}
