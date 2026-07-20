@@ -1,7 +1,7 @@
 // "The RF Intelligence Map" — embedded randymajors.org custom map (counties,
-// cities, townships, zip codes). Sits in the Section 4 Map Suite between the
-// 2D Viewshed step and the Compliance step. Follows the active project's SARF
-// site: the marker (x/y) and map center (cx/cy) track the SARF coordinates.
+// cities, townships, zip codes). Lives inside the Nationwide RF Intelligence
+// Map section and follows the pipeline's active Target A: the marker (x/y)
+// tracks Target A while the map centers (cx/cy) on it too.
 function buildEmbedUrl(lat, lon) {
   const params = new URLSearchParams({
     x: lon.toFixed(7),
@@ -9,7 +9,9 @@ function buildEmbedUrl(lat, lon) {
     cx: lon.toFixed(7),
     cy: lat.toFixed(7),
     zoom: "11",
+    mapbuilder: "true",
     labels: "show",
+    title: "SiteHawk",
     counties: "show",
     cities: "show",
     townships: "show",
@@ -26,7 +28,7 @@ export default function RfIntelligenceEmbed({ lat, lon }) {
         <div className="font-heading font-bold text-foreground">The RF Intelligence Map</div>
         {hasCoords && (
           <div className="text-xs text-muted-foreground mt-0.5 font-mono">
-            Centered on SARF site · {lat.toFixed(5)}, {lon.toFixed(5)}
+            Centered on Target A · {lat.toFixed(5)}, {lon.toFixed(5)}
           </div>
         )}
       </div>
@@ -35,14 +37,13 @@ export default function RfIntelligenceEmbed({ lat, lon }) {
           key={`${lat},${lon}`}
           src={buildEmbedUrl(lat, lon)}
           title="The RF Intelligence Map"
-          className="w-full rounded-xl border border-border"
+          className="w-full rounded-xl border border-border bg-white"
           style={{ height: "500px" }}
-          loading="lazy"
           allowFullScreen
         />
       ) : (
         <div className="w-full h-[500px] rounded-xl border border-border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">
-          Set the SARF site in Section 1 to load The RF Intelligence Map.
+          Resolve Target A in Section 3 to load The RF Intelligence Map.
         </div>
       )}
     </div>
