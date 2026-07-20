@@ -57,10 +57,47 @@ export async function getLocalAuthorities({ lat, lng }) {
   }
 
   // Stored (verified/HawkBit) values are the source of truth; resolved values fill gaps.
-  const police = record?.police?.name ? record.police : deptToRow(d.police);
-  const fire = record?.fire?.name ? record.fire : deptToRow(d.fire);
-  const nonEmergency911 = record?.non_emergency_911 || d.psap?.phone || null;
+  let police = record?.police?.name ? { ...record.police } : deptToRow(d.police);
+  let fire = record?.fire?.name ? { ...record.fire } : deptToRow(d.fire);
+  let nonEmergency911 = record?.non_emergency_911 || d.psap?.phone || null;
   const dispatchName = record?.dispatch_name || d.psap?.name || "Local Dispatch";
+
+  // Web-verify missing phone numbers — the directories often lack published
+  // phones/addresses, so ONE grounded web lookup fills only the gaps from
+  // official government sources. Never fabricated — nulls stay null.
+  const phonesFilled = { police: false, fire: false, dispatch: false };
+  if ((!police?.phone || !fire?.phone || !nonEmergency911) && county && state) {
+    try {
+      const found = await base44.integrations.Core.InvokeLLM({
+        prompt: `Find the OFFICIAL published NON-EMERGENCY phone numbers and street addresses for local public safety serving ${county} County, ${state}, USA.${police?.name ? ` Police department: "${police.name}".` : ""}${fire?.name ? ` Fire department: "${fire.name}".` : ""} Search only official government / department websites. Return police_phone, police_address, fire_phone, fire_address, and non_emergency_911 (the area's published 911 NON-emergency dispatch line — never 911 itself). Format phones as (XXX) XXX-XXXX. NEVER guess or fabricate — return null for anything you cannot verify on an official source.`,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            police_phone: { type: ["string", "null"] },
+            police_address: { type: ["string", "null"] },
+            fire_phone: { type: ["string", "null"] },
+            fire_address: { type: ["string", "null"] },
+            non_emergency_911: { type: ["string", "null"] },
+          },
+        },
+      });
+      if (found) {
+        if (!police?.phone && found.police_phone) {
+          police = { ...(police || {}), phone: found.police_phone, address: police?.address || found.police_address || null };
+          phonesFilled.police = true;
+        }
+        if (!fire?.phone && found.fire_phone) {
+          fire = { ...(fire || {}), phone: found.fire_phone, address: fire?.address || found.fire_address || null };
+          phonesFilled.fire = true;
+        }
+        if (!nonEmergency911 && found.non_emergency_911 && found.non_emergency_911 !== "911") {
+          nonEmergency911 = found.non_emergency_911;
+          phonesFilled.dispatch = true;
+        }
+      }
+    } catch { /* web verify is best-effort — blanks stay blank */ }
+  }
 
   // Upsert the cache (best-effort — never blocks the table).
   let recordId = record?.id || null;
@@ -76,8 +113,14 @@ export async function getLocalAuthorities({ lat, lng }) {
     };
     try {
       if (record) {
-        if (!record.census?.summary && census?.summary) {
-          await base44.entities.LocalAuthorities.update(record.id, { census, fetched_at: payload.fetched_at });
+        // Patch the cache with anything newly resolved (census + web-verified phones).
+        const patch = {};
+        if (!record.census?.summary && census?.summary) patch.census = census;
+        if (phonesFilled.police) patch.police = police;
+        if (phonesFilled.fire) patch.fire = fire;
+        if (phonesFilled.dispatch) patch.non_emergency_911 = nonEmergency911;
+        if (Object.keys(patch).length) {
+          await base44.entities.LocalAuthorities.update(record.id, { ...patch, fetched_at: payload.fetched_at });
         }
       } else {
         const created = await base44.entities.LocalAuthorities.create(payload);

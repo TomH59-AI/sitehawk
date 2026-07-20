@@ -24,6 +24,20 @@ export default function SiteHawkVerificationMap({
   const layersRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
+  // Defer map creation until the section is actually on screen — this map sits
+  // at the very bottom of a page full of maps, and creating it while hidden can
+  // leave a blank canvas (zero-size init / WebGL context pressure).
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || visible) return;
+    const obs = new IntersectionObserver(
+      (entries) => { if (entries.some((e) => e.isIntersecting)) setVisible(true); },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [visible]);
   const [layers, setLayers] = useState({
     wetlands: false, hydro: false, nlcd: false,
     substations: false, transmission: false, towers: false,
@@ -80,7 +94,7 @@ export default function SiteHawkVerificationMap({
 
   // ── Init map (once) ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!Number.isFinite(targetLat) || !Number.isFinite(targetLon)) return;
+    if (!visible || !Number.isFinite(targetLat) || !Number.isFinite(targetLon)) return;
     let cancelled = false;
     (async () => {
       try {
@@ -241,7 +255,7 @@ export default function SiteHawkVerificationMap({
     })();
     return () => { cancelled = true; mapRef.current?.remove?.(); mapRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetLat, targetLon]);
+  }, [visible, targetLat, targetLon]);
 
   // ── Lazy loaders: CloudRF coverage, CarrierFinder fiber, SiteHawk DB data ──
   const withBusy = useCallback(async (key, fn) => {
