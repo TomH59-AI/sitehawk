@@ -2,7 +2,7 @@
 // Information Package layout. Auto-populates every field the pipeline already
 // knows; anything unknown is returned blank and reported in `missing`.
 
-import { proximityStaticUrl, parcelStaticUrl } from "./anthemStaticMaps";
+import { proximityStaticUrl, parcelStaticUrl, wetlandsStaticUrl } from "./anthemStaticMaps";
 
 const isBlank = (v) => v == null || String(v).trim() === "";
 
@@ -221,7 +221,7 @@ export function buildAnthemNet(record, mapboxToken = null) {
     { label: "Floodplain Map (FEMA)", url: hm.floodplain_url },
     { label: "Zoning Map", url: hm.zoning_url },
     { label: "FLU Map", url: null },
-    { label: "Wetlands Map", url: null },
+    { label: "Wetlands Map (USFWS NWI)", url: wetlandsStaticUrl(site.lat, site.lon) },
     { label: "Parcel Map", url: parcelStaticUrl(mapboxToken, parcelGeom, site.lat, site.lon) },
     { label: "Wind Speed Map", url: null },
     { label: "Power Map", url: pa.power?.map_url || pa.power?.url || null },

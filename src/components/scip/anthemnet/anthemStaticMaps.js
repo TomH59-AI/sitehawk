@@ -1,6 +1,24 @@
 // Printable static-map URL builders for the AnthemNet SCIP (Mapbox Static Images API).
 import simplify from "@turf/simplify";
 
+// USFWS National Wetlands Inventory export — ~1 mile bbox around the site.
+// Deterministic public map service; no token required.
+export function wetlandsStaticUrl(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const b = 0.0145; // ~1 mile
+  const params = new URLSearchParams({
+    bbox: `${lon - b},${lat - b},${lon + b},${lat + b}`,
+    bboxSR: "4326",
+    imageSR: "3857",
+    size: "1700,2200",
+    dpi: "200",
+    format: "png32",
+    transparent: "false",
+    f: "image",
+  });
+  return `https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/export?${params}`;
+}
+
 // Site → destination proximity exhibit (airport / cell tower): two pins, auto-fit.
 export function proximityStaticUrl(token, site, dest) {
   if (!token || !Number.isFinite(site?.lat) || !Number.isFinite(site?.lon) ||
