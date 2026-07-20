@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { loadPublicConfig } from "@/lib/publicConfig";
 import { Printer, ArrowLeft, Loader2, AlertTriangle, Camera } from "lucide-react";
 import AnthemNetTable from "../components/scip/anthemnet/AnthemNetTable";
 import { buildAnthemNet } from "../components/scip/anthemnet/anthemNetData";
@@ -13,6 +14,7 @@ const PRINT_CSS = `
   #anthemnet-doc, #anthemnet-doc * { visibility: visible; }
   #anthemnet-doc { position: absolute; left: 0; top: 0; width: 7.7in; }
   .no-print { display: none !important; }
+  .anthem-page-break { page-break-before: always; }
 }`;
 
 // AnthemNet SITE CANDIDATE INFORMATION PACKAGE — auto-populated from a ScipRecord.
@@ -21,10 +23,12 @@ export default function AnthemNetScip() {
   const navigate = useNavigate();
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mapboxToken, setMapboxToken] = useState(null);
   const styleRef = useRef(null);
 
   useEffect(() => {
     base44.entities.ScipRecord.get(id).then(setRecord).catch(() => setRecord(null)).finally(() => setLoading(false));
+    loadPublicConfig().then((cfg) => setMapboxToken(cfg.mapboxAccessToken || null)).catch(() => {});
   }, [id]);
 
   const handlePrint = () => {
@@ -40,7 +44,7 @@ export default function AnthemNetScip() {
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!record) return <div className="min-h-[60vh] flex items-center justify-center text-muted-foreground">SCIP record not found.</div>;
 
-  const { sections, maps, photos, missing } = buildAnthemNet(record);
+  const { sections, maps, photos, missing, viewshed } = buildAnthemNet(record, mapboxToken);
   const filledMaps = maps.filter((m) => m.url);
 
   return (
@@ -121,6 +125,35 @@ export default function AnthemNetScip() {
             ))}
           </div>
         </div>
+
+        {/* Viewshed — N/S/E/W tree-line maps on two dedicated pages (2 per page) */}
+        {viewshed.pages.map((page, pi) => (
+          <div key={pi} className="anthem-page-break" style={{ marginTop: 12 }}>
+            <div style={{ padding: "6px 8px", color: "#fff", background: "#111827", border: "1px solid #cbd5e1", fontWeight: 700, fontSize: "9pt", textTransform: "uppercase", printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" }}>
+              Viewshed Analysis — Page {pi + 1} of {viewshed.pages.length}
+              {viewshed.tower_height_ft ? ` · ${viewshed.tower_height_ft} ft AGL` : ""}
+            </div>
+            <div style={{ border: "1px solid #cbd5e1", borderTop: "none", padding: 8 }}>
+              {pi === 0 && viewshed.aerial_ring_url && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: "8.5pt", color: "#111827", marginBottom: 4 }}>Aerial Ring — Tower Location</div>
+                  <img src={viewshed.aerial_ring_url} alt="Viewshed aerial ring" style={{ width: "100%", border: "1px solid #e2e8f0" }} />
+                </div>
+              )}
+              {page.map((d) => (
+                <div key={d.short || d.label} style={{ marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: "8.5pt", color: "#111827", marginBottom: 4 }}>
+                    {d.label}
+                    {d.clear != null ? ` — ${d.clear ? "Clear line-of-sight" : `Obstructed${d.first_obstruction_mi != null ? ` at ${d.first_obstruction_mi} mi` : ""}`}` : ""}
+                  </div>
+                  {d.map_url
+                    ? <img src={d.map_url} alt={d.label} style={{ width: "100%", border: "1px solid #e2e8f0" }} />
+                    : <div style={{ padding: "24px 0", textAlign: "center", color: "#94a3b8", fontSize: "8.5pt", background: "#f8fafc" }}>Not generated yet</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
       <div className="text-xs text-muted-foreground text-center pb-6 no-print">
         {filledMaps.length}/{maps.length} map exhibits populated from the pipeline.

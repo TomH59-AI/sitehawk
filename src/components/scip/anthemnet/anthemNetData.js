@@ -2,6 +2,8 @@
 // Information Package layout. Auto-populates every field the pipeline already
 // knows; anything unknown is returned blank and reported in `missing`.
 
+import { proximityStaticUrl, parcelStaticUrl } from "./anthemStaticMaps";
+
 const isBlank = (v) => v == null || String(v).trim() === "";
 
 const fmt = (v, suffix = "") => (isBlank(v) ? null : `${v}${suffix}`);
@@ -26,14 +28,22 @@ function splitAddress(addr) {
   return { street, city, state: m?.[1] || null, zip: m?.[2] || null };
 }
 
-export function buildAnthemNet(record) {
-  const t = record.parcel_targets?.[record.active_target_index || 0] || {};
+export function buildAnthemNet(record, mapboxToken = null) {
+  const idx = record.active_target_index || 0;
+  const t = record.parcel_targets?.[idx] || {};
   const ec = record.existing_conditions || {};
   const hm = record.hawk_maps || {};
   const pa = record.power_airport_maps || {};
   const zr = record.zoning_report || {};
   const z = (sec, key) => zr?.[sec]?.[key]?.value ?? null;
   const addr = splitAddress(t.parcel_address);
+
+  // RF enrichment slot for the active target — airport, cell tower, coverage.
+  const slot = record.rf_enrichment?.[String(idx)] || null;
+  const rfAirport = slot?.rf?.airport || null;
+  const rfTower = slot?.rf?.tower || null;
+  const rfCoverage = slot?.coverage || null;
+  const site = { lat: Number(t.latitude ?? record.latitude), lon: Number(t.longitude ?? record.longitude) };
 
   const dist = distMiles(Number(record.latitude), Number(record.longitude), Number(t.latitude), Number(t.longitude));
 
@@ -123,7 +133,14 @@ export function buildAnthemNet(record) {
         ["Power Provider (name & phone)", [pa.power?.company_name || pa.power?.provider, pa.power?.phone].filter(Boolean).join(" · ") || null],
         ["Fiber Available?", null],
         ["Telco Provider (name & phone)", null],
-        ["Nearest Airport (name & distance)", [pa.airport?.name, pa.airport?.distance_miles != null ? `${pa.airport.distance_miles} mi` : null].filter(Boolean).join(" · ") || null],
+        ["Nearest Airport (name & distance)",
+          [pa.airport?.name || rfAirport?.name || rfAirport?.call_letters,
+           (pa.airport?.distance_miles ?? rfAirport?.distance_miles) != null ? `${Number(pa.airport?.distance_miles ?? rfAirport?.distance_miles).toFixed(2)} mi` : null,
+          ].filter(Boolean).join(" · ") || null],
+        ["Nearest Cell Tower (name & distance)",
+          rfTower
+            ? [rfTower.licensee || rfTower.call_letters || "Tower", rfTower.distance_miles != null ? `${Number(rfTower.distance_miles).toFixed(2)} mi` : null].filter(Boolean).join(" · ")
+            : null],
         ["Local Police (municipality & phone)", ec.local_police],
         ["Local Fire Dept (municipality & phone)", ec.local_fire],
       ],
@@ -196,19 +213,39 @@ export function buildAnthemNet(record) {
     },
   ];
 
+  const parcelGeom = t.boundary_geojson || t.parcel_geometry || null;
   const maps = [
     { label: "SARF (Search Ring)", url: record.map_image_url },
     { label: "Aerial", url: hm.aerial_url },
     { label: "Topography", url: hm.topography_url },
-    { label: "Floodplain Map", url: hm.floodplain_url },
+    { label: "Floodplain Map (FEMA)", url: hm.floodplain_url },
     { label: "Zoning Map", url: hm.zoning_url },
     { label: "FLU Map", url: null },
     { label: "Wetlands Map", url: null },
-    { label: "Parcel Map", url: null },
+    { label: "Parcel Map", url: parcelStaticUrl(mapboxToken, parcelGeom, site.lat, site.lon) },
     { label: "Wind Speed Map", url: null },
     { label: "Power Map", url: pa.power?.map_url || pa.power?.url || null },
-    { label: "Airport Map", url: pa.airport?.map_url || pa.airport?.url || null },
+    {
+      label: "Closest Airport Map",
+      url: pa.airport?.map_url || pa.airport?.url ||
+        proximityStaticUrl(mapboxToken, site, { lat: Number(rfAirport?.latitude_deg), lon: Number(rfAirport?.longitude_deg) }),
+    },
+    {
+      label: "Closest Cell Tower Map",
+      url: proximityStaticUrl(mapboxToken, site, { lat: Number(rfTower?.latitude_deg), lon: Number(rfTower?.longitude_deg) }),
+    },
+    { label: "RF Coverage (CloudRF)", url: rfCoverage?.png_url || null },
   ];
+
+  // Viewshed — N/S/E/W tree-line maps rendered as two dedicated pages (2 per page).
+  const vsDirs = record.viewshed?.directions || [];
+  const viewshed = {
+    aerial_ring_url: record.viewshed?.aerial_ring_url || null,
+    tower_height_ft: record.viewshed?.tower_height_ft || record.sarf_height || null,
+    pages: vsDirs.length
+      ? [vsDirs.slice(0, 2), vsDirs.slice(2, 4)].filter((p) => p.length)
+      : [],
+  };
 
   const photos = [
     "Proposed Site", "North from Site", "South from Site", "East from Site", "West from Site",
@@ -224,7 +261,8 @@ export function buildAnthemNet(record) {
     }
   }
   for (const m of maps) if (!m.url) missing.push(`MAPS → ${m.label}`);
+  if (!viewshed.pages.length) missing.push("VIEWSHED → N/S/E/W maps (run Viewshed Analysis)");
   missing.push("PHOTOGRAPHS → all 10 (field photos — user provides)");
 
-  return { sections, maps, photos, missing };
+  return { sections, maps, photos, missing, viewshed };
 }
