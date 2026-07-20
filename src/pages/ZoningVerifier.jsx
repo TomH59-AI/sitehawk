@@ -4,9 +4,9 @@ import MessageBubble from "@/components/agent/MessageBubble";
 import { Send, Loader2, ShieldCheck } from "lucide-react";
 
 const QUICK_PROMPTS = [
+  "Will a 199 ft tower work at 28.3199, -80.7301?",
   "Verify zoning at 28.3199, -80.7301",
   "What are the cell tower rules for Brevard County, FL?",
-  "Does this jurisdiction require stealth towers?",
 ];
 
 // Hawk Zoning Verifier — chat UI for the zoning_verifier in-app agent.

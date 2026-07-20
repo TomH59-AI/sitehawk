@@ -17,6 +17,38 @@
     {
       "function_name": "zoneResolve",
       "description": "Resolve jurisdiction, county, state, Future Land Use, and ordinance registry match for a lat/lon point."
+    },
+    {
+      "function_name": "lookupRealieProperty",
+      "description": "Look up a parcel by address, parcel ID, or coordinates \u2014 returns owner, acreage, zoning, and the parcel boundary geometry."
+    },
+    {
+      "function_name": "analyzeTowerFit",
+      "description": "Deterministic HawkPerch fit check \u2014 verifies the fall zone and compound stay fully inside the parcel for a given tower point, height, and compound size."
+    },
+    {
+      "function_name": "femaFloodLookup",
+      "description": "FEMA NFHL flood zone lookup for a lat/lon (zone, SFHA, BFE)."
+    },
+    {
+      "function_name": "wetlandsLookup",
+      "description": "USFWS NWI wetlands on or adjacent to a site."
+    },
+    {
+      "function_name": "historicSitesLookup",
+      "description": "NRHP historic properties near a site (Section 106 exposure)."
+    },
+    {
+      "function_name": "usfwsSpeciesLookup",
+      "description": "USFWS listed species / critical habitat near a site."
+    },
+    {
+      "function_name": "nearestAirportFromDirectory",
+      "description": "Nearest airport and crow-flies distance for a lat/lon."
+    },
+    {
+      "function_name": "cellTowerLookup",
+      "description": "Nearest existing cell tower and distance for a lat/lon."
     }
   ],
   "context_files": [],
