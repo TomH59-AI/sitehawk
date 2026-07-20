@@ -75,4 +75,8 @@ export const BASE_LAYERS = [
     id: "usgs_imagery", label: "Imagery", type: "raster",
     tiles: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}",
   },
+  {
+    id: "usgs_shaded_relief", label: "Shaded Relief", type: "raster",
+    tiles: "https://basemap.nationalmap.gov/arcgis/rest/services/USGSShadedReliefOnly/MapServer/tile/{z}/{y}/{x}",
+  },
 ];
