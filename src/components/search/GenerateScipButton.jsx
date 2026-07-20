@@ -14,6 +14,7 @@ import { publicSafetyLookup } from "@/functions/publicSafetyLookup";
 import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
+import { buildScipNarrative } from "@/lib/scipSkillNarrative";
 import {
   buildSarfMap, buildAerial, buildTopo, buildFema, buildZoning,
   buildWetlands, buildParcel, buildWind, buildAirport, buildCellTower, buildFlum,
@@ -332,6 +333,15 @@ export default function GenerateScipButton({
           local_fire: fire ? `${fire.name}${fire.phone ? ` — ${fire.phone}` : ""} (${Number(fire.distance_miles).toFixed(1)} mi)` : "",
         },
       };
+      // SCIP skill — synthesize the professional narrative sections + weighted
+      // scorecard from the verified record. Best-effort: a failure never blocks
+      // the SCIP itself.
+      try {
+        rec.professional = await buildScipNarrative(rec);
+      } catch (e) {
+        console.warn("[SCIP] narrative synthesis failed:", e);
+        rec.professional = null;
+      }
       setRecord(rec);
       setOpen(true);
       // Notify the pipeline that a SCIP was successfully generated for THIS

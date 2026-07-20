@@ -6,6 +6,8 @@ import SiteHawkViewshedPage from "./SiteHawkViewshedPage";
 import SiteHawkDeedPage from "./SiteHawkDeedPage";
 import SiteHawkTowerSiterPage from "./SiteHawkTowerSiterPage";
 import SiteHawkPermitPage from "./SiteHawkPermitPage";
+import SiteHawkExecSummaryPage from "./SiteHawkExecSummaryPage";
+import SiteHawkScorecardPage from "./SiteHawkScorecardPage";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
 
@@ -112,6 +114,11 @@ export default function SiteHawkScipDoc({ record }) {
           </div>
         </div>
       </div>
+
+      {/* ─────────── EXECUTIVE SUMMARY & DECISION SNAPSHOT (SCIP skill) ─────────── */}
+      {r.professional && (
+        <SiteHawkExecSummaryPage record={r} pro={r.professional} page={next()} />
+      )}
 
       {/* ─────────── SARF MAP ─────────── */}
       <HawkScipSection
@@ -293,6 +300,11 @@ export default function SiteHawkScipDoc({ record }) {
           jurisdiction={z.jurisdiction}
           page={next()}
         />
+      )}
+
+      {/* ─────────── CANDIDATE SCORECARD & RECOMMENDATION (SCIP skill) ─────────── */}
+      {r.professional?.scorecard?.length > 0 && (
+        <SiteHawkScorecardPage record={r} pro={r.professional} page={next()} />
       )}
 
       {/* ─────────── TOWER SITER EXHIBIT — FINAL PAGE ─────────── */}
