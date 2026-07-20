@@ -592,13 +592,13 @@ export default function SiteSearch() {
           {/* Local Governing Authorities & Area Profile — auto-populated from the
               site's resolved coordinates (Target A, falling back to the SARF
               center). Always sits directly above the Generate SCIP button. */}
+          <p className="text-sm text-muted-foreground text-center">
+            Finished the pipeline? Generate the full SiteHawk SCIP — then Print / Save PDF and choose which pages to print.
+          </p>
           <LocalAuthoritiesTable
             lat={Number.isFinite(targetA?.latitude) ? targetA.latitude : Number(searchCenter.lat)}
             lng={Number.isFinite(targetA?.longitude) ? targetA.longitude : Number(searchCenter.lon)}
           />
-          <p className="text-sm text-muted-foreground text-center">
-            Finished the pipeline? Generate the full SiteHawk SCIP — then Print / Save PDF and choose which pages to print.
-          </p>
           <GenerateScipButton
             searchCenter={searchCenter}
             searchParams={searchParams}
