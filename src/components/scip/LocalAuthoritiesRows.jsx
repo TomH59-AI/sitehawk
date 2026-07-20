@@ -38,9 +38,9 @@ export default function LocalAuthoritiesRows({ data, editing, draft, setDraft })
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs md:text-sm text-foreground">
+      <table className="w-full text-xs md:text-sm text-foreground border-collapse [&_th]:border [&_th]:border-border [&_td]:border [&_td]:border-border">
         <thead>
-          <tr className="text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground border-b border-border">
+          <tr className="text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground bg-muted/50">
             <th className="px-4 py-2">Category</th>
             <th className="px-4 py-2">Name</th>
             <th className="px-4 py-2">Address</th>
