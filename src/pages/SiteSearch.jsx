@@ -25,6 +25,7 @@ import ExportSvpButton from "../components/search/ExportSvpButton";
 import { round4 } from "@/lib/coords";
 import { runQuietLookups } from "@/lib/quietLookup";
 import FloatingInstructionsButton from "@/components/guide/FloatingInstructionsButton";
+import SiteHawkVerificationMap from "@/components/verification/SiteHawkVerificationMap";
 
 export default function SiteSearch() {
   const { toast } = useToast();
@@ -608,6 +609,24 @@ export default function SiteSearch() {
             onGenerated={handleScipGenerated}
           />
         </div>
+      )}
+
+      {/* VERY BOTTOM — SiteHawk Verification Map. Interactive dark-theme split
+          view: SARF ring + candidate pins + togglable wetlands / hydrography /
+          NLCD / substations / transmission / tower overlays. Read-only. */}
+      {coordsReady && (
+        <SiteHawkVerificationMap
+          targetLat={Number.isFinite(targetA?.latitude) ? targetA.latitude : Number(searchCenter.lat)}
+          targetLon={Number.isFinite(targetA?.longitude) ? targetA.longitude : Number(searchCenter.lon)}
+          targetLabel={searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring"}
+          searchRadiusMiles={searchParams.radius_miles}
+          parcelGeometry={targetA?.parcel_geometry || null}
+          candidateSites={allTargets.filter(Boolean).map((t) => ({
+            lat: t.latitude, lon: t.longitude, score: t.score,
+            site_name: t.label || t.parcel_address, owner: t.owner_name,
+            zoning: t.zoning_classification, parcel_id: t.apn,
+          }))}
+        />
       )}
 
     </div>
