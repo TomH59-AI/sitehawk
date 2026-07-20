@@ -1,11 +1,9 @@
 import RfiMap from "@/components/rfi/RfiMap";
 import AppErrorBoundary from "@/components/AppErrorBoundary";
-import RfIntelligenceEmbed from "@/components/rfi/RfIntelligenceEmbed";
 
 // RF INTELLIGENCE MAP — nationwide U.S. RF map, embedded in the Map Suite
 // pipeline after the 2D Viewshed maps and before the Compliance report.
 // Isolated in its own error boundary so a map/WebGL hiccup can never blank the page.
-// Includes "The RF Intelligence Map" (randymajors.org embed) wired to Target A.
 export default function RfiPipelineSection({ targetA }) {
   return (
     <div className="space-y-2" data-section="rfi-map">
@@ -23,7 +21,6 @@ export default function RfiPipelineSection({ targetA }) {
           <RfiMap overlays={{ sites: true, rings: true }} />
         </AppErrorBoundary>
       </div>
-      <RfIntelligenceEmbed lat={targetA?.latitude} lon={targetA?.longitude} />
     </div>
   );
 }
