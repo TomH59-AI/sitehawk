@@ -34,14 +34,16 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { lat, lon, exclude_owners = [], limit = 5 } = (await req.json()) ?? {};
+    const { lat, lon, exclude_owners = [], limit = 5, radius_miles } = (await req.json()) ?? {};
     if (lat == null || lon == null) return Response.json({ error: "lat and lon required" }, { status: 400 });
 
     const apiKey = Deno.env.get("REALIE_API_KEY");
     if (!apiKey) return Response.json({ error: "REALIE_API_KEY not set" }, { status: 500 });
 
     // Same Realie Location Search the rest of the pipeline uses (max radius 2mi, 100 results).
-    const url = `https://app.realie.ai/api/public/property/location/?latitude=${lat}&longitude=${lon}&radius=1&limit=100`;
+    // radius_miles lets callers reach a little beyond the search ring (capped at Realie's 2mi max).
+    const radius = Math.min(Math.max(Number(radius_miles) || 1, 0.25), 2);
+    const url = `https://app.realie.ai/api/public/property/location/?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=100`;
     const r = await fetch(url, { headers: { Authorization: apiKey } });
     if (!r.ok) {
       const txt = await r.text();
