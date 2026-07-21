@@ -10,9 +10,9 @@
  *  - On success: vertical Target A/B/C table, every cell editable.
  *  - On finish: STOP. Never auto-advances to the next section.
  *
- * Pipeline (in sequence):
+ * Pipeline:
  *   1. Realie ring search + zoning-aware ranking + FEMA  → scipBestParcels
- *   2. Enformion skip-trace for each target owner's phone → skipTrace
+ *   (No skip-trace here — owner phones are skip-traced later, on demand.)
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -22,9 +22,6 @@ import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import { base44 } from "@/api/base44Client";
 import { scipBestParcels } from "@/functions/scipBestParcels";
-import { skipTraceCascade } from "@/functions/skipTraceCascade";
-import { withRateLimitRetry } from "@/lib/quietLookup";
-import PhoneCascadeCell from "./section3/PhoneCascadeCell";
 import ComplianceCell from "./section3/ComplianceCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
 import SaveToHubSpotButton from "@/components/crm/SaveToHubSpotButton";
@@ -42,11 +39,6 @@ import RegridDemographics from "@/components/search/regrid/RegridDemographics";
 
 const COLS = ["Target A", "Target B", "Target C"];
 
-// Session cache: key `${ownerName}|${mailingAddress}` → cascade result.
-// Persists for the browser session so re-rendering Section 3 doesn't re-burn credits.
-const cascadeCache = new Map();
-const cacheKey = (owner, addr) => `${(owner || "").trim().toLowerCase()}|${(addr || "").trim().toLowerCase()}`;
-
 // Row labels EXACTLY as Tom specified, in order. Each maps to a target field.
 const ROWS = [
   ["Owner's Name:", "owner_name"],
@@ -61,7 +53,6 @@ const ROWS = [
   ["PE Letter (Fall Zone Relief):", "pe_note"],
   ["Owner's Mailing Address:", "mailing_address"],
   ["Coordinates:", "coordinates"],
-  ["Phone:", "phone"],
   ["FEMA Risk Factor Letter:", "fema_risk_factor"],
 ];
 
@@ -113,7 +104,6 @@ function targetToColumn(t) {
     coordinates: t.latitude != null && t.longitude != null
       ? `${Number(t.latitude).toFixed(6)}, ${Number(t.longitude).toFixed(6)}`
       : "",
-    phone: "", // filled by skip-trace
     fema_risk_factor: str(t.fema_risk_factor),
   };
 }
@@ -133,10 +123,6 @@ export default function Section3Targets({
   const [fitWarning, setFitWarning] = useState(null);
   // Per-slot reasons a Target A/B/C column couldn't be filled (from scipBestParcels).
   const [missingReasons, setMissingReasons] = useState([]);
-  // Per-column cascade results + loading flags for the Phone row.
-  const [phoneResults, setPhoneResults] = useState([null, null, null]);
-  const [phoneLoading, setPhoneLoading] = useState([false, false, false]);
-  const [targetMeta, setTargetMeta] = useState([null, null, null]); // {owner, addr} per col for retry
   // Full target objects (A/B/C) kept so the user can choose any one as the lead
   // site that the whole downstream pipeline runs on.
   const [targets, setTargets] = useState([null, null, null]);
@@ -190,7 +176,6 @@ export default function Section3Targets({
   const emitLead = useCallback((colIdx) => {
     const a = targets[colIdx];
     if (!a) return;
-    const pr = phoneResults[colIdx];
     onTargetAReady?.({
       latitude: a.latitude != null ? Number(a.latitude) : null,
       longitude: a.longitude != null ? Number(a.longitude) : null,
@@ -206,11 +191,8 @@ export default function Section3Targets({
       zoning_classification: a.zoning_classification || "",
       county: a.county || "",
       state: a.state || "",
-      // Owner phone resolved by the skip-trace cascade (Enformion → Apify actors).
-      // Skip-trace returns a phone only for individual owners; entity owners
-      // (LLC/trust) short-circuit with no phone. There is no contact-person
-      // name available from Realie or skip-trace, so contact_person stays blank.
-      owner_phone: grid.phone[colIdx] || pr?.display || pr?.phone || "",
+      // Owner phone is skip-traced later, on demand — not in this section.
+      owner_phone: "",
       label: COLS[colIdx],
     });
     onData?.({
@@ -222,7 +204,7 @@ export default function Section3Targets({
         fema_risk_factor: a?.fema_risk_factor || null,
       },
     });
-  }, [targets, phoneResults, onTargetAReady, onData]);
+  }, [targets, onTargetAReady, onData]);
 
   // Keep the ref pointed at the latest emitLead for applyCascade to use.
   useEffect(() => { emitLeadRef.current = emitLead; }, [emitLead]);
@@ -272,44 +254,10 @@ export default function Section3Targets({
     });
   };
 
-  // Resolve one target column's phone via the cascade, using the session cache.
-  const runCascade = useCallback(async (colIdx, owner, addr, label, force = false) => {
-    const key = cacheKey(owner, addr);
-    if (!force && cascadeCache.has(key)) {
-      const cached = cascadeCache.get(key);
-      applyCascade(colIdx, cached);
-      return;
-    }
-    setPhoneLoading((p) => { const n = [...p]; n[colIdx] = true; return n; });
-    try {
-      const res = await withRateLimitRetry(() => skipTraceCascade({ owner_name: owner, mailing_address: addr, target_label: label }));
-      const data = res?.data ?? res;
-      cascadeCache.set(key, data);
-      applyCascade(colIdx, data);
-    } catch {
-      const miss = { is_entity_owner: false, phone: null, display: "", source: null, phones: [] };
-      applyCascade(colIdx, miss);
-    } finally {
-      setPhoneLoading((p) => { const n = [...p]; n[colIdx] = false; return n; });
-    }
-  }, []);
-
-  function applyCascade(colIdx, data) {
-    setPhoneResults((p) => { const n = [...p]; n[colIdx] = data; return n; });
-    if (data?.display) setCell("phone", colIdx, data.display);
-    // If this column is the current lead, re-emit Target A so the freshly
-    // resolved owner phone / contact person flow down to the SCIP.
-    if (colIdx === selectedCol) {
-      setTimeout(() => emitLeadRef.current?.(colIdx), 0);
-    }
-  }
-
   const runPipeline = useCallback(async () => {
     setLoading(true);
     setNoData(false);
     setMissingReasons([]);
-    setPhoneResults([null, null, null]);
-    setPhoneLoading([false, false, false]);
     setRegrid([null, null, null]);
     try {
       // 1. Realie ring search + ranking + FEMA → best 3 targets. Section 2's
@@ -369,17 +317,6 @@ export default function Section3Targets({
         if (t?.latitude != null && t?.longitude != null) enrichCol(i, t.latitude, t.longitude);
       });
 
-      // 2. Multi-source skip-trace cascade per target owner (Enformion → Apify
-      //    actors in parallel). Records meta for retry + fires the lookups.
-      const metas = [null, null, null];
-      for (let colIdx = 0; colIdx < found.length && colIdx < 3; colIdx++) {
-        const t = found[colIdx];
-        if (t?.owner_name) metas[colIdx] = { owner: t.owner_name, addr: t.mailing_address || t.parcel_address || "" };
-      }
-      setTargetMeta(metas);
-      // Fire all target cascades in parallel — each cascade internally runs its
-      // own sources (Enformion first, then the two Apify actors together).
-      metas.forEach((m, colIdx) => { if (m) runCascade(colIdx, m.owner, m.addr, COLS[colIdx]); });
       if (found.length === 0) {
         setNoData(true);
         toast.warning("No buildable target parcels found in the ring.");
@@ -429,7 +366,7 @@ export default function Section3Targets({
     } finally {
       setLoading(false);
     }
-  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, zoningResult, onTargetAReady, runCascade, enrichCol]);
+  }, [lat, lon, radiusMiles, towerHeightFt, compoundSideFt, zoningResult, onTargetAReady, enrichCol]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "targets").
   useEffect(() => {
@@ -651,15 +588,6 @@ export default function Section3Targets({
                       <td key={colIdx} className={`border border-border p-0 align-top ${locked ? "opacity-50 pointer-events-none bg-muted/30" : ""}`}>
                         {key === "zoning_compliance" ? (
                           <ComplianceCell target={targets[colIdx]} />
-                        ) : key === "phone" ? (
-                          <PhoneCascadeCell
-                            result={phoneResults[colIdx]}
-                            loading={phoneLoading[colIdx]}
-                            value={grid.phone[colIdx]}
-                            onChange={(v) => setCell("phone", colIdx, v)}
-                            onPick={(v) => setCell("phone", colIdx, v)}
-                            onRetry={() => { const m = targetMeta[colIdx]; if (m) runCascade(colIdx, m.owner, m.addr, COLS[colIdx], true); }}
-                          />
                         ) : key === "fema_risk_factor" && regrid[colIdx]?.site_intel?.fema_flood_zone ? (
                           <div className="px-4 py-2 text-sm text-foreground space-y-1">
                             <div>
@@ -767,7 +695,6 @@ export default function Section3Targets({
                           parcel_size: grid.acreage?.[colIdx],
                           boundaries: grid.boundaries?.[colIdx],
                           zoning: grid.zoning_classification?.[colIdx],
-                          phone: grid.phone?.[colIdx],
                           fema_risk: grid.fema_risk_factor?.[colIdx],
                         }}
                       />
