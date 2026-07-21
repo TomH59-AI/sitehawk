@@ -337,6 +337,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
               water={water}
               targetA={targetA}
               onOverlayChange={setAiOverlay}
+              onPromote={onRunTarget}
             />
           )}
 

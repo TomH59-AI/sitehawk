@@ -1,7 +1,7 @@
 import { COLOR_HEX, ftToMiles } from "@/lib/aiEquation";
 
 // Candidate comparison table — saved AI Equation candidates vs Target A.
-export default function AIEquationComparison({ candidates, targetA }) {
+export default function AIEquationComparison({ candidates, targetA, onPromote }) {
   if (!candidates?.length) return null;
 
   const green = candidates.filter((c) => c.color === "green").sort((a, b) => (b.maxHeightFt || 0) - (a.maxHeightFt || 0));
@@ -36,7 +36,8 @@ export default function AIEquationComparison({ candidates, targetA }) {
               <th className="py-1.5 pr-3">PE letter</th>
               <th className="py-1.5 pr-3">From carrier</th>
               <th className="py-1.5 pr-3">From Target A</th>
-              <th className="py-1.5">Failures / missing</th>
+              <th className="py-1.5 pr-3">Failures / missing</th>
+              {onPromote && <th className="py-1.5"></th>}
             </tr>
           </thead>
           <tbody>
@@ -64,9 +65,21 @@ export default function AIEquationComparison({ candidates, targetA }) {
                 <td className="py-1.5 pr-3 text-muted-foreground">{c.peResult ? (c.peResult === "pass" ? "Pass w/ PE" : "Fail w/ PE") : "—"}</td>
                 <td className="py-1.5 pr-3 text-muted-foreground">{mi(c.distFromCarrierFt)}</td>
                 <td className="py-1.5 pr-3 text-muted-foreground">{c.isTargetA ? "0.00 mi" : mi(c.distFromTargetAFt)}</td>
-                <td className="py-1.5 text-muted-foreground max-w-[260px]">
+                <td className="py-1.5 pr-3 text-muted-foreground max-w-[260px]">
                   {[...(c.failing || []), ...(c.missing || [])].slice(0, 2).join(" · ") || "—"}
                 </td>
+                {onPromote && (
+                  <td className="py-1.5 whitespace-nowrap">
+                    {!c.isTargetA && (
+                      <button
+                        onClick={() => onPromote(c)}
+                        className="px-2 py-1 rounded border border-primary/40 text-primary text-[11px] font-semibold hover:bg-primary/10 transition-colors"
+                      >
+                        Promote to Target A
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

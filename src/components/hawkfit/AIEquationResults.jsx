@@ -48,6 +48,10 @@ export default function AIEquationResults({ evalResult, siteTarget, overlayStats
         <div className="text-foreground font-medium">{miles(e.distFromTargetAFt)}</div>
         <div className="text-muted-foreground">Approval type</div>
         <div className="text-foreground font-medium">{e.approvalType || "Unknown"}</div>
+        <div className="text-muted-foreground">Confidence</div>
+        <div className="text-foreground font-medium">
+          {e.missing?.length ? "Low — missing ordinance/parcel data" : e.conditional?.length ? "Medium — conditional rules apply" : "High"}
+        </div>
         <div className="text-muted-foreground">Calculated</div>
         <div className="text-foreground font-medium">{e.calculatedAt?.toLocaleTimeString?.() || "—"}</div>
       </div>

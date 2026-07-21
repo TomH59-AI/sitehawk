@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Sigma, ChevronDown, ChevronUp, Layers, Save, Loader2, Eraser } from "lucide-react";
-import { buildBuildableOverlay, TALONFIT_NAME, TALONFIT_TAGLINE, TALONFIT_DEFINITION } from "@/lib/aiEquation";
+import { Sigma, ChevronDown, ChevronUp, Layers, Save, Loader2, Eraser, FileDown } from "lucide-react";
+import { buildBuildableOverlay, TALONFIT_NAME, TALONFIT_TAGLINE, TALONFIT_DEFINITION, AI_EQUATION_NOTICE } from "@/lib/aiEquation";
 import { saveTowerScenario } from "@/functions/saveTowerScenario";
 import AIEquationResults from "@/components/hawkfit/AIEquationResults";
 import AIEquationComparison from "@/components/hawkfit/AIEquationComparison";
@@ -14,7 +14,7 @@ import AIEquationComparison from "@/components/hawkfit/AIEquationComparison";
 // overwrites Target A or any pipeline data).
 export default function AIEquationPanel({
   siteTarget, towerLngLat, requestedHeightFt, onHeightChange,
-  rules, evalResult, water, targetA, onOverlayChange,
+  rules, evalResult, water, targetA, onOverlayChange, onPromote,
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(true);
@@ -36,6 +36,66 @@ export default function AIEquationPanel({
   };
 
   const clearOverlay = () => { setOverlayStats(null); onOverlayChange?.(null); };
+
+  // Instant recalculation — when the overlay is showing and the proposed
+  // height changes, the colored areas recompute automatically.
+  useEffect(() => {
+    if (!overlayStats) return;
+    const result = buildBuildableOverlay({
+      parcelGeometry: siteTarget?.parcel_geometry || null,
+      requestedHeightFt, rules, waterFeatures: water,
+    });
+    if (result) { setOverlayStats(result.stats); onOverlayChange?.(result.fc); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedHeightFt]);
+
+  // Promote a saved candidate to Target A — deliberate, confirmed action only.
+  // The former Target A is retained: promotion re-runs the pipeline at the new
+  // point without overwriting the original coordinates or candidate records.
+  const promote = (cand) => {
+    const ok = window.confirm(
+      `Promote "${cand.name}" (${cand.lat.toFixed(6)}, ${cand.lon.toFixed(6)}) to Target A?\n\nThe current Target A and all pipeline data are retained in project history — this runs the pipeline at the promoted position as a new lane.`
+    );
+    if (!ok) return;
+    onPromote?.({ lat: cand.lat, lng: cand.lon }, cand.name);
+  };
+
+  // Export the current evaluation as a plain-text feasibility report.
+  const exportReport = () => {
+    if (!evalResult) return;
+    const e = evalResult;
+    const lines = [
+      "AI EQUATION — TOWER PLACEMENT FEASIBILITY REPORT",
+      `Generated: ${new Date().toLocaleString()}`,
+      "",
+      `Parcel: ${siteTarget?.parcel_id || siteTarget?.address || "—"}`,
+      `Cursor: ${towerLngLat ? `${towerLngLat[1].toFixed(6)}, ${towerLngLat[0].toFixed(6)}` : "—"}`,
+      `Requested height: ${Math.round(e.requestedHeightFt)} ft`,
+      `Maximum allowed height at cursor: ${e.maxAllowedHeightFt == null ? "Unknown" : `${Math.round(e.maxAllowedHeightFt)} ft`}`,
+      `Result: ${e.color.toUpperCase()}`,
+      `Approval type: ${e.approvalType || "Unknown"}`,
+      "",
+      ...(e.failing?.length ? ["FAILING:", ...e.failing.map((r) => `  ✗ ${r}`), ""] : []),
+      ...(e.conditional?.length ? ["CONDITIONAL:", ...e.conditional.map((r) => `  ! ${r}`), ""] : []),
+      ...(e.missing?.length ? ["MISSING INFORMATION:", ...e.missing.map((r) => `  ? ${r}`), ""] : []),
+      ...(e.passing?.length ? ["PASSING:", ...e.passing.map((r) => `  ✓ ${r}`), ""] : []),
+      ...(e.peScenario ? [`PE LETTER SCENARIO: ${e.peScenario.result === "pass" ? "Pass" : "Fail"} — ${e.peScenario.detail}`, ""] : []),
+      ...(overlayStats ? [
+        `Buildable area: ${overlayStats.buildableAcres.toFixed(2)} ac of ${overlayStats.parcelAcres.toFixed(2)} ac (${overlayStats.buildablePct.toFixed(0)}%)`,
+        overlayStats.bestPoint ? `Best base point: ${overlayStats.bestPoint.lat.toFixed(6)}, ${overlayStats.bestPoint.lon.toFixed(6)} — max ${overlayStats.bestPoint.maxHeightFt} ft` : "",
+        "",
+      ] : []),
+      ...(e.citations?.length ? ["ORDINANCE SOURCES:", ...e.citations.filter((c) => c.citation || c.url).map((c) => `  ${c.rule}: ${c.citation || ""} ${c.url || ""}`), ""] : []),
+      "NOTICE:",
+      AI_EQUATION_NOTICE,
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `ai-equation-feasibility-${(siteTarget?.parcel_id || "parcel").replace(/[^\w-]/g, "_")}.txt`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
 
   const saveCandidate = async () => {
     if (!evalResult || !towerLngLat) return;
@@ -126,10 +186,13 @@ export default function AIEquationPanel({
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save as New Candidate
             </Button>
+            <Button size="sm" variant="outline" onClick={exportReport} disabled={!evalResult} className="gap-1.5">
+              <FileDown className="w-4 h-4" /> Export Feasibility Report
+            </Button>
           </div>
 
           <AIEquationResults evalResult={evalResult} siteTarget={siteTarget} overlayStats={overlayStats} />
-          <AIEquationComparison candidates={candidates} targetA={targetA} />
+          <AIEquationComparison candidates={candidates} targetA={targetA} onPromote={onPromote ? promote : null} />
         </div>
       )}
     </div>
