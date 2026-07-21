@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import { Printer, ArrowLeft, Loader2, AlertTriangle, Camera } from "lucide-react";
 import AnthemNetTable from "../components/scip/anthemnet/AnthemNetTable";
 import { buildAnthemNet } from "../components/scip/anthemnet/anthemNetData";
@@ -24,12 +25,25 @@ export default function AnthemNetScip() {
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mapboxToken, setMapboxToken] = useState(null);
+  const [fiber, setFiber] = useState(null);
   const styleRef = useRef(null);
 
   useEffect(() => {
     base44.entities.ScipRecord.get(id).then(setRecord).catch(() => setRecord(null)).finally(() => setLoading(false));
     loadPublicConfig().then((cfg) => setMapboxToken(cfg.mapboxAccessToken || null)).catch(() => {});
   }, [id]);
+
+  // CarrierFinder fiber lookup for the active target — lit buildings, carriers, telco contact.
+  useEffect(() => {
+    if (!record) return;
+    const t = record.parcel_targets?.[record.active_target_index || 0] || {};
+    const lat = Number(t.latitude ?? record.latitude);
+    const lon = Number(t.longitude ?? record.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    carrierFinderFiber({ lat, lon, radius_miles: 1.0, state: record.state || null })
+      .then((res) => { if (res?.data && !res.data.error) setFiber(res.data); })
+      .catch(() => {});
+  }, [record]);
 
   const handlePrint = () => {
     if (!styleRef.current) {
@@ -44,7 +58,7 @@ export default function AnthemNetScip() {
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!record) return <div className="min-h-[60vh] flex items-center justify-center text-muted-foreground">SCIP record not found.</div>;
 
-  const { sections, maps, photos, missing, viewshed } = buildAnthemNet(record, mapboxToken);
+  const { sections, maps, photos, missing, viewshed } = buildAnthemNet(record, mapboxToken, fiber);
   const filledMaps = maps.filter((m) => m.url);
 
   return (
@@ -119,6 +133,9 @@ export default function AnthemNetScip() {
                 {m.url ? (
                   <>
                     <img src={m.url} alt={m.label} style={{ width: "100%", border: "1px solid #e2e8f0" }} />
+                    {m.caption && (
+                      <div style={{ marginTop: 4, fontSize: "7.5pt", color: "#475569" }}>Carriers: {m.caption}</div>
+                    )}
                     {m.link && (
                       <a href={m.link} target="_blank" rel="noopener noreferrer" className="no-print" style={{ display: "inline-block", marginTop: 4, fontSize: "8pt", color: "#2563EB", textDecoration: "underline" }}>
                         {m.link_label || "Open source map"}

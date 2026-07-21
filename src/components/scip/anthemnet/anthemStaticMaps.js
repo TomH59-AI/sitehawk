@@ -50,6 +50,19 @@ export function proximityStaticUrl(token, site, dest) {
   return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${pins}/auto/640x400@2x?padding=60&access_token=${token}`;
 }
 
+// CarrierFinder fiber exhibit: site pin + lit (OnNet) / near-net buildings, auto-fit.
+export function fiberStaticUrl(token, site, buildings = []) {
+  if (!token || !Number.isFinite(site?.lat) || !Number.isFinite(site?.lon)) return null;
+  const pins = [`pin-s-a+ef4444(${site.lon},${site.lat})`];
+  for (const b of buildings.slice(0, 20)) {
+    if (!Number.isFinite(b?.lat) || !Number.isFinite(b?.lon)) continue;
+    const color = b.xnet_code === "O" ? "16a34a" : "0891b2"; // OnNet green, NearNet cyan
+    pins.push(`pin-s+${color}(${b.lon},${b.lat})`);
+  }
+  const view = pins.length > 1 ? "auto" : `${site.lon},${site.lat},14`;
+  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${pins.join(",")}/${view}/640x400@2x?padding=60&access_token=${token}`;
+}
+
 // Parcel boundary exhibit: simplified GeoJSON overlay on satellite + center pin.
 export function parcelStaticUrl(token, geometry, lat, lon) {
   if (!token || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;

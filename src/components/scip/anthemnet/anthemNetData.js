@@ -2,7 +2,7 @@
 // Information Package layout. Auto-populates every field the pipeline already
 // knows; anything unknown is returned blank and reported in `missing`.
 
-import { proximityStaticUrl, parcelStaticUrl, wetlandsStaticUrl, windStaticUrl, asceHazardToolUrl } from "./anthemStaticMaps";
+import { proximityStaticUrl, parcelStaticUrl, wetlandsStaticUrl, windStaticUrl, asceHazardToolUrl, fiberStaticUrl } from "./anthemStaticMaps";
 
 const isBlank = (v) => v == null || String(v).trim() === "";
 
@@ -28,7 +28,7 @@ function splitAddress(addr) {
   return { street, city, state: m?.[1] || null, zip: m?.[2] || null };
 }
 
-export function buildAnthemNet(record, mapboxToken = null) {
+export function buildAnthemNet(record, mapboxToken = null, fiber = null) {
   const idx = record.active_target_index || 0;
   const t = record.parcel_targets?.[idx] || {};
   const ec = record.existing_conditions || {};
@@ -131,8 +131,16 @@ export function buildAnthemNet(record, mapboxToken = null) {
         ["Hazardous Waste Concerns?", ec.hazardous_waste],
         ["Access Notes (ROW, driveway, code)", ec.access_notes],
         ["Power Provider (name & phone)", [pa.power?.company_name || pa.power?.provider, pa.power?.phone].filter(Boolean).join(" · ") || null],
-        ["Fiber Available?", null],
-        ["Telco Provider (name & phone)", null],
+        ["Fiber Available?",
+          fiber
+            ? (fiber.lit_buildings?.length
+                ? `Yes — ${fiber.lit_buildings.filter((b) => b.xnet_code === "O").length} lit (OnNet) / ${fiber.lit_buildings.length} total buildings within ${fiber.radius_miles} mi (CarrierFinder)`
+                : "No lit buildings found within radius (CarrierFinder)")
+            : null],
+        ["Telco Provider (name & phone)",
+          fiber?.telco
+            ? [fiber.telco.name, fiber.telco.phone, fiber.telco.exchange ? `Exchange: ${fiber.telco.exchange}` : null].filter(Boolean).join(" · ")
+            : null],
         ["Nearest Airport (name & distance)",
           [pa.airport?.name || rfAirport?.name || rfAirport?.call_letters,
            (pa.airport?.distance_miles ?? rfAirport?.distance_miles) != null ? `${Number(pa.airport?.distance_miles ?? rfAirport?.distance_miles).toFixed(2)} mi` : null,
@@ -240,6 +248,13 @@ export function buildAnthemNet(record, mapboxToken = null) {
       url: proximityStaticUrl(mapboxToken, site, { lat: Number(rfTower?.latitude_deg), lon: Number(rfTower?.longitude_deg) }),
     },
     { label: "RF Coverage (CloudRF)", url: rfCoverage?.png_url || null },
+    {
+      label: "Fiber Map (CarrierFinder — lit buildings & carriers)",
+      url: fiberStaticUrl(mapboxToken, site, fiber?.lit_buildings || []),
+      caption: fiber?.lit_buildings?.length
+        ? [...new Set(fiber.lit_buildings.map((b) => b.carrier).filter(Boolean))].slice(0, 8).join(", ")
+        : null,
+    },
   ];
 
   // Viewshed — N/S/E/W tree-line maps rendered as two dedicated pages (2 per page).
