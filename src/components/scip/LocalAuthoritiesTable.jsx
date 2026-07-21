@@ -72,7 +72,7 @@ export default function LocalAuthoritiesTable({ lat, lng }) {
       <div className="px-4 py-3 flex items-center justify-between gap-2 border-b border-border">
         <div className="flex items-center gap-2">
           <Landmark className="w-4 h-4 text-primary" />
-          <h3 className="font-heading font-bold text-sm text-foreground">HawkGuard — Local Authorities &amp; Area Profile</h3>
+          <h3 className="font-heading font-bold text-sm text-foreground">HawkGuard — Local Governing Authorities &amp; Area Profile</h3>
         </div>
         {data && !loading && (
           editing ? (

@@ -23,6 +23,7 @@ import RunFullScipButton from "../components/scip/RunFullScipButton";
 import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
 import ScipQualityAuditor from "../components/scip/audit/ScipQualityAuditor";
 import JurisdictionPermitsCard from "../components/jurisdiction/JurisdictionPermitsCard";
+import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
 
 // Thin, self-contained print row placed above each on-screen SCIP panel. Lets a
 // user print the ENTIRE branded SCIP from wherever they're reviewing — without
@@ -246,6 +247,16 @@ export default function ScipDetail() {
         {/* SCIP Quality Auditor — pre-print quality gate (not printed) */}
         <div className="mb-5 no-print">
           <ScipQualityAuditor record={record} />
+        </div>
+
+        {/* Local Governing Authorities & Area Profile — auto-populated from the
+            active target's coordinates (falls back to the ring center). Shown on
+            every SCIP site, directly above the print/generate call to action. */}
+        <div className="mb-5 no-print">
+          <LocalAuthoritiesTable
+            lat={Number(record.parcel_targets?.[record.active_target_index || 0]?.latitude ?? record.latitude)}
+            lng={Number(record.parcel_targets?.[record.active_target_index || 0]?.longitude ?? record.longitude)}
+          />
         </div>
 
         {/* Print Full SCIP — prominent end-of-page call to action */}
