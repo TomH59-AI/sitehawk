@@ -27,7 +27,7 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
   const [drawing, setDrawing] = useState(false);
   const [towerCount, setTowerCount] = useState(0);
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
-  const [baseLayer, setBaseLayer] = useState("mapbox_us");
+  const [baseLayer, setBaseLayer] = useState("usgs_imagery_topo");
   const searchMarker = useRef(null);
 
   const [filters, setFilters] = useState({
@@ -51,18 +51,15 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
         if (cancelled || !containerRef.current) return;
 
         window.mapboxgl.accessToken = token;
-        // Base style: Mapbox Dark (proven to load in this app's other live maps).
-        // The selected USGS National Map raster layer is drawn ON TOP of it —
-        // if USGS tiles ever fail to load, the Mapbox base still shows instead
-        // of a blank canvas.
-        const initialBase = BASE_LAYERS.find((b) => b.id === "usgs_topo");
+        // EXACT same init recipe as the app's proven live maps (HawkFit) —
+        // satellite-streets base, no extra Map options. The selected USGS
+        // National Map raster is drawn ON TOP of it via the base switcher.
+        const initialBase = BASE_LAYERS.find((b) => b.id === "usgs_imagery_topo");
         const map = new window.mapboxgl.Map({
           container: containerRef.current,
-          style: "mapbox://styles/mapbox/dark-v11",
+          style: "mapbox://styles/mapbox/satellite-streets-v12",
           center: [-98.5, 39.5], // continental US
           zoom: 3.4,
-          projection: "mercator",
-          preserveDrawingBuffer: true,
         });
         mapRef.current = map;
         map.addControl(new window.mapboxgl.NavigationControl({ showCompass: false }), "top-left");
@@ -76,9 +73,13 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
             tileSize: 256,
             attribution: USGS_ATTRIBUTION,
           });
+          // Visible by default — the USGS National Map raster is served from
+          // basemap.nationalmap.gov (independent of the Mapbox tile host), so a
+          // real, bright basemap always shows even when the dark Mapbox style
+          // reads as a blank black canvas.
           map.addLayer({
             id: "usgs-base", type: "raster", source: "usgs-base",
-            layout: { visibility: "none" },
+            layout: { visibility: "visible" },
           });
 
           // Sources
@@ -308,7 +309,7 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
 
   return (
     <div className="relative w-full h-full">
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="w-full h-full" />
       {(loadingTowers || !ready) && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full bg-slate-900/85 text-white text-xs px-3 py-1.5 shadow-lg">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
