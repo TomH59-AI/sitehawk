@@ -339,11 +339,8 @@ async function getZoneomics(lat, lon) {
 }
 
 // ─── STEP 4: LLM structured extraction (web-grounded gap-fill) ──────────────
-async function llmExtractReport(base44, ctx) {
-  const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
-    model: 'gemini_3_flash',
-    add_context_from_internet: true,
-    prompt: `You are extracting a SiteHawk Zoning + Permit Report for a telecom tower site.
+function buildZoningPrompt(ctx) {
+  return `You are extracting a SiteHawk Zoning + Permit Report for a telecom tower site.
 
 CONTEXT (all based on the SARF search coordinates):
 - Coordinates: ${ctx.lat}, ${ctx.lon}
@@ -372,8 +369,10 @@ TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
 - If you cannot find a value in ANY source, set value to "NEEDS RESEARCH" and source to "none".
 - DO NOT invent fees, phone numbers, addresses, or section numbers. Quote only what you can verify online or from the sources.
 - For yes/no fields use "Yes" / "No" / "NEEDS RESEARCH".
-- Set confidence: "high" if directly quoted from an authoritative source; "medium" if inferred; "low" if best guess.`,
-    response_json_schema: {
+- Set confidence: "high" if directly quoted from an authoritative source; "medium" if inferred; "low" if best guess.`;
+}
+
+const REPORT_JSON_SCHEMA = {
       type: 'object',
       properties: {
         zoning_overview: {
@@ -433,9 +432,93 @@ TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
           },
         },
       },
-    },
+};
+
+async function llmExtractReport(base44, ctx) {
+  const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    model: 'gemini_3_flash',
+    add_context_from_internet: true,
+    prompt: buildZoningPrompt(ctx),
+    response_json_schema: REPORT_JSON_SCHEMA,
   });
   return result || {};
+}
+
+// ─── Kimi (Moonshot AI) extraction — PRIMARY trial engine ───────────────────
+// Same prompt + field spec, run through Kimi K2 with its builtin $web_search
+// tool (executes server-side on Moonshot). Returns null on any failure so the
+// handler falls back to the Gemini path.
+async function llmExtractReportKimi(ctx) {
+  const key = Deno.env.get('KIMI_API_KEY');
+  if (!key) return null;
+  const fieldSpec = Object.fromEntries(
+    Object.entries(REPORT_JSON_SCHEMA.properties).map(([sec, def]) => [sec, Object.keys(def.properties)])
+  );
+  const messages = [
+    {
+      role: 'system',
+      content: 'You are a telecom zoning research analyst. Use the $web_search tool to research the jurisdiction\'s Land Development Code / wireless ordinance (site:zoneomics.com is a useful secondary source). Your FINAL answer must be ONLY a valid JSON object — no markdown fences, no commentary.',
+    },
+    {
+      role: 'user',
+      content: `${buildZoningPrompt(ctx)}\n\nOUTPUT FORMAT — respond with ONLY a JSON object with these exact sections and field keys, where every field is an object {"value": string, "source": string, "confidence": string}:\n${JSON.stringify(fieldSpec, null, 1)}`,
+    },
+  ];
+  const tools = [{ type: 'builtin_function', function: { name: '$web_search' } }];
+
+  // Discover which base URL + model this key actually has access to.
+  let baseUrl = null, model = null;
+  for (const b of ['https://api.moonshot.ai/v1', 'https://api.moonshot.cn/v1']) {
+    const m = await fetchJsonWithTimeout(`${b}/models`, { headers: { Authorization: `Bearer ${key}` } }, 12000);
+    const ids = (m.data?.data || []).map((x) => x.id);
+    if (m.ok && ids.length) {
+      baseUrl = b;
+      model = ids.find((id) => id === 'kimi-k3') || ids.find((id) => id.includes('kimi-k2') && !id.includes('code')) || ids.find((id) => id === 'kimi-latest') || ids[0];
+      console.log(`[KIMI] base=${b} models=${ids.slice(0, 10).join(',')} → using ${model}`);
+      break;
+    }
+    console.log(`[KIMI] models probe failed base=${b} status=${m.status}`);
+  }
+  if (!baseUrl || !model) return null;
+
+  for (let turn = 0; turn < 8; turn++) {
+    const res = await fetchJsonWithTimeout(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, max_tokens: 4096, messages, tools }),
+    }, 110000);
+    if (!res.ok) {
+      console.log(`[KIMI] HTTP ${res.status} turn=${turn}: ${JSON.stringify(res.data?.error || res.error || '').slice(0, 300)}`);
+      return null;
+    }
+    const choice = res.data?.choices?.[0];
+    const msg = choice?.message;
+    if (!msg) { console.log('[KIMI] empty response'); return null; }
+
+    if (choice.finish_reason === 'tool_calls' && msg.tool_calls?.length) {
+      // Builtin $web_search runs on Moonshot's side — echo the arguments back.
+      messages.push(msg);
+      for (const tc of msg.tool_calls) {
+        messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.function.name, content: tc.function.arguments });
+      }
+      continue;
+    }
+
+    const text = String(msg.content || '');
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start === -1 || end === -1) { console.log(`[KIMI] no JSON in final answer (turn=${turn})`); return null; }
+    try {
+      const parsed = JSON.parse(text.slice(start, end + 1));
+      console.log(`[KIMI] SUCCESS turns=${turn + 1} sections=${Object.keys(parsed).join(',')}`);
+      return parsed;
+    } catch (e) {
+      console.log(`[KIMI] JSON parse failed: ${e?.message}`);
+      return null;
+    }
+  }
+  console.log('[KIMI] tool loop exceeded 8 turns');
+  return null;
 }
 
 // ─── handler ────────────────────────────────────────────────────────────────
@@ -559,10 +642,10 @@ Deno.serve(async (req) => {
     // Zoneomics paid API is banned.
     const ordinance = await getTelecomOrdinance(geo.state_code, city || geo.county_name).catch(() => null);
 
-    // STEP 4 — LLM web-grounded gap-fill (free site:zoneomics.com web search +
-    // jurisdiction ordinance research), seeded with the telecom_ordinances row
-    // and Realie facts. Zoneomics paid input is gone.
-    const llmReport = await llmExtractReport(base44, {
+    // STEP 4 — LLM web-grounded gap-fill. TRIAL: Kimi (Moonshot) runs FIRST via
+    // KIMI_API_KEY with its builtin web search; any failure falls back to the
+    // proven Gemini path so the report always completes.
+    const llmCtx = {
       lat, lon,
       state: geo.state_name || geo.state_code,
       county: geo.county_name,
@@ -571,7 +654,17 @@ Deno.serve(async (req) => {
       realie,
       zoneomics,
       ordinance,
+    };
+    let llmEngine = 'kimi';
+    let llmReport = await llmExtractReportKimi(llmCtx).catch((e) => {
+      console.log(`[KIMI] error: ${e?.message || e}`);
+      return null;
     });
+    if (!llmReport) {
+      llmEngine = 'gemini';
+      console.log('[KIMI] falling back to Gemini');
+      llmReport = await llmExtractReport(base44, llmCtx);
+    }
 
     const report = llmReport || {};
     report.zoning_overview = report.zoning_overview || {};
@@ -653,6 +746,7 @@ Deno.serve(async (req) => {
       status: 'ok',
       coordinates: { lat, lon },
       geo,
+      llm_engine: llmEngine,
       report,
       jurisdiction: {
         state_code: geo.state_code,
