@@ -19,6 +19,29 @@ export function wetlandsStaticUrl(lat, lon) {
   return `https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/export?${params}`;
 }
 
+// ASCE 7-22 wind speed raster (Risk Category II) export around the site.
+export function windStaticUrl(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const b = 0.35; // regional context view
+  const params = new URLSearchParams({
+    bbox: `${lon - b},${lat - b},${lon + b},${lat + b}`,
+    bboxSR: "4326",
+    imageSR: "3857",
+    size: "1280,800",
+    dpi: "150",
+    format: "png32",
+    transparent: "false",
+    f: "image",
+  });
+  return `https://gis.asce.org/arcgis/rest/services/ASCE722/w2022_Tile_RC_II_new/MapServer/export?${params}`;
+}
+
+// Interactive ASCE Hazard Tool deep-link for the site (reference link).
+export function asceHazardToolUrl(lat, lon) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return `https://ascehazardtool.org/#lat=${lat}&lon=${lon}&z=5&r=default&sc=0&sv=7-22&m=imperial&v=`;
+}
+
 // Site → destination proximity exhibit (airport / cell tower): two pins, auto-fit.
 export function proximityStaticUrl(token, site, dest) {
   if (!token || !Number.isFinite(site?.lat) || !Number.isFinite(site?.lon) ||

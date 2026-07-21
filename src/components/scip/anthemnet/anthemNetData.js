@@ -2,7 +2,7 @@
 // Information Package layout. Auto-populates every field the pipeline already
 // knows; anything unknown is returned blank and reported in `missing`.
 
-import { proximityStaticUrl, parcelStaticUrl, wetlandsStaticUrl } from "./anthemStaticMaps";
+import { proximityStaticUrl, parcelStaticUrl, wetlandsStaticUrl, windStaticUrl, asceHazardToolUrl } from "./anthemStaticMaps";
 
 const isBlank = (v) => v == null || String(v).trim() === "";
 
@@ -223,7 +223,12 @@ export function buildAnthemNet(record, mapboxToken = null) {
     { label: "FLU Map", url: null },
     { label: "Wetlands Map (USFWS NWI)", url: wetlandsStaticUrl(site.lat, site.lon) },
     { label: "Parcel Map", url: parcelStaticUrl(mapboxToken, parcelGeom, site.lat, site.lon) },
-    { label: "Wind Speed Map", url: null },
+    {
+      label: "Wind Speed Map (ASCE 7-22 · Risk Cat. II)",
+      url: windStaticUrl(site.lat, site.lon),
+      link: asceHazardToolUrl(site.lat, site.lon),
+      link_label: "Open in ASCE Hazard Tool",
+    },
     { label: "Power Map", url: pa.power?.map_url || pa.power?.url || null },
     {
       label: "Closest Airport Map",

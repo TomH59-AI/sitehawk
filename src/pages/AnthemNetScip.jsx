@@ -117,7 +117,14 @@ export default function AnthemNetScip() {
               <div key={m.label} style={{ padding: 8, border: "0.5px solid #e2e8f0" }}>
                 <div style={{ fontWeight: 700, fontSize: "8.5pt", color: "#111827", marginBottom: 4 }}>{m.label}</div>
                 {m.url ? (
-                  <img src={m.url} alt={m.label} style={{ width: "100%", border: "1px solid #e2e8f0" }} />
+                  <>
+                    <img src={m.url} alt={m.label} style={{ width: "100%", border: "1px solid #e2e8f0" }} />
+                    {m.link && (
+                      <a href={m.link} target="_blank" rel="noopener noreferrer" className="no-print" style={{ display: "inline-block", marginTop: 4, fontSize: "8pt", color: "#2563EB", textDecoration: "underline" }}>
+                        {m.link_label || "Open source map"}
+                      </a>
+                    )}
+                  </>
                 ) : (
                   <div style={{ padding: "24px 0", textAlign: "center", color: "#94a3b8", fontSize: "8.5pt", background: "#f8fafc" }}>Not generated yet</div>
                 )}
