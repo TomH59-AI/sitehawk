@@ -1,15 +1,14 @@
 /**
  * Follow-Up Tracker — Master site follow-up tracker.
  * Mirrors the Excel "Master Follow-Up Sites" sheet the subscriber uploaded.
- * Auto-populated from Target selection. Syncs to Google Sheets. Printable.
+ * Auto-populated from Target selection. Printable + Excel download.
  */
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { followUpTrackerSync } from "@/functions/followUpTrackerSync";
 import { Button } from "@/components/ui/button";
 import {
   FileSpreadsheet, Plus, Printer, RefreshCw, Trash2,
-  ExternalLink, ChevronDown, Save, X, CheckCircle2, AlertTriangle
+  Download, ChevronDown, Save, X, CheckCircle2, AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import moment from "moment";
@@ -61,9 +60,6 @@ export default function FollowUpTrackerPage() {
   const [rows, setRows]             = useState([]);
   const [loading, setLoading]       = useState(true);
   const [saving, setSaving]         = useState({});
-  const [syncing, setSyncing]       = useState(false);
-  const [sheetUrl, setSheetUrl]     = useState(null);
-  const [sheetId, setSheetId]       = useState(null);
   const [clearConfirm, setClearConfirm] = useState(null); // rowId | "all"
   const [user, setUser]             = useState(null);
   const printRef = useRef(null);
@@ -71,7 +67,6 @@ export default function FollowUpTrackerPage() {
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
     loadRows();
-    loadSheetId();
   }, []);
 
   async function loadRows() {
@@ -84,14 +79,6 @@ export default function FollowUpTrackerPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function loadSheetId() {
-    try {
-      const res = await followUpTrackerSync({ action: "getSheetId" });
-      const id = res?.data?.spreadsheetId;
-      if (id) { setSheetId(id); setSheetUrl(`https://docs.google.com/spreadsheets/d/${id}`); }
-    } catch { /* not yet linked */ }
   }
 
   async function handleAddRow() {
@@ -128,33 +115,19 @@ export default function FollowUpTrackerPage() {
     toast.success("Tracker cleared.");
   }
 
-  async function handleInitSheet() {
-    setSyncing(true);
-    try {
-      const res = await followUpTrackerSync({ action: "init", spreadsheetId: sheetId });
-      const url = res?.data?.spreadsheetUrl;
-      const id  = res?.data?.spreadsheetId;
-      setSheetUrl(url);
-      setSheetId(id);
-      toast.success("Google Sheet created & linked!");
-    } catch (e) {
-      toast.error("Sheet setup failed: " + e.message);
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  async function handleSyncAll() {
-    if (!sheetId) { await handleInitSheet(); return; }
-    setSyncing(true);
-    try {
-      const res = await followUpTrackerSync({ action: "pushAll", spreadsheetId: sheetId });
-      toast.success(`Synced ${res?.data?.count ?? rows.length} rows to Google Sheets.`);
-    } catch (e) {
-      toast.error("Sync failed: " + e.message);
-    } finally {
-      setSyncing(false);
-    }
+  async function handleDownloadExcel() {
+    const XLSX = await import("xlsx");
+    const data = rows.map((r) => {
+      const out = {};
+      for (const c of COLS) out[c.label] = r[c.key] ?? "";
+      return out;
+    });
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = COLS.map((c) => ({ wch: Math.max(12, Math.round(c.width / 8)) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Follow-Up Sites");
+    XLSX.writeFile(wb, `SiteHawk_Follow-Up_Tracker_${moment().format("YYYY-MM-DD")}.xlsx`);
+    toast.success("Tracker downloaded — opens in Excel or Google Sheets.");
   }
 
   function handlePrint() {
@@ -196,16 +169,10 @@ export default function FollowUpTrackerPage() {
           <Button size="sm" onClick={handleAddRow} className="gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white">
             <Plus className="w-4 h-4" /> Add Row
           </Button>
-          <Button size="sm" variant="outline" onClick={handleSyncAll} disabled={syncing} className="gap-1.5">
-            {syncing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4 text-green-600" />}
-            {sheetId ? "Sync to Google Sheets" : "Link Google Sheet"}
-          </Button>
-          {sheetUrl && (
-            <a href={sheetUrl} target="_blank" rel="noreferrer">
-              <Button size="sm" variant="outline" className="gap-1.5">
-                <ExternalLink className="w-3.5 h-3.5" /> Open Sheet
-              </Button>
-            </a>
+          {rows.length > 0 && (
+            <Button size="sm" variant="outline" onClick={handleDownloadExcel} className="gap-1.5">
+              <Download className="w-4 h-4 text-green-600" /> Download Excel
+            </Button>
           )}
           <Button size="sm" variant="outline" onClick={handlePrint} className="gap-1.5">
             <Printer className="w-4 h-4" /> Print
