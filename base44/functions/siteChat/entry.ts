@@ -63,13 +63,61 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const message = body?.message || "";
     const scipFormat = body?.context?.scip_format || "";
+    const scipId = body?.context?.scip_id || null;
 
     if (!message.trim()) return Response.json({ error: 'Empty message' }, { status: 400 });
+
+    // --- Site context enrichment: when opened on a SCIP page, load that site's
+    // record so "this jurisdiction / this site / the building permit" questions
+    // are answered from the site's actual data. ---
+    let siteContext = "";
+    let siteLoc = null;
+    if (scipId) {
+      try {
+        const rec = await base44.entities.ScipRecord.get(scipId);
+        if (rec) {
+          const t = rec.parcel_targets?.[rec.active_target_index || 0] || null;
+          siteLoc = t?.latitude != null
+            ? { lat: Number(t.latitude), lon: Number(t.longitude) }
+            : { lat: Number(rec.latitude), lon: Number(rec.longitude) };
+
+          const parts = [];
+          parts.push(`Site: ${rec.site_name || 'unnamed'} · County: ${rec.county || '?'} ${rec.state || ''} · Ring center: ${rec.latitude}, ${rec.longitude}`);
+          if (rec.zoning_jurisdiction) parts.push(`Zoning jurisdiction: ${rec.zoning_jurisdiction}`);
+          if (t) parts.push(`Active target (${t.label || 'Target A'}): ${t.parcel_address || ''} · APN ${t.apn || '?'} · ${t.acreage ?? '?'} ac · Zoning: ${t.zoning_classification || '?'} · Owner: ${t.owner_name || '?'} · FEMA: ${t.fema_risk_factor || '?'}`);
+          if (rec.zoning_report) parts.push(`Zoning & Permitting worksheet (each row: value/source/confidence):\n${JSON.stringify(rec.zoning_report).slice(0, 8000)}`);
+          if (rec.existing_conditions) parts.push(`Existing conditions: ${JSON.stringify(rec.existing_conditions).slice(0, 2000)}`);
+
+          // Jurisdiction-level zoning + permit cache (building permit process,
+          // fees, timeframes, tower specifics) — app-wide cache.
+          if (rec.zoning_jurisdiction) {
+            const norm = String(rec.zoning_jurisdiction)
+              .toLowerCase()
+              .replace(/city of |town of |village of |county|,.*$/g, '')
+              .replace(/[^a-z ]/g, '')
+              .trim();
+            if (norm) {
+              const caches = await base44.asServiceRole.entities.JurisdictionZoningCache.filter(
+                { jurisdiction_name_normalized: norm }, '-updated_date', 1
+              );
+              const cache = caches?.[0];
+              if (cache?.report) parts.push(`Jurisdiction zoning/permitting report (${cache.jurisdiction_name}):\n${JSON.stringify(cache.report).slice(0, 8000)}`);
+              if (cache?.telecom_requirements) parts.push(`Telecom requirements: ${JSON.stringify(cache.telecom_requirements).slice(0, 3000)}`);
+            }
+          }
+          siteContext = `\n\n[ACTIVE SITE CONTEXT — the user is viewing this SCIP; "this site/jurisdiction/permit" refers to it]\n${parts.join('\n')}`;
+        }
+      } catch (siteErr) {
+        console.warn('HawkBot site context load failed:', siteErr.message);
+      }
+    }
 
     // --- Tool call enrichment ---
     let toolContext = "";
     const intent = detectIntent(message);
-    const loc = extractLocation(message);
+    // Location: explicit coords in the message win; otherwise fall back to the
+    // active site's coordinates so lookups work without retyping lat/lon.
+    const loc = extractLocation(message) || siteLoc;
 
     if (intent && loc) {
       try {
@@ -115,9 +163,10 @@ Deno.serve(async (req) => {
     // Build prompt — inject live data if we got it, otherwise let LLM use web search
     const enrichmentNote = toolContext
       ? `The following LIVE data was retrieved from SiteHawk's real data pipelines. Use it to give a precise answer:\n${toolContext}`
-      : `No live pipeline data was retrieved for this query. Use your web search capability to find the most accurate, up-to-date answer.`;
+      : `No live pipeline data was retrieved for this query. Use your web search capability to find the most accurate, up-to-date answer (e.g. official jurisdiction websites for permit durations, fees, contacts).`;
 
     const prompt = `${scipFormat}
+${siteContext}
 
 ${enrichmentNote}
 
@@ -130,7 +179,9 @@ Respond as HawkBot — concise, professional, telecom-industry savvy. If live da
     const response = await base44.integrations.Core.InvokeLLM({
       prompt,
       model: "gemini_3_flash",
-      add_context_from_internet: !toolContext, // only web-search if no live data
+      // Web search stays on unless a pipeline lookup already answered — site
+      // context alone may not cover questions like permit validity periods.
+      add_context_from_internet: !toolContext,
     });
 
     return Response.json({ response });

@@ -98,6 +98,11 @@ export default function HawkBotWidget() {
     closeWidget();
   };
 
+  // Site-awareness — when HawkBot is opened on a SCIP page, pass the record id
+  // so the backend can load that site's jurisdiction, zoning & permit data.
+  const scipMatch = location.pathname.match(/^\/scip\/([^/]+)/);
+  const scipId = scipMatch && scipMatch[1] !== "new" ? scipMatch[1] : null;
+
   const sendMessage = async (text) => {
     const msg = text || input.trim();
     if (!msg || loading) return;
@@ -127,7 +132,7 @@ export default function HawkBotWidget() {
     try {
       const res = await siteChat({
         message: msg,
-        context: { source: "hawkbot_global", scip_format: SCIP_CONTEXT },
+        context: { source: "hawkbot_global", scip_format: SCIP_CONTEXT, scip_id: scipId },
       });
       const data = res.data;
       const reply = data?.response || data?.message || data?.error || "Sorry, I couldn't get a response. Please try again.";
