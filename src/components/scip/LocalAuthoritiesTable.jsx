@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Landmark, Loader2, Pencil, Save, X } from "lucide-react";
 import { getLocalAuthorities, saveLocalAuthorities } from "@/lib/localAuthorities";
 import LocalAuthoritiesRows from "./LocalAuthoritiesRows";
+import SiteDirectionsRow from "./SiteDirectionsRow";
 
 // "Local Governing Authorities & Area Profile" — auto-populated from the
 // pipeline's site coordinates (Target A, falling back to the SARF center).
@@ -105,6 +106,9 @@ export default function LocalAuthoritiesTable({ lat, lng }) {
       {!loading && data && (
         <LocalAuthoritiesRows data={data} editing={editing} draft={draft} setDraft={setDraft} />
       )}
+
+      {/* Directions to the site from the busiest nearby crossroads */}
+      <SiteDirectionsRow lat={lat} lng={lng} />
     </div>
   );
 }
