@@ -21,6 +21,7 @@ import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
 import PrintSiteHawkScipButton from "../components/scip/PrintSiteHawkScipButton";
 import RunFullScipButton from "../components/scip/RunFullScipButton";
 import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
+import ScipQualityAuditor from "../components/scip/audit/ScipQualityAuditor";
 import JurisdictionPermitsCard from "../components/jurisdiction/JurisdictionPermitsCard";
 
 // Thin, self-contained print row placed above each on-screen SCIP panel. Lets a
@@ -240,6 +241,11 @@ export default function ScipDetail() {
         {/* Run Full SCIP — pipeline guard that runs all sections for the active target */}
         <div className="mb-5 no-print">
           <RunFullScipButton record={record} onUpdate={setRecord} />
+        </div>
+
+        {/* SCIP Quality Auditor — pre-print quality gate (not printed) */}
+        <div className="mb-5 no-print">
+          <ScipQualityAuditor record={record} />
         </div>
 
         {/* Print Full SCIP — prominent end-of-page call to action */}
