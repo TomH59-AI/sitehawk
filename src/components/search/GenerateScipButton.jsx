@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FileText, X, Printer, Loader2, Download, Upload } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { generateScipWorkbook } from "@/functions/generateScipWorkbook";
+import { zapierNewScip } from "@/functions/zapierNewScip";
 import { toast } from "sonner";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
@@ -347,6 +348,18 @@ export default function GenerateScipButton({
       // Notify the pipeline that a SCIP was successfully generated for THIS
       // target's label — Section 3 uses this to lock the ladder & advance.
       onGenerated?.(rec.targetA.label || "Target A");
+      // Fire the "New SCIP generated" Zapier webhook (fire-and-forget).
+      zapierNewScip({
+        agent_name: rec.agent_name,
+        agent_email: rec.agent_email,
+        site_name: rec.site_name,
+        latitude: rec.latitude,
+        longitude: rec.longitude,
+        submittal_date: rec.generated_at,
+        scip_file_url: rec.sarf_map || "",
+        county: rec.county,
+        state: rec.state,
+      }).catch((e) => console.warn("[ZAPIER] webhook failed:", e?.message));
     } catch (err) {
       console.error(err);
       toast.error("Could not build the SCIP. Try regenerating the pipeline maps.");
