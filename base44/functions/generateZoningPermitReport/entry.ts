@@ -448,7 +448,7 @@ async function llmExtractReport(base44, ctx) {
 // Same prompt + field spec, run through Kimi K2 with its builtin $web_search
 // tool (executes server-side on Moonshot). Returns null on any failure so the
 // handler falls back to the Gemini path.
-async function llmExtractReportKimi(ctx) {
+async function llmExtractReportKimi(ctx, deadlineTs) {
   const key = Deno.env.get('KIMI_API_KEY');
   if (!key) return null;
   // Explicit template — every field key maps to a {value,source,confidence}
@@ -489,13 +489,20 @@ async function llmExtractReportKimi(ctx) {
   if (!baseUrl || !model) return null;
 
   for (let turn = 0; turn < 8; turn++) {
+    // Stay inside the platform's hard 120s request wall — each call may only
+    // use whatever budget remains.
+    const callTimeout = deadlineTs - Date.now();
+    if (callTimeout < 8000) { console.log(`[KIMI] budget exhausted at turn=${turn}`); return null; }
     const res = await fetchJsonWithTimeout(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: 8192, messages, tools }),
-    }, 110000);
+      body: JSON.stringify({ model, max_tokens: 4096, messages, tools }),
+    }, callTimeout);
     if (!res.ok) {
       console.log(`[KIMI] HTTP ${res.status} turn=${turn}: ${JSON.stringify(res.data?.error || res.error || '').slice(0, 300)}`);
+      // Transient network abort/5xx — retry within the remaining budget instead
+      // of instantly giving up on Kimi. Hard 4xx errors won't recover: bail.
+      if (res.status === 0 || res.status >= 500) continue;
       return null;
     }
     const choice = res.data?.choices?.[0];
@@ -539,6 +546,7 @@ async function llmExtractReportKimi(ctx) {
 
 // ─── handler ────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
+  const requestStart = Date.now(); // platform proxy kills the request at 120s — budget everything off this
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -672,13 +680,16 @@ Deno.serve(async (req) => {
       ordinance,
     };
     let llmEngine = 'kimi';
-    let llmReport = await llmExtractReportKimi(llmCtx).catch((e) => {
+    // Kimi (K2.6 fast engine) is the committed engine — it gets the request's
+    // full budget minus ~35s reserved for the emergency Gemini path.
+    const kimiDeadline = requestStart + 95000;
+    let llmReport = await llmExtractReportKimi(llmCtx, kimiDeadline).catch((e) => {
       console.log(`[KIMI] error: ${e?.message || e}`);
       return null;
     });
     if (!llmReport) {
       llmEngine = 'gemini';
-      console.log('[KIMI] falling back to Gemini');
+      console.log('[KIMI] failed — emergency Gemini fallback');
       llmReport = await llmExtractReport(base44, llmCtx);
     }
 
