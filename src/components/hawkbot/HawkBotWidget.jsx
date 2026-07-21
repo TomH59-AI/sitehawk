@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { X, Send, MessageCircle, FileText } from "lucide-react";
 import HawkIcon from "../HawkIcon";
 import { siteChat } from "@/functions/siteChat";
+import useDraggable from "./useDraggable";
 
 const QUICK_ACTIONS = [
   "How do I use SiteHawk?",
@@ -66,6 +67,8 @@ export default function HawkBotWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
+  // Draggable — grab the launcher (or the chat header) and move HawkBot anywhere.
+  const { onPointerDown, wasDragged, styleFor } = useDraggable();
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -148,9 +151,12 @@ export default function HawkBotWidget() {
       {/* Floating launcher button */}
       {!open && (
         <button
-          onClick={() => setOpen(true)}
+          data-hawkbot-drag
+          onPointerDown={onPointerDown}
+          onClick={() => { if (!wasDragged()) setOpen(true); }}
           aria-label="Open HawkBot"
-          className="fixed bottom-5 left-5 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/30 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all"
+          style={styleFor(180, 52)}
+          className="fixed bottom-5 left-5 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/30 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-colors cursor-grab active:cursor-grabbing touch-none"
         >
           <MessageCircle className="w-5 h-5" />
           <span className="font-heading font-bold text-sm hidden sm:inline">Ask HawkBot</span>
@@ -159,9 +165,16 @@ export default function HawkBotWidget() {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-5 left-5 z-50 w-[min(440px,calc(100vw-2.5rem))] h-[min(680px,calc(100vh-6rem))] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
+        <div
+          data-hawkbot-drag
+          style={styleFor(440, 680)}
+          className="fixed bottom-5 left-5 z-50 w-[min(440px,calc(100vw-2.5rem))] h-[min(680px,calc(100vh-6rem))] flex flex-col bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
+        >
+          {/* Header — grab to move the whole chat window */}
+          <div
+            onPointerDown={onPointerDown}
+            className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar cursor-grab active:cursor-grabbing touch-none select-none"
+          >
             <div className="flex items-center gap-2">
               <HawkIcon size={32} />
               <div>
