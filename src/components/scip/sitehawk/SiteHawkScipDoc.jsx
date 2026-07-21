@@ -233,9 +233,16 @@ export default function SiteHawkScipDoc({ record }) {
           footerNote="Aerial/topo/parcel © Mapbox · Flood Risk Layer · SiteHawk Wetlands Intelligence · Wind per ASCE 7-22 · airport & cell tower shown crow-flies. Field verification recommended."
         >
           <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <div className="rounded-lg overflow-hidden" style={{ width: "100%", aspectRatio: "1000 / 720", border: `2px solid ${HAWK.blue}`, background: HAWK.bg }}>
+            <div className="rounded-lg overflow-hidden" style={{ position: "relative", width: "100%", aspectRatio: "1000 / 720", border: `2px solid ${HAWK.blue}`, background: HAWK.bg }}>
               {urlOf(url) ? (
-                <img src={urlOf(url)} alt={title} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <>
+                  <img src={urlOf(url)} alt={title} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  {/* Transparent agency raster (FEMA / NWI / ASCE wind) layered
+                      over the basemap — same bbox & aspect, pixel-aligned. */}
+                  {url?.overlay_url && (
+                    <img src={url.overlay_url} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                  )}
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[10pt]" style={{ background: HAWK.bg, color: HAWK.muted }}>Not generated</div>
               )}

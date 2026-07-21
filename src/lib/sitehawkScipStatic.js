@@ -64,13 +64,24 @@ function pairBbox(srcLat, srcLon, dstLat, dstLon, padFrac = 0.3) {
 }
 
 // Static URL: GeoJSON overlay fit to a center+zoom OR an explicit bbox.
-function overlayUrl({ style, features, center, zoom, bbox, token }) {
+// IMPORTANT: Mapbox Static Images rejects `padding` on center/zoom requests
+// (HTTP 422 → blank image). Padding is only sent for bbox-framed maps.
+function overlayUrl({ style, features, center, zoom, bbox, token, padding = 40 }) {
   const geojson = encodeURIComponent(JSON.stringify({ type: "FeatureCollection", features }));
   const overlay = `geojson(${geojson})`;
   const region = bbox
     ? `[${bbox.map((n) => n.toFixed(6)).join(",")}]`
     : `${center[0].toFixed(6)},${center[1].toFixed(6)},${zoom}`;
-  return `${STATIC_BASE}/${style}/static/${overlay}/${region}/${IMG_W}x${IMG_H}@2x?access_token=${token}&padding=40`;
+  const pad = bbox ? `&padding=${padding}` : "";
+  return `${STATIC_BASE}/${style}/static/${overlay}/${region}/${IMG_W}x${IMG_H}@2x?access_token=${token}${pad}`;
+}
+
+// Bbox around (lat,lon) whose Mercator aspect matches the 1000x720 image, so a
+// separately-fetched ArcGIS raster (same bbox, same size) aligns pixel-perfect
+// when layered over the Mapbox basemap in the printed SCIP.
+function aspectBbox(lat, lon, padLat) {
+  const padLon = (padLat * (IMG_W / IMG_H)) / Math.cos((lat * Math.PI) / 180);
+  return [lon - padLon, lat - padLat, lon + padLon, lat + padLat];
 }
 
 // Plain centered basemap (no overlay) — for raster-overlay maps we layer on top.
@@ -129,18 +140,20 @@ const FEMA_EXPORT = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/M
 export function buildFema(t, token) {
   if (!ok(t) || !token) return null;
   const { lat, lon } = tgt(t);
-  const pad = 0.012;
-  const bbox = [lon - pad, lat - pad, lon + pad, lat + pad];
+  // Mapbox cannot composite a georeferenced external raster server-side, so the
+  // SCIP layers the transparent FEMA export over the basemap client-side.
+  // Both images share the exact same Mercator-aspect bbox → perfect alignment.
+  const bbox = aspectBbox(lat, lon, 0.009);
   const femaPng = `${FEMA_EXPORT}?` + new URLSearchParams({
-    bbox: `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`,
-    bboxSR: "4326", imageSR: "4326", size: `${IMG_W},${IMG_H}`,
+    bbox: bbox.join(","),
+    bboxSR: "4326", imageSR: "3857", size: `${IMG_W},${IMG_H}`,
     format: "png32", transparent: "true", dpi: "96",
     layers: "show:28", f: "image",
   });
-  const geojson = encodeURIComponent(JSON.stringify({ type: "FeatureCollection", features: targetMarkers(lat, lon) }));
-  const region = `[${bbox.map((n) => n.toFixed(6)).join(",")}]`;
-  const overlay = `url-${encodeURIComponent(femaPng)}(${region}),geojson(${geojson})`;
-  return `${STATIC_BASE}/${LIGHT_STYLE}/static/${overlay}/${region}/${IMG_W}x${IMG_H}@2x?access_token=${token}&padding=0`;
+  return {
+    url: overlayUrl({ style: LIGHT_STYLE, features: targetMarkers(lat, lon), bbox, token, padding: 0 }),
+    overlay_url: femaPng,
+  };
 }
 
 // Zoneomics zoning raster tiles composited over a light basemap (when key present).
@@ -157,18 +170,17 @@ const NWI_EXPORT = "https://www.fws.gov/wetlandsmapservice/rest/services/Wetland
 export function buildWetlands(t, token) {
   if (!ok(t) || !token) return null;
   const { lat, lon } = tgt(t);
-  const pad = 0.012;
-  const bbox = [lon - pad, lat - pad, lon + pad, lat + pad];
+  const bbox = aspectBbox(lat, lon, 0.009);
   const nwiPng = `${NWI_EXPORT}?` + new URLSearchParams({
-    bbox: `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`,
-    bboxSR: "4326", imageSR: "4326", size: `${IMG_W},${IMG_H}`,
+    bbox: bbox.join(","),
+    bboxSR: "4326", imageSR: "3857", size: `${IMG_W},${IMG_H}`,
     format: "png32", transparent: "true", dpi: "96",
     layers: "show:0", f: "image",
   });
-  const geojson = encodeURIComponent(JSON.stringify({ type: "FeatureCollection", features: targetMarkers(lat, lon) }));
-  const region = `[${bbox.map((n) => n.toFixed(6)).join(",")}]`;
-  const overlay = `url-${encodeURIComponent(nwiPng)}(${region}),geojson(${geojson})`;
-  return `${STATIC_BASE}/${SAT_STYLE}/static/${overlay}/${region}/${IMG_W}x${IMG_H}@2x?access_token=${token}&padding=0`;
+  return {
+    url: overlayUrl({ style: SAT_STYLE, features: targetMarkers(lat, lon), bbox, token, padding: 0 }),
+    overlay_url: nwiPng,
+  };
 }
 
 export function buildParcel(t, token) {
@@ -266,21 +278,16 @@ const ASCE_WIND_EXPORT = "https://gis.asce.org/arcgis/rest/services/ASCE722/w202
 export function buildWind(t, token) {
   if (!ok(t) || !token) return null;
   const { lat, lon } = tgt(t);
-  // ~0.35° square around Target A — enough to show the local wind-speed band
-  // while staying within a reliable single ASCE export tile.
-  const pad = 0.35;
-  const bbox = [lon - pad, lat - pad, lon + pad, lat + pad];
+  // ~0.3° around Target A — enough to show the local wind-speed band while
+  // staying within a reliable single ASCE export tile.
+  const bbox = aspectBbox(lat, lon, 0.3);
   const ascePng = `${ASCE_WIND_EXPORT}?` + new URLSearchParams({
-    bbox: `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`,
-    // Square bbox → square image so the raster isn't stretched/dropped.
-    bboxSR: "4326", imageSR: "4326", size: "720,720",
+    bbox: bbox.join(","),
+    bboxSR: "4326", imageSR: "3857", size: `${IMG_W},${IMG_H}`,
     format: "png32", transparent: "true", dpi: "96", layers: "show:5", f: "image",
   });
-  const features = [
-    pointFeature(lat, lon, BRAND_GREEN, "communications-tower"),
-  ];
-  const geojson = encodeURIComponent(JSON.stringify({ type: "FeatureCollection", features }));
-  const region = `[${bbox.map((n) => n.toFixed(6)).join(",")}]`;
-  const overlay = `url-${encodeURIComponent(ascePng)}(${region}),geojson(${geojson})`;
-  return `${STATIC_BASE}/${LIGHT_STYLE}/static/${overlay}/${region}/${IMG_W}x${IMG_H}@2x?access_token=${token}&padding=0`;
+  return {
+    url: overlayUrl({ style: LIGHT_STYLE, features: targetMarkers(lat, lon), bbox, token, padding: 0 }),
+    overlay_url: ascePng,
+  };
 }
