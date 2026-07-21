@@ -275,6 +275,7 @@ export default function ScipDetail() {
               unlocked={true}
               targetA={record.parcel_targets[record.active_target_index || 0]}
               towerHeightFt={Number(record.sarf_height) || 199}
+              searchRing={{ lat: Number(record.latitude), lon: Number(record.longitude), radius_miles: Number(record.search_radius) || 1 }}
             />
           </div>
         )}

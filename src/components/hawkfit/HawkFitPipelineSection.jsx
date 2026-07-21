@@ -25,7 +25,7 @@ const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, 
 // Preliminary Tower Siting Exhibit. Consumes the SAME active Target A as the
 // SCIP pipeline (ScipRecord.parcel_targets → SearchResult → TowerSitingRun →
 // TowerVisualization → Tower3DRender) and runs deterministic turf fit checks.
-export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget, zoningResult = null, searchCenter = null }) {
+export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget, zoningResult = null, searchCenter = null, searchRing = null }) {
   const { toast, dismiss } = useToast();
   const [expanded, setExpanded] = useState(false);
   const [rejectedPoint, setRejectedPoint] = useState(null);
@@ -316,6 +316,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                     onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
                     overlay={aiOverlay}
                     cursorColor={aiEval ? COLOR_HEX[aiEval.color] : null}
+                    searchRing={searchRing || searchCenter}
                   />
                 </div>
               ) : (

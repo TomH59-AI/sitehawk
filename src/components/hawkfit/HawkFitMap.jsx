@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { buildDimensionLabels } from "@/lib/parcelDimensions";
+import { circle } from "@turf/circle";
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
@@ -25,7 +26,7 @@ function createTowerCursorEl(color) {
   return el;
 }
 
-export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], selectionEnabled = false, onMapSelect, onClearSavedTargets, overlay = null, cursorColor = null }) {
+export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], selectionEnabled = false, onMapSelect, onClearSavedTargets, overlay = null, cursorColor = null, searchRing = null }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -54,6 +55,21 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
           map.addSource("hf-compound", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-dims", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-ai-overlay", { type: "geojson", data: EMPTY_FC });
+          map.addSource("hf-ring", { type: "geojson", data: EMPTY_FC });
+          map.addLayer({ id: "hf-ring-line", type: "line", source: "hf-ring", filter: ["==", ["geometry-type"], "Polygon"], paint: { "line-color": "#22D3EE", "line-width": 2.5, "line-dasharray": [3, 2] } });
+          map.addLayer({ id: "hf-ring-center", type: "circle", source: "hf-ring", filter: ["==", ["geometry-type"], "Point"], paint: { "circle-color": "#22D3EE", "circle-radius": 5, "circle-stroke-color": "#FFFFFF", "circle-stroke-width": 2 } });
+          map.addLayer({
+            id: "hf-ring-label", type: "symbol", source: "hf-ring", filter: ["==", ["geometry-type"], "Point"],
+            layout: {
+              "text-field": ["get", "label"],
+              "text-size": 11,
+              "text-font": ["DIN Pro Bold", "Arial Unicode MS Bold"],
+              "text-offset": [0, 1.1],
+              "text-anchor": "top",
+              "text-allow-overlap": true,
+            },
+            paint: { "text-color": "#FFFFFF", "text-halo-color": "#0E7490", "text-halo-width": 1.6 },
+          });
           map.addLayer({ id: "hf-ai-overlay-fill", type: "fill", source: "hf-ai-overlay", paint: { "fill-color": ["get", "fill"], "fill-opacity": 0.35 } });
           map.addLayer({ id: "hf-parcel-fill", type: "fill", source: "hf-parcel", paint: { "fill-color": "#00A3FF", "fill-opacity": 0.08 } });
           map.addLayer({ id: "hf-parcel-line", type: "line", source: "hf-parcel", paint: { "line-color": "#00A3FF", "line-width": 3 } });
@@ -138,6 +154,25 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
       markerRef.current.getElement().style.color = color;
     }
   }, [ready, towerLngLat, onTowerMove, fit?.status, cursorColor]);
+
+  // SARF search ring — center coordinates + radius circle for the active target's SCIP
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const lat = Number(searchRing?.lat), lon = Number(searchRing?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
+      map.getSource("hf-ring").setData(EMPTY_FC);
+      return;
+    }
+    const radius = Number(searchRing?.radius_miles) || 1;
+    const ringPoly = circle([lon, lat], radius, { steps: 96, units: "miles" });
+    const center = {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [lon, lat] },
+      properties: { label: `SEARCH RING CENTER\n${lat.toFixed(6)}, ${lon.toFixed(6)} · ${radius} mi` },
+    };
+    map.getSource("hf-ring").setData({ type: "FeatureCollection", features: [ringPoly, center] });
+  }, [ready, searchRing?.lat, searchRing?.lon, searchRing?.radius_miles]);
 
   // AI Equation buildable-area overlay
   useEffect(() => {
