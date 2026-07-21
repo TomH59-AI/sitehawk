@@ -451,8 +451,13 @@ async function llmExtractReport(base44, ctx) {
 async function llmExtractReportKimi(ctx) {
   const key = Deno.env.get('KIMI_API_KEY');
   if (!key) return null;
+  // Explicit template — every field key maps to a {value,source,confidence}
+  // cell so the model returns keyed objects, never arrays.
   const fieldSpec = Object.fromEntries(
-    Object.entries(REPORT_JSON_SCHEMA.properties).map(([sec, def]) => [sec, Object.keys(def.properties)])
+    Object.entries(REPORT_JSON_SCHEMA.properties).map(([sec, def]) => [
+      sec,
+      Object.fromEntries(Object.keys(def.properties).map((k) => [k, { value: '...', source: '...', confidence: '...' }])),
+    ])
   );
   const messages = [
     {
@@ -461,7 +466,7 @@ async function llmExtractReportKimi(ctx) {
     },
     {
       role: 'user',
-      content: `${buildZoningPrompt(ctx)}\n\nOUTPUT FORMAT — respond with ONLY a JSON object with these exact sections and field keys, where every field is an object {"value": string, "source": string, "confidence": string}:\n${JSON.stringify(fieldSpec, null, 1)}`,
+      content: `${buildZoningPrompt(ctx)}\n\nOUTPUT FORMAT — respond with ONLY a JSON object matching this exact structure (same section keys, same field keys — each field is an OBJECT keyed by the field name, NOT an array). Replace the "..." placeholders with your researched values:\n${JSON.stringify(fieldSpec, null, 1)}`,
     },
   ];
   const tools = [{ type: 'builtin_function', function: { name: '$web_search' } }];
@@ -473,7 +478,9 @@ async function llmExtractReportKimi(ctx) {
     const ids = (m.data?.data || []).map((x) => x.id);
     if (m.ok && ids.length) {
       baseUrl = b;
-      model = ids.find((id) => id === 'kimi-k3') || ids.find((id) => id.includes('kimi-k2') && !id.includes('code')) || ids.find((id) => id === 'kimi-latest') || ids[0];
+      // Prefer the fast general model — kimi-k3 is a slow reasoning model that
+      // exceeds our per-call timeout; code models are unsuitable for research.
+      model = ids.find((id) => id.includes('kimi-k2') && !id.includes('code')) || ids.find((id) => id === 'kimi-latest') || ids.find((id) => id === 'kimi-k3') || ids[0];
       console.log(`[KIMI] base=${b} models=${ids.slice(0, 10).join(',')} → using ${model}`);
       break;
     }
@@ -485,7 +492,7 @@ async function llmExtractReportKimi(ctx) {
     const res = await fetchJsonWithTimeout(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: 4096, messages, tools }),
+      body: JSON.stringify({ model, max_tokens: 8192, messages, tools }),
     }, 110000);
     if (!res.ok) {
       console.log(`[KIMI] HTTP ${res.status} turn=${turn}: ${JSON.stringify(res.data?.error || res.error || '').slice(0, 300)}`);
@@ -507,9 +514,18 @@ async function llmExtractReportKimi(ctx) {
     const text = String(msg.content || '');
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1) { console.log(`[KIMI] no JSON in final answer (turn=${turn})`); return null; }
+    if (start === -1 || end === -1) {
+      console.log(`[KIMI] no JSON in final answer (turn=${turn}) finish=${choice.finish_reason} len=${text.length} head=${text.slice(0, 200)}`);
+      return null;
+    }
     try {
       const parsed = JSON.parse(text.slice(start, end + 1));
+      // Validate shape — must be a real report, not an echoed tool call or arrays.
+      const zo = parsed?.zoning_overview;
+      if (parsed?.tool_type || !zo || Array.isArray(zo) || Object.keys(zo).length < 3) {
+        console.log(`[KIMI] invalid report shape (turn=${turn}) keys=${Object.keys(parsed || {}).join(',')}`);
+        return null;
+      }
       console.log(`[KIMI] SUCCESS turns=${turn + 1} sections=${Object.keys(parsed).join(',')}`);
       return parsed;
     } catch (e) {
