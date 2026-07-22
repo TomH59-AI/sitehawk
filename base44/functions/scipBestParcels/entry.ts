@@ -41,6 +41,7 @@ function circleWkt(lat, lon, radiusMiles, steps = 24) {
   return `POLYGON((${pts.join(",")}))`;
 }
 
+// Blank zoning is NOT auto-disqualified — it goes through Realie-record/ESRI GIS resolution.
 // Residential tokens — only CLEAR residential matches; ambiguous codes are NOT residential.
 // Shorter list avoids false-positives on "R" in irrelevant strings.
 const RESIDENTIAL_TOKENS = [
@@ -162,58 +163,6 @@ function pick(p, ...keys) {
     if (p[k] !== undefined && p[k] !== null && p[k] !== "") return p[k];
   }
   return null;
-}
-
-async function zoneomicsZone(lat, lon, apiKey) {
-  if (!apiKey) return null;
-  try {
-    const url = new URL("https://api.zoneomics.com/v2/zoneDetail");
-    url.searchParams.set("api_key", apiKey);
-    url.searchParams.set("lat", String(lat));
-    url.searchParams.set("lng", String(lon));
-    url.searchParams.set("output_fields", "zoning");
-    const r = await fetch(url.toString());
-    if (!r.ok) return null;
-    const d = await r.json();
-    const z = d?.data?.zoning || d?.zoning || {};
-    return z.zone_code || z.zone_name || z.zoning_code || null;
-  } catch {
-    return null;
-  }
-}
-
-async function zoneomicsEnrich(lat, lon, apiKey) {
-  if (!apiKey) return null;
-  try {
-    const url = new URL("https://api.zoneomics.com/v2/zoneDetail");
-    url.searchParams.set("api_key", apiKey);
-    url.searchParams.set("lat", String(lat));
-    url.searchParams.set("lng", String(lon));
-    url.searchParams.set("output_fields", "zoning,parcels");
-    const r = await fetch(url.toString());
-    if (!r.ok) return null;
-    const d = (await r.json())?.data || {};
-    const zd = d.zone_details || d.zoning || {};
-    const parcel = (d.parcels && d.parcels[0]) || null;
-    const cln = (v) => {
-      const s = String(v ?? "").trim();
-      return s && !/^(na|n\/a|unknown|none|null|-|—)$/i.test(s) ? s : null;
-    };
-    const acreage =
-      parcel?.area_unit === "acres" ? Number(parcel.area)
-      : parcel?.area_unit === "sq.yds" ? Number(parcel.area) / 4840
-      : null;
-    return {
-      owner_name: cln(parcel?.owner_info?.owner_name),
-      owner_mailing: cln(parcel?.owner_info?.owner_address),
-      parcel_address: cln(parcel?.address),
-      land_use: cln(parcel?.land_use),
-      acreage: Number.isFinite(acreage) && acreage > 0 ? Math.round(acreage * 100) / 100 : null,
-      zone_code: cln(zd.zone_code) || cln(zd.zone_name),
-    };
-  } catch {
-    return null;
-  }
 }
 
 // Realie FULL property record by parcel ID — the ring location-search returns
@@ -466,10 +415,10 @@ Deno.serve(async (req) => {
         score += 10;
         reasons.push("Non-residential use confirmed from assessor data");
       } else {
-        // Blank zoning from Realie — NOT disqualified; resolve via Zoneomics below.
+        // Blank zoning from Realie — NOT disqualified; resolve via Realie record/ESRI below.
         needsZoningResolve = true;
         score -= 5; // slight penalty for uncertainty, not disqualification
-        reasons.push("Zoning not in assessor data — pending Zoneomics resolution; retained");
+        reasons.push("Zoning not in assessor data — pending property-record/GIS resolution; retained");
       }
 
       // 2. Zoning classification score (does not disqualify).
@@ -659,47 +608,54 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ZONING RESOLUTION — resolve blank-zoning parcels via Zoneomics.
+    // ZONING RESOLUTION — resolve blank-zoning parcels via our own cascade:
+    // Realie full property record (legal zoningCode) → ESRI USA Zoning GIS.
     // Resolve up to top 10 candidates (not just 5) to ensure we find 3 good targets.
     candidates.forEach((s) => { if (!s.needs_zoning_resolve) s.zoning_status = "confirmed"; });
 
-    const zoneKey = Deno.env.get("ZONEOMICS_API_KEY");
+    const esriKey = Deno.env.get("ESRI_API_KEY");
+    const realieKey = Deno.env.get("REALIE_API_KEY");
     const toResolve = candidates.filter((s) => s.needs_zoning_resolve && s.latitude && s.longitude).slice(0, 10);
     if (toResolve.length) {
-      console.log(`Resolving ${toResolve.length} blank-zoning parcels via Zoneomics`);
+      console.log(`Resolving ${toResolve.length} blank-zoning parcels via Realie record + ESRI GIS`);
       const resolved = await Promise.all(
-        toResolve.map((s) => zoneomicsZone(s.latitude, s.longitude, zoneKey))
+        toResolve.map(async (s) => {
+          const rz = await realieRecordZoning(s.apn, s.county, s.state, realieKey);
+          if (rz?.zoning) return rz.zoning;
+          const ez = await esriZoning(s.latitude, s.longitude, esriKey).catch(() => null);
+          return ez?.zoning || null;
+        })
       );
       toResolve.forEach((s, i) => {
         const zc = resolved[i];
         if (!zc) {
           // Still no zoning — pass but flag unverified. NOT disqualified.
           s.zoning_status = "unverified";
-          s.score_reasons.push("Zoning unverified (assessor + Zoneomics blank) — included on non-residential assumption; verify before pursuing");
+          s.score_reasons.push("Zoning unverified (assessor + property record + GIS blank) — included on non-residential assumption; verify before pursuing");
           return;
         }
         s.zoning_classification = zc;
         if (isResidential(null, zc, null)) {
-          // Confirmed residential via Zoneomics — NOW hard-disqualify.
+          // Confirmed residential via property record/GIS — NOW hard-disqualify.
           s.hardDisqualified = true;
           s.score = 0;
-          s.score_reasons.push(`Zoneomics confirmed zoning "${zc}" — residential, disqualified`);
+          s.score_reasons.push(`Property record/GIS confirmed zoning "${zc}" — residential, disqualified`);
         } else {
           const zs2 = zoningScore(zc, null);
           s.score = Math.max(0, Math.min(100, s.score + 15 + zs2.pts));
           s.zoning_status = "confirmed";
-          s.score_reasons.push(`Zoneomics confirmed: "${zc}" — non-residential (${zs2.reason})`);
+          s.score_reasons.push(`Zoning resolved: "${zc}" — non-residential (${zs2.reason})`);
         }
       });
     }
     // Remaining blank-zoning candidates beyond the resolution window — pass, flag unverified.
     candidates.forEach((s) => { if (s.needs_zoning_resolve && !s.zoning_status) s.zoning_status = "unverified"; });
 
-    // Remove those newly confirmed as residential by Zoneomics; re-sort.
+    // Remove those newly confirmed as residential by GIS resolution; re-sort.
     const eligibleSet = candidates.filter((s) => !s.hardDisqualified);
     eligibleSet.sort(rankCmp);
 
-    console.log(`${eligibleSet.length} eligible candidates after Zoneomics resolution`);
+    console.log(`${eligibleSet.length} eligible candidates after zoning resolution`);
 
     if (eligibleSet.length === 0) {
       return Response.json({
@@ -713,7 +669,7 @@ Deno.serve(async (req) => {
           slot: i,
           label: ["Target A", "Target B", "Target C"][i],
           reasons: [
-            "Every parcel in the ring resolved as residential (or had no zoning data) after Zoneomics verification — no tower-eligible land available.",
+            "Every parcel in the ring resolved as residential (or had no zoning data) after property-record/GIS verification — no tower-eligible land available.",
             Number(radius_miles) < 1 ? "Widen the SARF radius to 1 mile, or enter a target manually." : "Widen the SARF radius or enter a target manually.",
           ],
         })),
@@ -724,26 +680,10 @@ Deno.serve(async (req) => {
     const labels = ["Target A", "Target B", "Target C", "Target D", "Target E"];
     const top = eligibleSet.slice(0, 5);
 
-    // ENRICH final 5 from Zoneomics parcels block (owner, acreage, address).
-    const enrichments = await Promise.all(
-      top.map((t) => (t.latitude && t.longitude ? zoneomicsEnrich(t.latitude, t.longitude, zoneKey) : Promise.resolve(null)))
-    );
-    top.forEach((t, i) => {
-      const e = enrichments[i];
-      if (!e) return;
-      if (!t.owner_name && e.owner_name) t.owner_name = e.owner_name;
-      if ((!t.parcel_address || t.parcel_address === "UNKNOWN") && e.parcel_address) t.parcel_address = e.parcel_address;
-      if (!t.acreage && e.acreage) t.acreage = e.acreage;
-      if (!t.land_use && e.land_use) t.land_use = e.land_use;
-      if (!t.mailing_address && e.owner_mailing) t.mailing_address = e.owner_mailing;
-      if (!t.zoning_classification && e.zone_code) { t.zoning_classification = e.zone_code; t.zoning_status = "confirmed"; }
-    });
-
     // ── REALIE FULL-RECORD ZONING BACKFILL ─────────────────────────────────
     // The ring search returns slim records; the Realie parcelId endpoint
     // carries the legal zoningCode + controlling jurisdiction. Try it first
     // for any final target still missing zoning, before the ESRI backstop.
-    const realieKey = Deno.env.get("REALIE_API_KEY");
     const missingAfterEnrich = top.filter((t) => !t.zoning_classification && t.apn && t.county && t.state);
     if (missingAfterEnrich.length && realieKey) {
       const rz = await Promise.all(
@@ -767,7 +707,6 @@ Deno.serve(async (req) => {
     // assessor + Zoneomics enrichment is resolved against the ESRI Living
     // Atlas "USA Zoning" layer; the true last resort surfaces the land use
     // clearly labeled as unverified — never an empty cell.
-    const esriKey = Deno.env.get("ESRI_API_KEY");
     const stillMissing = top.filter((t) => !t.zoning_classification && t.latitude && t.longitude);
     if (stillMissing.length && esriKey) {
       const esriResults = await Promise.all(

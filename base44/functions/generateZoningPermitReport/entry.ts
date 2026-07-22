@@ -16,6 +16,7 @@
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { findOrdinance } from '../../shared/telecomOrdinance.ts';
 
 // ─── HawkSCIP quota gate ─────────────────────────────────────────────────────
 // A HawkSCIP is spent when a user runs Zoning on a site for the FIRST time.
@@ -50,22 +51,14 @@ function siteKeyFor(lat, lon) {
 }
 
 // ─── Sanctioned zoning sources ───────────────────────────────────────────────
-// telecom_ordinances Supabase table (project skpxeouvikzgsaurkohf) is the FIRST
-// source for zoning text. Query by state + jurisdiction. Reachable via
-// HAWK_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (service role, read-only here).
-async function getTelecomOrdinance(stateCode, jurisdiction) {
-  const base = Deno.env.get('HAWK_SUPABASE_URL');
-  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!base || !key || !stateCode) return null;
-  const url = new URL(`${base.replace(/\/$/, '')}/rest/v1/telecom_ordinances`);
-  url.searchParams.set('state', `eq.${String(stateCode).toUpperCase()}`);
-  if (jurisdiction) url.searchParams.set('jurisdiction', `ilike.*${jurisdiction}*`);
-  url.searchParams.set('limit', '1');
-  const res = await fetchJsonWithTimeout(url.toString(), {
-    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
-  }, 9000);
-  if (!res.ok || !Array.isArray(res.data) || !res.data.length) return null;
-  return res.data[0];
+// TelecomOrdinance Base44 entity (our own ordinance library, migrated from the
+// legacy Supabase telecom_ordinances table — fed by the Notion/OxyLabs
+// Ordinance Hunter pipeline) is the FIRST source for zoning text. Queried by
+// state + jurisdiction via the shared findOrdinance matcher.
+async function getTelecomOrdinance(base44, stateCode, jurisdiction) {
+  if (!stateCode) return null;
+  const { row } = await findOrdinance(base44, stateCode, jurisdiction);
+  return row;
 }
 
 // ─── Zoning cache guard (per site_key) ───────────────────────────────────────
@@ -661,10 +654,10 @@ Deno.serve(async (req) => {
 
     const city = zoneomics?.city_name || mb?.city_name || realie?.city || null;
 
-    // STEP 2 (SANCTIONED PRIMARY) — telecom_ordinances Supabase table, queried by
+    // STEP 2 (SANCTIONED PRIMARY) — TelecomOrdinance Base44 entity, queried by
     // state + jurisdiction. This is the first zoning-text source now that the
     // Zoneomics paid API is banned.
-    const ordinance = await getTelecomOrdinance(geo.state_code, city || geo.county_name).catch(() => null);
+    const ordinance = await getTelecomOrdinance(base44, geo.state_code, city || geo.county_name).catch(() => null);
 
     // STEP 4 — LLM web-grounded gap-fill. TRIAL: Kimi (Moonshot) runs FIRST via
     // KIMI_API_KEY with its builtin web search; any failure falls back to the
