@@ -4,6 +4,8 @@ import { FileText, X, Printer, Loader2, Download, Upload } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { generateScipWorkbook } from "@/functions/generateScipWorkbook";
 import { zapierNewScip } from "@/functions/zapierNewScip";
+import { zapierScipDelivery } from "@/functions/zapierScipDelivery";
+import ScipTierChooser from "@/components/scip/ScipTierChooser";
 import { toast } from "sonner";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
@@ -118,6 +120,7 @@ export default function GenerateScipButton({
   const [building, setBuilding] = useState(false);
   const [record, setRecord] = useState(null);
   const [chooserOpen, setChooserOpen] = useState(false);
+  const [tierOpen, setTierOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const navigate = useNavigate();
 
@@ -129,9 +132,11 @@ export default function GenerateScipButton({
   // Door B = SiteHawk builds it (this component's pipeline → preview + xlsx).
   // Door A = HawkFill fills the subscriber's own uploaded SCIP (/hawk-fill).
   const build = () => setChooserOpen(true);
-  const chooseSiteHawkScip = () => { setChooserOpen(false); buildScip(); };
+  // Door B now goes through the Hawk Basic / Premier / Enterprise tier picker.
+  const chooseSiteHawkScip = () => { setChooserOpen(false); setTierOpen(true); };
+  const handleTierConfirm = (sel) => { setTierOpen(false); buildScip(sel); };
 
-  const buildScip = async () => {
+  const buildScip = async (tierSel = null) => {
     setBuilding(true);
     try {
       const cfg = await loadPublicConfig();
@@ -360,6 +365,13 @@ export default function GenerateScipButton({
         county: rec.county,
         state: rec.state,
       }).catch((e) => console.warn("[ZAPIER] webhook failed:", e?.message));
+      // Send the tiered SCIP document payload to Zapier for document
+      // assembly/delivery (fire-and-forget).
+      if (tierSel) {
+        zapierScipDelivery({ tier: tierSel.tier, branding: tierSel.branding, record: rec })
+          .then(() => toast.success(`${tierSel.tier === "basic" ? "Hawk Basic" : tierSel.tier === "premier" ? "Hawk Premier" : "Hawk Enterprise"} SCIP sent to Zapier for delivery.`))
+          .catch((e) => console.warn("[ZAPIER] SCIP delivery failed:", e?.message));
+      }
     } catch (err) {
       console.error(err);
       toast.error("Could not build the SCIP. Try regenerating the pipeline maps.");
@@ -456,6 +468,10 @@ export default function GenerateScipButton({
             </div>
           </div>
         </div>
+      )}
+
+      {tierOpen && (
+        <ScipTierChooser onConfirm={handleTierConfirm} onClose={() => setTierOpen(false)} />
       )}
 
       {open && record && (
