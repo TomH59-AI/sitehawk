@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { esriZoning } from '../../shared/esriZoning.ts';
 
 // scipBestParcels — Step 3 of the SCIP.
 // Searches ALL parcels in the SARF ring via Realie Location Search, scores each one against
@@ -715,6 +716,35 @@ Deno.serve(async (req) => {
       if (!t.land_use && e.land_use) t.land_use = e.land_use;
       if (!t.mailing_address && e.owner_mailing) t.mailing_address = e.owner_mailing;
       if (!t.zoning_classification && e.zone_code) { t.zoning_classification = e.zone_code; t.zoning_status = "confirmed"; }
+    });
+
+    // ── ZONING CLASSIFICATION BACKSTOP ─────────────────────────────────────
+    // Every returned target MUST carry a zoning classification so the rules
+    // are always known when picking sites. Anything still blank after
+    // assessor + Zoneomics enrichment is resolved against the ESRI Living
+    // Atlas "USA Zoning" layer; the true last resort surfaces the land use
+    // clearly labeled as unverified — never an empty cell.
+    const esriKey = Deno.env.get("ESRI_API_KEY");
+    const stillMissing = top.filter((t) => !t.zoning_classification && t.latitude && t.longitude);
+    if (stillMissing.length && esriKey) {
+      const esriResults = await Promise.all(
+        stillMissing.map((t) => esriZoning(t.latitude, t.longitude, esriKey).catch(() => null))
+      );
+      stillMissing.forEach((t, i) => {
+        const z = esriResults[i];
+        if (z?.zoning) {
+          t.zoning_classification = z.zoning;
+          t.zoning_status = "confirmed";
+          t.score_reasons.push(`Zoning resolved via ESRI USA Zoning layer: "${z.zoning}"`);
+        } else if (z?.land_use && !t.land_use) {
+          t.land_use = z.land_use;
+        }
+      });
+    }
+    top.forEach((t) => {
+      if (!t.zoning_classification && t.land_use) {
+        t.zoning_classification = `${t.land_use} (land use — zoning unverified)`;
+      }
     });
 
     const allRanked = top.map((t, i) => {
