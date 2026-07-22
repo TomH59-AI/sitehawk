@@ -216,6 +216,27 @@ async function zoneomicsEnrich(lat, lon, apiKey) {
   }
 }
 
+// Realie FULL property record by parcel ID — the ring location-search returns
+// slim records; the parcelId endpoint carries the legal zoningCode + the
+// controlling jurisdiction. useCode/useDescription is land use, NOT zoning.
+async function realieRecordZoning(apn, county, state, apiKey) {
+  if (!apiKey || !apn || !county || !state) return null;
+  try {
+    const url = `https://app.realie.ai/api/public/property/parcelId/?${new URLSearchParams({ state, county, parcelId: String(apn) })}`;
+    const r = await fetch(url, { headers: { Authorization: apiKey } });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const p = d.property || (Array.isArray(d.properties) ? d.properties[0] : null);
+    if (!p) return null;
+    const cln = (v) => { const s = String(v ?? "").trim(); return s && !/^(na|n\/a|unknown|none|null)$/i.test(s) ? s : null; };
+    return {
+      zoning: cln(p.zoningCode || p.zoning),
+      jurisdiction: cln(p.jurisdiction),
+      land_use: cln(p.useDescription || p.landUse || p.useCode),
+    };
+  } catch { return null; }
+}
+
 async function femaRisk(lat, lon) {
   try {
     const params = new URLSearchParams({
@@ -717,6 +738,28 @@ Deno.serve(async (req) => {
       if (!t.mailing_address && e.owner_mailing) t.mailing_address = e.owner_mailing;
       if (!t.zoning_classification && e.zone_code) { t.zoning_classification = e.zone_code; t.zoning_status = "confirmed"; }
     });
+
+    // ── REALIE FULL-RECORD ZONING BACKFILL ─────────────────────────────────
+    // The ring search returns slim records; the Realie parcelId endpoint
+    // carries the legal zoningCode + controlling jurisdiction. Try it first
+    // for any final target still missing zoning, before the ESRI backstop.
+    const realieKey = Deno.env.get("REALIE_API_KEY");
+    const missingAfterEnrich = top.filter((t) => !t.zoning_classification && t.apn && t.county && t.state);
+    if (missingAfterEnrich.length && realieKey) {
+      const rz = await Promise.all(
+        missingAfterEnrich.map((t) => realieRecordZoning(t.apn, t.county, t.state, realieKey))
+      );
+      missingAfterEnrich.forEach((t, i) => {
+        const z = rz[i];
+        if (z?.zoning) {
+          t.zoning_classification = z.zoning;
+          t.zoning_status = "confirmed";
+          t.score_reasons.push(`Zoning resolved via Realie property record: "${z.zoning}"${z.jurisdiction ? ` — jurisdiction ${z.jurisdiction}` : ""}`);
+        } else if (z?.land_use && !t.land_use) {
+          t.land_use = z.land_use;
+        }
+      });
+    }
 
     // ── ZONING CLASSIFICATION BACKSTOP ─────────────────────────────────────
     // Every returned target MUST carry a zoning classification so the rules

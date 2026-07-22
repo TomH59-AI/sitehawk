@@ -15,8 +15,10 @@ function normalize(p, state) {
     parcel_id: p.parcelId || p.parcelNumber || p.apn || null,
     owner: p.ownerName || p.owner || p.owner_name || null,
     acreage: p.lotSizeAcres ?? p.acres ?? p.acreage ?? null,
-    zoning: p.zoningCode || p.zoning || p.useDescription || null,
-    jurisdiction: [city || county, st].filter(Boolean).join(", ") || null,
+    // zoningCode is the legal zoning designation; useDescription is land use
+    // (assessor category) — only shown as a clearly-labeled fallback.
+    zoning: p.zoningCode || p.zoning || (p.useDescription ? `${p.useDescription} (land use — zoning unverified)` : null),
+    jurisdiction: p.jurisdiction || [city || county, st].filter(Boolean).join(", ") || null,
     latitude: lat != null ? Number(lat) : null,
     longitude: lon != null ? Number(lon) : null,
     parcel_geometry: p.geometry || null,
