@@ -16,6 +16,7 @@ export default function Dashboard() {
               <h1 className="font-heading font-bold text-3xl md:text-4xl text-foreground mt-1">From search ring to signed site.</h1>
               <p className="text-sm md:text-base text-muted-foreground mt-2 leading-relaxed">
                 Follow the complete SiteHawk workflow in order, then use the time-saving tools that keep every site organized and moving.
+                And if you feel lost or confused just ask Brian — he's an expert.
               </p>
             </div>
           </div>
