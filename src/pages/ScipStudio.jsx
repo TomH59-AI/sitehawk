@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { scipStudioAssemble } from "@/functions/scipStudioAssemble";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, RefreshCw, Sparkles, Printer } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, Sparkles, Printer, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import StudioFieldGrid from "@/components/scipstudio/StudioFieldGrid";
 import StudioTable from "@/components/scipstudio/StudioTable";
@@ -68,6 +68,8 @@ export default function ScipStudio() {
   const [loading, setLoading] = useState(true);
   const [assembling, setAssembling] = useState(false);
   const [preparingPrint, setPreparingPrint] = useState(false);
+  const [qcBusy, setQcBusy] = useState(false);
+  const [qcResult, setQcResult] = useState(null);
 
   // Wait for EVERY image in the document to finish downloading before opening
   // the print dialog — otherwise not-yet-loaded map exhibits print blank.
@@ -109,6 +111,32 @@ export default function ScipStudio() {
     }
   };
 
+  // Re-point the document to whichever parcel is currently the active target
+  // (Target A → B → C when one is turned down), regenerate all 12 map exhibits
+  // for it, then run the Gemini web-grounded QC pass to fill every blank,
+  // web-researchable field before printing.
+  const rebuildAndQc = async () => {
+    setAssembling(true);
+    setQcBusy(true);
+    setQcResult(null);
+    try {
+      const res = await scipStudioAssemble({ scip_record_id: id, rebuild: true });
+      setDoc(res.data.doc);
+      const label = res.data.doc?.candidate?.candidate_id || "active target";
+      toast.success(`Rebuilt for ${label} — regenerating maps, then running QC`);
+      const qc = await base44.functions.invoke("scipStudioQcFill", { scip_record_id: id });
+      if (qc?.error) throw new Error(qc.error);
+      setDoc(qc.doc || res.data.doc);
+      setQcResult(qc);
+      toast.success(`QC complete · ${qc.fills?.length || 0} fields filled · ${qc.verdict?.replace(/_/g, " ")}`);
+    } catch (e) {
+      toast.error(e.message || "Rebuild & QC failed — try again");
+    } finally {
+      setAssembling(false);
+      setQcBusy(false);
+    }
+  };
+
   if (loading) return <div className="min-h-[50vh] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
   const t = doc?.target_a || {};
@@ -136,6 +164,12 @@ export default function ScipStudio() {
             {doc ? "Refresh from SCIP" : "Assemble from SCIP"}
           </Button>
           {doc && (
+            <Button variant="outline" onClick={rebuildAndQc} disabled={assembling || qcBusy}>
+              {qcBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
+              {qcBusy ? "Running QC…" : "Rebuild & QC (Gemini)"}
+            </Button>
+          )}
+          {doc && (
             <Button variant="outline" onClick={handlePrint} disabled={preparingPrint}>
               {preparingPrint ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />}
               {preparingPrint ? "Loading maps…" : "Print / Save PDF"}
@@ -149,6 +183,22 @@ export default function ScipStudio() {
         <h1 className="font-heading font-bold text-2xl">Site Candidate Information Package</h1>
         <p className="text-sm text-muted-foreground">A clean, evidence-linked deliverable assembled from the active search ring.</p>
       </div>
+
+      {qcResult && (
+        <div className="studio-no-print rounded-xl border px-4 py-3 flex items-start gap-3" style={{ borderColor: qcResult.verdict === "needs_review" ? "#dc2626" : "#059669", background: qcResult.verdict === "needs_review" ? "#fef2f2" : "#f0fdf4" }}>
+          <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" style={{ color: qcResult.verdict === "needs_review" ? "#dc2626" : "#059669" }} />
+          <div className="flex-1 text-sm">
+            <div className="font-semibold" style={{ color: qcResult.verdict === "needs_review" ? "#dc2626" : "#059669" }}>
+              AI QC · {qcResult.verdict?.replace(/_/g, " ")} · {qcResult.fills?.length || 0} fields filled from the web
+            </div>
+            <p className="text-xs mt-0.5 text-muted-foreground">{qcResult.summary}</p>
+            {qcResult.gaps_remaining?.length > 0 && (
+              <p className="text-xs mt-1 text-muted-foreground">Still unverifiable from public sources: {qcResult.gaps_remaining.join(", ")}</p>
+            )}
+          </div>
+          <button onClick={() => setQcResult(null)} className="text-xs text-muted-foreground hover:text-foreground shrink-0">Dismiss</button>
+        </div>
+      )}
 
       {!doc && (
         <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center space-y-2">

@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { scip_record_id } = await req.json();
+    const { scip_record_id, rebuild = false } = await req.json();
     if (!scip_record_id) return Response.json({ error: 'scip_record_id required' }, { status: 400 });
 
     const scip = await base44.entities.ScipRecord.get(scip_record_id);
@@ -239,8 +239,21 @@ Deno.serve(async (req) => {
     const prevMaps = Object.fromEntries((existing?.map_set || []).map((m) => [m.key, m]));
     const map_set = MAP_SET.map(([key, label]) => {
       const prev = prevMaps[key];
-      if (prev?.asset_url) return { ...prev, label };
       const f = fresh_maps[key];
+      // rebuild (advancing to Target B/C) regenerates every exhibit from the
+      // new candidate coordinates — only analyst captions are preserved.
+      if (rebuild) {
+        const url = f?.asset_url || prev?.asset_url || null;
+        return {
+          key, label,
+          status: url ? "Captured" : "Not Captured",
+          asset_url: url,
+          captured_at: url ? new Date().toISOString() : prev?.captured_at || null,
+          source: f?.asset_url ? f.source : prev?.source || null,
+          caption: prev?.caption || null,
+        };
+      }
+      if (prev?.asset_url) return { ...prev, label };
       return {
         key, label,
         status: f?.asset_url ? "Captured" : "Not Captured",
@@ -399,8 +412,12 @@ Deno.serve(async (req) => {
       : QUALITY_GATE.map((check) => ({ check, required: true, result: "Pending", reviewed_by: null, review_date: null, notes: null }));
 
     const mergedIdentity = fillBlanks(existing?.identity, identity);
-    const mergedCandidate = fillBlanks(existing?.candidate, candidate);
-    const mergedOwner = fillBlanks(existing?.owner_access, owner_access);
+    // rebuild (advancing to Target B/C) overwrites the candidate + owner blocks
+    // so the doc re-points to the new active parcel; analyst narratives
+    // (candidate_rationale, executive, recommendation, scorecard) are NOT in the
+    // update payload, so they are always preserved either way.
+    const mergedCandidate = rebuild ? candidate : fillBlanks(existing?.candidate, candidate);
+    const mergedOwner = rebuild ? owner_access : fillBlanks(existing?.owner_access, owner_access);
 
     const completion = {
       target_a: { status: "Complete", source_coverage_pct: coverage(existing?.target_a || target_a) },
