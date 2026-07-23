@@ -38,16 +38,16 @@
   ],
   "rls": {
     "create": {
-      "shared_by_email": "{{user.email}}"
+      "data.shared_by_email": "{{user.email}}"
     },
-    "read": {},
+    "read": null,
     "update": {
-      "shared_by_email": "{{user.email}}"
+      "data.shared_by_email": "{{user.email}}"
     },
     "delete": {
       "$or": [
         {
-          "shared_by_email": "{{user.email}}"
+          "data.shared_by_email": "{{user.email}}"
         },
         {
           "user_condition": {
