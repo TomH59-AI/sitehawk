@@ -82,7 +82,12 @@ Deno.serve(async (req) => {
     }
 
     const fromAddress = from_name ? `${from_name} <hello@site-hawk-pro.com>` : FROM_DEFAULT;
-    const recipients  = Array.isArray(to) ? to : [to];
+    // Security: non-admins can NEVER set arbitrary recipients — notification
+    // emails are force-routed to the preconfigured admin inbox only, so this
+    // function cannot be used as an open mail relay for spam/phishing.
+    const recipients = user.role === 'admin'
+      ? (Array.isArray(to) ? to : [to])
+      : [ADMIN_INBOX];
 
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
