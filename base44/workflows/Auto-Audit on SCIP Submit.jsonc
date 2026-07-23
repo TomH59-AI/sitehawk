@@ -1,0 +1,34 @@
+{
+  "name": "Auto-Audit on SCIP Submit",
+  "description": "When a SCIP's status changes to \"submitted\", automatically runs the quality audit and emails the verdict to the record owner.",
+  "trigger": {
+    "condition": "${ ((.trigger.changed_fields | index(\"status\") != null) and (.trigger.data.status == \"submitted\")) }",
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "update"
+      ],
+      "entity_name": "ScipRecord"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "auto_audit_on_scip_submit",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "scipSubmitAudit",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

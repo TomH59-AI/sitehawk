@@ -1,0 +1,34 @@
+{
+  "name": "Zapier \u2014 New SCIP Generated",
+  "description": "Sends the new SCIP's site fields (agent, site name, coordinates, submittal date, map link) to the Zapier Catch Hook.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "ScipRecord"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "zapier_new_scip_generated",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "zapierNewScip",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}

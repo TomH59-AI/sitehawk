@@ -1,0 +1,35 @@
+{
+  "name": "CRMDeal \u2192 HubSpot Sync",
+  "description": "Automatically upserts a HubSpot Contact + Deal whenever a SiteHawk CRMDeal is created or updated. Stage changes flow through to HubSpot's pipeline.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create",
+        "update"
+      ],
+      "entity_name": "CRMDeal"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "crmdeal_hubspot_sync",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_function": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "hubspotSyncDeal",
+            "args": {}
+          },
+          "then": "end"
+        }
+      }
+    ]
+  }
+}
