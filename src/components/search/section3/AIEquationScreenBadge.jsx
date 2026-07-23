@@ -5,9 +5,9 @@ import { COLOR_HEX, TALONFIT_NAME, TALONFIT_TAGLINE } from "@/lib/aiEquation";
 export default function AIEquationScreenBadge({ screen }) {
   if (!screen) return null;
   const label =
-    screen.color === "green" ? "TalonFit™ ✓ WORKS"
-    : screen.color === "yellow" ? "TalonFit™ ⚠ REVIEW"
-    : "TalonFit™ ✗ NOT FEASIBLE";
+    screen.color === "green" ? `${TALONFIT_NAME} ✓ WORKS`
+    : screen.color === "yellow" ? `${TALONFIT_NAME} ⚠ REVIEW`
+    : `${TALONFIT_NAME} ✗ NOT FEASIBLE`;
   const tip = [
     `${TALONFIT_NAME} Tower Placement Feasibility Engine (${TALONFIT_TAGLINE})`,
     screen.maxHeightFt != null ? `Max height at best point: ${Math.round(screen.maxHeightFt)} ft` : null,
