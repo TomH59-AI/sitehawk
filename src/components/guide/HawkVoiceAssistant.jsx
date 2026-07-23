@@ -335,7 +335,7 @@ export default function HawkVoiceAssistant() {
           onPointerMove={onDragMove}
           onPointerUp={onDragEnd}
           onClick={() => { if (movedRef.current) { movedRef.current = false; return; } setOpen(true); }}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white text-sm font-bold shadow-lg shadow-purple-500/30 transition-all cursor-grab active:cursor-grabbing touch-none select-none hover:scale-105"
+          className="inline-flex items-center gap-2 rounded-full px-5 py-3 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 text-white text-sm font-bold shadow-lg shadow-purple-500/30 transition-all cursor-grab active:cursor-grabbing touch-none select-none hover:scale-105"
           title="Ask Brian — drag to move, tap to talk"
         >
           <Mic className="w-4 h-4" />
