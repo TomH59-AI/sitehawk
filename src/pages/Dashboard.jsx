@@ -20,13 +20,18 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <Link to="/search" className="shrink-0">
-            <Button size="lg" className="gap-3 font-heading font-bold text-base md:text-lg h-14 px-8 uppercase tracking-wide shadow-lg">
-              <Search className="w-5 h-5" />
-              Start Your Journey
-              <ArrowRight className="w-5 h-5" />
-            </Button>
-          </Link>
+          <div className="shrink-0 flex flex-col items-center gap-2 max-w-xs">
+            <Link to="/search">
+              <Button size="lg" className="gap-3 font-heading font-bold text-base md:text-lg h-14 px-8 uppercase tracking-wide shadow-lg">
+                <Search className="w-5 h-5" />
+                Start Your Journey
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </Link>
+            <p className="text-xs md:text-sm font-bold text-foreground text-center leading-snug">
+              Powered by TalonFit® — designed by AI engineers to make sure every parcel meets the criteria required.
+            </p>
+          </div>
         </div>
       </section>
 
