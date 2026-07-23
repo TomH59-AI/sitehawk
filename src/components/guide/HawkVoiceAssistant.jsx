@@ -12,6 +12,8 @@ import { GUIDE_VOICE_ID } from "./hawkTourScript";
 
 const BRIAN_CTX = `You are "Brian", the SiteHawk voice guide — a calm, confident American telecom site-acquisition expert speaking out loud to the user. SiteHawk produces a Site Candidate Information Package (SCIP) for cell-tower siting: a search ring with a SARF map, ranked Target A/B/C parcels, zoning & permitting, FEMA flood, USFWS wetlands, HIFLD power utility, FCC fiber, CloudRF RF propagation, a Document Studio report, plus Hawk Law, Hawk Lease, skip-trace, and the Hawk Tracker. Keep spoken answers SHORT (2–4 sentences), warm, conversational, and jargon-light — you are talking, not writing. If a question is outside SiteHawk or telecom site acquisition, say so briefly and steer back.`;
 
+const GREETING = "Hi, I'm Brian, your SiteHawk guide. I'm here to help you with anything you have questions about, or how to complete certain tasks. Go ahead — tap the mic whenever you're ready.";
+
 const PAGE_HINTS = [
   ["/dashboard", "Dashboard"], ["/search", "Site Search"], ["/scip", "SCIP detail"],
   ["/hawk-tracker", "Hawk Tracker"], ["/skip-trace", "Skip-Trace"], ["/hawk-law", "Hawk Law"],
@@ -36,6 +38,7 @@ export default function HawkVoiceAssistant() {
   const [textInput, setTextInput] = useState("");
   const recRef = useRef(null);
   const audioRef = useRef(null);
+  const greetedRef = useRef(false);
   const supported = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
   const stopAudio = () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; } setSpeaking(false); };
@@ -62,6 +65,16 @@ export default function HawkVoiceAssistant() {
       setThinking(false);
     }
   };
+
+  // Brian introduces himself — spoken aloud once per session, on first open.
+  useEffect(() => {
+    if (open && !greetedRef.current) {
+      greetedRef.current = true;
+      setTurns([{ q: "", a: GREETING }]);
+      if (!muted) speak(GREETING);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const ask = async (question) => {
     const q = (question || "").trim();
@@ -145,9 +158,11 @@ export default function HawkVoiceAssistant() {
             )}
             {turns.map((t, i) => (
               <div key={i} className="space-y-1.5">
-                <div className="flex justify-end">
-                  <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary text-primary-foreground px-3 py-2 text-xs">{t.q}</div>
-                </div>
+                {t.q && (
+                  <div className="flex justify-end">
+                    <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-primary text-primary-foreground px-3 py-2 text-xs">{t.q}</div>
+                  </div>
+                )}
                 <div className="flex justify-start">
                   <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-secondary text-foreground px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap">{t.a}</div>
                 </div>
