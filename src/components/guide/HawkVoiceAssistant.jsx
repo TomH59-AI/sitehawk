@@ -90,6 +90,30 @@ function pageFor(pathname) {
   return PAGE_HINTS.find(([p]) => pathname.startsWith(p))?.[1] || "SiteHawk";
 }
 
+// Pull the user's recent SCIP records so Brian can recall specific site details,
+// owners, scores, and owner contacts when asked about previous targets.
+async function loadHistory() {
+  try {
+    const rows = await base44.entities.ScipRecord.list("-created_date", 10);
+    if (!rows?.length) return "No SCIP records yet.";
+    return rows.map((r) => {
+      const tgts = (r.parcel_targets || []).map((p, i) => {
+        const lbl = p.label || `Target ${["A", "B", "C"][i] || i}`;
+        const sc = p.score != null ? ` · score ${p.score}/100` : "";
+        return `${lbl}: ${p.owner_name || "owner unknown"} @ ${p.parcel_address || "address unknown"}${sc}`;
+      }).join(" | ");
+      const oc = r.owner_contacts;
+      const contact = oc && (oc.best_phone || oc.best_email)
+        ? ` · owner contact: ${oc.best_phone || "no phone"} / ${oc.best_email || "no email"}`
+        : "";
+      const date = r.created_date ? String(r.created_date).slice(0, 10) : "—";
+      return `• ${r.site_name || "Untitled SCIP"} (${r.county || "?"}, ${r.state || "?"}) · ${Number(r.latitude)?.toFixed(4)}, ${Number(r.longitude)?.toFixed(4)} · ${r.search_radius || "?"}mi ring · ${r.sarf_height || "?"}ft AGL · created ${date} · targets: ${tgts || "none"}${contact}`;
+    }).join("\n");
+  } catch {
+    return "History unavailable right now.";
+  }
+}
+
 export default function HawkVoiceAssistant() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -148,7 +172,8 @@ export default function HawkVoiceAssistant() {
     setThinking(true);
     let answer = "";
     try {
-      const prompt = `${BRIAN_CTX}\n\nThe user is currently on the "${pageFor(location.pathname)}" page. Answer their spoken question briefly and conversationally.\n\nQuestion: ${q}`;
+      const history = await loadHistory();
+      const prompt = `${BRIAN_CTX}\n\nThe user is currently on the "${pageFor(location.pathname)}" page.\n\nThis is the user's actual project history (recent SCIP records, newest first):\n${history}\n\nWhen asked about previous sites or targets, use ONLY this history — cite site names, owners, addresses, scores, or owner contacts from it. If a referenced site isn't listed, say you don't have it on hand. Answer briefly and conversationally.\n\nQuestion: ${q}`;
       const out = await base44.integrations.Core.InvokeLLM({ prompt });
       answer = typeof out === "string" ? out : out?.response || out?.text || out?.output || "";
       if (!answer.trim()) answer = "I'm not sure on that one — try rephrasing.";
