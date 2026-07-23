@@ -103,6 +103,7 @@ import OrdinanceHunter from './pages/OrdinanceHunter';
 import ComplianceDashboard from './pages/ComplianceDashboard';
 import AnthemNetScip from './pages/AnthemNetScip';
 import SkipTrace from './pages/SkipTrace';
+import HawkVision from './pages/HawkVision';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -206,6 +207,8 @@ const AuthenticatedApp = () => {
         {/* Interactive Cesium scene for a Tower3DRender (viewer_html_url target) */}
         <Route path="/cesium-tower-viewer" element={<CesiumTowerViewer />} />
         <Route path="/photo-3d-viewer" element={<Photo3DViewer />} />
+        {/* HawkVision — upload a parcel photo → AI composites tower + compound + landscaping */}
+        <Route path="/hawk-vision" element={<HawkVision />} />
         {/* HawkLease */}
         <Route path="/hawk-lease" element={<HawkLease />}>
           <Route index element={<HawkLeaseDashboard />} />

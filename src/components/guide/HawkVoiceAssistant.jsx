@@ -62,8 +62,9 @@ HAWKPERCH (Tower Siting Solver)
 TOWER 3D RENDER (Cesium)
 - Interactive 3D Cesium viewer after a Tower Siter run: to-scale parcel + exaggerated monopole + landscaped compound + buffer; selectable compound size (50/75/100) and buffer (10/25/50 ft); snapshot PNG for landowner packets; not-to-scale disclaimer.
 
-HAWKVISION (AI Site Renders)
-- Upload a site photo → AI elevation + cross-section renders of the proposed tower in-situ (Replicate Flux.1 Inpaint); pulls Realie parcel data + Notion zoning flags; CUP + PE-letter requirement flags.
+HAWKVISION (AI Site Renders — TWO modes)
+- MODE 1 — Photo-to-Render: upload a photo of the parcel itself → HawkVision composites the to-scale tower, fenced compound, and landscaped buffer right INTO that photo (Replicate Flux Kontext instruction-based editing — keeps the real parcel, sky, surroundings; only adds the tower facility). User picks tower height/type, compound size (50/75/100), buffer (10/25/50 ft), and camera perspective (drone / eye-level / street). Reached at /hawk-vision.
+- MODE 2 — 3D Exhibit + AI text-prompt renders: from a Tower Siter run, the 3D Exhibit builds a photorealistic Cesium scene of the tower + compound + landscaping from the real parcel geometry, and the AI text-prompt renders (drone + eye-level) describe the same facility.
 
 HAWKLEASE (Lease Tracking)
 - Full lease record: status, type, carrier, term/renewal, escalation, revenue share; landlord entity type; key dates; insurance; milestone event log; Rent Comp Library (region, density tier, carrier, lease type, tower height).
@@ -93,7 +94,7 @@ const GREETING = "Hi, I'm Brian, your SiteHawk guide. I'm here to help you with 
 const PAGE_HINTS = [
   ["/dashboard", "Dashboard"], ["/search", "Site Search"], ["/scip", "SCIP detail"],
   ["/hawk-tracker", "Hawk Tracker"], ["/skip-trace", "Skip-Trace"], ["/hawk-law", "Hawk Law"],
-  ["/hawk-lease", "Hawk Lease"], ["/pricing", "Pricing & Plans"], ["/billing", "Billing"],
+  ["/hawk-lease", "Hawk Lease"], ["/hawk-vision", "HawkVision"], ["/pricing", "Pricing & Plans"], ["/billing", "Billing"],
   ["/crm", "Time Savers"], ["/rfi-engine", "RF Intelligence Engine"],
 ];
 
