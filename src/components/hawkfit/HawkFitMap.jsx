@@ -218,11 +218,13 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
   useEffect(() => {
     const map = mapRef.current;
     if (!ready || !map) return;
-    map.getCanvas().style.cursor = selectionEnabled ? "crosshair" : "";
+    const canvas = map.getCanvas();
+    if (!canvas) return;
+    canvas.style.cursor = selectionEnabled ? "crosshair" : "";
     if (!selectionEnabled) return;
     const pick = (event) => onMapSelect?.({ lat: event.lngLat.lat, lng: event.lngLat.lng });
     map.on("click", pick);
-    return () => { map.off("click", pick); map.getCanvas().style.cursor = ""; };
+    return () => { try { map.off("click", pick); } catch {} if (canvas) canvas.style.cursor = ""; };
   }, [ready, selectionEnabled, onMapSelect]);
 
   if (loadError) {
