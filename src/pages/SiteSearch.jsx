@@ -25,7 +25,6 @@ import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
 import ExportSvpButton from "../components/search/ExportSvpButton";
 import { round4 } from "@/lib/coords";
 import { runQuietLookups } from "@/lib/quietLookup";
-import FloatingInstructionsButton from "@/components/guide/FloatingInstructionsButton";
 
 export default function SiteSearch() {
   const { toast } = useToast();
@@ -313,8 +312,6 @@ export default function SiteSearch() {
 
   return (
     <div className="space-y-6">
-      <FloatingInstructionsButton />
-
       {/* SiteHawk Vision chat toggle (not a scan) */}
       <button
           onClick={() => setChatOpen((o) => !o)}

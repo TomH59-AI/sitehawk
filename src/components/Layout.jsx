@@ -3,7 +3,6 @@ import MobileTabBar from "./MobileTabBar";
 import HubSpotSidebarConnect from "./sidebar/HubSpotSidebarConnect";
 import AppFooter from "./AppFooter";
 import AppErrorBoundary from "./AppErrorBoundary";
-import HawkBotWidget from "./hawkbot/HawkBotWidget";
 import SARFCoachTour from "./guide/SARFCoachTour";
 import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import HawkVoiceAssistant from "./guide/HawkVoiceAssistant";
@@ -274,7 +273,6 @@ export default function Layout() {
         <AppFooter />
       </main>
       <MobileTabBar />
-      <HawkBotWidget />
       <SARFCoachTour />
       <HawkVoiceGuide />
       <HawkVoiceAssistant />
