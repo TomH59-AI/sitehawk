@@ -16,7 +16,7 @@ export async function esriZoning(lat: number, lon: number, apiKey: string) {
     f: "geojson",
     token: apiKey,
   });
-  const r = await fetch(`${USA_ZONING_URL}?${params.toString()}`);
+  const r = await fetch(`${USA_ZONING_URL}?${params.toString()}`, { signal: AbortSignal.timeout(8000) });
   if (!r.ok) return null;
   const data = await r.json().catch(() => null);
   if (data?.error) {

@@ -172,7 +172,7 @@ async function realieRecordZoning(apn, county, state, apiKey) {
   if (!apiKey || !apn || !county || !state) return null;
   try {
     const url = `https://app.realie.ai/api/public/property/parcelId/?${new URLSearchParams({ state, county, parcelId: String(apn) })}`;
-    const r = await fetch(url, { headers: { Authorization: apiKey } });
+    const r = await fetch(url, { headers: { Authorization: apiKey }, signal: AbortSignal.timeout(10000) });
     if (!r.ok) return null;
     const d = await r.json();
     const p = d.property || (Array.isArray(d.properties) ? d.properties[0] : null);
@@ -199,6 +199,7 @@ async function femaRisk(lat, lon) {
     });
     const r = await fetch(`${FEMA_URL}?${params}`, {
       headers: { "User-Agent": "SiteHawk/1.0", Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
     });
     if (!r.ok) return { code: "—", level: "unknown" };
     const data = await r.json();
@@ -245,55 +246,67 @@ Deno.serve(async (req) => {
     const cap = Math.max(1, Math.min(Number(max_parcels) || DEFAULT_MAX_PARCELS, 250));
 
     const radius = Math.min(radius_miles, 2.0);
+    const tStart = Date.now();
 
     const fieldCount = (p) => Object.values(p).filter((v) => v !== null && v !== undefined && v !== "").length;
     const seen = new Map();
 
-    // ── SOURCE 1: Realie location search (direct) ──────────────────────────
-    // Realie has strong coverage in metros but can be sparse in small towns.
-    if (apiKey) {
-      const urls = [
-        `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150&residential=false`,
-        `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150`,
-      ];
-      for (const url of urls) {
-        try {
-          const r = await fetch(url, { headers: { Authorization: apiKey } });
-          if (!r.ok) { console.error("Realie fetch failed", r.status); continue; }
-          const data = await r.json();
-          const items = data.properties || data.results || (Array.isArray(data) ? data : []);
-          for (const p of items) {
-            const apn = pick(p, "apn", "parcelId", "parcel_id", "parcel_number");
-            const key = apn || `${pick(p, "addressRaw", "address", "fullAddress")}|${pick(p, "latitude", "lat")}`;
-            const prev = seen.get(key);
-            if (!prev || fieldCount(p) > fieldCount(prev)) seen.set(key, p);
-          }
-        } catch (e) { console.error("Realie fetch error:", e.message); }
-      }
-      console.log(`Realie: ${seen.size} parcels`);
+    // ── PARALLEL SOURCE FETCH ────────────────────────────────────────────────
+    // Realie (2 query variants) + ReportAll all fire AT THE SAME TIME instead of
+    // serially — the single biggest latency win for the target scan. Each fetch
+    // carries a hard timeout so one slow provider can never hang the whole run.
+    const realieUrls = apiKey ? [
+      `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150&residential=false`,
+      `${REALIE_URL}?latitude=${lat}&longitude=${lon}&radius=${radius}&limit=150`,
+    ] : [];
+    const realiePromises = realieUrls.map((url) =>
+      fetch(url, { headers: { Authorization: apiKey }, signal: AbortSignal.timeout(25000) })
+        .then(async (r) => {
+          if (!r.ok) { console.error("Realie fetch failed", r.status); return null; }
+          return r.json();
+        })
+        .catch((e) => { console.error("Realie fetch error:", e.message); return null; })
+    );
+
+    let reportAllPromise = null;
+    if (reportAllKey) {
+      const params = new URLSearchParams({
+        client: reportAllKey,
+        v: REPORTALL_VERSION,
+        rpp: String(cap),
+        page: "1",
+        return_geometry: "true",
+        si_srid: "4326",
+        spatial_intersect: circleWkt(lat, lon, radius),
+      });
+      // POST form-encoded — a ring's WKT polygon exceeds GET URL limits.
+      reportAllPromise = fetch(REPORTALL_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString(),
+        signal: AbortSignal.timeout(30000),
+      }).catch((e) => { console.error("ReportAll fetch error:", e.message); return null; });
     }
 
-    // ── SOURCE 2: ReportAll USA (capped) ───────────────────────────────────
-    // Broad national parcel coverage. BILLED PER PARCEL, so rpp = `cap` bounds
-    // both how many parcels we pull AND the credits this scan can ever spend.
-    if (reportAllKey) {
+    // Merge Realie results first (dedupe keeps the richest record per parcel).
+    const realieResults = await Promise.all(realiePromises);
+    for (const data of realieResults) {
+      if (!data) continue;
+      const items = data.properties || data.results || (Array.isArray(data) ? data : []);
+      for (const p of items) {
+        const apn = pick(p, "apn", "parcelId", "parcel_id", "parcel_number");
+        const key = apn || `${pick(p, "addressRaw", "address", "fullAddress")}|${pick(p, "latitude", "lat")}`;
+        const prev = seen.get(key);
+        if (!prev || fieldCount(p) > fieldCount(prev)) seen.set(key, p);
+      }
+    }
+    if (apiKey) console.log(`Realie: ${seen.size} parcels`);
+
+    // Merge ReportAll results (already in flight since the start of the scan).
+    if (reportAllPromise) {
       try {
-        const params = new URLSearchParams({
-          client: reportAllKey,
-          v: REPORTALL_VERSION,
-          rpp: String(cap),
-          page: "1",
-          return_geometry: "true",
-          si_srid: "4326",
-          spatial_intersect: circleWkt(lat, lon, radius),
-        });
-        // POST form-encoded — a ring's WKT polygon exceeds GET URL limits.
-        const r = await fetch(REPORTALL_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: params.toString(),
-        });
-        if (r.ok) {
+        const r = await reportAllPromise;
+        if (r && r.ok) {
           const data = await r.json();
           const items = data.results || [];
           let raAdded = 0;
@@ -328,12 +341,13 @@ Deno.serve(async (req) => {
             }
           }
           console.log(`ReportAll: ${items.length} parcels (cap ${cap}, available ${data.count ?? "?"}), ${raAdded} new/richer, quota_used=${r.headers.get("x-reportall-api-parcels-request-quota-used")}`);
-        } else {
+        } else if (r) {
           console.error("ReportAll fetch failed", r.status, (await r.text()).slice(0, 200));
         }
       } catch (e) { console.error("ReportAll fetch error:", e.message); }
     }
 
+    console.log(`[TIMING] parcel sources: ${Date.now() - tStart}ms`);
     console.log(`Combined: ${seen.size} unique parcels in ring`);
 
     // ── FALL ZONE: full vs. relief ──────────────────────────────────────────
@@ -543,9 +557,11 @@ Deno.serve(async (req) => {
     // FEMA flood zone — eligibility factor. Fetch for top 35 candidates to stay fast.
     // Flood parcels are down-scored but NOT excluded unless dry alternatives exist.
     const floodBatch = candidates.slice(0, 35);
+    const tFema = Date.now();
     const femaResults = await Promise.all(
       floodBatch.map((s) => (s.latitude && s.longitude ? femaRisk(s.latitude, s.longitude) : Promise.resolve({ code: "—", level: "unknown" })))
     );
+    console.log(`[TIMING] FEMA batch (${floodBatch.length} lookups): ${Date.now() - tFema}ms`);
     floodBatch.forEach((s, i) => {
       s._fema = femaResults[i];
       if (isHighRiskFlood(femaResults[i].code)) {
@@ -655,7 +671,7 @@ Deno.serve(async (req) => {
     const eligibleSet = candidates.filter((s) => !s.hardDisqualified);
     eligibleSet.sort(rankCmp);
 
-    console.log(`${eligibleSet.length} eligible candidates after zoning resolution`);
+    console.log(`${eligibleSet.length} eligible candidates after zoning resolution ([TIMING] ${Date.now() - tStart}ms elapsed)`);
 
     if (eligibleSet.length === 0) {
       return Response.json({
@@ -789,6 +805,7 @@ Deno.serve(async (req) => {
       count_in_ring: scored.length,
       count_buildable: eligibleSet.length,
       count_compliant: compliantCount,
+      elapsed_ms: Date.now() - tStart,
       required_footprint_ft: Math.round(minInscriedR),
       required_acres: Number((Math.PI * minInscriedR * minInscriedR / 43560).toFixed(3)),
       min_buildable_acres: Number(absoluteMinAcres.toFixed(3)),
