@@ -257,14 +257,14 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
                     </select>
                     <button onClick={handleDraft} disabled={drafting}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0C1B2E] hover:bg-[#15263f] text-white text-[11px] font-bold transition-all disabled:opacity-50">
-                      {drafting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Draft with HawkBot
+                      {drafting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />} Draft with Brian
                     </button>
                   </div>
                 </div>
                 <div className="relative">
                   <PenLine className="absolute top-2.5 left-2.5 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                   <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={5}
-                    placeholder="Click Draft with HawkBot, then edit. Leave blank to use our default exploratory inquiry."
+                    placeholder="Click Draft with Brian, then edit. Leave blank to use our default exploratory inquiry."
                     className="w-full pl-8 pr-3 py-2 rounded-lg border border-border bg-secondary text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none leading-relaxed" />
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-1">Factual, friendly & non-binding — no promises of approval, rent, or a guaranteed lease.</p>

@@ -71,7 +71,7 @@ CONSTRAINTS:
     const body = typeof out === "string" ? out.trim() : (out?.body || "").trim();
 
     if (!body) {
-      return Response.json({ error: "HawkBot returned an empty draft. Please try again." }, { status: 502 });
+      return Response.json({ error: "Brian returned an empty draft. Please try again." }, { status: 502 });
     }
     return Response.json({ body, tonality });
   } catch (error) {

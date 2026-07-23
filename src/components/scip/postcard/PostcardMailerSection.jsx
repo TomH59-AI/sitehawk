@@ -50,7 +50,7 @@ export default function PostcardMailerSection({ record }) {
 
       <div className="p-5 bg-card">
         <p className="text-sm text-muted-foreground mb-4">
-          Mail an exploratory cell-tower-lease postcard to your three SCIP targets (and optionally up to two more parcels you've already evaluated). HawkBot drafts it, you review &amp; edit, addresses are verified, you pay, and we mail via Lob. <strong>Up to 3 for $49 · up to 5 for $79.</strong>
+          Mail an exploratory cell-tower-lease postcard to your three SCIP targets (and optionally up to two more parcels you've already evaluated). Brian drafts it, you review &amp; edit, addresses are verified, you pay, and we mail via Lob. <strong>Up to 3 for $49 · up to 5 for $79.</strong>
         </p>
 
         {!hasTargets ? (
