@@ -17,6 +17,7 @@ export default function SkipTrace() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const scipId = new URLSearchParams(window.location.search).get("scip");
 
   const run = async () => {
     if (!ownerName.trim()) { toast.error("Enter an owner name to trace."); return; }
@@ -27,6 +28,7 @@ export default function SkipTrace() {
         owner_name: ownerName.trim(),
         mailing_address: address.trim(),
         target_label: "Manual Skip-Trace",
+        scip_record_id: scipId || undefined,
       });
       setResult(res?.data ?? res);
     } catch (err) {
@@ -43,6 +45,12 @@ export default function SkipTrace() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      {scipId && (
+        <div className="rounded-xl border border-emerald-300/50 bg-emerald-50 dark:bg-emerald-950/20 px-4 py-2.5 text-sm text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 shrink-0" />
+          Linked to SCIP <span className="font-mono font-semibold">{scipId}</span> — retrieved contacts save to its Document Studio automatically.
+        </div>
+      )}
       {/* Hero */}
       <div className="rounded-2xl overflow-hidden border border-[#628C83]/40 shadow-sm">
         <div className="px-6 py-7 text-white relative" style={{ background: `linear-gradient(135deg, #0C1B2E 0%, ${BRAND_GREEN} 130%)` }}>

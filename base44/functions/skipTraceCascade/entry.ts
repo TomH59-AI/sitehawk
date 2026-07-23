@@ -233,7 +233,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { owner_name, mailing_address, target_label = "" } = (await req.json()) || {};
+    const { owner_name, mailing_address, target_label = "", scip_record_id = null } = (await req.json()) || {};
     if (!owner_name) return Response.json({ error: "owner_name required" }, { status: 400 });
 
     if (!Deno.env.get("SCRAPFLY_API_KEY")) {
@@ -249,6 +249,13 @@ Deno.serve(async (req) => {
     // Entity owners (LLC/Trust/Corp) can't be matched by people-search.
     if (isEntity) {
       diag("entity_gate", "entity_owner", 0);
+      if (scip_record_id) {
+        try {
+          await base44.entities.ScipRecord.update(scip_record_id, {
+            owner_contacts: { best_phone: null, best_email: null, is_entity_owner: true, traced_at: new Date().toISOString(), phones: [], emails: [] },
+          });
+        } catch (e) { console.log(`[CONTACTDATA] persist entity owner_contacts failed: ${e.message}`); }
+      }
       return Response.json({
         is_entity_owner: true,
         phone: null, display: "", source: null, source_count: 0, phones: [],
@@ -287,6 +294,22 @@ Deno.serve(async (req) => {
 
     diag("AGGREGATE", top ? "hit" : "no_match", phones.length);
     diag("AGGREGATE_EMAIL", topEmail ? "hit" : "no_email", emails.length);
+
+    if (scip_record_id) {
+      try {
+        await base44.entities.ScipRecord.update(scip_record_id, {
+          owner_contacts: {
+            best_phone: top?.phone || null,
+            best_email: topEmail?.email || null,
+            is_entity_owner: false,
+            traced_at: new Date().toISOString(),
+            phones: phones.map((p) => ({ phone: p.phone, display: p.display, sources: p.sources, source_count: p.source_count, mobile: p.mobile })),
+            emails: emails.map((e) => ({ email: e.email, sources: e.sources, source_count: e.source_count })),
+          },
+        });
+        diag("PERSIST", "owner_contacts", phones.length);
+      } catch (e) { console.log(`[CONTACTDATA] persist owner_contacts failed: ${e.message}`); }
+    }
 
     return Response.json({
       is_entity_owner: false,

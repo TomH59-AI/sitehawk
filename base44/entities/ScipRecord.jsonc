@@ -299,6 +299,71 @@
         }
       }
     },
+    "owner_contacts": {
+      "type": "object",
+      "description": "Hawk Skip-Trace results persisted onto the SCIP so the Document Studio owner-access block always carries the retrieved owner phone(s) and email(s).",
+      "properties": {
+        "best_phone": {
+          "type": "string"
+        },
+        "best_email": {
+          "type": "string"
+        },
+        "is_entity_owner": {
+          "type": "boolean"
+        },
+        "traced_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "phones": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "phone": {
+                "type": "string"
+              },
+              "display": {
+                "type": "string"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source_count": {
+                "type": "number"
+              },
+              "mobile": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "emails": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "source_count": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    },
     "notion_snapshot_sync": {
       "type": "boolean",
       "default": false,

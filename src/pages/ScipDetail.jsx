@@ -157,9 +157,7 @@ export default function ScipDetail() {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="px-3 py-1 rounded-full text-white text-xs font-semibold" style={{ background: st.bg }}>{st.label}</span>
             <ToolbarBtn icon={RefreshCw} label="Regenerate Map" onClick={handleRegenerate} busy={busy} />
-            <ToolbarBtn icon={FileText} label="Hawk SCIP" onClick={() => navigate(`/scip/${record.id}/hawk`)} />
             <ToolbarBtn icon={Layers} label="Doc Studio" onClick={() => navigate(`/scip/${record.id}/studio`)} />
-            <ToolbarBtn icon={FileText} label="AnthemNet SCIP" onClick={() => navigate(`/scip/${record.id}/anthemnet`)} />
             <PrintSiteHawkScipButton scip={record} variant="toolbar" />
             <ToolbarBtn icon={Printer} label="Print SCIP (Classic)" onClick={handlePrint} />
             <ToolbarBtn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />
