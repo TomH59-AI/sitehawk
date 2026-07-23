@@ -136,6 +136,27 @@ export default function HawkVoiceAssistant() {
   const greetedRef = useRef(false);
   const supported = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
+  // Drag the floating "Ask Brian" launcher with the cursor (pointer events).
+  const [drag, setDrag] = useState({ dx: 0, dy: 0 });
+  const dragRef = useRef(null);
+  const movedRef = useRef(false);
+  const onDragStart = (e) => {
+    dragRef.current = { sx: e.clientX, sy: e.clientY, dx: drag.dx, dy: drag.dy };
+    movedRef.current = false;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  };
+  const onDragMove = (e) => {
+    if (!dragRef.current) return;
+    const ddx = e.clientX - dragRef.current.sx;
+    const ddy = e.clientY - dragRef.current.sy;
+    if (Math.abs(ddx) + Math.abs(ddy) > 4) movedRef.current = true;
+    setDrag({ dx: dragRef.current.dx + ddx, dy: dragRef.current.dy + ddy });
+  };
+  const onDragEnd = (e) => {
+    dragRef.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  };
+
   const stopAudio = () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; } setSpeaking(false); };
 
   useEffect(() => () => { stopAudio(); try { recRef.current?.abort(); } catch {} }, []);
@@ -223,7 +244,7 @@ export default function HawkVoiceAssistant() {
   const stopListening = () => { try { recRef.current?.stop(); } catch {} setListening(false); setInterim(""); };
 
   return (
-    <div className="fixed right-4 bottom-24 lg:right-6 lg:bottom-6 z-40">
+    <div className="fixed right-4 bottom-24 lg:right-6 lg:bottom-6 z-40" style={{ transform: `translate(${drag.dx}px, ${drag.dy}px)` }}>
       {open ? (
         <div className="w-80 max-w-[calc(100vw-32px)] rounded-2xl border border-primary/30 bg-card shadow-2xl flex flex-col max-h-[70vh]">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -304,11 +325,14 @@ export default function HawkVoiceAssistant() {
         </div>
       ) : (
         <button
-          onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-full border border-primary/30 bg-card shadow-xl px-4 py-2.5 text-xs font-heading font-bold text-primary hover:bg-primary/10 transition-colors"
-          title="Ask Brian — speak, he answers"
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onClick={() => { if (movedRef.current) { movedRef.current = false; return; } setOpen(true); }}
+          className="flex items-center gap-3 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 shadow-xl shadow-purple-500/30 px-8 py-5 text-base font-heading font-bold text-white transition-all cursor-grab active:cursor-grabbing touch-none select-none"
+          title="Ask Brian — drag to move, tap to talk"
         >
-          <Mic className="w-4 h-4" />
+          <Mic className="w-8 h-8" />
           Ask Brian
         </button>
       )}
