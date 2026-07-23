@@ -129,7 +129,7 @@ export default function Landing() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/search"
+              to="/dashboard"
               className="px-8 py-4 rounded-2xl bg-[#00A3FF] hover:bg-[#0056B3] text-white font-heading font-bold text-lg shadow-2xl shadow-[#00A3FF]/25 transition-all hover:scale-105"
             >
               Get Started →

@@ -1,9 +1,8 @@
-import { Link } from "react-router-dom";
 import DocumentsIndex from "@/components/dashboard/DocumentsIndex";
 import {
   ClipboardList, Map, FileText, Target, RadioTower, Layers, Cable, Radio,
   Ruler, Box, ShieldCheck, Printer, MapPin, ListChecks, FileSignature,
-  Scale, ClipboardEdit, FileStack, ScanLine, ArrowRight,
+  Scale, ClipboardEdit, FileStack, ScanLine,
 } from "lucide-react";
 
 const JOURNEY = [
@@ -37,20 +36,18 @@ function IndexGrid({ items, accent }) {
       {items.map((item) => {
         const Icon = item.icon;
         return (
-          <Link key={item.n} to={item.to} className="group rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 p-4 transition-all">
+          <div key={item.n} className="rounded-xl border border-border bg-card p-4">
             <div className="flex items-start gap-3">
               <div className={`relative shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${accent}`}>
                 <Icon className="w-5 h-5" />
                 <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center border-2 border-card">{item.n}</span>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2 font-heading font-bold text-sm text-foreground">
-                  {item.title}<ArrowRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                </div>
+                <div className="font-heading font-bold text-sm text-foreground">{item.title}</div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.desc}</p>
               </div>
             </div>
-          </Link>
+          </div>
         );
       })}
     </div>
@@ -64,7 +61,7 @@ export default function WorkflowIndex() {
         <div className="mb-4">
           <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">The SiteHawk Pipeline · In Order</div>
           <h2 className="font-heading font-bold text-2xl text-foreground">Everything SiteHawk Does</h2>
-          <p className="text-sm text-muted-foreground mt-1">Start at Step 1 and follow the journey through your finished SCIP.</p>
+          <p className="text-sm text-muted-foreground mt-1">These are the steps starting with 1 — follow the journey through your finished SCIP.</p>
         </div>
         <IndexGrid items={JOURNEY} accent="bg-primary/15 text-primary border border-primary/25" />
       </section>
