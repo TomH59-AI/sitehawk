@@ -437,106 +437,6 @@ async function llmExtractReport(base44, ctx) {
   return result || {};
 }
 
-// ─── Kimi (Moonshot AI) extraction — PRIMARY trial engine ───────────────────
-// Same prompt + field spec, run through Kimi K2 with its builtin $web_search
-// tool (executes server-side on Moonshot). Returns null on any failure so the
-// handler falls back to the Gemini path.
-async function llmExtractReportKimi(ctx, deadlineTs) {
-  const key = Deno.env.get('KIMI_API_KEY');
-  if (!key) return null;
-  // Explicit template — every field key maps to a {value,source,confidence}
-  // cell so the model returns keyed objects, never arrays.
-  const fieldSpec = Object.fromEntries(
-    Object.entries(REPORT_JSON_SCHEMA.properties).map(([sec, def]) => [
-      sec,
-      Object.fromEntries(Object.keys(def.properties).map((k) => [k, { value: '...', source: '...', confidence: '...' }])),
-    ])
-  );
-  const messages = [
-    {
-      role: 'system',
-      content: 'You are a telecom zoning research analyst. Use the $web_search tool to research the jurisdiction\'s Land Development Code / wireless ordinance (site:zoneomics.com is a useful secondary source). Your FINAL answer must be ONLY a valid JSON object — no markdown fences, no commentary.',
-    },
-    {
-      role: 'user',
-      content: `${buildZoningPrompt(ctx)}\n\nOUTPUT FORMAT — respond with ONLY a JSON object matching this exact structure (same section keys, same field keys — each field is an OBJECT keyed by the field name, NOT an array). Replace the "..." placeholders with your researched values:\n${JSON.stringify(fieldSpec, null, 1)}`,
-    },
-  ];
-  const tools = [{ type: 'builtin_function', function: { name: '$web_search' } }];
-
-  // Discover which base URL + model this key actually has access to.
-  let baseUrl = null, model = null;
-  for (const b of ['https://api.moonshot.ai/v1', 'https://api.moonshot.cn/v1']) {
-    const m = await fetchJsonWithTimeout(`${b}/models`, { headers: { Authorization: `Bearer ${key}` } }, 12000);
-    const ids = (m.data?.data || []).map((x) => x.id);
-    if (m.ok && ids.length) {
-      baseUrl = b;
-      // Prefer the fast general model — kimi-k3 is a slow reasoning model that
-      // exceeds our per-call timeout; code models are unsuitable for research.
-      model = ids.find((id) => id.includes('kimi-k2') && !id.includes('code')) || ids.find((id) => id === 'kimi-latest') || ids.find((id) => id === 'kimi-k3') || ids[0];
-      console.log(`[KIMI] base=${b} models=${ids.slice(0, 10).join(',')} → using ${model}`);
-      break;
-    }
-    console.log(`[KIMI] models probe failed base=${b} status=${m.status}`);
-  }
-  if (!baseUrl || !model) return null;
-
-  for (let turn = 0; turn < 8; turn++) {
-    // Stay inside the platform's hard 120s request wall — each call may only
-    // use whatever budget remains.
-    const callTimeout = deadlineTs - Date.now();
-    if (callTimeout < 8000) { console.log(`[KIMI] budget exhausted at turn=${turn}`); return null; }
-    const res = await fetchJsonWithTimeout(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, max_tokens: 4096, messages, tools }),
-    }, callTimeout);
-    if (!res.ok) {
-      console.log(`[KIMI] HTTP ${res.status} turn=${turn}: ${JSON.stringify(res.data?.error || res.error || '').slice(0, 300)}`);
-      // Transient network abort/5xx — retry within the remaining budget instead
-      // of instantly giving up on Kimi. Hard 4xx errors won't recover: bail.
-      if (res.status === 0 || res.status >= 500) continue;
-      return null;
-    }
-    const choice = res.data?.choices?.[0];
-    const msg = choice?.message;
-    if (!msg) { console.log('[KIMI] empty response'); return null; }
-
-    if (choice.finish_reason === 'tool_calls' && msg.tool_calls?.length) {
-      // Builtin $web_search runs on Moonshot's side — echo the arguments back.
-      messages.push(msg);
-      for (const tc of msg.tool_calls) {
-        messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.function.name, content: tc.function.arguments });
-      }
-      continue;
-    }
-
-    const text = String(msg.content || '');
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1) {
-      console.log(`[KIMI] no JSON in final answer (turn=${turn}) finish=${choice.finish_reason} len=${text.length} head=${text.slice(0, 200)}`);
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(text.slice(start, end + 1));
-      // Validate shape — must be a real report, not an echoed tool call or arrays.
-      const zo = parsed?.zoning_overview;
-      if (parsed?.tool_type || !zo || Array.isArray(zo) || Object.keys(zo).length < 3) {
-        console.log(`[KIMI] invalid report shape (turn=${turn}) keys=${Object.keys(parsed || {}).join(',')}`);
-        return null;
-      }
-      console.log(`[KIMI] SUCCESS turns=${turn + 1} sections=${Object.keys(parsed).join(',')}`);
-      return parsed;
-    } catch (e) {
-      console.log(`[KIMI] JSON parse failed: ${e?.message}`);
-      return null;
-    }
-  }
-  console.log('[KIMI] tool loop exceeded 8 turns');
-  return null;
-}
-
 // ─── handler ────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   const requestStart = Date.now(); // platform proxy kills the request at 120s — budget everything off this
@@ -659,9 +559,7 @@ Deno.serve(async (req) => {
     // Zoneomics paid API is banned.
     const ordinance = await getTelecomOrdinance(base44, geo.state_code, city || geo.county_name).catch(() => null);
 
-    // STEP 4 — LLM web-grounded gap-fill. TRIAL: Kimi (Moonshot) runs FIRST via
-    // KIMI_API_KEY with its builtin web search; any failure falls back to the
-    // proven Gemini path so the report always completes.
+    // STEP 4 — LLM web-grounded gap-fill (Gemini, web-grounded).
     const llmCtx = {
       lat, lon,
       state: geo.state_name || geo.state_code,
@@ -672,19 +570,8 @@ Deno.serve(async (req) => {
       zoneomics,
       ordinance,
     };
-    let llmEngine = 'kimi';
-    // Kimi (K2.6 fast engine) is the committed engine — it gets the request's
-    // full budget minus ~35s reserved for the emergency Gemini path.
-    const kimiDeadline = requestStart + 95000;
-    let llmReport = await llmExtractReportKimi(llmCtx, kimiDeadline).catch((e) => {
-      console.log(`[KIMI] error: ${e?.message || e}`);
-      return null;
-    });
-    if (!llmReport) {
-      llmEngine = 'gemini';
-      console.log('[KIMI] failed — emergency Gemini fallback');
-      llmReport = await llmExtractReport(base44, llmCtx);
-    }
+    const llmEngine = 'gemini';
+    const llmReport = await llmExtractReport(base44, llmCtx);
 
     const report = llmReport || {};
     report.zoning_overview = report.zoning_overview || {};
