@@ -102,6 +102,7 @@ import ZoningVerifier from './pages/ZoningVerifier';
 import OrdinanceHunter from './pages/OrdinanceHunter';
 import ComplianceDashboard from './pages/ComplianceDashboard';
 import AnthemNetScip from './pages/AnthemNetScip';
+import SkipTrace from './pages/SkipTrace';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -160,6 +161,7 @@ const AuthenticatedApp = () => {
         <Route path="/send-update" element={<SendUpdate />} />
         <Route path="/mail-orders" element={<MailOrders />} />
         <Route path="/crm" element={<CRM />} />
+        <Route path="/skip-trace" element={<SkipTrace />} />
         <Route path="/hubspot" element={<HubSpotIntegration />} />
         <Route path="/subscriber-crm" element={<SubscriberCRM />} />
         <Route path="/usage-analytics" element={<UsageAnalytics />} />

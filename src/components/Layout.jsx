@@ -8,7 +8,7 @@ import SARFCoachTour from "./guide/SARFCoachTour";
 import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, ChevronLeft, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack, Radar, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Sun, Moon, ChevronLeft, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack, Radar, ShieldCheck, ShieldAlert, PhoneCall } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -24,6 +24,7 @@ const BASE_NAV = [
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/crm", icon: Briefcase, label: "⏱️ Time Savers" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
+  { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },
   { path: "/hawk-lease", icon: FileSignature, label: "🦅 HawkLease" },
   { path: "/hawk-law", icon: Scale, label: "⚖️ Hawk Law" },

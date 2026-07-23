@@ -47,10 +47,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Lock, Layers } from "lucide-react";
 import { toast } from "sonner";
 import MapSubStep from "./section4/MapSubStep";
-import SkipTraceStep from "./section4/SkipTraceStep";
 import DeedStep from "./section4/DeedStep";
 import ComplianceStep from "./section4/ComplianceStep";
-import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
@@ -124,8 +122,6 @@ export default function Section4MapSuite({
   // Track whether the Zoning/FLUM maps were drawn with Regrid data (shows layer toggle)
   const [zoningUsedRegrid, setZoningUsedRegrid] = useState(false);
   const [flumUsedRegrid, setFlumUsedRegrid] = useState(false);
-  // Hawk Skip-Trace result for Target A's owner (phones + emails across all sources).
-  const [skipTraceInfo, setSkipTraceInfo] = useState(null);
   // Warranty Deed of record for Target A (Realie click lookup). null = no deed found.
   const [deedInfo, setDeedInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
@@ -493,36 +489,6 @@ export default function Section4MapSuite({
     }, 600);
   }, []);
 
-  // Hawk Skip-Trace (final step) — runs the multi-source cascade for Target A's
-  // owner. Long-running (~90s) so WhitePages is never skipped; own button.
-  const runSkipTrace = useCallback(async () => {
-    const owner = targetA?.owner_name || targetA?.owner || "";
-    if (!owner) {
-      setErrors((p) => ({ ...p, skiptrace: "No Target A owner name to trace — re-run Section 3." }));
-      return;
-    }
-    setErrors((p) => ({ ...p, skiptrace: null }));
-    setLoadingStep("skiptrace");
-    try {
-      const res = await skipTraceCascade({
-        owner_name: owner,
-        mailing_address: targetA?.mailing_address || targetA?.parcel_address || "",
-        target_label: "Target A",
-      });
-      const data = res?.data ?? res;
-      setSkipTraceInfo(data);
-      onData?.({ skip_trace: data });
-      setCompleted((prev) => ({ ...prev, skiptrace: true }));
-      toast.success("Skip-Trace complete for Target A.");
-    } catch (err) {
-      console.error(err);
-      setErrors((p) => ({ ...p, skiptrace: err?.message || "Skip-Trace failed." }));
-      toast.error(err?.message || "Skip-Trace failed.");
-    } finally {
-      setLoadingStep(null);
-    }
-  }, [targetA, onData]);
-
   // Warranty Deed lookup for Target A — pulls the deed of record & chain of
   // title from Realie (click) first, then backfills any missing fields from
   // ReportAll USA (point lookup). Shows "Not Available For This Target" only
@@ -887,16 +853,6 @@ export default function Section4MapSuite({
           error={errors.deed}
           ownerName={targetA?.owner_name || targetA?.owner || ""}
           onRun={runDeed}
-        />
-        <SkipTraceStep
-          index={17}
-          unlocked={active && !!completed.deed}
-          loading={loadingStep === "skiptrace"}
-          done={!!completed.skiptrace}
-          result={skipTraceInfo}
-          error={errors.skiptrace}
-          ownerName={targetA?.owner_name || targetA?.owner || ""}
-          onRun={runSkipTrace}
         />
       </div>
     </div>
