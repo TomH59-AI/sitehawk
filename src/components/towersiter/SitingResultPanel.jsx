@@ -4,6 +4,7 @@
  */
 import { CheckCircle2, XCircle, MinusCircle, AlertTriangle, Info, ExternalLink } from "lucide-react";
 import { getResultMeta } from "@/lib/towerSiterResult";
+import TalonFitTagline from "@/components/talonfit/TalonFitTagline";
 
 const DISCLAIMER = "Preliminary automated siting exhibit only. Not a stamped survey, zoning determination, construction drawing, or final tower location. Final placement must be verified by surveyor, engineer, and jurisdictional review.";
 
@@ -140,6 +141,8 @@ export default function SitingResultPanel({ result, resultClass, checks, towerSe
         <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-red-400" />
         <span>{DISCLAIMER}</span>
       </div>
+
+      <TalonFitTagline />
     </div>
   );
 }

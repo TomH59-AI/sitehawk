@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle } from "lucide-react";
+import TalonFitTagline from "@/components/talonfit/TalonFitTagline";
 
 /**
  * LiveSitingVerdict — updates live as the tower pin is dragged.
@@ -44,6 +45,7 @@ export default function LiveSitingVerdict({ live, jurisdiction, rules, unverifie
           ? "No verified ordinance on file — conservative 1:1 height default applied. Preliminary only, not a survey or zoning determination."
           : `Using ${jurisdiction || "jurisdiction"} ordinance rules${rules?._raw?.last_verified_at ? ` last verified ${String(rules._raw.last_verified_at).slice(0, 10)}` : ""}. Preliminary only, not a survey or zoning determination.`}
       </p>
+      <TalonFitTagline className="mt-1.5" />
     </div>
   );
 }

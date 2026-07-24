@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import TalonFitTagline from "@/components/talonfit/TalonFitTagline";
 
 const META = {
   works: { label: "Allowable", icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-700 border-emerald-300" },
@@ -34,6 +35,7 @@ export default function FitStatusPanel({ fit }) {
       <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
         NOT final engineering, NOT a stamped survey, and NOT a final zoning determination.
       </p>
+      <TalonFitTagline />
     </div>
   );
 }

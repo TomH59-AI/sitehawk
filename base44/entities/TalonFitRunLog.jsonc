@@ -1,0 +1,112 @@
+{
+  "name": "TalonFitRunLog",
+  "type": "object",
+  "description": "TalonFit\u00ae audit log \u2014 one record per TalonFit feasibility run. Created EXCLUSIVELY by the talonfitRun backend function (service role) so users cannot forge entries. Used for usage proof, billing evidence, and per-user/per-org rate limiting. Admins can query the full log.",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique run ID (UUID), generated server-side."
+    },
+    "user_id": {
+      "type": "string",
+      "description": "Base44 User id who executed the run."
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization identifier \u2014 user.organization_id when present, else the user's email domain."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "tower_siter",
+        "hawkperch"
+      ],
+      "default": "tower_siter",
+      "description": "Which TalonFit surface executed the run."
+    },
+    "parcel_id": {
+      "type": "string",
+      "description": "APN / parcel identifier if known."
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "jurisdiction": {
+      "type": "string"
+    },
+    "tower_height_ft": {
+      "type": "number",
+      "description": "Tower height evaluated in this run."
+    },
+    "max_height_ft": {
+      "type": "number",
+      "description": "Final max buildable height (ft) determined by the run."
+    },
+    "binding_constraint": {
+      "type": "string",
+      "description": "The constraint that set the final height (e.g. ordinance height cap, fall-zone clearance)."
+    },
+    "feasible": {
+      "type": "boolean",
+      "description": "True when the run passed all checks (TalonFit\u2122 Certified)."
+    },
+    "result_class": {
+      "type": "string",
+      "description": "Result classification string from the engine."
+    },
+    "run_timestamp_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp of the run."
+    },
+    "report_id": {
+      "type": "string",
+      "description": "Compliance report ID last generated for this run."
+    },
+    "report_generated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "run_id",
+    "user_id",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

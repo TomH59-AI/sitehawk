@@ -10,6 +10,8 @@ import PropertyLookupForm from "@/components/hawkfit/PropertyLookupForm";
 import SiteTargetSummary from "@/components/hawkfit/SiteTargetSummary";
 import TowerControls from "@/components/hawkfit/TowerControls";
 import FitStatusPanel from "@/components/hawkfit/FitStatusPanel";
+import { talonfitRun } from "@/functions/talonfitRun";
+import TalonFitCertifiedBadge from "@/components/talonfit/TalonFitCertifiedBadge";
 import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import HawkPerchControls from "@/components/hawkfit/HawkPerchControls";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
@@ -29,6 +31,7 @@ export default function HawkFit() {
   const [lookupBusy, setLookupBusy] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
   const [savedScenario, setSavedScenario] = useState(null);
+  const [talonRun, setTalonRun] = useState(null); // { run_id, certified } from the TalonFit audit log
 
   const fit = useMemo(() => {
     if (!towerLngLat) return null;
@@ -63,6 +66,7 @@ export default function HawkFit() {
         : null;
       setTowerLngLat(placed?.lngLat || [target.longitude, target.latitude]);
       setSavedScenario(null);
+      setTalonRun(null);
       toast({ title: "Property loaded", description: target.address || "Target A ready — auto-placed for best fit. Drag to adjust." });
     } catch (e) {
       toast({
@@ -140,6 +144,28 @@ export default function HawkFit() {
       setSiteTarget((t) => ({ ...t, id: res.data.site_target_id }));
       setSavedScenario(res.data.scenario || { id: res.data.tower_scenario_id });
       toast({ title: "Scenario saved", description: "Export Map is now enabled." });
+      // TalonFit® certification + audit log (rate-limited server-side)
+      try {
+        const certified = fit?.status === "works";
+        const { data: tf } = await talonfitRun({
+          source: "hawkperch",
+          parcel_id: siteTarget.parcel_id || null,
+          latitude: towerLngLat[1],
+          longitude: towerLngLat[0],
+          jurisdiction: siteTarget.jurisdiction || null,
+          tower_height_ft: controls.heightFt,
+          max_height_ft: fit?.maxAvailableHeight ?? null,
+          binding_constraint: fit?.errorCode || fit?.reasons?.[0] || "Fall-zone / property-line clearance",
+          feasible: certified,
+          result_class: fit?.status || null,
+        });
+        setTalonRun({ run_id: tf?.run_id, certified });
+      } catch (err) {
+        if (err?.response?.status === 429) {
+          toast({ title: "TalonFit rate limit", description: err.response.data?.error, variant: "destructive" });
+        }
+        console.error("TalonFit audit log failed:", err);
+      }
     } catch (e) {
       toast({ title: "Save failed", description: e?.response?.data?.error || e.message, variant: "destructive" });
     }
@@ -167,6 +193,7 @@ export default function HawkFit() {
               <TowerControls {...controls} onChange={handleControlChange} />
               <HawkPerchControls controls={controls} onChange={handleControlChange} />
               <FitStatusPanel fit={fit} />
+              {talonRun?.certified && <TalonFitCertifiedBadge runId={talonRun.run_id} />}
               <LayerTogglePanel layers={layers} onToggle={handleLayerToggle} />
               <div className="space-y-2">
                 <Button onClick={handleSave} disabled={saveBusy || !fit} className="w-full">

@@ -22,6 +22,8 @@ import { towerSiterOrdinance } from "@/functions/towerSiterOrdinance";
 import { towerSiterResidential } from "@/functions/towerSiterResidential";
 import { towerSiterSitings } from "@/functions/towerSiterSitings";
 import { scipExistingConditions } from "@/functions/scipExistingConditions";
+import { talonfitRun } from "@/functions/talonfitRun";
+import TalonFitCertifiedBadge from "@/components/talonfit/TalonFitCertifiedBadge";
 import { regridBuildingFootprints } from "@/functions/regridBuildingFootprints";
 import { useTowerSeparation } from "@/components/towersiter/TowerSeparationLayer";
 
@@ -57,6 +59,7 @@ export default function TowerSiter() {
   const [resultClass, setResultClass] = useState(null);
   const [savingRun, setSavingRun] = useState(false);
   const [savedRunId, setSavedRunId] = useState(null);
+  const [talonRun, setTalonRun] = useState(null); // { run_id, certified } from the TalonFit audit log
   const [anonKey, setAnonKey] = useState(null);
   const { fetchTowers, towerData, separationCheck, loading: towerSepLoading, reset: resetTowerSep } = useTowerSeparation();
   const [clickMode, setClickMode] = useState(null);
@@ -145,6 +148,7 @@ export default function TowerSiter() {
     setSitingResult(null);
     setResultClass(null);
     setSavedRunId(null);
+    setTalonRun(null);
     resetTowerSep();
     setAccessRoad(null);
     setBuildingsFC(null);
@@ -305,6 +309,33 @@ export default function TowerSiter() {
     // 3. Compute result classification (after checks are set — use current values)
     const rc = classifyResult(result.checks, [], buildingStatus === "ready");
     setResultClass(rc);
+
+    // 4. TalonFit® certification + audit log (rate-limited server-side)
+    try {
+      const certified = getResultMeta(rc).feasible === true;
+      const failedEntry = Object.entries(result.checks || {}).find(([, v]) => v?.status === "fail");
+      const bindingConstraint = failedEntry
+        ? (failedEntry[1]?.label || `${failedEntry[0]} check`)
+        : (effectiveRules?.height_limit_ft != null
+            ? `Ordinance height cap (${effectiveRules.height_limit_ft}′)`
+            : "Fall-zone / property-line clearance");
+      const { data: tf } = await talonfitRun({
+        source: "tower_siter",
+        parcel_id: parcel?.apn || null,
+        latitude: result.towerLonLat[1],
+        longitude: result.towerLonLat[0],
+        jurisdiction: parcel?.jurisdiction || null,
+        tower_height_ft: Number(controls.heightFt) || null,
+        max_height_ft: Number(controls.heightFt) || null,
+        binding_constraint: bindingConstraint,
+        feasible: certified,
+        result_class: rc,
+      });
+      setTalonRun({ run_id: tf?.run_id, certified });
+    } catch (e) {
+      if (e?.response?.status === 429) toast.error(e.response.data?.error || "TalonFit rate limit reached.");
+      console.error("TalonFit audit log failed:", e);
+    }
   };
 
   /* ---------------- save run to TowerSitingRun entity ---------------- */
@@ -618,6 +649,10 @@ export default function TowerSiter() {
               ]}
               rules={normalizeOrdinanceRules(rules, Number(controls.heightFt) || 199) || rules}
             />
+          )}
+
+          {result && !result.collapsed && talonRun?.certified && (
+            <TalonFitCertifiedBadge runId={talonRun.run_id} />
           )}
 
           <div className="flex gap-2">
