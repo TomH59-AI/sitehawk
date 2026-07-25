@@ -1,239 +1,254 @@
-// TalonFit® Site Exhibit — a to-scale PDF drawing auto-drafted after each
-// TalonFit run. Draws (north-up, true scale): property boundary, setback /
-// buildable envelope, equipment compound, fall zone, tower location, proposed
-// access easement, scale bar, north arrow, legend and the verdict banner.
-import * as turf from "@turf/turf";
+// TalonFit® Site Exhibit — shared geometry projection + to-scale PDF drafting.
+// All coordinates are projected to local feet (east/north) around the tower base
+// so the drawing and the 3D scene are true to scale.
 import { jsPDF } from "jspdf";
+import * as turf from "@turf/turf";
 
-const FT_PER_DEG_LAT = 364320;
+const LAT_FT = 364567.2; // ft per degree latitude
+const FT_TO_KM = 0.0003048;
 
-const VERDICT_COLOR = {
-  "FITS": [5, 122, 85],
-  "CONDITIONAL": [180, 121, 9],
-  "DOES NOT FIT": [185, 28, 28],
+export const VERDICT_META = {
+  FITS: { label: "FITS", rgb: [22, 163, 74] },
+  CONDITIONAL: { label: "CONDITIONAL", rgb: [217, 119, 6] },
+  DOES_NOT_FIT: { label: "DOES NOT FIT", rgb: [220, 38, 38] },
 };
 
-function ringsOf(geometry) {
+export function toLocalFt(lngLat, origin) {
+  const lonFt = Math.cos((origin[1] * Math.PI) / 180) * 365221.4;
+  return [(lngLat[0] - origin[0]) * lonFt, (lngLat[1] - origin[1]) * LAT_FT];
+}
+
+function geomRings(geometry) {
   if (!geometry) return [];
   if (geometry.type === "Polygon") return geometry.coordinates;
   if (geometry.type === "MultiPolygon") return geometry.coordinates.flat();
   return [];
 }
 
-function drawPoly(doc, pts, { stroke, fill, dash = null, width = 1, fillOpacity = 0.12 }) {
-  if (!pts || pts.length < 3) return;
-  const segs = [];
-  for (let i = 1; i < pts.length; i++) segs.push([pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]);
-  if (fill) {
-    doc.setGState(new doc.GState({ opacity: fillOpacity }));
-    doc.setFillColor(fill[0], fill[1], fill[2]);
-    doc.lines(segs, pts[0][0], pts[0][1], [1, 1], "F", true);
-    doc.setGState(new doc.GState({ opacity: 1 }));
-  }
-  if (stroke) {
-    doc.setDrawColor(stroke[0], stroke[1], stroke[2]);
-    doc.setLineWidth(width);
-    doc.setLineDashPattern(dash || [], 0);
-    doc.lines(segs, pts[0][0], pts[0][1], [1, 1], "S", true);
-    doc.setLineDashPattern([], 0);
+export function ringsToLocalFt(geometry, origin) {
+  return geomRings(geometry).map((ring) => ring.map((c) => toLocalFt(c, origin)));
+}
+
+// Buildable envelope = parcel inward-buffered by the governing setback.
+export function computeEnvelope(parcelGeometry, setbackFt) {
+  try {
+    const f = { type: "Feature", properties: {}, geometry: parcelGeometry };
+    const buffered = turf.buffer(f, -(setbackFt || 25) * FT_TO_KM, { units: "kilometers" });
+    return buffered?.geometry || null;
+  } catch {
+    return null;
   }
 }
 
-export function downloadTalonFitExhibit({
-  parcelGeometry = null, envelopeGeometry = null, compoundGeometry = null,
-  fallZoneGeometry = null, towerLngLat, setbackFt = 0,
-  verdict = "CONDITIONAL", meta = {},
-}) {
-  // ---- derived geometry ----
-  let envelope = envelopeGeometry;
-  if (!envelope && parcelGeometry && setbackFt > 0) {
-    try {
-      envelope = turf.buffer({ type: "Feature", properties: {}, geometry: parcelGeometry },
-        -setbackFt * 0.0003048, { units: "kilometers" })?.geometry || null;
-    } catch { envelope = null; }
+// Schematic access easement: shortest corridor from the tower to the parcel line.
+export function computeAccessEasement(parcelGeometry, towerLngLat) {
+  try {
+    const f = { type: "Feature", properties: {}, geometry: parcelGeometry };
+    const lines = turf.polygonToLine(f);
+    let best = null, bestD = Infinity;
+    turf.flattenEach(lines, (line) => {
+      const np = turf.nearestPointOnLine(line, turf.point(towerLngLat), { units: "kilometers" });
+      if (np?.properties?.dist < bestD) { bestD = np.properties.dist; best = np.geometry.coordinates; }
+    });
+    return best ? { from: towerLngLat, to: best } : null;
+  } catch {
+    return null;
   }
-  // Proposed access easement — from the compound toward the nearest boundary point.
-  let easementEnd = null;
-  if (parcelGeometry && towerLngLat) {
-    try {
-      const lines = turf.polygonToLine({ type: "Feature", properties: {}, geometry: parcelGeometry });
-      let bestKm = Infinity;
-      turf.flattenEach(lines, (l) => {
-        const np = turf.nearestPointOnLine(l, turf.point(towerLngLat), { units: "kilometers" });
-        if (np.properties.dist < bestKm) { bestKm = np.properties.dist; easementEnd = np.geometry.coordinates; }
-      });
-    } catch { easementEnd = null; }
+}
+
+function drawRing(doc, pts, style) {
+  if (pts.length < 3) return;
+  const segs = [];
+  for (let i = 1; i < pts.length; i++) segs.push([pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]]);
+  doc.lines(segs, pts[0][0], pts[0][1], [1, 1], style, true);
+}
+
+function niceScaleBarFt(ftPerPt) {
+  const candidates = [10, 20, 25, 50, 100, 150, 200, 300, 400, 500, 800, 1000, 2000];
+  for (const L of candidates) {
+    const pts = L / ftPerPt;
+    if (pts >= 60 && pts <= 150) return L;
+  }
+  return candidates[candidates.length - 1];
+}
+
+// data: { verdict, parcel, envelope, compound, fallZone, towerLngLat,
+//         towerHeightFt, fallRadiusFt, meta:{address, apn, jurisdiction, compoundW, compoundD, source} }
+export function generateSiteExhibitPdf(data) {
+  const { verdict, parcel, envelope, compound, fallZone, towerLngLat, towerHeightFt, fallRadiusFt, meta = {} } = data;
+  const origin = towerLngLat;
+  const doc = new jsPDF({ unit: "pt", format: "letter" }); // 612 x 792
+  const v = VERDICT_META[verdict] || VERDICT_META.CONDITIONAL;
+
+  /* ---- header ---- */
+  doc.setFillColor(10, 28, 46);
+  doc.rect(0, 0, 612, 78, "F");
+  doc.setTextColor(56, 189, 248);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("SITEHAWK", 40, 24);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.text("TalonFit® Site Exhibit", 40, 48);
+  doc.setFontSize(8);
+  doc.setTextColor(148, 197, 255);
+  doc.text("To-scale preliminary siting drawing — auto-drafted from the TalonFit run", 40, 64);
+  // verdict pill
+  doc.setFillColor(...v.rgb);
+  const pillW = doc.getTextWidth(v.label) * (12 / doc.getFontSize()) + 36;
+  doc.roundedRect(572 - pillW, 26, pillW, 26, 13, 13, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(12);
+  doc.text(v.label, 572 - pillW / 2, 43, { align: "center" });
+
+  /* ---- meta ---- */
+  doc.setTextColor(30, 41, 59);
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  const metaLine1 = `${meta.address || "—"}   ·   APN ${meta.apn || "—"}   ·   ${meta.jurisdiction || "Jurisdiction unverified"}`;
+  const metaLine2 = `Tower ${Math.round(towerHeightFt)} ft AGL   ·   Compound ${Math.round(meta.compoundW || 0)}×${Math.round(meta.compoundD || 0)} ft   ·   Fall zone ${Math.round(fallRadiusFt)} ft   ·   ${meta.source || "TalonFit"}   ·   ${new Date().toISOString().slice(0, 10)}`;
+  doc.text(metaLine1, 40, 98);
+  doc.setTextColor(100, 116, 139);
+  doc.text(metaLine2, 40, 112);
+
+  /* ---- drawing area ---- */
+  const DX = 40, DY = 128, DW = 532, DH = 460;
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(1);
+  doc.rect(DX, DY, DW, DH, "S");
+
+  // project everything + bbox (parcel + fall zone drive the extent)
+  const parcelRings = ringsToLocalFt(parcel, origin);
+  const envRings = envelope ? ringsToLocalFt(envelope, origin) : [];
+  const compRings = compound ? ringsToLocalFt(compound, origin) : [];
+  const fzRings = fallZone ? ringsToLocalFt(fallZone, origin) : [];
+  const easement = computeAccessEasement(parcel, towerLngLat);
+  const all = [...parcelRings.flat(), ...fzRings.flat(), [0, 0]];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of all) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  const bw = Math.max(maxX - minX, 50), bh = Math.max(maxY - minY, 50);
+  const scale = Math.min((DW * 0.84) / bw, (DH * 0.84) / bh); // pt per ft
+  const bcx = (minX + maxX) / 2, bcy = (minY + maxY) / 2;
+  const cx = DX + DW / 2, cy = DY + DH / 2;
+  const P = ([x, y]) => [cx + (x - bcx) * scale, cy - (y - bcy) * scale]; // north up
+
+  // fall zone — light amber fill + dashed ring
+  doc.setFillColor(254, 243, 199);
+  doc.setDrawColor(217, 119, 6);
+  doc.setLineWidth(1);
+  doc.setLineDashPattern([4, 3], 0);
+  fzRings.forEach((r) => drawRing(doc, r.map(P), "FD"));
+  doc.setLineDashPattern([], 0);
+
+  // buildable envelope — dashed green
+  doc.setDrawColor(22, 163, 74);
+  doc.setLineWidth(1.2);
+  doc.setLineDashPattern([5, 3], 0);
+  envRings.forEach((r) => drawRing(doc, r.map(P), "S"));
+  doc.setLineDashPattern([], 0);
+
+  // access easement — thick gray dashed corridor
+  if (easement) {
+    const a = P(toLocalFt(easement.from, origin));
+    const b = P(toLocalFt(easement.to, origin));
+    doc.setDrawColor(107, 114, 128);
+    doc.setLineWidth(5);
+    doc.setLineDashPattern([7, 5], 0);
+    doc.line(a[0], a[1], b[0], b[1]);
+    doc.setLineDashPattern([], 0);
+    doc.setFontSize(6.5);
+    doc.setTextColor(75, 85, 99);
+    doc.text("PROPOSED 20' ACCESS EASEMENT", (a[0] + b[0]) / 2 + 4, (a[1] + b[1]) / 2 - 4);
   }
 
-  // ---- local-feet projection (north-up, true scale) ----
-  const coords = [];
-  for (const g of [parcelGeometry, envelope, fallZoneGeometry, compoundGeometry]) {
-    for (const r of ringsOf(g)) coords.push(...r);
-  }
-  if (towerLngLat) coords.push(towerLngLat);
-  if (easementEnd) coords.push(easementEnd);
-  if (!coords.length) return;
-  const lons = coords.map((c) => c[0]), lats = coords.map((c) => c[1]);
-  const lon0 = (Math.min(...lons) + Math.max(...lons)) / 2;
-  const lat0 = (Math.min(...lats) + Math.max(...lats)) / 2;
-  const cosLat = Math.cos((lat0 * Math.PI) / 180);
-  const toFt = ([lon, lat]) => [(lon - lon0) * FT_PER_DEG_LAT * cosLat, (lat - lat0) * FT_PER_DEG_LAT];
-  const ftAll = coords.map(toFt);
-  const xs = ftAll.map((p) => p[0]), ys = ftAll.map((p) => p[1]);
-  const spanX = Math.max(...xs) - Math.min(...xs) || 1;
-  const spanY = Math.max(...ys) - Math.min(...ys) || 1;
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  // compound — blue fill + solid stroke
+  doc.setFillColor(219, 234, 254);
+  doc.setDrawColor(37, 99, 235);
+  doc.setLineWidth(1.2);
+  compRings.forEach((r) => drawRing(doc, r.map(P), "FD"));
 
-  // ---- page (letter landscape, points) ----
-  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
-  const W = 792, M = 28;
-  const box = { x: M, y: 110, w: 516, h: 428 };
-  const pad = 26;
-  const scale = Math.min((box.w - pad * 2) / spanX, (box.h - pad * 2) / spanY);
-  const toPt = (lngLat) => {
-    const [fx, fy] = toFt(lngLat);
-    return [box.x + box.w / 2 + (fx - cx) * scale, box.y + box.h / 2 - (fy - cy) * scale];
-  };
-  const ptsOf = (g) => ringsOf(g).map((r) => r.map(toPt));
-
-  // ---- header ----
-  doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.setTextColor(15, 23, 42);
-  doc.text("TALONFIT® SITE EXHIBIT", M, 46);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(90, 100, 115);
-  doc.text(String(meta.siteLabel || "Tower Site").slice(0, 90), M, 60);
-  doc.text(`Drafted ${new Date().toISOString().replace("T", " ").slice(0, 16)} UTC${meta.runId ? `  ·  TalonFit Run ${String(meta.runId).slice(0, 8).toUpperCase()}` : ""}`, W - M, 46, { align: "right" });
-  doc.text("Automated to-scale preliminary drawing", W - M, 60, { align: "right" });
-
-  // ---- verdict banner ----
-  const vc = VERDICT_COLOR[verdict] || VERDICT_COLOR.CONDITIONAL;
-  doc.setFillColor(vc[0], vc[1], vc[2]);
-  doc.rect(M, 72, W - 2 * M, 24, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(255, 255, 255);
-  doc.text(`TALONFIT VERDICT: ${verdict}`, W / 2, 88, { align: "center" });
-
-  // ---- drawing frame ----
-  doc.setDrawColor(30, 41, 59); doc.setLineWidth(1);
-  doc.rect(box.x, box.y, box.w, box.h, "S");
-
-  // ---- layers (back to front) ----
-  for (const pts of ptsOf(parcelGeometry)) drawPoly(doc, pts, { stroke: [30, 41, 59], fill: [148, 163, 184], width: 1.8, fillOpacity: 0.08 });
-  for (const pts of ptsOf(envelope)) drawPoly(doc, pts, { stroke: [5, 150, 105], fill: [5, 150, 105], dash: [4, 3], width: 1.1, fillOpacity: 0.10 });
-  for (const pts of ptsOf(fallZoneGeometry)) drawPoly(doc, pts, { stroke: [220, 38, 38], fill: [220, 38, 38], dash: [3, 3], width: 1.1, fillOpacity: 0.07 });
-
-  // access easement — 20 ft corridor, two dashed parallels
-  if (easementEnd && towerLngLat) {
-    const a = toPt(towerLngLat), b = toPt(easementEnd);
-    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
-    if (len > 6) {
-      const ux = dx / len, uy = dy / len;
-      const startOff = Math.min((Math.max(meta.compoundW || 0, meta.compoundD || 0) / 2) * scale, len * 0.6);
-      const sx = a[0] + ux * startOff, sy = a[1] + uy * startOff;
-      const off = 10 * scale, px = -uy, py = ux;
-      doc.setDrawColor(120, 85, 40); doc.setLineWidth(1); doc.setLineDashPattern([5, 3], 0);
-      doc.line(sx + px * off, sy + py * off, b[0] + px * off, b[1] + py * off);
-      doc.line(sx - px * off, sy - py * off, b[0] - px * off, b[1] - py * off);
-      doc.setLineDashPattern([], 0);
-      doc.setFont("helvetica", "bold"); doc.setFontSize(6.5); doc.setTextColor(120, 85, 40);
-      doc.text("PROPOSED 20 FT ACCESS ESM'T", (sx + b[0]) / 2, (sy + b[1]) / 2 - 4 - off,
-        { align: "center", angle: -Math.atan2(dy, dx) * 180 / Math.PI });
-    }
-  }
-
-  for (const pts of ptsOf(compoundGeometry)) drawPoly(doc, pts, { stroke: [234, 88, 12], fill: [234, 88, 12], width: 1.3, fillOpacity: 0.3 });
+  // parcel boundary — solid dark
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(1.8);
+  parcelRings.forEach((r) => drawRing(doc, r.map(P), "S"));
 
   // tower point
-  if (towerLngLat) {
-    const [tx, ty] = toPt(towerLngLat);
-    doc.setFillColor(8, 145, 178); doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.8);
-    doc.circle(tx, ty, 3.4, "FD");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(8, 145, 178);
-    doc.text("TOWER", tx, ty - 6, { align: "center" });
-  }
+  const T = P([0, 0]);
+  doc.setFillColor(220, 38, 38);
+  doc.circle(T[0], T[1], 4, "F");
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(1);
+  doc.line(T[0] - 2.5, T[1], T[0] + 2.5, T[1]);
+  doc.line(T[0], T[1] - 2.5, T[0], T[1] + 2.5);
+  doc.setFontSize(7);
+  doc.setTextColor(185, 28, 28);
+  doc.setFont("helvetica", "bold");
+  doc.text(`TOWER — ${Math.round(towerHeightFt)} FT`, T[0] + 8, T[1] - 6);
 
-  // ---- north arrow (inside frame, top-right) ----
-  const nx = box.x + box.w - 22, ny = box.y + 26;
-  doc.setFillColor(30, 41, 59); doc.setDrawColor(30, 41, 59); doc.setLineWidth(1);
-  doc.triangle(nx, ny - 12, nx - 5, ny + 3, nx + 5, ny + 3, "F");
-  doc.line(nx, ny + 3, nx, ny + 11);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(30, 41, 59);
-  doc.text("N", nx, ny + 21, { align: "center" });
+  // north arrow (top-right of drawing)
+  const nx = DX + DW - 30, ny = DY + 40;
+  doc.setFillColor(15, 23, 42);
+  doc.triangle(nx, ny - 18, nx - 7, ny + 4, nx + 7, ny + 4, "F");
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text("N", nx, ny + 16, { align: "center" });
 
-  // ---- scale bar (inside frame, bottom-left) ----
-  const nice = [2000, 1000, 500, 400, 300, 200, 150, 100, 50, 25, 20, 10].find((n) => n * scale <= 140) || 10;
-  const barLen = nice * scale;
-  const bx = box.x + 14, by = box.y + box.h - 16;
-  doc.setDrawColor(30, 41, 59); doc.setLineWidth(1.2);
-  doc.line(bx, by, bx + barLen, by);
-  doc.line(bx, by - 3, bx, by + 3);
-  doc.line(bx + barLen / 2, by - 2, bx + barLen / 2, by + 2);
-  doc.line(bx + barLen, by - 3, bx + barLen, by + 3);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(30, 41, 59);
-  doc.text("0", bx, by - 5, { align: "center" });
-  doc.text(`${nice} FT`, bx + barLen, by - 5, { align: "center" });
-  doc.text(`SCALE: 1 IN = ${Math.round(72 / scale)} FT`, bx + barLen + 14, by + 2);
+  // scale bar (bottom-left of drawing)
+  const ftPerPt = 1 / scale;
+  const barFt = niceScaleBarFt(ftPerPt);
+  const barPts = barFt * scale;
+  const sx = DX + 16, sy = DY + DH - 20;
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(2);
+  doc.line(sx, sy, sx + barPts, sy);
+  doc.setLineWidth(1);
+  doc.line(sx, sy - 4, sx, sy + 4);
+  doc.line(sx + barPts, sy - 4, sx + barPts, sy + 4);
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.text(`0`, sx, sy - 7);
+  doc.text(`${barFt} FT`, sx + barPts, sy - 7, { align: "right" });
+  doc.text(`SCALE: 1" = ${Math.round(72 * ftPerPt)} FT`, sx, sy + 14);
 
-  // ---- right panel: site data + legend ----
-  const px0 = box.x + box.w + 14;
-  let yy = box.y + 6;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(15, 23, 42);
-  doc.text("SITE DATA", px0, yy); yy += 12;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); doc.setTextColor(60, 70, 85);
-  const rows = [
-    ["APN", meta.apn], ["Jurisdiction", meta.jurisdiction], ["Owner", meta.owner],
-    ["Tower height", meta.heightFt ? `${Math.round(meta.heightFt)} FT` : null],
-    ["Fall-zone radius", meta.fallRadiusFt ? `${Math.round(meta.fallRadiusFt)} FT` : null],
-    ["Compound", meta.compoundW && meta.compoundD ? `${Math.round(meta.compoundW)} x ${Math.round(meta.compoundD)} FT` : null],
-    ["Setback applied", meta.setbackFt ? `${Math.round(meta.setbackFt)} FT` : null],
-    ["Tower coords", towerLngLat ? `${towerLngLat[1].toFixed(6)}, ${towerLngLat[0].toFixed(6)}` : null],
-  ].filter(([, v]) => v != null && v !== "");
-  for (const [k, v] of rows) {
-    const lines = doc.splitTextToSize(`${k}:  ${v}`, W - M - px0);
-    doc.text(lines, px0, yy); yy += lines.length * 9.5;
-  }
-
-  yy += 10;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(15, 23, 42);
-  doc.text("LEGEND", px0, yy); yy += 11;
-  const legend = [
-    { label: "Property boundary", stroke: [30, 41, 59], dash: null },
-    { label: "Setback / buildable envelope", stroke: [5, 150, 105], dash: [4, 3] },
-    { label: "Fall zone", stroke: [220, 38, 38], dash: [3, 3] },
-    { label: "Equipment compound", stroke: [234, 88, 12], dash: null, fill: [234, 88, 12] },
-    { label: "Access easement (proposed)", stroke: [120, 85, 40], dash: [5, 3] },
-    { label: "Tower location", dot: [8, 145, 178] },
+  /* ---- legend ---- */
+  let ly = DY + DH + 22;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  doc.text("LEGEND", 40, ly);
+  doc.setFont("helvetica", "normal");
+  const items = [
+    { label: "Property boundary", stroke: [15, 23, 42], fill: null, dash: false },
+    { label: "Buildable envelope (setback)", stroke: [22, 163, 74], fill: null, dash: true },
+    { label: "Equipment compound", stroke: [37, 99, 235], fill: [219, 234, 254], dash: false },
+    { label: `Fall zone (${Math.round(fallRadiusFt)} ft)`, stroke: [217, 119, 6], fill: [254, 243, 199], dash: true },
+    { label: "Access easement", stroke: [107, 114, 128], fill: null, dash: true },
+    { label: "Tower location", stroke: [220, 38, 38], fill: [220, 38, 38], dash: false },
   ];
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7.5);
-  for (const item of legend) {
-    if (item.dot) {
-      doc.setFillColor(item.dot[0], item.dot[1], item.dot[2]);
-      doc.circle(px0 + 11, yy - 2, 2.6, "F");
-    } else {
-      if (item.fill) {
-        doc.setGState(new doc.GState({ opacity: 0.3 }));
-        doc.setFillColor(item.fill[0], item.fill[1], item.fill[2]);
-        doc.rect(px0, yy - 6, 22, 8, "F");
-        doc.setGState(new doc.GState({ opacity: 1 }));
-      }
-      doc.setDrawColor(item.stroke[0], item.stroke[1], item.stroke[2]);
-      doc.setLineWidth(1.4);
-      doc.setLineDashPattern(item.dash || [], 0);
-      doc.line(px0, yy - 2, px0 + 22, yy - 2);
-      doc.setLineDashPattern([], 0);
-    }
-    doc.setTextColor(60, 70, 85);
-    doc.text(item.label, px0 + 28, yy);
-    yy += 13;
-  }
+  let lx = 40;
+  ly += 14;
+  items.forEach((it, i) => {
+    if (i === 3) { ly += 16; lx = 40; }
+    if (it.fill) { doc.setFillColor(...it.fill); doc.rect(lx, ly - 7, 16, 9, "F"); }
+    doc.setDrawColor(...it.stroke);
+    doc.setLineWidth(1.5);
+    if (it.dash) doc.setLineDashPattern([3, 2], 0);
+    doc.rect(lx, ly - 7, 16, 9, "S");
+    doc.setLineDashPattern([], 0);
+    doc.setTextColor(51, 65, 85);
+    doc.text(it.label, lx + 22, ly);
+    lx += 22 + doc.getTextWidth(it.label) + 24;
+  });
 
-  // ---- footer ----
-  doc.setFont("helvetica", "normal"); doc.setFontSize(6.8); doc.setTextColor(110, 120, 135);
-  doc.text(doc.splitTextToSize(
-    "PRELIMINARY AUTOMATED EXHIBIT — NOT A SURVEY. Boundary, setbacks, fall zone, compound and easement are drawn to scale from available GIS data. Verify all dimensions with a licensed surveyor and the local governing jurisdiction before submission.",
-    W - 2 * M), M, box.y + box.h + 14);
-  doc.setFont("helvetica", "bold"); doc.setTextColor(8, 145, 178);
-  doc.text("Powered by SiteHawk TalonFit® proprietary feasibility engine — Patent Pending.", M, box.y + box.h + 34);
+  /* ---- footer ---- */
+  doc.setFontSize(6.5);
+  doc.setTextColor(120, 130, 145);
+  doc.text(
+    "Preliminary automated siting exhibit — NOT a survey, zoning determination, or construction drawing. Boundary, setback, compound, fall-zone and easement geometry are drawn to scale from available data.",
+    40, 752, { maxWidth: 532 }
+  );
+  doc.text("Verify all dimensions with a licensed surveyor and the local governing authority. Powered by SiteHawk TalonFit® — Patent Pending.", 40, 768, { maxWidth: 532 });
 
-  const base = String(meta.apn || meta.siteLabel || "site").replace(/[^a-z0-9-]/gi, "_").slice(0, 40);
+  const base = String(meta.apn || meta.address || "site").replace(/[^a-z0-9-]/gi, "_").slice(0, 40);
   doc.save(`TalonFit-Site-Exhibit-${base}.pdf`);
 }
