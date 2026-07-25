@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import { addViewshedOverlay, removeViewshedOverlay, addTowerExtrusion, removeTowerExtrusion } from "@/lib/mapViewshed3d";
 
 // Interactive Mapbox map centered on the active Target A that can switch between
 // several basemap "looks" of the terrain (satellite, satellite+streets, outdoor
 // topo, light streets, dark) plus an optional 3D terrain exaggeration toggle.
-export default function TerrainMap({ latitude, longitude, styleUrl, terrain3D, exaggeration }) {
+export default function TerrainMap({ latitude, longitude, styleUrl, terrain3D, exaggeration, viewshed, towerHeightFt }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -84,6 +85,8 @@ export default function TerrainMap({ latitude, longitude, styleUrl, terrain3D, e
     map.setStyle(styleUrl);
     map.once("styledata", () => {
       applyTerrain(map, terrain3D, exaggeration);
+      if (viewshed?.png_url) addViewshedOverlay(map, viewshed);
+      if (terrain3D) addTowerExtrusion(map, Number(longitude), Number(latitude), towerHeightFt || 199);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, styleUrl]);
@@ -94,8 +97,19 @@ export default function TerrainMap({ latitude, longitude, styleUrl, terrain3D, e
     if (!ready || !map) return;
     applyTerrain(map, terrain3D, exaggeration);
     map.easeTo({ pitch: terrain3D ? 60 : 0, duration: 600 });
+    if (terrain3D) addTowerExtrusion(map, Number(longitude), Number(latitude), towerHeightFt || 199);
+    else removeTowerExtrusion(map);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, terrain3D, exaggeration]);
+  }, [ready, terrain3D, exaggeration, towerHeightFt]);
+
+  // CloudRF viewshed image overlay toggle
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    if (viewshed?.png_url) addViewshedOverlay(map, viewshed);
+    else removeViewshedOverlay(map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, viewshed]);
 
   if (loadError) {
     return (

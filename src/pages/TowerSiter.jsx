@@ -752,7 +752,7 @@ export default function TowerSiter() {
       {/* TERRAIN EXPLORER — the LAST map, centered on the SAME active Target A,
           with basemap-style "looks" toggles + optional 3D terrain. */}
       {hawkFitTarget && (
-        <TerrainMapSection unlocked={true} targetA={hawkFitTarget} />
+        <TerrainMapSection unlocked={true} targetA={hawkFitTarget} towerHeightFt={Number(controls.heightFt) || 199} />
       )}
 
       <UpgradeModal open={!!upgrade} onClose={() => setUpgrade(null)} reason={upgrade} />

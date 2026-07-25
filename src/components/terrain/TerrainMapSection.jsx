@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { Mountain, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Mountain, ChevronDown, ChevronUp, Loader2, Radar } from "lucide-react";
+import { toast } from "sonner";
 import { resolveActiveTargetA } from "@/lib/hawkfitTargetResolver";
+import { cloudRFCoverage } from "@/functions/cloudRFCoverage";
 import TerrainMap from "@/components/terrain/TerrainMap";
 
 // Selectable basemap "looks" of the terrain.
@@ -20,15 +22,45 @@ const TERRAIN_STYLES = [
 // Terrain Explorer — the LAST map in the pipeline. Centers on the SAME active
 // Target A the rest of the pipeline resolves, with basemap-style toggles for
 // different "looks" of the terrain plus an optional 3D terrain exaggeration.
-export default function TerrainMapSection({ unlocked, targetA }) {
+export default function TerrainMapSection({ unlocked, targetA, towerHeightFt = 199 }) {
   const [expanded, setExpanded] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [siteTarget, setSiteTarget] = useState(null);
   const [styleKey, setStyleKey] = useState("hybrid");
   const [terrain3D, setTerrain3D] = useState(false);
   const [exaggeration, setExaggeration] = useState(1.5);
+  const [viewshedOn, setViewshedOn] = useState(false);
+  const [viewshedBusy, setViewshedBusy] = useState(false);
+  const [viewshedData, setViewshedData] = useState(null);
 
   const targetKey = targetA ? `${targetA.latitude},${targetA.longitude}` : "none";
+
+  // New target → stale viewshed; regenerate on next toggle.
+  useEffect(() => {
+    setViewshedData(null);
+    setViewshedOn(false);
+  }, [targetKey]);
+
+  const toggleViewshed = async (on) => {
+    setViewshedOn(on);
+    if (!on || viewshedData || !siteTarget) return;
+    setViewshedBusy(true);
+    try {
+      const { data } = await cloudRFCoverage({
+        lat: Number(siteTarget.latitude), lon: Number(siteTarget.longitude),
+        height_ft: Number(towerHeightFt) || 199, radius_mi: 3,
+        site_name: siteTarget.address || "Terrain Explorer",
+      });
+      if (!data?.png_url || !data?.bounds) throw new Error(data?.error || "No RF viewshed returned.");
+      setViewshedData({ png_url: data.png_url, bounds: data.bounds });
+    } catch (e) {
+      console.error("CloudRF viewshed failed:", e);
+      toast.error(e?.response?.data?.error || e.message || "RF viewshed failed.");
+      setViewshedOn(false);
+    } finally {
+      setViewshedBusy(false);
+    }
+  };
   useEffect(() => {
     if (!expanded) return;
     let cancelled = false;
@@ -114,6 +146,22 @@ export default function TerrainMapSection({ unlocked, targetA }) {
                   </div>
                 </div>
 
+                <div className="rounded-xl border border-border p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="terrain-viewshed-toggle" className="text-sm text-foreground flex items-center gap-1.5">
+                      {viewshedBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" /> : <Radar className="w-3.5 h-3.5 text-primary" />}
+                      RF Viewshed (CloudRF)
+                    </Label>
+                    <Switch
+                      id="terrain-viewshed-toggle"
+                      checked={viewshedOn}
+                      onCheckedChange={toggleViewshed}
+                      disabled={viewshedBusy}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Coverage simulated from the tower at {Math.round(Number(towerHeightFt) || 199)} ft.</p>
+                </div>
+
                 <div className="rounded-xl border border-border p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="terrain-3d-toggle" className="text-sm text-foreground">3D Terrain</Label>
@@ -150,6 +198,8 @@ export default function TerrainMapSection({ unlocked, targetA }) {
                   styleUrl={activeStyle.url}
                   terrain3D={terrain3D}
                   exaggeration={exaggeration}
+                  viewshed={viewshedOn ? viewshedData : null}
+                  towerHeightFt={Number(towerHeightFt) || 199}
                 />
               </div>
             </div>

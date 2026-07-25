@@ -63,6 +63,7 @@ import { scipViewshed } from "@/functions/scipViewshed";
 import ViewshedTiles from "./section4/ViewshedTiles";
 import RegridLayerToggle from "./section4/RegridLayerToggle";
 import CustomizeProbe from "@/components/maps/CustomizeProbe";
+import ViewshedTerrainControls from "@/components/maps/ViewshedTerrainControls";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
   renderZoningGrid, renderFlumPolygon, renderRegridZoningMap, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
@@ -716,7 +717,16 @@ export default function Section4MapSuite({
           loading={loadingStep === "aerial"} done={!!completed.aerial}
           onRun={() => beginAndRun("aerial")} mapRef={refs.aerial} banner={banners.aerial}
           error={errors.aerial}
-        />
+        >
+          {completed.aerial && (
+            <ViewshedTerrainControls
+              mapRef={{ current: maps.current["aerial"] }}
+              lat={targetA?.latitude} lon={targetA?.longitude}
+              heightFt={Number(towerHeightFt) > 0 ? Number(towerHeightFt) : 199}
+              label={ringName || "Target A Aerial"}
+            />
+          )}
+        </MapSubStep>
         </div>
         <div data-tour="map-topo">
         <MapSubStep
@@ -725,7 +735,16 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("topo")}
           loading={loadingStep === "topo"} done={!!completed.topo}
           onRun={() => runStep("topo")} mapRef={refs.topo} banner={banners.topo}
-        />
+        >
+          {completed.topo && (
+            <ViewshedTerrainControls
+              mapRef={{ current: maps.current["topo"] }}
+              lat={targetA?.latitude} lon={targetA?.longitude}
+              heightFt={Number(towerHeightFt) > 0 ? Number(towerHeightFt) : 199}
+              label={ringName || "Target A Topography"}
+            />
+          )}
+        </MapSubStep>
         </div>
         <MapSubStep
           index={3} title="Floodplain (FEMA) Map" runLabel="Run FEMA Map" tourKey="map-fema"
