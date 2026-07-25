@@ -25,6 +25,7 @@ import { scipExistingConditions } from "@/functions/scipExistingConditions";
 import { talonfitRun } from "@/functions/talonfitRun";
 import TalonFitCertifiedBadge from "@/components/talonfit/TalonFitCertifiedBadge";
 import TalonFitExhibitCard from "@/components/talonfit/TalonFitExhibitCard";
+import TalonReachPanel from "@/components/talonreach/TalonReachPanel";
 import { regridBuildingFootprints } from "@/functions/regridBuildingFootprints";
 import { useTowerSeparation } from "@/components/towersiter/TowerSeparationLayer";
 
@@ -679,6 +680,18 @@ export default function TowerSiter() {
                   runId: talonRun.run_id,
                 },
               }}
+            />
+          )}
+
+          {result && !result.collapsed && talonRun?.run_id && (
+            <TalonReachPanel
+              source="tower_siter"
+              siteLabel={parcel?.addressFull || parcel?.apn || "Tower Site"}
+              parcelId={parcel?.apn || null}
+              jurisdiction={parcel?.jurisdiction || null}
+              latitude={result.towerLonLat[1]}
+              longitude={result.towerLonLat[0]}
+              heightFt={Number(controls.heightFt) || 199}
             />
           )}
 

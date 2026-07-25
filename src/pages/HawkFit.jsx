@@ -13,6 +13,7 @@ import FitStatusPanel from "@/components/hawkfit/FitStatusPanel";
 import { talonfitRun } from "@/functions/talonfitRun";
 import TalonFitCertifiedBadge from "@/components/talonfit/TalonFitCertifiedBadge";
 import TalonFitExhibitCard from "@/components/talonfit/TalonFitExhibitCard";
+import TalonReachPanel from "@/components/talonreach/TalonReachPanel";
 import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import HawkPerchControls from "@/components/hawkfit/HawkPerchControls";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
@@ -217,6 +218,17 @@ export default function HawkFit() {
                       runId: talonRun.run_id,
                     },
                   }}
+                />
+              )}
+              {talonRun?.run_id && towerLngLat && (
+                <TalonReachPanel
+                  source="hawkperch"
+                  siteLabel={siteTarget?.address || siteTarget?.parcel_id || "Tower Site"}
+                  parcelId={siteTarget?.parcel_id || null}
+                  jurisdiction={siteTarget?.jurisdiction || null}
+                  latitude={towerLngLat[1]}
+                  longitude={towerLngLat[0]}
+                  heightFt={Number(controls.heightFt) || 199}
                 />
               )}
               <LayerTogglePanel layers={layers} onToggle={handleLayerToggle} />

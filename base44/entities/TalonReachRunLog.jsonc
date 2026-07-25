@@ -1,0 +1,117 @@
+{
+  "name": "TalonReachRunLog",
+  "type": "object",
+  "description": "TalonReach\u00ae AI RF advisor audit log \u2014 one record per TalonReach coverage analysis run, doubling as the saved report. Created EXCLUSIVELY by the talonreachRun backend function (service role) so users cannot forge entries. Used for usage proof and per-user/per-org rate limiting, mirroring TalonFitRunLog.",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique run ID (UUID), generated server-side."
+    },
+    "user_id": {
+      "type": "string",
+      "description": "Base44 User id who executed the run."
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "organization_id": {
+      "type": "string",
+      "description": "Organization identifier \u2014 user.organization_id when present, else the user's email domain."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "tower_siter",
+        "hawkperch"
+      ],
+      "default": "tower_siter",
+      "description": "Which surface executed the run."
+    },
+    "parcel_id": {
+      "type": "string"
+    },
+    "site_label": {
+      "type": "string",
+      "description": "Human-readable site name shown on the report."
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "jurisdiction": {
+      "type": "string"
+    },
+    "tower_height_ft": {
+      "type": "number"
+    },
+    "frequency_mhz": {
+      "type": "number"
+    },
+    "power_w": {
+      "type": "number"
+    },
+    "radius_mi": {
+      "type": "number"
+    },
+    "coverage": {
+      "type": "object",
+      "description": "CloudRF /area result snapshot: { png_url, bounds, area_covered_sq_km, max_range_km, coverage_pct }.",
+      "additionalProperties": true
+    },
+    "analysis": {
+      "type": "object",
+      "description": "AI RF-engineer analysis: { summary, coverage_grade, weak_zones[], recommendations[] }.",
+      "additionalProperties": true
+    },
+    "infill": {
+      "type": "object",
+      "description": "Recommended infill/repeater location: { latitude, longitude, rationale }.",
+      "additionalProperties": true
+    },
+    "infill_source": {
+      "type": "string",
+      "description": "cloudrf_bsa when CloudRF Best Site Analysis resolved the spot, ai_estimate otherwise."
+    },
+    "run_timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "run_id",
+    "user_id",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
