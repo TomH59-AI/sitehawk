@@ -12,6 +12,7 @@ import TowerControls from "@/components/hawkfit/TowerControls";
 import FitStatusPanel from "@/components/hawkfit/FitStatusPanel";
 import { talonfitRun } from "@/functions/talonfitRun";
 import TalonFitCertifiedBadge from "@/components/talonfit/TalonFitCertifiedBadge";
+import TalonFitExhibitCard from "@/components/talonfit/TalonFitExhibitCard";
 import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import HawkPerchControls from "@/components/hawkfit/HawkPerchControls";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
@@ -194,6 +195,30 @@ export default function HawkFit() {
               <HawkPerchControls controls={controls} onChange={handleControlChange} />
               <FitStatusPanel fit={fit} />
               {talonRun?.certified && <TalonFitCertifiedBadge runId={talonRun.run_id} />}
+              {talonRun?.run_id && fit && towerLngLat && (
+                <TalonFitExhibitCard
+                  exhibit={{
+                    parcelGeometry: siteTarget?.parcel_geometry || null,
+                    compoundGeometry: fit.compound?.geometry || null,
+                    fallZoneGeometry: fit.fallZone?.geometry || null,
+                    towerLngLat,
+                    setbackFt: fit.setbackFt || 0,
+                    verdict: fit.status === "works" ? "FITS" : fit.status === "fails" ? "DOES NOT FIT" : "CONDITIONAL",
+                    meta: {
+                      siteLabel: siteTarget?.address || siteTarget?.parcel_id || "Tower Site",
+                      apn: siteTarget?.parcel_id || null,
+                      jurisdiction: siteTarget?.jurisdiction || null,
+                      owner: siteTarget?.owner || null,
+                      heightFt: controls.heightFt,
+                      compoundW: controls.widthFt,
+                      compoundD: controls.depthFt,
+                      fallRadiusFt: Math.round(controls.heightFt * (fit.fallZoneMultiplier || 1)),
+                      setbackFt: Math.round(fit.setbackFt || 0),
+                      runId: talonRun.run_id,
+                    },
+                  }}
+                />
+              )}
               <LayerTogglePanel layers={layers} onToggle={handleLayerToggle} />
               <div className="space-y-2">
                 <Button onClick={handleSave} disabled={saveBusy || !fit} className="w-full">

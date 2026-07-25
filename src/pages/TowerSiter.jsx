@@ -24,6 +24,7 @@ import { towerSiterSitings } from "@/functions/towerSiterSitings";
 import { scipExistingConditions } from "@/functions/scipExistingConditions";
 import { talonfitRun } from "@/functions/talonfitRun";
 import TalonFitCertifiedBadge from "@/components/talonfit/TalonFitCertifiedBadge";
+import TalonFitExhibitCard from "@/components/talonfit/TalonFitExhibitCard";
 import { regridBuildingFootprints } from "@/functions/regridBuildingFootprints";
 import { useTowerSeparation } from "@/components/towersiter/TowerSeparationLayer";
 
@@ -653,6 +654,32 @@ export default function TowerSiter() {
 
           {result && !result.collapsed && talonRun?.certified && (
             <TalonFitCertifiedBadge runId={talonRun.run_id} />
+          )}
+
+          {result && !result.collapsed && talonRun?.run_id && (
+            <TalonFitExhibitCard
+              exhibit={{
+                parcelGeometry: result.parcel?.geometry || null,
+                envelopeGeometry: result.envelope?.geometry || null,
+                compoundGeometry: result.compound?.lonLat?.geometry || null,
+                fallZoneGeometry: result.checks?.fallZone?.circle?.geometry || null,
+                towerLngLat: result.towerLonLat,
+                setbackFt: result.setback || 0,
+                verdict: talonRun.certified ? "FITS" : (String(resultClass || "").startsWith("fail") ? "DOES NOT FIT" : "CONDITIONAL"),
+                meta: {
+                  siteLabel: parcel?.addressFull || parcel?.apn || "Tower Site",
+                  apn: parcel?.apn || null,
+                  jurisdiction: parcel?.jurisdiction || null,
+                  owner: parcel?.ownerName || null,
+                  heightFt: Number(controls.heightFt) || null,
+                  compoundW: Number(controls.compoundW) || 75,
+                  compoundD: Number(controls.compoundD) || 75,
+                  fallRadiusFt: result.fallRadius || null,
+                  setbackFt: result.setback || null,
+                  runId: talonRun.run_id,
+                },
+              }}
+            />
           )}
 
           <div className="flex gap-2">
