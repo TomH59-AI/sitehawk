@@ -27,7 +27,7 @@ const BASE_NAV = [
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
-  { path: "/crm", icon: Briefcase, label: "⏱️ Time Savers" },
+  { path: "/crm", icon: Briefcase, label: "⏱️ AI Time Savers", desc: "The tools that save you hours, cut the stress, and keep you on top of your game." },
   { path: "/hawk-lease", icon: FileSignature, label: "🦅 HawkLease" },
   { path: "/hawk-law", icon: Scale, label: "⚖️ Hawk Law" },
   { header: "SPECIALTY TOOLS" },
@@ -157,8 +157,11 @@ export default function Layout() {
                   }`}
                 >
                   <item.icon className="w-4 h-4" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
                 </Link>
+                {item.desc && (
+                  <p className="px-4 -mt-1 mb-1 text-[10px] leading-snug text-sidebar-foreground/40">{item.desc}</p>
+                )}
                 {/* On Site Search, mirror the live pipeline right under the menu item.
                     Kept compact + independently scrollable so it never pushes the
                     rest of the main menu (Time Savers → Pricing) below the fold. */}
