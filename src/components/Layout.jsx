@@ -20,20 +20,25 @@ import { isDemoCampaignOver } from "@/lib/demoCampaign";
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 
 const BASE_NAV = [
+  { header: "FIND & PACKAGE THE SITE" },
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
-  { path: "/crm", icon: Briefcase, label: "⏱️ Time Savers" },
+  { header: "AFTER YOUR SCIP — DON'T FORGET" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
-  { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
-  { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },
+  { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
+  { path: "/crm", icon: Briefcase, label: "⏱️ Time Savers" },
   { path: "/hawk-lease", icon: FileSignature, label: "🦅 HawkLease" },
   { path: "/hawk-law", icon: Scale, label: "⚖️ Hawk Law" },
+  { header: "SPECIALTY TOOLS" },
+  { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡️ Zoning Verifier" },
+  { path: "/rfi-engine", icon: Radar, label: "📡 RF Intelligence Engine" },
+  { header: "FORMS & DOCUMENTS" },
   { path: "/hawk-fill", icon: ClipboardEdit, label: "🪶 HawkFill" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
-  { path: "/rfi-engine", icon: Radar, label: "📡 RF Intelligence Engine" },
+  { header: "ACCOUNT" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },
 ];
 
@@ -82,9 +87,9 @@ export default function Layout() {
     : [];
 
   const navItems = [
-    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-    ...adminExtra,
-    ...BASE_NAV.filter(i => i.path !== "/dashboard"),
+    ...BASE_NAV.slice(0, 3), // FIND & PACKAGE header + Dashboard + Site Search
+    ...(isAdmin ? [{ header: "ADMIN" }, ...adminExtra] : []),
+    ...BASE_NAV.slice(3),
   ];
 
   const handleLogout = () => {
@@ -130,7 +135,14 @@ export default function Layout() {
           </Link>
         </div>
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto min-h-0 sidebar-scroll">
-          {navItems.map((item) => {
+          {navItems.map((item, idx) => {
+            if (item.header) {
+              return (
+                <div key={`h-${idx}`} className="px-4 pt-3 pb-1 text-[10px] font-bold tracking-widest text-sidebar-foreground/40">
+                  {item.header}
+                </div>
+              );
+            }
             const isActive = item.path === "/dashboard"
             ? location.pathname === item.path
             : location.pathname === item.path || location.pathname.startsWith(item.path + "/");
@@ -229,7 +241,14 @@ export default function Layout() {
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-20 bg-background/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)}>
           <div className="absolute top-16 left-0 right-0 bg-sidebar border-b border-border p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
-            {navItems.map((item) => {
+            {navItems.map((item, idx) => {
+              if (item.header) {
+                return (
+                  <div key={`h-${idx}`} className="px-4 pt-2 pb-0.5 text-[10px] font-bold tracking-widest text-sidebar-foreground/40">
+                    {item.header}
+                  </div>
+                );
+              }
               const isActive = item.path === "/dashboard"
                 ? location.pathname === item.path
                 : location.pathname === item.path || location.pathname.startsWith(item.path + "/");

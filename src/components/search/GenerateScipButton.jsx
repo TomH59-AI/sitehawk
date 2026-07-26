@@ -17,6 +17,7 @@ import { publicSafetyLookup } from "@/functions/publicSafetyLookup";
 import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
+import PostScipNextSteps from "@/components/search/PostScipNextSteps";
 import { buildScipNarrative } from "@/lib/scipSkillNarrative";
 import {
   buildSarfMap, buildAerial, buildTopo, buildFema, buildZoning,
@@ -494,6 +495,8 @@ export default function GenerateScipButton({
             <div className="bg-white shadow-2xl">
               <SiteHawkScipDoc record={record} />
             </div>
+            {/* The SCIP is the midpoint — point users at the post-SCIP tools */}
+            <PostScipNextSteps />
           </div>
         </div>
       )}
