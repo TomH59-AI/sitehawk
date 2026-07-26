@@ -13,6 +13,7 @@ import FitStatusPanel from "@/components/hawkfit/FitStatusPanel";
 import { talonfitRun } from "@/functions/talonfitRun";
 import TalonFitCertifiedBadge from "@/components/talonfit/TalonFitCertifiedBadge";
 import TalonFitExhibitCard from "@/components/talonfit/TalonFitExhibitCard";
+import TalonFitTagline from "@/components/talonfit/TalonFitTagline";
 import TalonReachPanel from "@/components/talonreach/TalonReachPanel";
 import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import HawkPerchControls from "@/components/hawkfit/HawkPerchControls";
@@ -181,8 +182,9 @@ export default function HawkFit() {
           <Crosshair className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="font-heading font-bold text-2xl text-foreground">HawkPerch</h1>
-          <p className="text-sm text-muted-foreground">SiteHawk AI siting solver — test Target A placement live.</p>
+          <h1 className="font-heading font-bold text-2xl text-foreground">TalonFit® <span className="text-primary">Map</span></h1>
+          <p className="text-sm text-muted-foreground">Deterministic fall-zone + compound fit checks on the active Target A — with AI spatial intelligence built in for accuracy.</p>
+          <TalonFitTagline className="mt-1" />
         </div>
       </div>
 
