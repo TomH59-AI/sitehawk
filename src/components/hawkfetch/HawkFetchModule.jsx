@@ -110,7 +110,7 @@ export default function HawkFetchModule({ onUploadCta }) {
           <HawkIcon size={28} />
         </div>
         <div>
-          <h2 className="font-heading font-bold text-lg leading-tight">HawkFetch — Zoning &amp; Permit Applications</h2>
+          <h2 className="font-heading font-bold text-lg leading-tight">HawkFetch — Find Zoning &amp; Permit Applications</h2>
           <p className="text-xs text-muted-foreground">Type any US jurisdiction. We'll fetch their permit applications and portal.</p>
         </div>
       </div>
