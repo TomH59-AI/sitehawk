@@ -152,6 +152,9 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   const [districtConflict, setDistrictConflict] = useState(null); // { zoneomics, realie }
   const [editingJur, setEditingJur] = useState(false);
   const [jurLabel, setJurLabel] = useState("");
+  // SiteHawk Registry provenance for this jurisdiction (set by generateZoningPermitReport
+  // as report._registry). Drives the ordinance citation line on TOWER SPECIFICS.
+  const [registry, setRegistry] = useState(null); // { jurisdiction, state, section_ref, source_url }
   const ranRef = useRef(false);
   // HawkSCIP quota gate — Run Zoning is the billing trigger. If the backend
   // returns 402 / upgrade_required, the upgrade modal appears and routes to plans.
@@ -179,6 +182,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       const jur = res.data?.jurisdiction || null;
       setJurisdiction(jur);
       setJurLabel(jur?.label || "");
+      setRegistry(report?._registry || null);
       setZoneomics(res.data?.zoneomics || null);
       setDistrictConflict(res.data?.zoning_district_conflict || null);
       setCells((prev) => reportToCells(report, preserveEdits ? prev : null));
@@ -212,6 +216,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
           current_usage: val(zo.property_current_usage),
           meets_min_lot: val(zo.meets_minimum_lot_requirements),
           ldc_reference: val(tw.ldc_section_references),
+          // Provenance of the verified ordinance row backing these tower specifics.
+          registry: report?._registry || null,
           max_height: val(tw.maximum_tower_height),
           stealth: val(tw.stealth_required),
           collocations: val(tw.required_collocations),
@@ -380,6 +386,28 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
                 <div className="bg-slate-800 text-white px-4 py-2 font-heading font-bold text-sm tracking-wider">
                   {panel.title}
                 </div>
+                {panel.section === "tower_specifics" && registry?.section_ref && (
+                  <div className="px-4 py-2 text-xs border-b border-border bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
+                    <span className="font-semibold">Source: SiteHawk Registry</span>
+                    {registry.jurisdiction
+                      ? ` — ${registry.jurisdiction}${registry.state ? `, ${registry.state}` : ""}`
+                      : ""}
+                    {` · ${registry.section_ref}`}
+                    {registry.source_url && (
+                      <>
+                        {" · "}
+                        <a
+                          href={registry.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:no-underline"
+                        >
+                          View ordinance
+                        </a>
+                      </>
+                    )}
+                  </div>
+                )}
                 <div>
                   {panel.rows.map(([label, key], idx) => {
                     const cell = cells[panel.section][key];
