@@ -176,7 +176,7 @@ export default function HawkFit() {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] min-h-[560px] flex flex-col gap-4">
+    <div className="min-h-[560px] flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
           <Crosshair className="w-5 h-5 text-primary" />
@@ -188,8 +188,8 @@ export default function HawkFit() {
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 min-h-0">
-        <div className="space-y-4 overflow-y-auto pr-1">
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 items-start">
+        <div className="space-y-4 pr-1">
           <PropertyLookupForm onLookup={handleLookup} busy={lookupBusy} />
           {siteTarget && (
             <>
@@ -253,7 +253,7 @@ export default function HawkFit() {
             </>
           )}
         </div>
-        <div className="min-h-[420px]">
+        <div className="h-[70vh] min-h-[420px] lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)]">
           <HawkFitMap
             siteTarget={siteTarget}
             towerLngLat={towerLngLat}
