@@ -98,6 +98,15 @@ export default function ComplianceReport({ record, onClose }) {
                 : `${firedTriggers.length} trigger(s) fired: ${firedTriggers.map((t) => t.label).join(", ")}.`}
             </p>
 
+            {(record.recommendedActions || []).length > 0 && (
+              <>
+                <h2>Recommended Next Actions</h2>
+                <ul>
+                  {record.recommendedActions.map((action, i) => <li key={i}>{action}</li>)}
+                </ul>
+              </>
+            )}
+
             <h2>SHPO — State Historic Preservation Office Review</h2>
             {shpo.length === 0 ? (
               <p className="muted">No SHPO submissions recorded yet.</p>

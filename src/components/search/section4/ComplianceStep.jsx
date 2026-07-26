@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "../HawkFlightSpinner";
 import TriggersPanel from "@/components/compliance/TriggersPanel";
 import ComplianceReport from "@/components/compliance/ComplianceReport";
+import WetlandDelineationTrigger from "@/components/compliance/WetlandDelineationTrigger";
 import { computeDetermination, DISCLAIMER, NEPA_BADGE, HC } from "@/components/compliance/complianceConst";
 import { preScreenFromBus } from "./complianceFromBus";
 
@@ -67,6 +68,9 @@ export default function ComplianceStep({
     shpoRecords: [],
     thpoRecords: [],
     nacdTribesIdentified: [],
+    recommendedActions: flags.wetlands
+      ? ["Order a professional wetland delineation to verify boundaries, required buffers, and permitting needs before final compound placement or construction."]
+      : [],
   };
 
   // ── LOCKED — previous sub-step not complete ──
@@ -128,6 +132,8 @@ export default function ComplianceStep({
               {notes.map((n, i) => <div key={i}>• {n}</div>)}
             </div>
           )}
+
+          {flags.wetlands && <WetlandDelineationTrigger />}
 
           <TriggersPanel
             flags={flags}
