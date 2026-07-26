@@ -30,21 +30,21 @@ const TIME_SAVERS = [
   { n: 19, title: "Document Intelligence", desc: "Upload zoning and permit applications and get help completing them.", icon: ScanLine, to: "/hawk-docs" },
 ];
 
-function IndexGrid({ items, accent }) {
+function IndexGrid({ items, accent, cardClassName = "rounded-xl border border-border bg-card p-4", titleClassName = "font-heading font-bold text-sm text-foreground", descClassName = "text-xs text-muted-foreground mt-1 leading-relaxed", badgeClass = "bg-foreground text-background", badgeBorder = "border-card" }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {items.map((item) => {
         const Icon = item.icon;
         return (
-          <div key={item.n} className="rounded-xl border border-border bg-card p-4">
+          <div key={item.n} className={cardClassName}>
             <div className="flex items-start gap-3">
               <div className={`relative shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${accent}`}>
                 <Icon className="w-5 h-5" />
-                <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-foreground text-background text-[10px] font-bold flex items-center justify-center border-2 border-card">{item.n}</span>
+                <span className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full ${badgeClass} text-[10px] font-bold flex items-center justify-center border-2 ${badgeBorder}`}>{item.n}</span>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-heading font-bold text-sm text-foreground">{item.title}</div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.desc}</p>
+                <div className={titleClassName}>{item.title}</div>
+                <p className={descClassName}>{item.desc}</p>
               </div>
             </div>
           </div>
@@ -60,10 +60,18 @@ export default function WorkflowIndex() {
       <section>
         <div className="mb-4">
           <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">The SiteHawk Pipeline · In Order</div>
-          <h2 className="font-heading font-bold text-2xl text-foreground">Everything SiteHawk Does</h2>
+          <h2 className="font-heading font-bold text-2xl text-foreground">SiteHawk Index</h2>
           <p className="text-sm text-muted-foreground mt-1">These are the steps starting with 1 — follow the journey through your finished SCIP.</p>
         </div>
-        <IndexGrid items={JOURNEY} accent="bg-primary/15 text-primary border border-primary/25" />
+        <IndexGrid
+          items={JOURNEY}
+          accent="bg-[#0d9488]/15 text-[#0d9488] border border-[#0d9488]/25"
+          cardClassName="rounded-xl border border-[#0d9488]/20 bg-white p-4"
+          titleClassName="font-heading font-bold text-sm text-[#0d9488]"
+          descClassName="text-xs text-[#0d9488]/70 mt-1 leading-relaxed"
+          badgeClass="bg-[#0d9488] text-white"
+          badgeBorder="border-white"
+        />
       </section>
 
       <section className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card p-5 md:p-6">
