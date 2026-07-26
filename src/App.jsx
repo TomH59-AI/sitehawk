@@ -34,8 +34,7 @@ import { loadPublicConfig } from '@/lib/publicConfig';
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import PageNotFound from './lib/PageNotFound';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { PipelineProvider } from '@/lib/PipelineContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -222,7 +221,8 @@ const AuthenticatedApp = () => {
           <Route path="clauses" element={<HawkLawClauses />} />
           <Route path="history" element={<HawkLawHistory />} />
         </Route>
-        <Route path="*" element={<PageNotFound />} />
+        {/* Unknown/stale links land on the Dashboard instead of a 404 sheet */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
   );
