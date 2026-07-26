@@ -100,7 +100,6 @@ import FiberLayersAdmin from './pages/FiberLayersAdmin';
 import RfiEngine from './pages/RfiEngine';
 import ZoningVerifier from './pages/ZoningVerifier';
 import OrdinanceHunter from './pages/OrdinanceHunter';
-import ComplianceDashboard from './pages/ComplianceDashboard';
 import AnthemNetScip from './pages/AnthemNetScip';
 import SkipTrace from './pages/SkipTrace';
 import HawkVision from './pages/HawkVision';
@@ -182,8 +181,6 @@ const AuthenticatedApp = () => {
         <Route path="/zoning-verifier" element={<ZoningVerifier />} />
         {/* Ordinance Hunter — super agent: scrape → extract → registry → Notion */}
         <Route path="/ordinance-hunter" element={<OrdinanceHunter />} />
-        {/* Compliance Dashboard — portfolio NEPA/tribal/wetland risk rollup */}
-        <Route path="/compliance-dashboard" element={<ComplianceDashboard />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}
