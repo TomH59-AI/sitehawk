@@ -5,6 +5,7 @@ import { base44 } from "@/api/base44Client";
 import { elevenLabsSpeech } from "@/functions/elevenLabsSpeech";
 import { GUIDE_VOICE_ID } from "./hawkTourScript";
 import { BRIAN_SALES_TRAINING } from "./brianSalesTraining";
+import { BRIAN_FEATURE_KNOWLEDGE } from "./brianFeatureKnowledge";
 
 // "Brian" — the SiteHawk voice guide, now interactive. Users speak a question
 // (browser Web Speech API), the LLM answers as Brian, and the answer is spoken
@@ -19,6 +20,8 @@ TalonFit® is an advanced AI ordinance-intelligence engine built to determine wh
 Example brag (your spoken style): "That's our TalonFit® engine — patent pending — it reads the ordinance and runs the fit math across the whole parcel, so we know a site works before we spend a dime."
 
 ${BRIAN_SALES_TRAINING}
+
+${BRIAN_FEATURE_KNOWLEDGE}
 
 SITEHAWK PLATFORM — COMPLETE FEATURE KNOWLEDGE:
 
