@@ -444,7 +444,7 @@ export default function GenerateScipButton({
         style={{ background: "#0C1B2E", color: "#FFC72C" }}
       >
         {building ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-        {building ? "Building SCIP…" : "Generate SCIP"}
+        {building ? "Building SCIP…" : "Generate SCIP Here"}
       </button>
 
       {chooserOpen && (

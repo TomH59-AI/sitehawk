@@ -21,6 +21,7 @@ import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
 import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
 import { tribalLandLookup } from "@/functions/tribalLandLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
+import FollowingToolsIndex from "../components/search/FollowingToolsIndex";
 import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
 import ExportSvpButton from "../components/search/ExportSvpButton";
 import { round4 } from "@/lib/coords";
@@ -339,16 +340,6 @@ export default function SiteSearch() {
         </div>
         <div className="flex items-center gap-2">
           {coordsReady && (
-            <GenerateScipButton
-              searchCenter={searchCenter}
-              searchParams={searchParams}
-              targetA={targetA}
-              zoningResult={zoningResult}
-              sectionData={sectionData}
-              onGenerated={handleScipGenerated}
-            />
-          )}
-          {coordsReady && (
             <ExportSvpButton
               searchCenter={searchCenter}
               searchParams={searchParams}
@@ -584,30 +575,34 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* END-OF-PIPELINE — Generate SCIP. Same button as the header, placed after
-          Section 8 so users who finish at the propagation map can print the full
-          SCIP (and pick pages from their printer) without scrolling back up. */}
+      {/* END-OF-PIPELINE — the deliberate finish point for the site package. */}
       {coordsReady && (
-        <div className="flex flex-col items-center gap-3 pt-4 pb-6 border-t border-border">
-          {/* Local Governing Authorities & Area Profile — auto-populated from the
-              site's resolved coordinates (Target A, falling back to the SARF
-              center). Always sits directly above the Generate SCIP button. */}
-          <p className="text-sm text-muted-foreground text-center">
-            Finished the pipeline? Generate the full SiteHawk SCIP — then Print / Save PDF and choose which pages to print.
-          </p>
-          <LocalAuthoritiesTable
-            lat={Number.isFinite(targetA?.latitude) ? targetA.latitude : Number(searchCenter.lat)}
-            lng={Number.isFinite(targetA?.longitude) ? targetA.longitude : Number(searchCenter.lon)}
-          />
-          <GenerateScipButton
-            searchCenter={searchCenter}
-            searchParams={searchParams}
-            targetA={targetA}
-            zoningResult={zoningResult}
-            sectionData={sectionData}
-            onGenerated={handleScipGenerated}
-          />
-        </div>
+        <>
+          <section className="rounded-2xl overflow-hidden border border-primary/30 bg-sidebar shadow-xl mt-8">
+            <div className="px-5 py-6 md:px-8 md:py-8 text-center border-b border-sidebar-border">
+              <p className="text-[10px] font-bold tracking-[0.3em] text-brand-cyan uppercase">Site package complete</p>
+              <h2 className="font-heading text-2xl md:text-3xl font-bold text-sidebar-foreground mt-2">Generate SCIP Here</h2>
+              <p className="text-sm text-sidebar-foreground/70 mt-2 max-w-2xl mx-auto">Turn the active Target A, maps, zoning, infrastructure, environmental findings, and Hawk Intelligence into the full SiteHawk SCIP.</p>
+            </div>
+            <div className="p-4 md:p-6 space-y-5">
+              <LocalAuthoritiesTable
+                lat={Number.isFinite(targetA?.latitude) ? targetA.latitude : Number(searchCenter.lat)}
+                lng={Number.isFinite(targetA?.longitude) ? targetA.longitude : Number(searchCenter.lon)}
+              />
+              <div className="flex justify-center">
+                <GenerateScipButton
+                  searchCenter={searchCenter}
+                  searchParams={searchParams}
+                  targetA={targetA}
+                  zoningResult={zoningResult}
+                  sectionData={sectionData}
+                  onGenerated={handleScipGenerated}
+                />
+              </div>
+            </div>
+          </section>
+          <FollowingToolsIndex />
+        </>
       )}
 
     </div>
