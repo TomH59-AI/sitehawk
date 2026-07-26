@@ -752,7 +752,16 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("fema")}
           loading={loadingStep === "fema"} done={!!completed.fema}
           onRun={() => runStep("fema")} mapRef={refs.fema} banner={banners.fema}
-        />
+        >
+          {completed.fema && (
+            <ViewshedTerrainControls
+              mapRef={{ current: maps.current["fema"] }}
+              lat={targetA?.latitude} lon={targetA?.longitude}
+              heightFt={Number(towerHeightFt) > 0 ? Number(towerHeightFt) : 199}
+              label={ringName || "Target A FEMA Floodplain"}
+            />
+          )}
+        </MapSubStep>
         <MapSubStep
           index={4} title="Zoning Map" runLabel="Run Zoning Map" tourKey="map-zoning"
           spinnerLabel="Generating Target A zoning map…"
@@ -793,7 +802,16 @@ export default function Section4MapSuite({
           unlocked={active && isUnlocked("wetlands")}
           loading={loadingStep === "wetlands"} done={!!completed.wetlands}
           onRun={() => runStep("wetlands")} mapRef={refs.wetlands} banner={banners.wetlands}
-        />
+        >
+          {completed.wetlands && (
+            <ViewshedTerrainControls
+              mapRef={{ current: maps.current["wetlands"] }}
+              lat={targetA?.latitude} lon={targetA?.longitude}
+              heightFt={Number(towerHeightFt) > 0 ? Number(towerHeightFt) : 199}
+              label={ringName || "Target A Wetlands"}
+            />
+          )}
+        </MapSubStep>
         <MapSubStep
           index={7} title="Nearest Airport Map" runLabel="Run Nearest Airport Map" tourKey="map-airport"
           spinnerLabel="Finding nearest airport to Target A…"
