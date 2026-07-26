@@ -351,7 +351,7 @@ Free web search (site:zoneomics.com and the jurisdiction's Land Development Code
 TASK: Fill out EVERY field in the report below for this jurisdiction. Per field:
 - CUP / SPECIAL EXCEPTION PATH (cup_or_special_exception): Always check whether wireless/telecommunication towers may be approved by Conditional Use Permit (CUP), special exception, special use permit, administrative use permit, or variance. Assume a CUP/special-exception path is required unless the ordinance clearly says the proposed tower is by-right or prohibited. When a CUP/special-exception path exists, list the zoning classifications or zoning families where it can make a tower eligible. Set source to "AI" unless Zoneomics provided the value.
 - PE SELF-CERTIFICATION (pe_self_certification): Research whether this jurisdiction allows a licensed Professional Engineer (PE) to SELF-CERTIFY the tower's structural/site plans (engineer-of-record sealed certification accepted in lieu of full plan review / public hearing), which yields a FASTER, more administrative permit path and often more flexible setback/height treatment. Answer "Yes — PE self-certification accepted" if the ordinance/building dept allows PE-sealed self-certification or a building-official administrative approval relying on a PE seal; "No — full review required" if a public hearing / special-use / conditional-use process is mandatory with no PE self-cert path; or "NEEDS RESEARCH" if you cannot verify. Quote the basis (code section / dept policy) in the value when found. Set source to "AI".
-- TOWER SPECIFICS (LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): use the jurisdiction's Land Development Code / zoning ordinance found via web search. Set source to "AI".
+- TOWER SPECIFICS (LDC section refs, maximum tower height, stealth required, required collocations, residential separation, tower separation, measured from base/center, fall zone, special tower landscaping): when SOURCE B (the telecom_ordinances record) supplies a value, use it VERBATIM and cite its section_ref — do not paraphrase, round, or override it. Use web search ONLY to fill fields SOURCE B leaves empty, and set source to "AI" for those fields only.
 - PE LETTER — FALL ZONE / SETBACK RELIEF (pe_letter): This is CRITICAL to our siting. Scour the jurisdiction's telecom/wireless ordinance specifically for any provision that lets a licensed Professional Engineer's SEALED LETTER or certification REDUCE the required fall zone, setback, or separation — e.g. "the fall zone / setback may be reduced to the collapse radius certified by a licensed professional engineer", "a PE-certified breakpoint/collapse design", or "setback may equal the engineered fall radius per a registered engineer's stamped certification". If such a provision EXISTS, quote it and start the value with "YES — " followed by exactly what relief it grants and the code section (this HELPS OUR CAUSE by shrinking the required buildable footprint). If the ordinance sets a fixed fall zone with NO engineer-reduction path, start with "NO — fixed fall zone, no PE reduction". If you cannot verify, use "NEEDS RESEARCH". Set source to "AI".
 - Property zoning DISTRICT / land use: prefer Realie (SOURCE A) then Zoneomics (SOURCE B). Set source to "Realie".
 - PROPERTY FUTURE LAND USE (property_future_land_use): the parcel's Future Land Use designation from the jurisdiction's Comprehensive Plan / Future Land Use Map (e.g. "Low Density Residential", "Agricultural/Rural"). Prefer Realie land_use, then jurisdiction Comp Plan research. Set source to "Realie" or "AI".
@@ -602,6 +602,51 @@ Deno.serve(async (req) => {
       if (!sec) continue;
       report[sec] = report[sec] || {};
       report[sec][field] = row(value, 'Zoneomics', 'high');
+    }
+
+    // STEP 5b (AUTHORITATIVE) — SiteHawk Registry overlay.
+    // The TelecomOrdinance record is OUR verified data with a code citation, so
+    // it outranks both the LLM's inference and Zoneomics. Only fields we actually
+    // hold are written; everything else keeps the LLM gap-fill.
+    if (ordinance) {
+      const SRC = 'SiteHawk Registry';
+      const ft = (v) => (v === null || v === undefined || v === '' ? null : `${v} ft`);
+      const yn = (v) => (v === true ? 'Yes' : v === false ? 'No' : null);
+      const put = (sec, field, value) => {
+        if (value === null || value === undefined || value === '') return;
+        report[sec] = report[sec] || {};
+        report[sec][field] = row(value, SRC, 'high');
+      };
+
+      put('tower_specifics', 'maximum_tower_height', ft(ordinance.height_limit_ft));
+      put('tower_specifics', 'residential_separation', ft(ordinance.residential_separation_ft));
+      put('tower_specifics', 'tower_separation', ft(ordinance.tower_separation_ft));
+      put('tower_specifics', 'fall_zone_requirements',
+        ordinance.fall_zone_ft ? ft(ordinance.fall_zone_ft) : ordinance.setback_rule);
+      put('tower_specifics', 'stealth_required', yn(ordinance.stealth_required));
+      put('tower_specifics', 'required_collocations', yn(ordinance.collocation_required));
+      put('tower_specifics', 'ldc_section_references', ordinance.section_ref);
+      put('zoning_overview', 'zoning_process', ordinance.permit_type);
+
+      if (/conditional use|special use|special exception/i.test(ordinance.permit_type || '')) {
+        put('zoning_overview', 'cup_or_special_exception', ordinance.permit_type);
+      }
+
+      // PE fall-zone relief is a siting lever — only assert it when we know.
+      if (ordinance.pe_fall_zone_allowed === true) {
+        put('tower_specifics', 'pe_letter',
+          'YES — PE-certified fall zone / setback reduction permitted per the local ordinance');
+      } else if (ordinance.pe_fall_zone_allowed === false) {
+        put('tower_specifics', 'pe_letter',
+          'NO — fixed fall zone, no PE reduction path in the local ordinance');
+      }
+
+      report._registry = {
+        jurisdiction: ordinance.jurisdiction || null,
+        state: ordinance.state || null,
+        section_ref: ordinance.section_ref || null,
+        source_url: ordinance.source_url || null,
+      };
     }
 
     // STEP 3 — Realie cross-check of the zoning district code. If Zoneomics and
