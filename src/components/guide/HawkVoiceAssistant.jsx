@@ -98,7 +98,7 @@ const PAGE_HINTS = [
   ["/dashboard", "Dashboard"], ["/search", "Site Search"], ["/scip", "SCIP detail"],
   ["/hawk-tracker", "Hawk Tracker"], ["/skip-trace", "Skip-Trace"], ["/hawk-law", "Hawk Law"],
   ["/hawk-lease", "Hawk Lease"], ["/hawk-vision", "HawkVision"], ["/pricing", "Pricing & Plans"], ["/billing", "Billing"],
-  ["/crm", "Time Savers"], ["/rfi-engine", "RF Intelligence Engine"],
+  ["/crm", "Time Savers"], ["/rfi-engine", "RF Intelligence Engine"], ["/hawk-docs", "Document & Permit Intelligence"],
 ];
 
 function pageFor(pathname) {
