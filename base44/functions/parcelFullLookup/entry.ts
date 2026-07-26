@@ -1,12 +1,14 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
+import { fetchFloridaParcelCrosscheck } from '../../shared/floridaParcelCrosscheck.ts';
 
 /**
  * parcelFullLookup — unified parcel + zoning + ordinance + FEMA enrichment.
  *
  * Strategy:
  *   1. Realie (primary)        → owner, mailing addr, parcel ID, acreage, boundary
- *   2. Zoneomics (cross-ref)   → zoning code, setbacks, height, fallback boundary/acreage
- *   3. extractTelecomOrdinance → fall zone, CUP/PE flags, LDC reference (full only)
+ *   2. FDOR (Florida only)     → official owner/APN/tax-roll cross-check; fills blanks only
+ *   3. Zoneomics (cross-ref)   → zoning code, setbacks, height, fallback boundary/acreage
+ *   4. extractTelecomOrdinance → fall zone, CUP/PE flags, LDC reference (full only)
  *   4. Jurisdiction entity     → P&Z dept contact (full only)
  *   5. femaFloodLookup         → FEMA risk letter
  *   6. skipTrace (gated)       → phone, email (only if include_skip_trace=true)
@@ -254,9 +256,10 @@ async function fetchZoneomics(lat, lng, apiKey) {
 
 // ─────────────────────── enrichment merge logic ───────────────────────
 
-function mergeParcel(realie, zoneo, inputLat, inputLng, sources) {
+function mergeParcel(realie, zoneo, fdor, inputLat, inputLng, sources) {
   const r = realie?.error ? null : realie;
   const z = zoneo?.parcel || null;
+  const f = fdor?.found ? fdor : null;
 
   // Boundary: prefer Realie, fall back to Zoneomics
   let boundary = r?.boundary_geojson || null;
@@ -281,12 +284,14 @@ function mergeParcel(realie, zoneo, inputLat, inputLng, sources) {
   }
 
   return {
-    owner_name: r?.owner_name || z?.owner_name || null,
-    parcel_address: r?.parcel_address || z?.address || null,
-    parcel_id: r?.parcel_id || z?.apn || null,
-    parcel_size_acres: acreage,
-    owner_mailing_address: r?.owner_mailing_address || z?.owner_address || null,
-    coordinates: { lat: r?.lat || z?.lat || inputLat, lng: r?.lng || z?.lng || inputLng },
+    _fdor_official: f,
+    _fdor_crosscheck_status: fdor || null,
+    owner_name: r?.owner_name || f?.owner_name || z?.owner_name || null,
+    parcel_address: r?.parcel_address || f?.parcel_address || z?.address || null,
+    parcel_id: r?.parcel_id || f?.parcel_id || z?.apn || null,
+    parcel_size_acres: acreage ?? f?.acreage ?? null,
+    owner_mailing_address: r?.owner_mailing_address || f?.owner_mailing_address || z?.owner_address || null,
+    coordinates: { lat: r?.lat || z?.lat || f?.centroid?.latitude || inputLat, lng: r?.lng || z?.lng || f?.centroid?.longitude || inputLng },
     boundary_geojson: boundary,
     _source: r ? (boundarySource === "realie" ? "realie" : "cross_referenced") : "zoneomics",
     _boundary_source: boundarySource,
@@ -299,7 +304,7 @@ function mergeParcel(realie, zoneo, inputLat, inputLng, sources) {
 
 // ─────────────────────── handler ───────────────────────
 
-Deno.serve(async (req) => {
+export default async function(req) {
   const t0 = Date.now();
   try {
     const base44 = createClientFromRequest(req);
@@ -337,7 +342,20 @@ Deno.serve(async (req) => {
     if (realieRes?.error) sources.errors.push(`realie:${realieRes.error}`);
     if (zoneoRes?.error) sources.errors.push(`zoneomics:${zoneoRes.error}`);
 
-    const parcel = mergeParcel(realieRes, zoneoRes, lat, lng, sources);
+    const shouldUseFdor = !!realieRes?.error || !realieRes?.parcel_id;
+    const fdorRes = shouldUseFdor
+      ? await fetchFloridaParcelCrosscheck({
+          parcelId: null,
+          state: realieRes?.raw?.state || realieRes?.raw?.stateCode,
+          lat,
+          lng,
+        }).catch((e) => ({ found: false, error: e.message }))
+      : { skipped: true, reason: "realie_primary_available" };
+    if (!fdorRes?.skipped) sources.calls_made.push("fdor_florida_parcel_fallback");
+    else sources.calls_skipped.push("fdor_florida_parcel_fallback");
+    if (fdorRes?.error) sources.errors.push(`fdor:${fdorRes.error}`);
+
+    const parcel = mergeParcel(realieRes, zoneoRes, fdorRes, lat, lng, sources);
 
     const zoning = zoneoRes?.zoning
       ? { ...zoneoRes.zoning, _source: "zoneomics" }
@@ -558,4 +576,4 @@ Deno.serve(async (req) => {
     console.log(`[ERROR] parcelFullLookup: ${error.message}`);
     return Response.json({ error: error.message, _meta: { duration_ms: Date.now() - t0 } }, { status: 500 });
   }
-});
+}
