@@ -114,8 +114,8 @@ export default function Landing() {
 
         <div className="relative max-w-4xl mx-auto" style={{ zIndex: 3 }}>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#00A3FF]/40 bg-[#00A3FF]/10 text-[#00A3FF] text-xs font-semibold tracking-wide mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00A3FF] animate-pulse" />
-            🦅 3-Day Free Trial — 2 SCIPs/day included
+            <HawkIcon size={18} />
+            With TalonFit® for precise tower siting
           </div>
 
           <h1 className="font-heading font-bold text-5xl md:text-7xl leading-tight text-white mb-6">
