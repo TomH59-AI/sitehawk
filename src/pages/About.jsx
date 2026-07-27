@@ -26,6 +26,27 @@ export default function About() {
         </p>
       </div>
 
+      <div className="rounded-xl border border-primary/30 bg-card p-6 space-y-4">
+        <h2 className="font-heading font-semibold text-lg text-foreground">TalonFit™ — The Tower Siter That Never Says No</h2>
+        <p className="text-foreground leading-relaxed">
+          At the heart of SiteHawk is TalonFit™, our patent-pending AI tower siting engine. TalonFit™ reads the local
+          telecommunications ordinance — setbacks, height caps, fall-zone rules, residential buffers, tower separation —
+          and runs that math across every point of a parcel to find the perfect tower location before you spend a dime
+          pursuing the wrong site.
+        </p>
+        <p className="text-foreground leading-relaxed">
+          And here's what makes TalonFit™ different: it grades sites, it doesn't reject them. Even when a location fails
+          the full requirements, TalonFit™ still selects it and shows you the maximum tower height that might be allowed
+          at that exact spot — so a "no" at 199 feet can still be a "yes" at 120. Where an ordinance permits an
+          engineered fall-zone reduction, TalonFit™ recognizes that pathway too, often rescuing a tight parcel to full
+          height with a PE-certified letter.
+        </p>
+        <p className="text-foreground leading-relaxed">
+          The result: every parcel gets ranked, every point gets a height, and the strongest buildable location — often
+          not the center of the parcel — rises to the top automatically.
+        </p>
+      </div>
+
       <div className="rounded-xl border border-border bg-card p-6 space-y-3">
         <h2 className="font-heading font-semibold text-lg text-foreground">Contact SkyWave LLC</h2>
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
