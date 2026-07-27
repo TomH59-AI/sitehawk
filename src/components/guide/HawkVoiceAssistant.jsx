@@ -6,6 +6,7 @@ import { elevenLabsSpeech } from "@/functions/elevenLabsSpeech";
 import { GUIDE_VOICE_ID } from "./hawkTourScript";
 import { BRIAN_SALES_TRAINING } from "./brianSalesTraining";
 import { BRIAN_FEATURE_KNOWLEDGE } from "./brianFeatureKnowledge";
+import { guideFor, pageIndex } from "./brianPageGuide";
 
 // "Brian" — the SiteHawk voice guide, now interactive. Users speak a question
 // (browser Web Speech API), the LLM answers as Brian, and the answer is spoken
@@ -97,15 +98,13 @@ POSTCARD DRAFTING (you own this now — HawkBot is retired):
 
 const GREETING = "Hi, I'm Brian, your SiteHawk guide. I'm here to help you with anything you have questions about, or how to complete certain tasks. Go ahead — tap the mic whenever you're ready.";
 
-const PAGE_HINTS = [
-  ["/dashboard", "Dashboard"], ["/search", "Site Search"], ["/scip", "SCIP detail"],
-  ["/hawk-tracker", "Hawk Tracker"], ["/skip-trace", "Skip-Trace"], ["/hawk-law", "Hawk Law"],
-  ["/hawk-lease", "Hawk Lease"], ["/hawk-vision", "HawkVision"], ["/pricing", "Pricing & Plans"], ["/billing", "Billing"],
-  ["/crm", "Time Savers"], ["/rfi-engine", "RF Intelligence Engine"], ["/hawk-docs", "Document & Permit Intelligence"],
-];
-
-function pageFor(pathname) {
-  return PAGE_HINTS.find(([p]) => pathname.startsWith(p))?.[1] || "SiteHawk";
+// Build the "where the user is right now" context block from the page playbook.
+function pageContext(pathname) {
+  const g = guideFor(pathname);
+  const here = g
+    ? `The user is currently on the "${g.title}" page (${pathname}).\nWHAT'S ON THIS PAGE AND HOW TO HELP HERE:\n${g.guide}`
+    : `The user is currently on an internal SiteHawk page (${pathname}).`;
+  return `${here}\n\nFULL PAGE INDEX (use this to point the user to the right page when their goal lives elsewhere — name the page by its title, e.g. "open Site Search from the left sidebar"; never read route paths aloud):\n${pageIndex()}\n\nANSWERING RULES: Ground every "how do I…" answer in the page guide above — reference the actual controls, sections, and buttons it describes. If the task belongs on a different page, say which page and how to get there. If the page guide doesn't cover something, say you're not certain rather than inventing UI that may not exist.`;
 }
 
 // Pull the user's recent SCIP records so Brian can recall specific site details,
@@ -212,7 +211,7 @@ export default function HawkVoiceAssistant() {
     let answer = "";
     try {
       const history = await loadHistory();
-      const prompt = `${BRIAN_CTX}\n\nThe user is currently on the "${pageFor(location.pathname)}" page.\n\nThis is the user's actual project history (recent SCIP records, newest first):\n${history}\n\nWhen asked about previous sites or targets, use ONLY this history — cite site names, owners, addresses, scores, or owner contacts from it. If a referenced site isn't listed, say you don't have it on hand. Answer briefly and conversationally.\n\nQuestion: ${q}`;
+      const prompt = `${BRIAN_CTX}\n\n${pageContext(location.pathname)}\n\nThis is the user's actual project history (recent SCIP records, newest first):\n${history}\n\nWhen asked about previous sites or targets, use ONLY this history — cite site names, owners, addresses, scores, or owner contacts from it. If a referenced site isn't listed, say you don't have it on hand. Answer briefly and conversationally.\n\nQuestion: ${q}`;
       const out = await base44.integrations.Core.InvokeLLM({ prompt });
       answer = typeof out === "string" ? out : out?.response || out?.text || out?.output || "";
       if (!answer.trim()) answer = "I'm not sure on that one — try rephrasing.";
