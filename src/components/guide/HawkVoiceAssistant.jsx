@@ -7,6 +7,7 @@ import { GUIDE_VOICE_ID } from "./hawkTourScript";
 import { BRIAN_SALES_TRAINING } from "./brianSalesTraining";
 import { BRIAN_FEATURE_KNOWLEDGE } from "./brianFeatureKnowledge";
 import { guideFor, pageIndex } from "./brianPageGuide";
+import { scanAndPushPage, getPageKnowledge } from "./brianPageScanner";
 
 // "Brian" — the SiteHawk voice guide, now interactive. Users speak a question
 // (browser Web Speech API), the LLM answers as Brian, and the answer is spoken
@@ -172,6 +173,13 @@ export default function HawkVoiceAssistant() {
 
   useEffect(() => () => { stopAudio(); try { recRef.current?.abort(); } catch {} }, []);
 
+  // Auto-learn: after each page renders, scan its visible content and push it
+  // to Brian's knowledge base (admin visits only; silent, change-detected).
+  useEffect(() => {
+    const t = setTimeout(() => scanAndPushPage(location.pathname), 3000);
+    return () => clearTimeout(t);
+  }, [location.pathname]);
+
   const speak = async (text) => {
     if (muted || !text?.trim()) return;
     stopAudio();
@@ -210,8 +218,8 @@ export default function HawkVoiceAssistant() {
     setThinking(true);
     let answer = "";
     try {
-      const history = await loadHistory();
-      const prompt = `${BRIAN_CTX}\n\n${pageContext(location.pathname)}\n\nThis is the user's actual project history (recent SCIP records, newest first):\n${history}\n\nWhen asked about previous sites or targets, use ONLY this history — cite site names, owners, addresses, scores, or owner contacts from it. If a referenced site isn't listed, say you don't have it on hand. Answer briefly and conversationally.\n\nQuestion: ${q}`;
+      const [history, pageSnapshot] = await Promise.all([loadHistory(), getPageKnowledge(location.pathname)]);
+      const prompt = `${BRIAN_CTX}\n\n${pageContext(location.pathname)}${pageSnapshot ? `\n\n${pageSnapshot}` : ""}\n\nThis is the user's actual project history (recent SCIP records, newest first):\n${history}\n\nWhen asked about previous sites or targets, use ONLY this history — cite site names, owners, addresses, scores, or owner contacts from it. If a referenced site isn't listed, say you don't have it on hand. Answer briefly and conversationally.\n\nQuestion: ${q}`;
       const out = await base44.integrations.Core.InvokeLLM({ prompt });
       answer = typeof out === "string" ? out : out?.response || out?.text || out?.output || "";
       if (!answer.trim()) answer = "I'm not sure on that one — try rephrasing.";

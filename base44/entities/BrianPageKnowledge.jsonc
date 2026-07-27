@@ -1,0 +1,50 @@
+{
+  "name": "BrianPageKnowledge",
+  "type": "object",
+  "description": "Ask Brian's auto-learned knowledge base \u2014 one record per app page. A client-side scanner extracts the page's visible UI content (headings, buttons, labels, key text) when an admin visits, and upserts it here keyed by route. Brian injects the matching record into his prompt so he always knows the page's CURRENT content. App-wide shared; writes are admin-only.",
+  "properties": {
+    "page_key": {
+      "type": "string",
+      "description": "Route path, e.g. '/search' or '/hawk-law'. Unique key."
+    },
+    "page_title": {
+      "type": "string",
+      "description": "The page's main heading at scan time."
+    },
+    "content": {
+      "type": "string",
+      "description": "Extracted visible UI content \u2014 headings, buttons, form labels, tabs, and key text (capped)."
+    },
+    "content_hash": {
+      "type": "string",
+      "description": "Hash of content, used to skip pushes when nothing changed."
+    },
+    "scanned_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this page was last scanned."
+    }
+  },
+  "required": [
+    "page_key",
+    "content"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
