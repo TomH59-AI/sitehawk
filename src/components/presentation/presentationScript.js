@@ -43,9 +43,11 @@ export const DECK_SLIDES = [
       "Live telecom ordinance lookup for the exact jurisdiction",
       "Height caps, setbacks, fall zones, separation, stealth requirements",
       "Approval path: admin review or public hearing — plus fees and timeframes",
+      "Finds the jurisdiction's own website — zoning and building permit applications",
+      "Links you straight to their online permit portal to apply",
     ],
     narration:
-      "Before you pick a parcel, you need the rules of the game. SiteHawk pulls the local telecommunications ordinance for the exact jurisdiction — the maximum height they'll allow, setback rules, fall-zone requirements, residential separation, whether stealth design is required, and the approval path. This is the stuff that kills deals late when you skip it early. SiteHawk reads the ordinance for you, on day one.",
+      "Before you pick a parcel, you need the rules of the game. SiteHawk pulls the local telecommunications ordinance for the exact jurisdiction — the maximum height they'll allow, setback rules, fall-zone requirements, residential separation, whether stealth design is required, and the approval path. And it doesn't stop at the rules — SiteHawk hunts down the jurisdiction's own website and pulls the actual zoning and building permit applications you'll need to file, or drops you straight into their online permit portal to apply. No more digging through messy municipal websites hunting for a PDF. This is the stuff that kills deals late when you skip it early. SiteHawk reads the ordinance for you, and hands you the paperwork, on day one.",
   },
   {
     key: "deck/talonfit",
@@ -82,9 +84,10 @@ export const DECK_SLIDES = [
       "Checks all 8 federal NEPA triggers from 47 CFR 1.1307",
       "CatEx vs. Environmental Assessment determination",
       "SHPO 30-day shot clock and tribal consultation posture",
+      "Flags when a wetland delineation is recommended — before it becomes a delay",
     ],
     narration:
-      "Compliance stalls projects for months when it's discovered late. SiteHawk pre-screens Target A against all eight federal NEPA environmental triggers — floodplain, wetlands, endangered species, historic districts, and more — using the data the map suite already collected. In seconds you know whether the site qualifies for a categorical exclusion or needs deeper review, plus the Section 106 posture and the thirty-day FCC shot clock.",
+      "Compliance stalls projects for months when it's discovered late. SiteHawk pre-screens Target A against all eight federal NEPA environmental triggers — floodplain, wetlands, endangered species, historic districts, and more — using the data the map suite already collected. In seconds you know whether the site qualifies for a categorical exclusion or needs deeper review, plus the Section 106 posture and the thirty-day FCC shot clock. And here's a detail nobody else catches — if mapped wetlands touch your parcel, SiteHawk tells you right there that a formal wetland delineation is recommended, so you can get a consultant scheduled early instead of finding out mid-permit and losing a season.",
   },
   {
     key: "deck/owner",
