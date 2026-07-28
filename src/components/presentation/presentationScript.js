@@ -76,6 +76,19 @@ export const DECK_SLIDES = [
       "Then the map suite turns Target A from a green shape on a map into a fully documented candidate — fourteen live maps and data pulls. Aerial, topography, FEMA flood zones, zoning, future land use, wetlands, nearest airport, existing towers, parcel boundaries, road access, design wind speed, fiber routes, the power grid, and my personal favorite — the 2D viewshed showing exactly what your tower will see in every direction. Every map answers a question the owner, the community, the jurisdiction, or the carrier is going to ask.",
   },
   {
+    key: "deck/propagation",
+    kicker: "See The Signal",
+    title: "RF Propagation",
+    subtitle: "Map the signal strength before you build",
+    bullets: [
+      "Models real RF coverage from your proposed tower height and frequency",
+      "Color-mapped signal strength across the whole surrounding area",
+      "Prove to the carrier why your candidate beats the alternatives",
+    ],
+    narration:
+      "And here's one of the coolest tools in the whole platform — RF propagation. SiteHawk models the actual signal coming off your proposed tower and paints the surrounding area with the strength of those frequencies — where the coverage is strong, where it fades, and exactly how far it reaches. Set your height, set your frequency, and watch the coverage bloom across the map. This is the map that turns a maybe into a yes with the carrier, because you're not guessing what the site will do — you're showing them.",
+  },
+  {
     key: "deck/compliance",
     kicker: "Federal Pre-Screen",
     title: "Hawk Compliance",
