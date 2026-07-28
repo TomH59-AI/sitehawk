@@ -158,7 +158,7 @@ export const DECK_SLIDES = [
     subtitle: "From search ring to signed lease — in one platform",
     bullets: [
       "Built by site acquisition professionals, for site acquisition professionals",
-      "sitehawk.com",
+      "https://site-hawk-pro.com/  ·  Call (810) 373-5419",
     ],
     narration:
       "That's SiteHawk — search ring to signed lease, one platform, built by site acquisition professionals for site acquisition professionals. What used to take weeks now takes an afternoon. Go find some towers.",
