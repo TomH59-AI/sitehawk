@@ -102,6 +102,7 @@ import OrdinanceHunter from './pages/OrdinanceHunter';
 import AnthemNetScip from './pages/AnthemNetScip';
 import SkipTrace from './pages/SkipTrace';
 import HawkVision from './pages/HawkVision';
+import Presentation from './pages/Presentation';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -145,6 +146,8 @@ const AuthenticatedApp = () => {
       <Route path="/" element={<Landing />} />
       <Route path="/scip-share" element={<SCIPShareView />} />
       <Route path="/hawk-doc-share" element={<HawkDocShareView />} />
+      {/* SiteHawk Pitch Deck — full-screen presentation narrated by Brian */}
+      <Route path="/presentation" element={<Presentation />} />
       {/* PUBLIC privacy policy — required URL for Apple App Store / createPlus */}
       <Route path="/privacy-policy" element={<PrivacyPolicyPublic />} />
       <Route element={<Layout />}>
