@@ -56,7 +56,7 @@ export default function HawkVision() {
     setRendering(true);
     setResult(null);
     try {
-      const out = await base44.functions.invoke("hawkVisionPhotoRender", params);
+      const out = await base44.functions.invoke("hawkVisionPhotoRender", { ...params, photo_url: photoUrl });
       const data = out?.data ?? out;
       if (data?.error) throw new Error(data.error);
       setResult(data);
@@ -134,7 +134,7 @@ export default function HawkVision() {
           <div className="flex items-center justify-between">
             <h2 className="font-heading font-bold text-base">Rendered result</h2>
             {result?.render_url && (
-              <a href={result.render_url} download="hawkvision-render.webp" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+              <a href={result.render_url} download="hawkvision-render.jpg" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
                 <Download className="w-3.5 h-3.5" /> Download
               </a>
             )}

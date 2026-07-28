@@ -40,9 +40,7 @@ async function runKontext({ prompt, input_image }: { prompt: string; input_image
       input: {
         prompt,
         input_image,
-        num_outputs: 1,
-        output_format: 'webp',
-        output_quality: 92,
+        output_format: 'jpg',
       },
     }),
   });
