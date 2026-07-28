@@ -46,12 +46,20 @@ export async function findOrdinance(base44, state, jurisdiction) {
   if (!row) {
     const norm = normalizeJurisdiction(jurisdiction);
     if (norm) {
-      rows = await base44.entities.TelecomOrdinance.filter(
+      const candidates = await base44.entities.TelecomOrdinance.filter(
         { state: st, jurisdiction_normalized: { $regex: reEscape(norm), $options: "i" } },
         null,
-        1
+        10
       );
-      row = rows[0] || null;
+      // normalizeJurisdiction strips COUNTY, so "York County" and the city of
+      // "York" both normalize to YORK. Taking the first hit therefore served
+      // county sites city rules (and vice versa) with a high-confidence code
+      // citation. Require the county/parish-ness of the row to match the query;
+      // if nothing matches, return a MISS so the report falls back to gap-fill
+      // rather than citing the wrong jurisdiction's ordinance.
+      const wantCounty = /\b(COUNTY|PARISH)\b/i.test(jurisdiction);
+      const isCountyRow = (r) => /\b(COUNTY|PARISH)\b/i.test(r.jurisdiction || "");
+      row = (candidates || []).find((r) => isCountyRow(r) === wantCounty) || null;
     }
   }
 
