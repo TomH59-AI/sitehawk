@@ -82,6 +82,10 @@
       "type": "object",
       "description": "Keyed map of in-flight single-landlord proposition letter drafts awaiting Stripe payment."
     },
+    "pending_postcards": {
+      "type": "object",
+      "description": "Keyed map of in-flight target-postcard mailer drafts awaiting Stripe payment. Read back by the Stripe webhook to fulfill the Lob send."
+    },
     "hawk_compliance_active": {
       "type": "boolean",
       "description": "True if the user has an active Hawk Compliance subscription.",
