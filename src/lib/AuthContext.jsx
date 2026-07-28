@@ -20,6 +20,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const checkAppState = async () => {
+    // Public routes that never require auth — skip the auth gate entirely.
+    const PUBLIC_ROUTES = ["/", "/presentation", "/privacy-policy", "/scip-share", "/hawk-doc-share"];
+    const isPublicRoute = typeof window !== "undefined" && PUBLIC_ROUTES.includes(window.location.pathname);
     try {
       setIsLoadingPublicSettings(true);
       setAuthError(null);
@@ -40,7 +43,7 @@ export const AuthProvider = ({ children }) => {
         setAppPublicSettings(publicSettings);
         
         // If we got the app public settings successfully, check if user is authenticated
-        if (appParams.token) {
+        if (appParams.token && !isPublicRoute) {
           await checkUserAuth();
         } else {
           setIsLoadingAuth(false);

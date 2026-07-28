@@ -13,8 +13,10 @@ function hashText(text) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const user = await base44.auth.me();
-    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    // Public route — no auth required. Audio clips are globally cached and shared,
+    // so anonymous viewers can replay them without costing extra ElevenLabs credits.
+    const user = await base44.auth.me().catch(() => null);
+    // (user is informational only; tour audio is not user-scoped)
 
     const { page_key, text, voice_id = 'nPczCjzI2devNBz1zQrb' } = await req.json();
     if (!page_key || !text || !String(text).trim()) {
