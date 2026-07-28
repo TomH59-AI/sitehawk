@@ -152,6 +152,19 @@ export const DECK_SLIDES = [
       "And it all rolls up into the deliverable — the SCIP. A complete, carrier-ready site candidate information package with every map, every data point, and every finding. Hawk Tracker then walks each site through eighteen deployment gates, from search ring received to notice to proceed, so nothing ever falls through the cracks.",
   },
   {
+    key: "deck/brian",
+    kicker: "Your AI Wingman",
+    title: "Ask Brian",
+    subtitle: "An AI assistant who knows SiteHawk inside and out",
+    bullets: [
+      "Ask Brian anything — zoning, parcels, the SCIP, the report — he answers out loud",
+      "He knows the page you're on and guides you forward if you get stuck",
+      "Talk to him by voice or type — he'll walk you through the next step",
+    ],
+    narration:
+      "And meet Brian — your AI wingman, built right into every page of SiteHawk. Ask him anything about zoning, parcels, the SCIP, or the report, and he answers you out loud, in his own voice. He knows the page you're on, so if you ever get stuck, just ask Brian and he'll walk you through the next step. Think of him as your personal site acquisition expert, available twenty-four seven. He's the reason nobody on the SiteHawk platform ever feels lost.",
+  },
+  {
     key: "deck/close",
     kicker: "SiteHawk by SkyWave AI",
     title: "Go Find Some Towers",
