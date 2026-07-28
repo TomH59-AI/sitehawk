@@ -608,7 +608,12 @@ Deno.serve(async (req) => {
     // The TelecomOrdinance record is OUR verified data with a code citation, so
     // it outranks both the LLM's inference and Zoneomics. Only fields we actually
     // hold are written; everything else keeps the LLM gap-fill.
-    if (ordinance) {
+    // A row whose permit_type is flagged UNVERIFIED is a deep-pull placeholder
+    // (we hold the jurisdiction but no confirmed siting standard). Writing it
+    // would stamp "UNVERIFIED - deep pull required" into the deliverable as a
+    // high-confidence Registry value and render a citation strip pointing at a
+    // URL that does not contain the standard. Treat it as a miss.
+    if (ordinance && !/^\s*UNVERIFIED/i.test(ordinance.permit_type || '')) {
       const SRC = 'SiteHawk Registry';
       const ft = (v) => (v === null || v === undefined || v === '' ? null : `${v} ft`);
       const yn = (v) => (v === true ? 'Yes' : v === false ? 'No' : null);
