@@ -11,6 +11,7 @@ import { FIBER_PROVIDERS } from "@/components/maps/fiberLayers";
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
+import KmzInspector from "@/components/fiber/KmzInspector";
 
 export default function FiberLayersAdmin() {
   const [user, setUser] = useState(null);
@@ -72,6 +73,10 @@ export default function FiberLayersAdmin() {
           <span>The fiber database isn't initialized yet — run the provided migration SQL in your Supabase SQL editor first, then refresh this page.</span>
         </div>
       )}
+      <div className="mt-6">
+        <KmzInspector />
+      </div>
+
       <div className="mt-6 space-y-3">
         {FIBER_PROVIDERS.map((p) => {
           const result = results[p.id];
