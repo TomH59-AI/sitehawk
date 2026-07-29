@@ -1,0 +1,80 @@
+{
+  "name": "Substation",
+  "type": "object",
+  "description": "Electrical power substations (HIFLD, ITC, MPSC). App-wide shared reference data used for grid-proximity scoring; admin-only writes.",
+  "properties": {
+    "substation_name": {
+      "type": "string",
+      "description": "Official substation name."
+    },
+    "operator": {
+      "type": "string",
+      "description": "Operating utility or owner."
+    },
+    "min_voltage_kv": {
+      "type": "number",
+      "description": "Minimum operating voltage level in kV."
+    },
+    "max_voltage_kv": {
+      "type": "number",
+      "description": "Maximum operating voltage level in kV."
+    },
+    "substation_type": {
+      "type": "string",
+      "enum": [
+        "Transmission",
+        "Distribution",
+        "Collector",
+        "Switching Station"
+      ],
+      "default": "Transmission"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "address": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase US state code."
+    },
+    "county": {
+      "type": "string",
+      "description": "County name, without the word 'County'."
+    },
+    "source": {
+      "type": "string",
+      "description": "Where this record came from (HIFLD, ITC, MPSC, manual)."
+    }
+  },
+  "required": [
+    "substation_name",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

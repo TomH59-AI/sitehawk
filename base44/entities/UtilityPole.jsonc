@@ -1,0 +1,90 @@
+{
+  "name": "UtilityPole",
+  "type": "object",
+  "description": "Individual distribution & transmission poles (OpenStreetMap, field survey). Useful for last-mile power drop and telecom attachment analysis. App-wide shared reference data; admin-only writes.",
+  "properties": {
+    "pole_identifier": {
+      "type": "string",
+      "description": "Pole tag number or OSM ID."
+    },
+    "utility_company": {
+      "type": "string"
+    },
+    "pole_material": {
+      "type": "string",
+      "enum": [
+        "Wood",
+        "Concrete",
+        "Steel",
+        "Composite"
+      ],
+      "default": "Wood"
+    },
+    "height_ft": {
+      "type": "number",
+      "description": "Height of the structure in feet."
+    },
+    "voltage_class": {
+      "type": "string",
+      "enum": [
+        "Low Voltage",
+        "Medium Voltage",
+        "High Voltage"
+      ]
+    },
+    "has_transformer": {
+      "type": "boolean",
+      "default": false
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Co-located hardware (e.g. Telecom, Fiber, Distribution, Solar drop)."
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "Excellent",
+        "Good",
+        "Fair",
+        "Poor",
+        "Needs Replacement"
+      ],
+      "default": "Good"
+    },
+    "source": {
+      "type": "string",
+      "description": "Where this record came from (OSM, field survey, utility, manual)."
+    }
+  },
+  "required": [
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

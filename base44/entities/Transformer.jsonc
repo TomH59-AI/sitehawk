@@ -1,0 +1,75 @@
+{
+  "name": "Transformer",
+  "type": "object",
+  "description": "Step-up, step-down, and distribution transformers (NREL SMART-DS, OSM). App-wide shared reference data; admin-only writes.",
+  "properties": {
+    "transformer_id": {
+      "type": "string"
+    },
+    "transformer_type": {
+      "type": "string",
+      "enum": [
+        "Pad-Mounted",
+        "Pole-Mounted",
+        "Substation Transformer",
+        "Vault"
+      ],
+      "default": "Pad-Mounted"
+    },
+    "primary_voltage_kv": {
+      "type": "number"
+    },
+    "secondary_voltage_v": {
+      "type": "number"
+    },
+    "kva_rating": {
+      "type": "number",
+      "description": "Capacity rating in kVA."
+    },
+    "phase_count": {
+      "type": "integer",
+      "enum": [
+        1,
+        3
+      ],
+      "default": 3
+    },
+    "associated_pole_id": {
+      "type": "string",
+      "description": "UtilityPole record id this transformer is mounted on, when pole-mounted."
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "source": {
+      "type": "string",
+      "description": "Where this record came from (NREL SMART-DS, OSM, utility, manual)."
+    }
+  },
+  "required": [
+    "transformer_type",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

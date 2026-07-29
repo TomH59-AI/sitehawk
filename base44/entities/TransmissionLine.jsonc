@@ -1,0 +1,81 @@
+{
+  "name": "TransmissionLine",
+  "type": "object",
+  "description": "Bulk power transmission lines (HIFLD, ITC, METC, MISO). Unlike the legacy PowerTransmissionLine rollup, this entity carries real LineString geometry so lines can be drawn and used for proximity queries. App-wide shared reference data; admin-only writes.",
+  "properties": {
+    "line_name": {
+      "type": "string",
+      "description": "Name or identifier of the transmission line."
+    },
+    "utility_owner": {
+      "type": "string",
+      "description": "Operating utility or TSO (e.g. ITC Transmission, METC, Consumers Energy, DTE)."
+    },
+    "voltage_kv": {
+      "type": "number",
+      "description": "Line operating voltage in kilovolts (e.g. 69, 120, 230, 345, 765)."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Active",
+        "Proposed",
+        "Under Construction",
+        "Decommissioned"
+      ],
+      "default": "Active"
+    },
+    "circuit_length_miles": {
+      "type": "number",
+      "description": "Total circuit length in miles."
+    },
+    "substation_from": {
+      "type": "string",
+      "description": "Originating substation name/ID."
+    },
+    "substation_to": {
+      "type": "string",
+      "description": "Terminating substation name/ID."
+    },
+    "geometry": {
+      "type": "object",
+      "description": "GeoJSON LineString/MultiLineString of the line route. Stored as an object (not a string) so it can be fed straight to Mapbox and turf without parsing.",
+      "additionalProperties": true
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase US state code."
+    },
+    "county": {
+      "type": "string",
+      "description": "County name, without the word 'County'."
+    },
+    "source": {
+      "type": "string",
+      "description": "Where this record came from (HIFLD, ITC, METC, MISO, manual)."
+    }
+  },
+  "required": [
+    "line_name",
+    "voltage_kv",
+    "state"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

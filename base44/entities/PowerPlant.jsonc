@@ -1,0 +1,82 @@
+{
+  "name": "PowerPlant",
+  "type": "object",
+  "description": "Electricity generation facilities (EIA Form 860, MPSC). App-wide shared reference data; admin-only writes.",
+  "properties": {
+    "plant_name": {
+      "type": "string"
+    },
+    "utility_owner": {
+      "type": "string"
+    },
+    "primary_fuel": {
+      "type": "string",
+      "enum": [
+        "Solar",
+        "Wind",
+        "Natural Gas",
+        "Hydroelectric",
+        "Nuclear",
+        "Coal",
+        "Battery Storage",
+        "Biomass"
+      ]
+    },
+    "capacity_mw": {
+      "type": "number",
+      "description": "Nameplate generation capacity in megawatts."
+    },
+    "operating_status": {
+      "type": "string",
+      "enum": [
+        "Operating",
+        "Planned",
+        "Retired"
+      ],
+      "default": "Operating"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase US state code."
+    },
+    "county": {
+      "type": "string",
+      "description": "County name, without the word 'County'."
+    },
+    "source": {
+      "type": "string",
+      "description": "Where this record came from (EIA Form 860, MPSC, manual)."
+    }
+  },
+  "required": [
+    "plant_name",
+    "primary_fuel",
+    "capacity_mw",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
