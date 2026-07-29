@@ -1,0 +1,82 @@
+{
+  "name": "FiberOperator",
+  "type": "object",
+  "description": "Regional / rural fiber & backhaul operator directory. A CALL LIST, not a mapped layer \u2014 these are operators to contact for backhaul in markets where national fiber datasets go blind. Seeded from the Fiber Network Alliance public member directory (names + their own websites only). Coverage areas and contacts are NEVER fabricated: states_served, phone and contact_name stay empty until a human verifies them. App-wide shared reference data; admin-only writes.",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Operator name as published."
+    },
+    "website": {
+      "type": "string",
+      "description": "Operator's own website URL. Blank unless taken from the source directory."
+    },
+    "operator_type": {
+      "type": "string",
+      "enum": [
+        "cooperative",
+        "municipal",
+        "telco",
+        "regional_carrier",
+        "data_center",
+        "unknown"
+      ],
+      "default": "unknown",
+      "description": "Classification. Set only when the operator's own name states it (e.g. 'Electric Cooperative', 'City of', 'Telephone'); otherwise 'unknown'."
+    },
+    "states_served": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Two-letter state codes. EMPTY until verified \u2014 never inferred."
+    },
+    "phone": {
+      "type": "string",
+      "description": "Backhaul / sales phone. Empty until verified."
+    },
+    "contact_name": {
+      "type": "string",
+      "description": "Known contact. Empty until verified."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Free-form notes from your own calls."
+    },
+    "source": {
+      "type": "string",
+      "default": "Fiber Network Alliance member directory",
+      "description": "Where this record came from."
+    },
+    "verified": {
+      "type": "boolean",
+      "default": false,
+      "description": "True only after a human confirms coverage and contact details."
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -102,6 +102,7 @@ import OrdinanceHunter from './pages/OrdinanceHunter';
 import AnthemNetScip from './pages/AnthemNetScip';
 import SkipTrace from './pages/SkipTrace';
 import HawkVision from './pages/HawkVision';
+import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
 
 import SplashScreen from './components/SplashScreen';
@@ -177,6 +178,8 @@ const AuthenticatedApp = () => {
         <Route path="/InfrastructureIntelligence" element={<InfrastructureIntelligence />} />
         {/* Admin-only ScipHawk fiber KMZ importer */}
         <Route path="/fiber-layers-admin" element={<FiberLayersAdmin />} />
+        {/* Fiber Operators — regional/rural backhaul call list */}
+        <Route path="/fiber-operators" element={<FiberOperators />} />
         {/* RF Intelligence Engine — standalone nationwide RF map module */}
         <Route path="/rfi-engine" element={<RfiEngine />} />
         {/* Hawk Zoning Verifier — AI agent for zoning accuracy checks */}
