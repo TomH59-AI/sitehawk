@@ -1,0 +1,45 @@
+{
+  "name": "Daily Login & Usage Digest",
+  "description": "Every morning at 7:00 AM ET, emails Tom the full SiteHawk roster \u2014 who logged in, who tried the service (scans / SCIPs / TalonFit runs), and who actually subscribed.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 7 * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_login_usage_digest",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "send_digest": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "loginActivityDigest",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email login & usage report",
+            "description": "Roster with signup, login and subscription status"
+          }
+        }
+      }
+    ]
+  }
+}
