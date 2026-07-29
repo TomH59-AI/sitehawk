@@ -32,11 +32,24 @@ export default function KmzInspector() {
     setFeatures([]);
     setFileName(file.name);
     try {
-      const zip = await JSZip.loadAsync(file);
-      const kmls = zip.file(/\.kml$/i);
-      if (!kmls.length) throw new Error("No KML file found inside the KMZ.");
-      const entry = kmls.find((f) => /doc\.kml$/i.test(f.name)) || kmls[0];
-      const xml = new DOMParser().parseFromString(await entry.async("text"), "text/xml");
+      // Sniff the actual bytes rather than trusting the extension: a ZIP (and
+      // therefore a KMZ) always starts "PK". Anything else we treat as raw KML.
+      const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+      const isZip = head[0] === 0x50 && head[1] === 0x4b;
+
+      let kmlText;
+      if (isZip) {
+        const zip = await JSZip.loadAsync(file);
+        const kmls = zip.file(/\.kml$/i);
+        if (!kmls.length) throw new Error("That archive doesn't contain a .kml file.");
+        const entry = kmls.find((f) => /doc\.kml$/i.test(f.name)) || kmls[0];
+        kmlText = await entry.async("text");
+      } else {
+        kmlText = await file.text();
+      }
+
+      const xml = new DOMParser().parseFromString(kmlText, "text/xml");
+      if (xml.querySelector("parsererror")) throw new Error("This file isn't valid KML or KMZ.");
 
       const results = [];
       let points = 0, lines = 0, polygons = 0;
@@ -117,10 +130,10 @@ export default function KmzInspector() {
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Drop a <strong className="text-foreground">.kmz</strong> here, or click to browse
+            Drop a <strong className="text-foreground">.kmz</strong> or <strong className="text-foreground">.kml</strong> here, or click to browse
           </p>
         )}
-        <input id="kmz-inspect-input" type="file" accept=".kmz" className="hidden" onChange={handleFile} />
+        <input id="kmz-inspect-input" type="file" accept=".kmz,.kml" className="hidden" onChange={handleFile} />
       </div>
 
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
