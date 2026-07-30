@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Image, Loader2 } from "lucide-react";
 import { generateMapExhibit } from "@/functions/generateMapExhibit";
 import { useToast } from "@/components/ui/use-toast";
+import MapExhibitPreview from "@/components/hawkfit/MapExhibitPreview";
 
-// HawkFit Map — generates a static map exhibit and opens it in a new tab.
+// HawkFit Map — generates a static map exhibit and shows it inline, ready to print.
 export default function ExportMapButton({ siteTarget, towerLngLat, fit, disabled, scenarioId }) {
   const [busy, setBusy] = useState(false);
+  const [imageUrl, setImageUrl] = useState(null);
   const { toast } = useToast();
 
   const handleExport = async () => {
@@ -21,7 +23,7 @@ export default function ExportMapButton({ siteTarget, towerLngLat, fit, disabled
         site_target_id: siteTarget?.id || null,
         tower_scenario_id: scenarioId || null,
       });
-      window.open(res.data.image_url, "_blank");
+      setImageUrl(res.data.image_url);
     } catch (e) {
       toast({ title: "Export failed", description: e?.response?.data?.error || e.message, variant: "destructive" });
     }
@@ -29,9 +31,18 @@ export default function ExportMapButton({ siteTarget, towerLngLat, fit, disabled
   };
 
   return (
-    <Button variant="outline" onClick={handleExport} disabled={disabled || busy} className="w-full">
-      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
-      Export Map Exhibit
-    </Button>
+    <div className="space-y-2">
+      <Button variant="outline" onClick={handleExport} disabled={disabled || busy} className="w-full">
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Image className="w-4 h-4" />}
+        {imageUrl ? "Regenerate Map Exhibit" : "Export Map Exhibit"}
+      </Button>
+      {imageUrl && (
+        <MapExhibitPreview
+          imageUrl={imageUrl}
+          label={siteTarget?.address || siteTarget?.parcel_id || "Tower Site"}
+          onClose={() => setImageUrl(null)}
+        />
+      )}
+    </div>
   );
 }
