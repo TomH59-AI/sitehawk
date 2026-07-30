@@ -1,0 +1,47 @@
+{
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "hawkbolt_daily_site_status",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "send_digest": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "hawkboltPipelineWatch",
+            "args": {
+              "mode": "digest"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Email site-status report",
+            "description": "Stalled, blocked, gate gaps"
+          }
+        }
+      }
+    ]
+  },
+  "name": "HawkBolt Daily Site-Status Report",
+  "description": "Every morning at 7:00am ET, HawkBolt's read-only pipeline watch scans the Hawk Tracker's 18 gates and emails admins a report of stalled sites, blocked sites, and gate gaps. Flag only \u2014 it never advances a gate.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 7 * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  }
+}

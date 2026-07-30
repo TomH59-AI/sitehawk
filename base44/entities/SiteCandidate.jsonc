@@ -1,0 +1,151 @@
+{
+  "name": "SiteCandidate",
+  "type": "object",
+  "description": "HawkBolt qualification output \u2014 one record per address/coordinate the superagent qualified. HARD RULE: HawkBolt never fabricates data. Every populated field must have a matching entry in field_provenance ({source, timestamp, status}); fields with no sourced value stay blank and are listed in unverified_fields. Scraped data may never be marked 'verified' \u2014 only 'source-scraped'.",
+  "properties": {
+    "site_label": {
+      "type": "string",
+      "description": "Human-readable label, usually the address."
+    },
+    "address": {
+      "type": "string"
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "apn": {
+      "type": "string",
+      "description": "Parcel ID from the parcel lookup. Blank if unsourced."
+    },
+    "owner_name": {
+      "type": "string",
+      "description": "Owner from the parcel record. Blank if unsourced."
+    },
+    "acreage": {
+      "type": "number"
+    },
+    "zoning_code": {
+      "type": "string",
+      "description": "Zoning classification from the parcel/zoning source."
+    },
+    "jurisdiction": {
+      "type": "string"
+    },
+    "parcel_geometry": {
+      "type": "object",
+      "description": "GeoJSON parcel boundary \u2014 ONLY from the parcel data source, never drawn/inferred.",
+      "additionalProperties": true
+    },
+    "power": {
+      "type": "object",
+      "description": "Grid proximity: { nearest_substation, substation_distance_mi, nearest_line, line_voltage_kv }. Blank fields = unsourced.",
+      "additionalProperties": true
+    },
+    "fiber": {
+      "type": "object",
+      "description": "Backhaul: { fcc_fiber_present, providers[], regional_operators[] }. FiberOperator entries carry their own verified flag \u2014 never upgraded here.",
+      "additionalProperties": true
+    },
+    "ordinance": {
+      "type": "object",
+      "description": "Tower-relevant constraints: { height_limit_ft, setback_rule, fall_zone_rule, separation_rule, source_ref }. Verbatim from source.",
+      "additionalProperties": true
+    },
+    "fit": {
+      "type": "object",
+      "description": "TalonFit/HawkFit result: { max_height_ft, binding_constraint, feasible, run_id }.",
+      "additionalProperties": true
+    },
+    "flood_zone": {
+      "type": "string",
+      "description": "FEMA zone code as returned. Blank if not checked."
+    },
+    "site_score": {
+      "type": "number",
+      "description": "0-100 composite score computed ONLY from sourced fields; scoring notes go in score_reasons."
+    },
+    "score_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Which sourced facts moved the score, and which missing data capped it."
+    },
+    "field_provenance": {
+      "type": "object",
+      "description": "Per-field provenance keyed by field name: { source: string (tool/dataset that produced it), timestamp: ISO datetime, status: 'verified' | 'source-scraped' | 'unverified' }. Scraped data is at most 'source-scraped'.",
+      "additionalProperties": true
+    },
+    "unverified_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Fields HawkBolt could not source \u2014 left blank, flagged here, never guessed."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "qualified",
+        "partially_qualified",
+        "insufficient_data"
+      ],
+      "default": "partially_qualified",
+      "description": "insufficient_data when core steps (parcel or ordinance) returned nothing."
+    },
+    "qualified_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the qualification chain ran."
+    }
+  },
+  "required": [
+    "site_label",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
