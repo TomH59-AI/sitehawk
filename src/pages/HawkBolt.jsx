@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import MessageBubble from "@/components/agent/MessageBubble";
 import HawkBoltComposer from "@/components/hawkbolt/HawkBoltComposer";
 import HawkBoltEmptyState from "@/components/hawkbolt/HawkBoltEmptyState";
+import HawkBoltBoundaryMap from "@/components/hawkbolt/HawkBoltBoundaryMap";
 
 // HawkBolt — conversation surface for the orchestration superagent.
 export default function HawkBolt() {
@@ -46,7 +47,7 @@ export default function HawkBolt() {
   const reset = () => { setConversation(null); setMessages([]); setBusy(false); };
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-6rem)] max-w-4xl flex-col p-4">
+    <div className="mx-auto flex max-w-4xl flex-col p-4">
       <div className="flex items-center justify-between pb-3">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-primary" />
@@ -60,7 +61,7 @@ export default function HawkBolt() {
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background">
+      <div className="flex h-[60vh] min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background">
         <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
           {messages.length === 0
             ? <HawkBoltEmptyState onPick={send} />
@@ -73,6 +74,8 @@ export default function HawkBolt() {
         Screening tool only — ordinance readings and fit grades are not a substitute for a PE-stamped
         drawing or the jurisdiction's own determination.
       </p>
+
+      <HawkBoltBoundaryMap />
     </div>
   );
 }

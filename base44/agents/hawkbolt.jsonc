@@ -100,6 +100,32 @@
       "allowed_operations": [
         "read"
       ]
+    },
+    {
+      "entity_name": "SiteCandidate",
+      "allowed_operations": [
+        "read",
+        "create",
+        "update"
+      ]
+    },
+    {
+      "entity_name": "ScipCRMContact",
+      "allowed_operations": [
+        "read",
+        "create"
+      ]
+    },
+    {
+      "entity_name": "ScipCRMActivity",
+      "allowed_operations": [
+        "read",
+        "create"
+      ]
+    },
+    {
+      "function_name": "hawkboltPipelineWatch",
+      "description": "Read-only Hawk Tracker scan: stalled sites, blocked sites, gate gaps. Never advances a gate."
     }
   ],
   "context_files": [],
