@@ -28,9 +28,33 @@ const TRACKER_COLUMNS = ["Carrier", "Market", "Current Status", "Target On-Air D
 
 const BLANK_ROWS = 50;
 
+// A real SCIP site, filled in, so the first thing they see is what "done" looks like.
+const EXAMPLE_ROW = {
+  "Site Name": "Example — Holly (delete this row)",
+  "Owner's Name": "Elon Example",
+  "Parcel Address": "14507 Fagan Rd, Holly, MI 48442",
+  "Parcel ID": "122476002",
+  "Parcel Size (acres)": 35.9,
+  "Zoning Classification": "SR",
+  Jurisdiction: "Holly",
+  Latitude: 42.8158,
+  Longitude: -83.6109,
+  "FEMA Risk Factor Letter": "AE",
+  Phone: "(313) 453-0100",
+  "Email Address": "elon@example.com",
+  "Owner's Mailing Address": "Same",
+  Carrier: "Verizon",
+  Market: "Detroit Metro",
+  "Current Status": "SCIP Submitted",
+  "Target On-Air Date": "12/15/2026",
+};
+
 export function downloadTrackerTemplate() {
   const headers = [...CANDIDATE_COLUMNS, ...TRACKER_COLUMNS];
-  const rows = Array.from({ length: BLANK_ROWS }, () => Object.fromEntries(headers.map((h) => [h, ""])));
+  const rows = [
+    EXAMPLE_ROW,
+    ...Array.from({ length: BLANK_ROWS }, () => Object.fromEntries(headers.map((h) => [h, ""]))),
+  ];
   const sheet = XLSX.utils.json_to_sheet(rows, { header: headers });
   sheet["!cols"] = headers.map((h) => ({ wch: Math.max(14, h.length + 2) }));
   const book = XLSX.utils.book_new();
@@ -48,9 +72,9 @@ export default function SiteHawkTemplateCard() {
             Don't have a tracker? Use ours.
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            The SiteHawk candidate-site tracker, ready for {BLANK_ROWS} sites. Paste your list in,
-            upload it here, and keep the same file going — it's built into the app, so it always
-            matches what this importer reads.
+            The SiteHawk candidate-site tracker, ready for {BLANK_ROWS} sites. Row 2 is a filled-in
+            SCIP example — copy its format, delete it, and paste your own list underneath. Keep the
+            same file going; it's built into the app, so it always matches what this importer reads.
           </p>
 
           <p className="mt-2 text-[11px] text-muted-foreground">
