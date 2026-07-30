@@ -23,7 +23,7 @@ const BASE_NAV = [
   { header: "FIND & PACKAGE THE SITE" },
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
-  { path: "/hawkbolt", icon: Zap, label: "⚡ HawkBolt", desc: "Superagent — qualifies a site end to end using SiteHawk's own tools." },
+  { path: "/talonfit", icon: Zap, label: "⚡ TalonFit®", desc: "Ordinance intelligence — max buildable height, ten-target scout, boundary map." },
   { header: "AFTER YOUR SCIP — DON'T FORGET" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },

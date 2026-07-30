@@ -104,7 +104,7 @@ import SkipTrace from './pages/SkipTrace';
 import HawkVision from './pages/HawkVision';
 import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
-import HawkBolt from './pages/HawkBolt';
+import TalonFit from './pages/TalonFit';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -181,8 +181,9 @@ const AuthenticatedApp = () => {
         <Route path="/fiber-layers-admin" element={<FiberLayersAdmin />} />
         {/* Fiber Operators — regional/rural backhaul call list */}
         <Route path="/fiber-operators" element={<FiberOperators />} />
-        {/* HawkBolt — orchestration superagent over SiteHawk's existing tools */}
-        <Route path="/hawkbolt" element={<HawkBolt />} />
+        {/* TalonFit® — ordinance intelligence + ten-target scout */}
+        <Route path="/talonfit" element={<TalonFit />} />
+        <Route path="/hawkbolt" element={<Navigate to="/talonfit" replace />} />
         {/* RF Intelligence Engine — standalone nationwide RF map module */}
         <Route path="/rfi-engine" element={<RfiEngine />} />
         {/* Hawk Zoning Verifier — AI agent for zoning accuracy checks */}

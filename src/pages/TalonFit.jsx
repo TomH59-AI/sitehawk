@@ -6,9 +6,10 @@ import MessageBubble from "@/components/agent/MessageBubble";
 import HawkBoltComposer from "@/components/hawkbolt/HawkBoltComposer";
 import HawkBoltEmptyState from "@/components/hawkbolt/HawkBoltEmptyState";
 import HawkBoltBoundaryMap from "@/components/hawkbolt/HawkBoltBoundaryMap";
+import ScoutPanel from "@/components/talonscout/ScoutPanel";
 
-// HawkBolt — conversation surface for the orchestration superagent.
-export default function HawkBolt() {
+// TalonFit® — ordinance-intelligence engine: agent chat, ten-target scout, boundary map.
+export default function TalonFit() {
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -36,7 +37,7 @@ export default function HawkBolt() {
     if (!convo) {
       convo = await base44.agents.createConversation({
         agent_name: "hawkbolt",
-        metadata: { name: text.slice(0, 60), description: "HawkBolt site qualification" },
+        metadata: { name: text.slice(0, 60), description: "TalonFit site qualification" },
       });
       setConversation(convo);
     }
@@ -51,8 +52,8 @@ export default function HawkBolt() {
       <div className="flex items-center justify-between pb-3">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-primary" />
-          <h1 className="font-heading text-lg font-bold text-foreground">HawkBolt</h1>
-          <span className="text-xs text-muted-foreground">Orchestration superagent</span>
+          <h1 className="font-heading text-lg font-bold text-foreground">TalonFit®</h1>
+          <span className="text-xs text-muted-foreground">AI ordinance-intelligence engine · Patent Pending</span>
         </div>
         {messages.length > 0 && (
           <Button variant="outline" size="sm" onClick={reset} className="gap-1.5">
@@ -75,6 +76,7 @@ export default function HawkBolt() {
         drawing or the jurisdiction's own determination.
       </p>
 
+      <ScoutPanel />
       <HawkBoltBoundaryMap />
     </div>
   );
