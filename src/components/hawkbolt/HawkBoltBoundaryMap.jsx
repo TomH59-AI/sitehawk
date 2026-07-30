@@ -1,33 +1,88 @@
-import { Map, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { MapContainer, TileLayer } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import { Map as MapIcon } from "lucide-react";
+import TigerBoundaryLayer from "./TigerBoundaryLayer";
 
-const MAP_URL =
-  "https://www.randymajors.org/customgmap?x=-83.0457500&y=42.3314300&cx=-97.0089568&cy=38.0410699&zoom=6&mapbuilder=true&labels=show&title=SiteHawk&counties=show&cities=show&townships=show&zipcodes=show";
+// Census TIGERweb layer ids — [boundary, labels]
+const LAYERS = [
+  { key: "counties", label: "Counties", ids: ["82", "83"] },
+  { key: "cities", label: "Cities / places", ids: ["28", "29"] },
+  { key: "townships", label: "Townships", ids: ["22", "23"] },
+  { key: "zips", label: "ZIP codes", ids: ["2", "3"] },
+  { key: "states", label: "States", ids: ["80", "81"] },
+];
 
-// Boundary reference map (counties, cities, townships, ZIPs) next to HawkBolt.
-// randymajors.org blocks being displayed inside another site, so this launches it
-// in a new tab rather than showing an empty frame.
+const BASEMAPS = {
+  Aerial:
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  Streets:
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+  Topo:
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+};
+
+// In-page boundary map: Esri basemap + Census TIGERweb boundary overlays
+// (counties, cities, townships, ZIPs) with labels — replaces the old external link.
 export default function HawkBoltBoundaryMap() {
+  const [on, setOn] = useState({ counties: true, cities: true, townships: true, zips: false, states: false });
+  const [labels, setLabels] = useState(true);
+  const [basemap, setBasemap] = useState("Streets");
+
+  const activeIds = LAYERS.filter((l) => on[l.key]).flatMap((l) => (labels ? l.ids : [l.ids[0]]));
+
   return (
-    <div className="mt-3 flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-start gap-3">
-        <Map className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-        <div className="min-w-0">
-          <div className="font-heading text-sm font-bold text-foreground">
-            SiteHawk Boundary Map
-          </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            County, city, township and ZIP boundaries with labels — for eyeballing the
-            jurisdiction behind a HawkBolt answer. Opens in a new tab (randymajors.org
-            doesn't allow being embedded).
-          </p>
+    <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <MapIcon className="h-4 w-4 text-primary" />
+          Boundary Map
+        </div>
+        {LAYERS.map((l) => (
+          <label key={l.key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={!!on[l.key]}
+              onChange={() => setOn((p) => ({ ...p, [l.key]: !p[l.key] }))}
+              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+            />
+            {l.label}
+          </label>
+        ))}
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={labels}
+            onChange={() => setLabels((v) => !v)}
+            className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+          />
+          Labels
+        </label>
+        <div className="ml-auto flex gap-1">
+          {Object.keys(BASEMAPS).map((b) => (
+            <button
+              key={b}
+              onClick={() => setBasemap(b)}
+              className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                basemap === b
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              }`}
+            >
+              {b}
+            </button>
+          ))}
         </div>
       </div>
-      <Button asChild size="sm" className="shrink-0 gap-1.5">
-        <a href={MAP_URL} target="_blank" rel="noopener noreferrer">
-          <ExternalLink className="h-3.5 w-3.5" /> Open Boundary Map
-        </a>
-      </Button>
+      <div className="h-[520px] w-full border-t border-border">
+        <MapContainer center={[42.33143, -83.04575]} zoom={8} className="h-full w-full" scrollWheelZoom>
+          <TileLayer key={basemap} url={BASEMAPS[basemap]} attribution="Esri" maxZoom={19} zIndex={1} />
+          <TigerBoundaryLayer layerIds={activeIds} />
+        </MapContainer>
+      </div>
+      <p className="px-3 py-2 text-[11px] text-muted-foreground">
+        Boundaries: U.S. Census TIGERweb. Basemap: Esri.
+      </p>
     </div>
   );
 }
