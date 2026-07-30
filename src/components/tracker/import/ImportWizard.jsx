@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import MappingStep from "./MappingStep";
 import PreviewStep from "./PreviewStep";
 import ResultsStep from "./ResultsStep";
+import SiteHawkTemplateCard from "./SiteHawkTemplateCard";
 import { parseImportFile, autoMapHeaders, buildImportPlan, buildBackfillRows, MAX_ROWS } from "@/lib/trackerImport";
 import { TRACKER_GREEN } from "@/lib/hawkTracker";
 
@@ -117,6 +118,7 @@ export default function ImportWizard({ existingSites, onClose, onDone }) {
 
         <div className="p-4">
           {step === "upload" && (
+            <>
             <div
               className="rounded-xl border-2 border-dashed border-border p-10 text-center cursor-pointer hover:bg-muted/30 transition-colors"
               onClick={() => fileRef.current?.click()}
@@ -128,6 +130,8 @@ export default function ImportWizard({ existingSites, onClose, onDone }) {
               <div className="text-xs text-muted-foreground mt-1">.csv or .xlsx · first row = headers · max {MAX_ROWS} rows</div>
               <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
             </div>
+            <SiteHawkTemplateCard />
+            </>
           )}
 
           {step === "map" && parsed && (
