@@ -10,15 +10,29 @@ export default function PropertyLookupForm({ onLookup, busy }) {
   const [form, setForm] = useState({ address: "", state: "", county: "", parcelId: "", lat: "", lon: "" });
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  // Someone pasting "42.8158, -83.6109" into the address box means coordinates —
+  // route it to the coordinate lookup instead of failing an address search.
+  const pastedCoords = (text) => {
+    const m = String(text || "").trim().match(/^(-?\d{1,3}(?:\.\d+)?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)$/);
+    if (!m) return null;
+    const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    return { lat, lon };
+  };
+
   const submit = (e) => {
     e.preventDefault();
-    if (mode === "address") onLookup({ address: form.address, state: form.state.toUpperCase().trim() });
+    if (mode === "address") {
+      const coords = pastedCoords(form.address);
+      if (coords) onLookup(coords);
+      else onLookup({ address: form.address, state: form.state.toUpperCase().trim() });
+    }
     else if (mode === "parcel") onLookup({ parcelId: form.parcelId, state: form.state.toUpperCase().trim(), county: form.county });
     else onLookup({ lat: parseFloat(form.lat), lon: parseFloat(form.lon) });
   };
 
   const canSubmit =
-    (mode === "address" && form.address && form.state) ||
+    (mode === "address" && form.address && (form.state || pastedCoords(form.address))) ||
     (mode === "parcel" && form.parcelId && form.state && form.county) ||
     (mode === "coords" && form.lat && form.lon);
 
@@ -34,7 +48,7 @@ export default function PropertyLookupForm({ onLookup, busy }) {
       </Tabs>
       {mode === "address" && (
         <div className="grid grid-cols-[1fr_80px] gap-2">
-          <Input placeholder="123 Main Street" value={form.address} onChange={set("address")} className="h-8" />
+          <Input placeholder="123 Main Street — or 42.8158, -83.6109" value={form.address} onChange={set("address")} className="h-8" />
           <Input placeholder="TX" maxLength={2} value={form.state} onChange={set("state")} className="h-8" />
         </div>
       )}
