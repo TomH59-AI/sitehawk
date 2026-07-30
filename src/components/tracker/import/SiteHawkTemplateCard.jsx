@@ -69,8 +69,12 @@ export default function SiteHawkTemplateCard() {
         <FileSpreadsheet className="mt-0.5 h-5 w-5 shrink-0" style={{ color: TRACKER_GREEN }} />
         <div className="min-w-0 flex-1">
           <div className="font-heading text-sm font-bold text-foreground">
-            Don't have a tracker? Use ours.
+            Bringing in a list from outside SiteHawk?
           </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sites you found here don't need this — run the search and use Push to Tracker instead.
+            This is for a client's list, a carrier build plan, or the spreadsheet you already keep.
+          </p>
           <p className="mt-1 text-xs text-muted-foreground">
             The SiteHawk candidate-site tracker, ready for {BLANK_ROWS} sites. Row 2 is a filled-in
             SCIP example — copy its format, delete it, and paste your own list underneath. Keep the
