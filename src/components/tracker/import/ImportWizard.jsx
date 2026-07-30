@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import MappingStep from "./MappingStep";
 import PreviewStep from "./PreviewStep";
 import ResultsStep from "./ResultsStep";
-import SiteHawkTemplateCard from "./SiteHawkTemplateCard";
+import SiteHawkTemplateCard, { downloadTrackerTemplate } from "./SiteHawkTemplateCard";
 import { parseImportFile, autoMapHeaders, buildImportPlan, buildBackfillRows, MAX_ROWS } from "@/lib/trackerImport";
 import { TRACKER_GREEN } from "@/lib/hawkTracker";
 
@@ -128,6 +128,14 @@ export default function ImportWizard({ existingSites, onClose, onDone }) {
               <FileSpreadsheet className="w-10 h-10 mx-auto mb-3 text-muted-foreground" />
               <div className="font-semibold text-foreground text-sm">Drop your tracking spreadsheet here, or click to browse</div>
               <div className="text-xs text-muted-foreground mt-1">.csv or .xlsx · first row = headers · max {MAX_ROWS} rows</div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); downloadTrackerTemplate(); }}
+                className="mt-3 text-xs font-semibold underline underline-offset-2 hover:opacity-80"
+                style={{ color: TRACKER_GREEN }}
+              >
+                Or download the SiteHawk tracker to fill in
+              </button>
               <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => handleFile(e.target.files?.[0])} />
             </div>
             <SiteHawkTemplateCard />

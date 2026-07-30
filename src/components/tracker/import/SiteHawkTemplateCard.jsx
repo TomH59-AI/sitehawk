@@ -3,63 +3,35 @@ import { Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TRACKER_GREEN } from "@/lib/hawkTracker";
 
-// The SiteHawk tracker template lives in the app — generated on the fly, so it's
-// always current with what the importer actually understands. Group 1 columns
-// auto-map to tracker fields; group 2 are the candidate/parcel details, which
-// ride along into each site's notes.
-const TRACKER_COLUMNS = [
-  "Site Name",
-  "Carrier Site Number",
-  "Carrier",
-  "Market",
-  "State",
-  "Jurisdiction",
-  "Current Status",
-  "Target On-Air Date",
-  "Blocked Reason",
-  "Notes",
-  "Latitude",
-  "Longitude",
-];
-
+// The SiteHawk candidate-site tracker lives in the app — generated on download so
+// it always matches what the importer reads. Headers sit on row 1 (no title row)
+// or the importer would read the title as the header names.
 const CANDIDATE_COLUMNS = [
+  "Site Name",
   "Owner's Name",
   "Parcel Address",
   "Parcel ID",
   "Parcel Size (acres)",
   "Zoning Classification",
+  "Jurisdiction",
+  "Latitude",
+  "Longitude",
   "FEMA Risk Factor Letter",
   "Phone",
   "Email Address",
   "Owner's Mailing Address",
 ];
 
-const EXAMPLE = {
-  "Site Name": "GA-ATL-0142 (Karnes Rd)",
-  "Carrier Site Number": "ATL04142",
-  Carrier: "Verizon",
-  Market: "Atlanta Metro",
-  State: "GA",
-  Jurisdiction: "Newton County",
-  "Current Status": "Zoning Submitted",
-  "Target On-Air Date": "12/15/2026",
-  Notes: "Landlord prefers email contact",
-  Latitude: 33.5968,
-  Longitude: -83.8496,
-  "Owner's Name": "Jane Q. Landowner",
-  "Parcel Address": "1450 Karnes Rd, Covington, GA 30014",
-  "Parcel ID": "0045-00-000-0031",
-  "Parcel Size (acres)": 12.4,
-  "Zoning Classification": "A-1 Agricultural",
-  "FEMA Risk Factor Letter": "X",
-  Phone: "(770) 555-0142",
-  "Email Address": "jane@example.com",
-  "Owner's Mailing Address": "PO Box 22, Covington, GA 30015",
-};
+// Optional pipeline columns — without a status every imported site lands on
+// "Search Ring Received".
+const TRACKER_COLUMNS = ["Carrier", "Market", "Current Status", "Target On-Air Date"];
+
+const BLANK_ROWS = 50;
 
 export function downloadTrackerTemplate() {
-  const headers = [...TRACKER_COLUMNS, ...CANDIDATE_COLUMNS];
-  const sheet = XLSX.utils.json_to_sheet([EXAMPLE], { header: headers });
+  const headers = [...CANDIDATE_COLUMNS, ...TRACKER_COLUMNS];
+  const rows = Array.from({ length: BLANK_ROWS }, () => Object.fromEntries(headers.map((h) => [h, ""])));
+  const sheet = XLSX.utils.json_to_sheet(rows, { header: headers });
   sheet["!cols"] = headers.map((h) => ({ wch: Math.max(14, h.length + 2) }));
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, "Sites");
@@ -76,34 +48,22 @@ export default function SiteHawkTemplateCard() {
             Don't have a tracker? Use ours.
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Download the SiteHawk tracker, paste your existing site list into it, and upload it
-            here. It's built into the app, so it always matches what this importer reads — copy
-            and paste into it any time to stay current.
+            The SiteHawk candidate-site tracker, ready for {BLANK_ROWS} sites. Paste your list in,
+            upload it here, and keep the same file going — it's built into the app, so it always
+            matches what this importer reads.
           </p>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                Tracker fields
-              </div>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                These populate the tracker directly. Site Name is the only required one.
-              </p>
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
-                Candidate &amp; owner details
-              </div>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Parcel, zoning, FEMA and owner contact. The tracker has no fields for these — set
-                them to "Append to notes" on the next step to keep them.
-              </p>
-            </div>
-          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            <span className="font-semibold text-foreground">Site Name</span> is the only required
+            column. Jurisdiction, Latitude and Longitude map straight across. Owner, parcel, zoning
+            and FEMA columns have no tracker field — set them to "Append to notes" on the next step
+            to keep them on the site. Carrier, Market, Current Status and Target On-Air Date are at
+            the far right; fill Current Status or every site starts at Search Ring Received.
+          </p>
 
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            The first row is an example — overwrite or delete it. Keep the header row as-is and
-            the columns map themselves.
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Keep the header row exactly as-is and don't add a title row above it — the importer
+            reads row 1 as the column names.
           </p>
 
           <Button size="sm" variant="outline" className="mt-3 gap-1.5" onClick={downloadTrackerTemplate}>
