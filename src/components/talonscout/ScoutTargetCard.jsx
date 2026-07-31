@@ -10,7 +10,7 @@ const STYLES = {
 
 const BADGE = {
   fit: "bg-green-600 text-white",
-  ejected: "bg-destructive text-destructive-foreground",
+  ejected: "bg-transparent text-red-600 border border-red-600",
   verify: "bg-amber-500 text-white",
   pending: "bg-secondary text-secondary-foreground",
 };
