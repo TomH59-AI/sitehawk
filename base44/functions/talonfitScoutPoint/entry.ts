@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.41';
+import { lookupNotionOrdinance } from '../../shared/notionOrdinanceLookup.ts';
 
 /**
  * talonfitScoutPoint — TalonFit® live-point screen.
@@ -93,8 +94,13 @@ async function ordinanceAtPoint(lat: number, lon: number) {
   if (!r.ok) { console.error("zoning-lookup HTTP", r.status); return null; }
   const d = await r.json().catch(() => null);
   const o = d?.ordinance;
-  if (!o) return { jurisdiction: [d?.city || d?.county, d?.state].filter(Boolean).join(", ") || null, missing: true };
+  if (!o) return {
+    jurisdiction: [d?.city || d?.county, d?.state].filter(Boolean).join(", ") || null,
+    city: d?.city || null, county: d?.county || null, state: d?.state || null,
+    missing: true,
+  };
   return {
+    city: d?.city || null, county: d?.county || null, state: d?.state || null,
     jurisdiction: o.jurisdiction || [d?.city || d?.county, d?.state].filter(Boolean).join(", ") || null,
     height_limit_ft: o.max_tower_height_ft ?? null,
     setback_ft: o.setback_ft ?? null,
@@ -121,10 +127,44 @@ Deno.serve(async (req) => {
     const apiKey = Deno.env.get("REALIE_API_KEY");
     if (!apiKey) return Response.json({ error: "REALIE_API_KEY not set" }, { status: 500 });
 
-    const [parcel, ordinance] = await Promise.all([
+    let ordinance;
+    const [parcel, ordinanceInitial] = await Promise.all([
       realieAtPoint(Number(lat), Number(lon), apiKey),
       ordinanceAtPoint(Number(lat), Number(lon)),
     ]);
+    ordinance = ordinanceInitial;
+
+    // Notion zoning knowledge base — fill ordinance gaps from the archived
+    // "{Jurisdiction}, {ST} — Telecom Ordinance" page. Notion never overrides a
+    // value the primary registry already has; it only fills what's missing.
+    const needsNotion = !ordinance || ordinance.missing ||
+      ordinance.height_limit_ft == null || ordinance.setback_ft == null || ordinance.fall_zone_ft == null;
+    if (needsNotion) {
+      const jur = ordinance?.city || ordinance?.county || parcel?.city || parcel?.county || null;
+      const st = ordinance?.state || parcel?.state || null;
+      if (jur && st) {
+        try {
+          const { accessToken } = await base44.asServiceRole.connectors.getConnection("notion");
+          const notion = accessToken ? await lookupNotionOrdinance(accessToken, jur, st) : null;
+          if (notion) {
+            const merged = ordinance && !ordinance.missing ? ordinance : {
+              jurisdiction: `${jur}, ${st}`, allowable_zones: [], pe_fall_zone_allowed: null,
+              permit_type: null, missing: false,
+            };
+            if (merged.height_limit_ft == null && notion.height_limit_ft != null) merged.height_limit_ft = notion.height_limit_ft;
+            if (merged.setback_ft == null && notion.setback_ft != null) merged.setback_ft = notion.setback_ft;
+            if (merged.fall_zone_ft == null && notion.fall_zone_ft != null) merged.fall_zone_ft = notion.fall_zone_ft;
+            if (!merged.section_ref && notion.section_ref) merged.section_ref = notion.section_ref;
+            if (!merged.summary && notion.summary) merged.summary = notion.summary;
+            merged.notion_page_url = notion.page_url;
+            merged.source = merged.source ? `${merged.source} + Notion` : "Notion zoning KB";
+            ordinance = merged;
+          }
+        } catch (e) {
+          console.warn("Notion ordinance lookup skipped:", e?.message || String(e));
+        }
+      }
+    }
 
     const unverified: string[] = [];
     if (!parcel) unverified.push("parcel");

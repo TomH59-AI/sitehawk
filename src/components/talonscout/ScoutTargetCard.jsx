@@ -50,6 +50,19 @@ export default function ScoutTargetCard({ target, active, onSelect, onSave, onRe
           <div>Zoning: {target.parcel.zoning || "unverified"}</div>
           {target.edge_distance_ft != null && <div>{target.edge_distance_ft} ft to line</div>}
           {target.ordinance?.jurisdiction && <div className="col-span-2">{target.ordinance.jurisdiction}</div>}
+          {target.ordinance?.height_limit_ft != null && <div>Height cap: {target.ordinance.height_limit_ft} ft</div>}
+          {target.ordinance?.setback_ft != null && <div>Setback: {target.ordinance.setback_ft} ft</div>}
+          {target.ordinance?.notion_page_url && (
+            <a
+              href={target.ordinance.notion_page_url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="col-span-2 text-primary hover:underline"
+            >
+              Ordinance source: Notion zoning KB ↗
+            </a>
+          )}
         </dl>
       )}
 
