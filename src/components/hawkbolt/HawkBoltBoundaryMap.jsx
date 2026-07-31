@@ -7,7 +7,7 @@ import TigerBoundaryLayer from "./TigerBoundaryLayer";
 // Census TIGERweb layer ids — [boundary, labels]
 const LAYERS = [
   { key: "counties", label: "Counties", ids: ["82", "83"] },
-  { key: "cities", label: "Cities / places", ids: ["28", "29"] },
+  { key: "cities", label: "Cities / places", ids: ["28", "29", "30", "31"] },
   { key: "townships", label: "Townships", ids: ["22", "23"] },
   { key: "zips", label: "ZIP codes", ids: ["2", "3"] },
   { key: "states", label: "States", ids: ["80", "81"] },
