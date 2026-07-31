@@ -56,6 +56,15 @@ Deno.serve(async (req) => {
     let body = {};
     if (req.method === "POST") {
       try { body = (await req.json()) || {}; } catch { /* no body */ }
+      // Flatten the generate_3d_monopole event shape into top-level keys.
+      body = {
+        ...body,
+        ...(body.site_data || {}),
+        ...(body.site_data?.coordinates || {}),
+        ...(body.user_inputs || {}),
+        ...(body.design_constants || {}),
+        ...(body.design_constants?.compound_dimensions_ft || {}),
+      };
       renderId = renderId || body.renderId || body.render_id || null;
       runId = runId || body.runId || body.run_id || body.tower_siting_run_id || null;
     }
@@ -101,6 +110,13 @@ Deno.serve(async (req) => {
         compound_width_ft: Number(param("compound_w_ft", "width")) || 75,
         compound_depth_ft: Number(param("compound_d_ft", "length")) || 75,
         buffer_ft: Number(param("buffer_ft", "landscaping_buffer_ft")) || 10,
+      };
+      const sb = body?.zoning_setbacks_ft || body?.setbacks || {};
+      const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+      render.setbacks = {
+        front: num(url.searchParams.get("setback_front_ft") ?? sb.front),
+        rear: num(url.searchParams.get("setback_rear_ft") ?? sb.rear),
+        side: num(url.searchParams.get("setback_side_ft") ?? sb.side),
       };
     }
     if (renderId) render = await base44.entities.Tower3DRender.get(renderId).catch(() => null);
@@ -156,6 +172,7 @@ Deno.serve(async (req) => {
       compoundW: render?.compound_width_ft || run?.compound_width_ft || 75,
       compoundD: render?.compound_depth_ft || run?.compound_depth_ft || 75,
       bufferFt: render?.buffer_ft || 25,
+      setbacks: render?.setbacks || null,
       parcel: parcelGeojson,
       compound: compoundGeojson,
       snapshotUrl: render?.snapshot_image_url || "",
@@ -192,7 +209,7 @@ html,body{margin:0;height:100%;background:#0a0f1a;font-family:sans-serif;display
 <div id="disc">⚠ ${EXHIBIT_DISCLAIMER}</div>
 <div id="warn"></div>
 <div id="viewer"></div>
-<div id="ftr">${scene.illustrative.replace(/</g, "")}</div>
+<div id="ftr"><div id="sbLegend" style="color:#fbbf24;margin-bottom:3px"></div>${scene.illustrative.replace(/</g, "")}</div>
 <script>
 var SCENE = ${sceneJson};
 var FT = 0.3048;
@@ -251,6 +268,19 @@ async function init(){
     var fence=new Polygon3DElement({altitudeMode:AltitudeMode.RELATIVE_TO_GROUND,extruded:true,fillColor:'#aaaaaa22',strokeColor:'#aaaaaacc',strokeWidth:2,drawsOccludedSegments:true});
     fence.outerCoordinates=toLL([[lon-hw,lat-hd],[lon+hw,lat-hd],[lon+hw,lat+hd],[lon-hw,lat+hd]],2.4);
     map.append(fence);
+
+    // Zoning setback envelope — amber dashed-look ring offset outward from the
+    // compound pad: front = north, rear = south, side = east/west.
+    var sb=SCENE.setbacks;
+    if(sb && (sb.front||sb.rear||sb.side)){
+      var sf=(sb.front||0)*FT*latDeg, sr=(sb.rear||0)*FT*latDeg, ss=(sb.side||0)*FT*lonDeg;
+      var ring=[[lon-hw-ss,lat-hd-sr],[lon+hw+ss,lat-hd-sr],[lon+hw+ss,lat+hd+sf],[lon-hw-ss,lat+hd+sf]];
+      var sbLine=new Polyline3DElement({altitudeMode:AltitudeMode.CLAMP_TO_GROUND,strokeColor:'#fbbf24',strokeWidth:3,drawsOccludedSegments:true});
+      sbLine.coordinates=toLL(ring.concat([ring[0]]));
+      map.append(sbLine);
+      var lbl=document.getElementById('sbLegend');
+      if(lbl)lbl.textContent='Setbacks: front '+(sb.front||0)+' ft · rear '+(sb.rear||0)+' ft · side '+(sb.side||0)+' ft';
+    }
 
     // Monopole tower — extruded square prism to true height
     var tr=0.6;
