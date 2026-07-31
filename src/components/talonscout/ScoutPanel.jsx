@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Crosshair } from "lucide-react";
 import ScoutAddressForm from "./ScoutAddressForm";
@@ -11,9 +12,12 @@ const MAX_TARGETS = 10;
 // TalonFit® Ten-Target Scout — drop a waypoint, then grade up to ten candidate
 // points inside the 1-mile ring. A better parcel means a re-SCIP (billable).
 export default function ScoutPanel() {
+  const navigate = useNavigate();
   const [center, setCenter] = useState(null);
   const [targets, setTargets] = useState([]);
   const [activeId, setActiveId] = useState(null);
+  // Only one SCIP may be run at a time — locks the other targets once started.
+  const [scipId, setScipId] = useState(null);
 
   const patch = (id, data) => setTargets((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
 
@@ -79,6 +83,20 @@ export default function ScoutPanel() {
     patch(id, { saving: false, saved: true });
   };
 
+  const handleRunScip = (id) => {
+    const t = targets.find((x) => x.id === id);
+    if (!t || scipId) return;
+    setScipId(id);
+    const p = new URLSearchParams({
+      lat: String(t.lat.toFixed(5)),
+      lon: String(t.lon.toFixed(5)),
+      site_name: `Target ${t.letter}${t.parcel?.address ? ` — ${t.parcel.address}` : ""}`.slice(0, 60),
+      county: t.parcel?.county || "",
+      state: t.parcel?.state || "",
+    });
+    navigate(`/scip/new?${p}`);
+  };
+
   const handleRemove = (id) =>
     setTargets((prev) => prev.filter((t) => t.id !== id).map((t, i) => ({ ...t, letter: LETTERS[i] })));
 
@@ -116,7 +134,8 @@ export default function ScoutPanel() {
             <p className="text-[11px] text-muted-foreground">
               Waypoint: {center.label}. Green shows the maximum allowable tower height at that exact
               coordinate; red is EJECTED with the binding reason. Picking a better parcel after your SCIP
-              requires a re-SCIP, which is billable.
+              requires a re-SCIP, which is billable. You can run a SCIP on any graded target — one at a
+              time.
             </p>
             {targets.map((t) => (
               <ScoutTargetCard
@@ -126,6 +145,8 @@ export default function ScoutPanel() {
                 onSelect={setActiveId}
                 onSave={handleSave}
                 onRemove={handleRemove}
+                onRunScip={handleRunScip}
+                scipLocked={!!scipId && scipId !== t.id}
               />
             ))}
           </div>

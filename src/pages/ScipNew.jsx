@@ -22,10 +22,14 @@ const today = () => new Date().toISOString().slice(0, 10);
 export default function ScipNew() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  // Prefill from a TalonFit® scout target (?lat=&lon=&site_name=&county=&state=)
+  const qp = new URLSearchParams(window.location.search);
   const [form, setForm] = useState({
     agent_name: "", agent_phone: "", agent_email: "", submittal_date: today(),
-    site_name: "", sarf_height: "", latitude: "", longitude: "",
-    county: "", state: "", search_radius: "1.00",
+    site_name: qp.get("site_name") || "", sarf_height: "",
+    latitude: qp.get("lat") || "", longitude: qp.get("lon") || "",
+    county: qp.get("county") || "", state: (qp.get("state") || "").toUpperCase(),
+    search_radius: "1.00",
   });
   const [errors, setErrors] = useState({});
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));

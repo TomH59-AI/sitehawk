@@ -1,4 +1,4 @@
-import { Loader2, Save, Trash2, Check } from "lucide-react";
+import { Loader2, Save, Trash2, Check, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const STYLES = {
@@ -16,7 +16,7 @@ const BADGE = {
 };
 
 // One graded candidate point: letter, coordinates, allowed height or EJECTED reason.
-export default function ScoutTargetCard({ target, active, onSelect, onSave, onRemove }) {
+export default function ScoutTargetCard({ target, active, onSelect, onSave, onRemove, onRunScip, scipLocked }) {
   const v = target.verdict;
   const label = v === "fit" ? `${target.max_height_ft} FT ALLOWED` : v === "ejected" ? "EJECTED" : v === "verify" ? "VERIFY" : "SCREENING…";
 
@@ -67,6 +67,15 @@ export default function ScoutTargetCard({ target, active, onSelect, onSave, onRe
         >
           {target.saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : target.saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
           {target.saved ? "Saved" : "Save target"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={target.verdict === "pending" || target.verdict === "ejected" || scipLocked}
+          onClick={(e) => { e.stopPropagation(); onRunScip(target.id); }}
+          className="gap-1.5"
+        >
+          <FileText className="h-3.5 w-3.5" /> Run SCIP
         </Button>
         <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onRemove(target.id); }} className="gap-1.5">
           <Trash2 className="h-3.5 w-3.5" /> Remove
