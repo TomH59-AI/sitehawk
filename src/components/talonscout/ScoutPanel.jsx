@@ -2,38 +2,61 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Crosshair } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import ScoutAddressForm from "./ScoutAddressForm";
 import ScoutRingMap from "./ScoutRingMap";
 import ScoutTargetCard from "./ScoutTargetCard";
 
 const LETTERS = "ABCDEFGHIJ".split("");
-const MAX_TARGETS = 10;
+const BASE_TARGETS = 5;
+const PE_BONUS_TARGETS = 5;
 
-// TalonFit® Ten-Target Scout — drop a waypoint, then grade up to ten candidate
-// points inside the 1-mile ring. A better parcel means a re-SCIP (billable).
+// TalonFit® Ten-Target Scout — drop the SRC waypoint, click inside the 1-mile ring
+// to grade a point, double-click to save it as a lettered candidate (A–E, +F–J with
+// a PE letter). Pick ONE saved target to run the SCIP on.
 export default function ScoutPanel() {
   const navigate = useNavigate();
   const [center, setCenter] = useState(null);
   const [targets, setTargets] = useState([]);
   const [activeId, setActiveId] = useState(null);
+  const [probe, setProbe] = useState(null);
+  const [peLetter, setPeLetter] = useState(false);
   // Only one SCIP may be run at a time — locks the other targets once started.
   const [scipId, setScipId] = useState(null);
 
+  const maxTargets = BASE_TARGETS + (peLetter ? PE_BONUS_TARGETS : 0);
   const patch = (id, data) => setTargets((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+
+  const gradePoint = (lat, lon) =>
+    base44.functions.invoke("talonfitScoutPoint", { lat, lon, has_pe_letter: peLetter });
 
   const handleWaypoint = (wp) => {
     setCenter(wp);
     setTargets([]);
     setActiveId(null);
+    setProbe(null);
   };
 
-  const handlePick = async ({ lat, lon }) => {
-    if (targets.length >= MAX_TARGETS) return;
+  const handleProbe = async ({ lat, lon }) => {
+    setProbe({ lat, lon, verdict: "pending" });
+    const { data } = await gradePoint(lat, lon);
+    setProbe({
+      lat,
+      lon,
+      verdict: data?.verdict || "verify",
+      reason: data?.reason || null,
+      max_height_ft: data?.max_height_ft ?? null,
+    });
+  };
+
+  const handleSavePoint = async ({ lat, lon }) => {
+    if (targets.length >= maxTargets) return;
+    setProbe(null);
     const id = `${Date.now()}-${lat}`;
     const letter = LETTERS[targets.length];
     setTargets((prev) => [...prev, { id, letter, lat, lon, verdict: "pending" }]);
     setActiveId(id);
-    const { data } = await base44.functions.invoke("talonfitScoutPoint", { lat, lon });
+    const { data } = await gradePoint(lat, lon);
     patch(id, {
       verdict: data?.verdict || "verify",
       reason: data?.reason || null,
@@ -70,6 +93,7 @@ export default function ScoutPanel() {
         verdict: t.verdict,
         reason: t.reason,
         edge_distance_ft: t.edge_distance_ft,
+        pe_letter: peLetter,
       },
       field_provenance: {
         parcel: { source: "Realie", timestamp: now, status: "source-scraped" },
@@ -108,10 +132,14 @@ export default function ScoutPanel() {
           Ten-Target Scout
         </div>
         <span className="text-xs text-muted-foreground">
-          0.25 / 0.50 / 1-mile rings · click up to 10 points inside the 1-mile ring
+          Click inside the 1-mile ring to grade a point · double-click to save it
         </span>
-        <span className="ml-auto text-xs font-medium text-foreground">
-          {targets.length}/{MAX_TARGETS} targets
+        <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          <Switch checked={peLetter} onCheckedChange={setPeLetter} />
+          PE letter (engineered fall zone)
+        </label>
+        <span className="text-xs font-medium text-foreground">
+          {targets.length}/{maxTargets} saved
         </span>
       </div>
 
@@ -125,18 +153,27 @@ export default function ScoutPanel() {
             <ScoutRingMap
               center={center}
               targets={targets}
-              onPick={handlePick}
+              probe={probe}
+              onProbe={handleProbe}
+              onSave={handleSavePoint}
               onSelect={setActiveId}
-              canPick={targets.length < MAX_TARGETS}
+              canPick
             />
           </div>
           <div className="space-y-2 border-t border-border p-3">
             <p className="text-[11px] text-muted-foreground">
-              Waypoint: {center.label}. Green shows the maximum allowable tower height at that exact
-              coordinate; red is EJECTED with the binding reason. Picking a better parcel after your SCIP
-              requires a re-SCIP, which is billable. You can run a SCIP on any graded target — one at a
-              time.
+              SRC (search ring center): {center.label}. A single click grades that exact coordinate —
+              APPROVED with the maximum allowable tower height, or REJECTED with the binding reason.
+              Double-click to save the spot as {peLetter ? "A–J" : "A–E"}
+              {peLetter ? "" : " (turn on PE letter for five more)"}. Select one saved target and run the
+              SCIP on it — one at a time. Picking a better parcel after your SCIP requires a re-SCIP,
+              which is billable.
             </p>
+            {targets.length >= maxTargets && (
+              <p className="text-[11px] font-medium text-amber-600">
+                All {maxTargets} saved spots used{peLetter ? "" : " — turn on PE letter for five more"}.
+              </p>
+            )}
             {targets.map((t) => (
               <ScoutTargetCard
                 key={t.id}
@@ -153,7 +190,7 @@ export default function ScoutPanel() {
         </>
       ) : (
         <p className="border-t border-border px-3 py-6 text-center text-sm text-muted-foreground">
-          Enter an address or coordinates to drop the tower waypoint and draw the search rings.
+          Enter an address or coordinates to drop the SRC waypoint and draw the search rings.
         </p>
       )}
     </div>

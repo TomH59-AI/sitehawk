@@ -100,6 +100,7 @@ async function ordinanceAtPoint(lat: number, lon: number) {
     setback_ft: o.setback_ft ?? null,
     fall_zone_ft: o.fall_zone_ft ?? null,
     allowable_zones: o.allowable_zones || [],
+    pe_fall_zone_allowed: o.pe_fall_zone_allowed ?? null,
     permit_type: o.permit_type || null,
     section_ref: o.ldc_display || o.section_ref || null,
     summary: o.ordinance_summary || null,
@@ -113,7 +114,7 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { lat, lon } = await req.json().catch(() => ({}));
+    const { lat, lon, has_pe_letter: hasPeLetter } = await req.json().catch(() => ({}));
     if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
@@ -156,17 +157,22 @@ Deno.serve(async (req) => {
         verdict = "ejected";
         reason = `Only ${geo.edgeDistFt} ft to the nearest property line — inside the ${setback} ft required setback (ERR_STBK).`;
       } else if (ordinance?.fall_zone_ft != null) {
-        if (clear < ordinance.fall_zone_ft) {
+        // A PE-certified engineered fall zone halves the required radius.
+        const required = hasPeLetter ? Math.round(ordinance.fall_zone_ft / 2) : ordinance.fall_zone_ft;
+        if (clear < required) {
           verdict = "ejected";
-          reason = `Fall zone of ${ordinance.fall_zone_ft} ft spills over the property line — only ${clear} ft of clearance (ERR_FZ_S).`;
+          reason = `Fall zone of ${required} ft${hasPeLetter ? " (PE-engineered)" : ""} spills over the property line — only ${clear} ft of clearance (ERR_FZ_S).`;
         } else {
           maxHeightFt = cap;
           binding = cap != null ? "Ordinance height cap" : null;
         }
       } else {
-        // Standard 100%-of-height fall zone: height ≤ clear distance, capped.
-        maxHeightFt = cap != null ? Math.min(cap, clear) : clear;
-        binding = cap != null && cap <= clear ? "Ordinance height cap" : "Fall-zone clearance to property line";
+        // Standard 100%-of-height fall zone (50% with a PE letter): height ≤ clearance.
+        const fzHeight = hasPeLetter ? clear * 2 : clear;
+        maxHeightFt = cap != null ? Math.min(cap, fzHeight) : fzHeight;
+        binding = cap != null && cap <= fzHeight
+          ? "Ordinance height cap"
+          : `Fall-zone clearance to property line${hasPeLetter ? " (PE-engineered 50%)" : ""}`;
       }
       if (verdict === "fit" && maxHeightFt != null && maxHeightFt < MACRO_FLOOR_FT) {
         verdict = "ejected";
@@ -190,6 +196,7 @@ Deno.serve(async (req) => {
       reason,
       max_height_ft: maxHeightFt != null ? Math.round(maxHeightFt) : null,
       binding_constraint: binding,
+      pe_letter_applied: !!hasPeLetter,
       unverified_fields: unverified,
       screened_at: new Date().toISOString(),
     });
