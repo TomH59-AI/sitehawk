@@ -21,8 +21,13 @@ export default function ScoutPanel() {
   const [activeId, setActiveId] = useState(null);
   const [probe, setProbe] = useState(null);
   const [peLetter, setPeLetter] = useState(false);
-  // Only one SCIP may be run at a time — locks the other targets once started.
-  const [scipId, setScipId] = useState(null);
+  // Only one SCIP may be run per scout ring. The lock is persisted server-side
+  // (ScoutScipLock) keyed to the SRC, so refreshing cannot free a second SCIP.
+  const [lock, setLock] = useState(null);
+
+  const srcKey = (lat, lon) => `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  const isLockedTarget = (t) =>
+    !!lock && srcKey(lock.latitude, lock.longitude) === srcKey(t.lat, t.lon);
 
   const maxTargets = BASE_TARGETS + (peLetter ? PE_BONUS_TARGETS : 0);
   const patch = (id, data) => setTargets((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
@@ -30,11 +35,17 @@ export default function ScoutPanel() {
   const gradePoint = (lat, lon) =>
     base44.functions.invoke("talonfitScoutPoint", { lat, lon, has_pe_letter: peLetter });
 
-  const handleWaypoint = (wp) => {
+  const handleWaypoint = async (wp) => {
     setCenter(wp);
     setTargets([]);
     setActiveId(null);
     setProbe(null);
+    const existing = await base44.entities.ScoutScipLock.filter(
+      { src_key: srcKey(wp.lat, wp.lon) },
+      "-locked_at",
+      1
+    );
+    setLock(existing?.[0] || null);
   };
 
   const handleProbe = async ({ lat, lon }) => {
@@ -107,14 +118,24 @@ export default function ScoutPanel() {
     patch(id, { saving: false, saved: true });
   };
 
-  const handleRunScip = (id) => {
+  const handleRunScip = async (id) => {
     const t = targets.find((x) => x.id === id);
-    if (!t || scipId) return;
-    setScipId(id);
+    if (!t || lock) return;
+    const siteName = `Target ${t.letter}${t.parcel?.address ? ` — ${t.parcel.address}` : ""}`.slice(0, 60);
+    const created = await base44.entities.ScoutScipLock.create({
+      src_key: srcKey(center.lat, center.lon),
+      src_label: center.label || undefined,
+      letter: t.letter,
+      latitude: t.lat,
+      longitude: t.lon,
+      site_name: siteName,
+      locked_at: new Date().toISOString(),
+    });
+    setLock(created);
     const p = new URLSearchParams({
       lat: String(t.lat.toFixed(5)),
       lon: String(t.lon.toFixed(5)),
-      site_name: `Target ${t.letter}${t.parcel?.address ? ` — ${t.parcel.address}` : ""}`.slice(0, 60),
+      site_name: siteName,
       county: t.parcel?.county || "",
       state: t.parcel?.state || "",
     });
@@ -169,6 +190,13 @@ export default function ScoutPanel() {
               SCIP on it — one at a time. Picking a better parcel after your SCIP requires a re-SCIP,
               which is billable.
             </p>
+            {lock && (
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] font-medium text-amber-700">
+                SCIP already started on this search ring — Target {lock.letter}
+                {lock.site_name ? ` (${lock.site_name})` : ""}. All other targets are locked. A different
+                parcel requires a billable re-SCIP.
+              </p>
+            )}
             {targets.length >= maxTargets && (
               <p className="text-[11px] font-medium text-amber-600">
                 All {maxTargets} saved spots used{peLetter ? "" : " — turn on PE letter for five more"}.
@@ -183,7 +211,7 @@ export default function ScoutPanel() {
                 onSave={handleSave}
                 onRemove={handleRemove}
                 onRunScip={handleRunScip}
-                scipLocked={!!scipId && scipId !== t.id}
+                scipLocked={!!lock && !isLockedTarget(t)}
               />
             ))}
           </div>

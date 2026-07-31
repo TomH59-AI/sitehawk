@@ -1,0 +1,68 @@
+{
+  "name": "ScoutScipLock",
+  "type": "object",
+  "description": "SiterFiter\u2122 ten-target scout SCIP lock \u2014 one record per scout session (search ring center) per user. Created the moment a user runs the SCIP on a chosen lettered target, so only that one target may be SCIP'd. Persisted server-side so refreshing or re-scouting the same ring cannot unlock a second SCIP; a different parcel afterwards requires a billable re-SCIP.",
+  "properties": {
+    "src_key": {
+      "type": "string",
+      "description": "Search ring center key \u2014 'lat,lon' rounded to 4 decimals. Identifies the scout session."
+    },
+    "src_label": {
+      "type": "string",
+      "description": "Human-readable SRC address/label at lock time."
+    },
+    "letter": {
+      "type": "string",
+      "description": "The lettered target (A\u2013J) the SCIP was run on."
+    },
+    "latitude": {
+      "type": "number",
+      "description": "Locked target latitude."
+    },
+    "longitude": {
+      "type": "number",
+      "description": "Locked target longitude."
+    },
+    "site_name": {
+      "type": "string",
+      "description": "Site name handed to the SCIP for this target."
+    },
+    "locked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the SCIP was initiated on this target."
+    }
+  },
+  "required": [
+    "src_key",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
