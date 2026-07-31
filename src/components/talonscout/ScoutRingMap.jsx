@@ -53,10 +53,11 @@ function probeIcon(probe) {
       ? "REJECTED"
       : "VERIFY";
   const body = v !== "pending" && v !== "fit" && probe.reason ? `<div style="font-weight:500;margin-top:3px">${probe.reason}</div>` : "";
+  const coords = `<div style="font:600 10px/1.3 ui-monospace,monospace;opacity:.9;margin-top:3px">${probe.lat.toFixed(6)}, ${probe.lon.toFixed(6)}</div>`;
   return L.divIcon({
     className: "",
     html: `<div style="position:relative;width:240px">
-      <div style="position:absolute;left:0;bottom:14px;width:240px;box-sizing:border-box;background:${bg};color:#fff;font:700 11px/1.35 system-ui;padding:6px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.45)">${head}${body}
+      <div style="position:absolute;left:0;bottom:14px;width:240px;box-sizing:border-box;background:${bg};color:#fff;font:700 11px/1.35 system-ui;padding:6px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.45)">${head}${body}${coords}
         <div style="font-weight:500;opacity:.85;margin-top:3px">Double-click to save this spot</div>
       </div>
       <div style="position:absolute;left:115px;bottom:0;width:10px;height:10px;border-radius:50%;background:${bg};border:2px solid #fff"></div>

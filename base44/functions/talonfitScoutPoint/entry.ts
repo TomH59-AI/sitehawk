@@ -66,14 +66,28 @@ function parcelGeometryCheck(geometry: any, lat: number, lon: number) {
 }
 
 async function realieAtPoint(lat: number, lon: number, apiKey: string) {
-  const url = `${REALIE_LOCATION}?${new URLSearchParams({
-    latitude: String(lat), longitude: String(lon), radius: "0.15", limit: "1",
-    includeUnassignedAddress: "true",
-  })}`;
-  const r = await fetch(url, { headers: { Authorization: apiKey } });
-  if (!r.ok) { console.error("Realie HTTP", r.status); return null; }
-  const data = await r.json().catch(() => null);
-  const p = data?.property || (Array.isArray(data?.properties) ? data.properties[0] : null);
+  // Widening radius sweep — a tight radius 404s on rural / large parcels where
+  // the click sits far from the parcel's address point. Among returned
+  // candidates, prefer the parcel whose boundary actually CONTAINS the click.
+  let p: any = null;
+  for (const radius of ["0.15", "0.5", "1"]) {
+    const url = `${REALIE_LOCATION}?${new URLSearchParams({
+      latitude: String(lat), longitude: String(lon), radius, limit: "20",
+      includeUnassignedAddress: "true",
+    })}`;
+    const r = await fetch(url, { headers: { Authorization: apiKey } });
+    if (!r.ok) {
+      if (r.status !== 404) { console.error("Realie HTTP", r.status); return null; }
+      continue; // nothing within this radius — widen and retry
+    }
+    const data = await r.json().catch(() => null);
+    const list = Array.isArray(data?.properties) ? data.properties
+      : Array.isArray(data?.data) ? data.data
+      : data?.property ? [data.property] : [];
+    if (!list.length) continue;
+    p = list.find((c: any) => c?.geometry && parcelGeometryCheck(c.geometry, lat, lon)?.inParcel) || list[0];
+    break;
+  }
   if (!p) return null;
   return {
     address: p.address || p.fullAddress || p.situsAddress || null,
