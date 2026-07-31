@@ -53,13 +53,18 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     let renderId = url.searchParams.get("renderId") || url.searchParams.get("render_id");
     let runId = url.searchParams.get("runId") || url.searchParams.get("run_id") || url.searchParams.get("tower_siting_run_id");
-    if (!renderId && !runId && req.method === "POST") {
-      try {
-        const body = await req.json();
-        renderId = body.renderId || body.render_id || null;
-        runId = body.runId || body.run_id || body.tower_siting_run_id || null;
-      } catch { /* no body */ }
+    let body = {};
+    if (req.method === "POST") {
+      try { body = (await req.json()) || {}; } catch { /* no body */ }
+      renderId = renderId || body.renderId || body.render_id || null;
+      runId = runId || body.runId || body.run_id || body.tower_siting_run_id || null;
     }
+    const param = (k, ...alts) => {
+      const v = url.searchParams.get(k);
+      if (v != null) return v;
+      for (const a of [k, ...alts]) if (body?.[a] != null) return body[a];
+      return null;
+    };
 
     const base44 = createClientFromRequest(req);
     let user = null;
@@ -71,7 +76,13 @@ Deno.serve(async (req) => {
       ], null), 401);
     }
 
-    if (!renderId && !runId) {
+    // Ad-hoc scene — render straight from coordinates when no record exists yet
+    // (e.g. a generate_3d_monopole payload from the scout/Target A surface).
+    const qLat = Number(param("lat", "latitude"));
+    const qLon = Number(param("lon", "lng", "longitude"));
+    const adHoc = !renderId && !runId && Number.isFinite(qLat) && Number.isFinite(qLon);
+
+    if (!renderId && !runId && !adHoc) {
       return htmlResponse(messagePage("Missing viewer input", [
         "No <b>renderId</b> or <b>runId</b> was provided in the URL.",
         "Example: ?renderId=&lt;Tower3DRender id&gt;",
@@ -80,6 +91,18 @@ Deno.serve(async (req) => {
 
     // 1. Tower3DRender by renderId → 2. by tower_siting_run_id → 3. TowerSitingRun
     let render = null;
+    if (adHoc) {
+      render = {
+        centroid_lat: qLat,
+        centroid_lon: qLon,
+        property_address: param("label", "target_id") || "",
+        tower_type: param("tower_type", "structure_type") || "monopole",
+        tower_height_ft: Number(param("height_ft", "tower_height_ft")) || 150,
+        compound_width_ft: Number(param("compound_w_ft", "width")) || 75,
+        compound_depth_ft: Number(param("compound_d_ft", "length")) || 75,
+        buffer_ft: Number(param("buffer_ft", "landscaping_buffer_ft")) || 10,
+      };
+    }
     if (renderId) render = await base44.entities.Tower3DRender.get(renderId).catch(() => null);
     if (!render && runId) {
       const rows = await base44.entities.Tower3DRender.filter({ tower_siting_run_id: runId }, "-created_date", 1).catch(() => []);
