@@ -1,56 +1,20 @@
-// generateScipWorkbook — Phase 1 of the in-app SCIP document engine.
+// generateScipWorkbook — NEW SCIP 8.1.2026.
 //
-// Ports the canonical SkyWave/Anthemnet 138-row SCIP xlsx template (FF628C83
-// sage-green headers, Calibri, col A 33.43 / col B 56.71, image rows at
-// 380pt / SARF at 420pt) into a Base44 backend function using ExcelJS.
+// Builds the downloadable SCIP workbook on the new EIGHT-PAGE template
+// (replaces the legacy 138-row single-sheet SkyWave/Anthemnet layout):
+//   Tab 1 — Property Data (SCIP) + SARF map
+//   Tab 2 — Aerial & Topo · Tab 3 — FEMA & Zoning · Tab 4 — FLU & Wetlands
+//   Tab 5 — Nearest Airport & Nearest Cell Tower · Tab 6 — Parcel & Wind Speed
+//   Tab 7 — Map 2D & Viewshed · Tab 8 — Fiber Optics & Supplemental Exhibit
+// The layout itself is rendered by the shared base44/shared/scipBookWorkbook
+// module (also used by scipBookSheet for the live Google Sheet).
 //
 // INPUT (POST JSON) — one of:
-//   { record }  — the assembled print record GenerateScipButton builds from
-//                 live pipeline state (site/agent/targetA/zoning/maps/conditions).
-//   { scipId }  — a ScipRecord id; the function loads it and adapts its fields
-//                 into the same internal shape. `record` wins if both sent.
-//
+//   { record }  — the assembled print record GenerateScipButton builds.
+//   { scipId }  — a ScipRecord id. `record` wins if both sent.
 // OUTPUT: { ok, filename, signed_url, bytes, images_embedded, images_missing }
-//   The workbook is stored as a PRIVATE file (owner PII inside) and returned
-//   as a time-limited signed URL — never a public file_url.
-//
-// NOTE: This function is intentionally not wired to any UI yet (Turtle Up).
-// Wiring lands in GenerateScipButton after Tom approves a sample output.
-
-import ExcelJS from "npm:exceljs@4.4.0";
-import { createClientFromRequest } from "npm:@base44/sdk@0.8.31";
-
-// ── Template constants (ported 1:1 from scip_generator.py) ─────────────────
-const HEADER_GREEN = "FF628C83"; // signature Anthemnet sage/teal green
-const DARK_TEXT = "FF1A1A1A";
-const FONT = "Calibri";
-const COL_A_WIDTH = 33.42578125;
-const COL_B_WIDTH = 56.7109375;
-
-const ROW_HEIGHTS: Record<number, number> = {
-  1: 51.0, 6: 15.75, 12: 15.75, 14: 420.0, 23: 15.75, 29: 15.75, 35: 15.75,
-  41: 15.75, 50: 15.75, 52: 45.75, 54: 15.75, 55: 15.75, 56: 15.75,
-  57: 380.0, 58: 380.0, 59: 380.0, 60: 380.0, 61: 380.0, 62: 380.0,
-  63: 380.0, 64: 380.0, 65: 380.0, 66: 380.0, 78: 15.75, 80: 75.75,
-  82: 380.0, 83: 380.0, 84: 380.0, 85: 380.0, 86: 380.0, 87: 380.0,
-  88: 380.0, 89: 380.0, 90: 380.0, 100: 15.75, 101: 15.75, 112: 30.75,
-  121: 15.75, 123: 30.75, 131: 15.75, 132: 15.75, 133: 30.75, 134: 15.75,
-  138: 15.75,
-};
-
-const SECTION_HEADER_ROWS = new Set([
-  2, 7, 13, 15, 24, 36, 42, 51, 53, 55, 67, 79, 81,
-  91, 101, 111, 113, 122, 124, 132, 134,
-]);
-
-// Image slots: template row → key into the resolved image-URL map.
-const IMAGE_ROWS: Record<number, string> = {
-  14: "sarf",
-  57: "overhead", 58: "vs_north", 59: "vs_south", 60: "vs_east", 61: "vs_west",
-  62: "access_row", 63: "access_road", 64: "power", 65: "telco", 66: "sketch",
-  82: "aerial", 83: "topo", 84: "fema", 85: "zoning", 86: "flum",
-  87: "wetlands", 88: "parcel", 89: "wind", 90: "airport",
-};
+import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
+import { renderBookWorkbook } from "../../shared/scipBookWorkbook.ts";
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 const tbd = (v: unknown, label = "TBD"): string => {
@@ -82,18 +46,11 @@ const urlOf = (u: unknown): string =>
   typeof u === "string" ? u : ((u as Record<string, unknown>)?.url as string) || "";
 
 // ── Normalize input → one internal shape ───────────────────────────────────
-// Accepts the GenerateScipButton print record OR a raw ScipRecord entity and
-// produces { site, agent, target, zoning, conditions, images, deed }.
 function normalize(src: Record<string, any>, fromEntity: boolean) {
   if (!fromEntity) {
     // Assembled print record (SiteHawkScipDoc shape).
     const maps = src.maps || {};
     const vs = src.viewshed || {};
-    const dirs: Record<string, string> = {};
-    for (const d of vs.directions || []) {
-      const key = "vs_" + String(d.short || d.label || "").trim().charAt(0).toLowerCase();
-      if (d.map_url) dirs[{ n: "vs_north", s: "vs_south", e: "vs_east", w: "vs_west" }[key.slice(3)] || key] = d.map_url;
-    }
     return {
       site: {
         name: src.site_name, lat: src.latitude, lon: src.longitude,
@@ -109,25 +66,22 @@ function normalize(src: Record<string, any>, fromEntity: boolean) {
       conditions: src.conditions || {},
       images: {
         sarf: urlOf(maps.sarf) || src.map_image_url,
-        overhead: urlOf(vs.aerial_ring_url) || urlOf(maps.aerial),
-        ...dirs,
-        power: urlOf(maps.power), telco: urlOf(maps.telco),
-        access_row: urlOf(maps.access_row), access_road: urlOf(maps.access_road),
-        sketch: urlOf(maps.sketch),
         aerial: urlOf(maps.aerial), topo: urlOf(maps.topo), fema: urlOf(maps.fema),
         zoning: urlOf(maps.zoning), flum: urlOf(maps.flum), wetlands: urlOf(maps.wetlands),
         parcel: urlOf(maps.parcel), wind: urlOf(maps.wind), airport: urlOf(maps.airport),
+        celltower: urlOf(maps.celltower),
+        map2d: urlOf(maps.regional) || urlOf(maps.streets) || urlOf(maps.sarf),
+        viewshed: urlOf(vs.aerial_ring_url),
+        fiber: "",
       },
       extras: {
         taxesPaid: src.taxes_paid, conformingSize: src.conforming_size,
-        parcelDims: src.parcel_dimensions, meetsLotReq: src.meets_lot_req,
-        landownerNotes: src.landowner_notes, siteNotes: src.site_notes,
-        directions: src.directions_to_site,
+        parcelDims: src.parcel_dimensions, meetsLotReq: src.meets_min_lot,
+        siteNotes: src.site_notes,
         powerStr: src.power_provider_str, telcoStr: src.telco_provider_str,
         fiberStr: src.fiber_provider_str, airportStr: src.airport_str,
         distanceFromCenter: src.distance_from_center,
       },
-      deed: src.deed || src.transfers || null,
     };
   }
 
@@ -137,13 +91,7 @@ function normalize(src: Record<string, any>, fromEntity: boolean) {
   const hm = src.hawk_maps || {};
   const pam = src.power_airport_maps || {};
   const vs = src.viewshed || {};
-  const zRep = src.zoning_report || {};
-  const dirs: Record<string, string> = {};
-  for (const d of vs.directions || []) {
-    const s = String(d.short || "").toUpperCase();
-    const key = { N: "vs_north", S: "vs_south", E: "vs_east", W: "vs_west" }[s];
-    if (key && d.map_url) dirs[key] = d.map_url;
-  }
+  const rf = (src.rf_enrichment || {})[String(idx)] || {};
   const pwr = pam.power || {};
   const arpt = pam.airport || {};
   return {
@@ -155,26 +103,28 @@ function normalize(src: Record<string, any>, fromEntity: boolean) {
     },
     agent: { name: src.agent_name, phone: src.agent_phone, email: src.agent_email },
     target: t,
-    zoning: { jurisdiction: src.zoning_jurisdiction, report: zRep, district: hm.zone_code },
+    zoning: { jurisdiction: src.zoning_jurisdiction, report: src.zoning_report || {}, district: hm.zone_code },
     conditions: src.existing_conditions || {},
     images: {
       sarf: src.map_image_url,
-      overhead: vs.aerial_ring_url || hm.aerial_url,
-      ...dirs,
-      power: urlOf(pwr.map_url ?? pwr.url), airport: urlOf(arpt.map_url ?? arpt.url),
       aerial: hm.aerial_url, topo: hm.topography_url,
       fema: hm.floodplain_url, zoning: hm.zoning_url,
+      flum: "", wetlands: "",
+      airport: urlOf(rf?.rf?.airport?.map_url ?? rf?.rf?.airport?.url ?? arpt.map_url) || urlOf(arpt.url),
+      celltower: urlOf(rf?.rf?.tower?.map_url ?? rf?.rf?.tower?.url),
+      parcel: "", wind: "",
+      map2d: src.map_image_url, viewshed: vs.aerial_ring_url || "",
+      fiber: urlOf(rf?.coverage?.png_url),
     },
     extras: {
-      powerStr: pwr.name ? `⚡ ${pwr.name}${pwr.phone ? " | " + fmtPhone(pwr.phone) : ""}` : "",
+      powerStr: pwr.name ? `${pwr.name}${pwr.phone ? " | " + fmtPhone(pwr.phone) : ""}` : "",
       airportStr: arpt.name ? `${arpt.name}${arpt.distance_miles ? ` (${arpt.distance_miles} mi)` : ""}` : "",
     },
-    deed: null,
   };
 }
 
-// ── The 138-row map (ported 1:1; icons preserved) ───────────────────────────
-function buildRows(n: ReturnType<typeof normalize>): Record<number, [string, string]> {
+// ── Page 1 sections (NEW SCIP 8.1.2026 property sheet) ──────────────────────
+function buildSections(n: ReturnType<typeof normalize>) {
   const { site, agent, target: t, zoning: z, conditions: c, extras: x } = n as any;
   const rep = (z.report || z) as Record<string, unknown>;
   const lat = num(site.lat), lon = num(site.lon);
@@ -187,276 +137,154 @@ function buildRows(n: ReturnType<typeof normalize>): Record<number, [string, str
     year: "numeric", month: "long", day: "numeric",
   });
   const sarfH = site.sarfHeight ? `${site.sarfHeight}'` : "TBD";
-  const fz = tbd(c.flood_zone ?? t.fema_risk_factor, "TBD — See FEMA FIRM Map");
+  const row = (label: string, value: string) => ({ label, value });
 
-  return {
-    1: ["SITEHAWK", "SITE CANDIDATE INFORMATION PACKAGE"],
-    2: ["SITE ACQUISITION", ""],
-    3: ["  👤 Agent Name", tbd(agent.name)],
-    4: ["  📞 Agent Phone", fmtPhone(agent.phone) || "TBD"],
-    5: ["  📧 Agent E-mail", tbd(agent.email)],
-    6: ["  📅 Submittal Date", today],
-    7: ["SEARCH RING INFORMATION", ""],
-    8: ["  📌 Site Name", tbd(site.name)],
-    9: ["  🌐 Latitude", latS],
-    10: ["  🌐 Longitude", lonS],
-    11: ["  📏 Search Radius", site.radius ? `${site.radius} mi` : "TBD"],
-    12: ["  🗼 SARF Height", sarfH],
-    13: ["", ""],
-    14: ["  🎯 SARF MAP — Satellite Search Ring", ""],
-    15: ["PROJECT INFORMATION", ""],
-    16: ["  🗼 Tower Type", "Self-Supporting"],
-    17: ["  📏 Tower Height", sarfH],
-    18: ["  📏 Centerlines Available", site.sarfHeight ? `${Number(site.sarfHeight) - 10}'` : "TBD"],
-    19: ["  🏔️ Ground Elevation", site.groundElevFt ? `${Math.round(Number(site.groundElevFt))}' AMSL (USGS 3DEP)` : "TBD — USGS"],
-    20: ["  📐 Compound Size (S.F. & dims)", "75' x 75'  (5,625 SF)"],
-    21: ["  🌐 Latitude", tbd(num(t.latitude)?.toFixed(6), latS)],
-    22: ["  🌐 Longitude", tbd(num(t.longitude)?.toFixed(6), lonS)],
-    23: ["  📏 Distance from Search Ring Center", tbd(x.distanceFromCenter)],
-    24: ["SITE INFORMATION (from Property Appraiser's Office)", ""],
-    25: ["  📐 Parcel County", county],
-    26: ["  🆔 Parcel ID Number", tbd(t.apn)],
-    27: ["  👤 Owner Name (on Deed)", tbd(t.owner_name)],
-    28: ["  📍 Parcel Street Address", tbd(t.parcel_address)],
-    29: ["  📍 Parcel City", tbd(t.parcel_city)],
-    30: ["  🏛️ Parcel State", state || "TBD"],
-    31: ["  📮 Parcel Zip", tbd(t.parcel_zip)],
-    32: ["  📐 Parcel Size (acres, MOL)", t.acreage ? `${t.acreage} ac` : "TBD"],
-    33: ["  📏 Parcel Dimensions (feet)", tbd(t.boundaries ?? x.parcelDims, "TBD — verify survey")],
-    34: ["  ✅ Conforming Size?", tbd(x.conformingSize)],
-    35: ["  💰 Taxes Paid-to-Date / Annual Taxes", tbd(x.taxesPaid, "TBD — verify PA")],
-    36: ["OWNER INFORMATION", ""],
-    37: ["  👤 Name(s)", tbd(t.owner_name)],
-    38: ["  👤 Contact Person", tbd(t.contact_person, "TBD — skip-trace required")],
-    39: ["  📍 Mailing Address", tbd(t.mailing_address)],
-    40: ["  📧 E-mail Address", tbd(t.owner_email, "TBD — skip-trace required")],
-    41: ["  📞 Phone Number", tbd(fmtPhone(t.owner_phone), "TBD — skip-trace required")],
-    42: ["LEASE INFORMATION", ""],
-    43: ["  📅 Effective Date (signed or anticipated)", "Upon Full Execution"],
-    44: ["  📅 Length of Initial Term", "5 Years"],
-    45: ["  🔄 Length & Number of Renewal Terms", "5 year terms @ 7 renewal terms"],
-    46: ["  ⏱️ Option Period(s)", "2 @ 12 months"],
-    47: ["  💰 Base Lease Fee", "$1,350 / month"],
-    48: ["  📈 Escalation Rate", "3% annually"],
-    49: ["  🤝 Collocation Revenue (if applicable)", "N/A"],
-    50: ["  💰 Capital Contribution (if applicable)", "N/A"],
-    51: ["LANDOWNER NOTES", ""],
-    52: ["  📝 Concerns / Lease Notes", tbd(x.landownerNotes, "No concerns identified at this time.")],
-    53: ["DIRECTIONS TO SITE", ""],
-    54: ["  🛣️ General Directions", tbd(x.directions,
-      `Navigate to ${latS}, ${lonS} via GPS. Parcel located in ${county} County${state ? ", " + state : ""}.`)],
-    55: ["PHOTOGRAPHS", ""],
-    56: ["  Premises, Access, Nearest Power/Telco (include below)", ""],
-    57: ["  📌 Proposed Site (overhead)", ""],
-    58: ["  ⬆️ North from Site — 3D RF Viewshed", ""],
-    59: ["  ⬇️ South from Site — 3D RF Viewshed", ""],
-    60: ["  ➡️ East from Site — 3D RF Viewshed", ""],
-    61: ["  ⬅️ West from Site — 3D RF Viewshed", ""],
-    62: ["  🛣️ Access — ROW Connection", ""],
-    63: ["  🛣️ Access — Along Road", ""],
-    64: ["  ⚡ Power (nearest pole)", ""],
-    65: ["  📡 Telco (nearest demarc)", ""],
-    66: ["  📐 Site Sketch (within entire parcel)", ""],
-    67: ["EXISTING CONDITIONS", ""],
-    68: ["  🌊 Flood Zone(s)", fz],
-    69: ["  🌿 Wetland Concerns?", tbd(c.wetland_concerns)],
-    70: ["  💧 Water Management District", tbd(c.water_management_district)],
-    71: ["  ☣️  Hazardous Waste Concerns?", tbd(c.hazardous_waste, "None detected ✅")],
-    72: ["  🛣️ Access Notes (ROW, driveway, code)", tbd(c.access_notes, "TBD — verify driveway permit requirements")],
-    73: ["  ⚡ Power Provider (name & phone)", tbd(x.powerStr)],
-    74: ["  📡 Fiber Available?", tbd(x.fiberStr, "TBD — verify with county")],
-    75: ["  📡 Telco Provider (name & phone)", tbd(x.telcoStr)],
-    76: ["  ✈️ Nearest Airport (name & distance)", tbd(x.airportStr)],
-    77: ["  🚔 Local Police (municipality & phone)", tbd(c.local_police)],
-    78: ["  🚒 Local Fire Dept (municipality & phone)", tbd(c.local_fire)],
-    79: ["SITE NOTES", ""],
-    80: ["  📝 Site Development Concerns", tbd(x.siteNotes,
-      `No major development concerns identified. Parcel is ${t.acreage ? t.acreage + " ac" : "TBD"} — adequate for 75'×75' compound. ` +
-      `Flood zone: ${fz}. Wetlands: ${tbd(c.wetland_concerns)}. Zoning: ${zoningCode}.`)],
-    81: ["MAPS — Insert Snippets", ""],
-    82: ["  🛰️ Aerial", ""],
-    83: ["  🏔️ Topography", ""],
-    84: ["  🌊 Floodplain Map", ""],
-    85: ["  📋 Zoning Map", ""],
-    86: ["  🗺️ FLU Map", ""],
-    87: ["  🌿 Wetlands Map", ""],
-    88: ["  📐 Parcel Map", ""],
-    89: ["  💨 Wind Speed Map", ""],
-    90: ["  ✈️ Airport Map", ""],
-    91: ["ZONING OVERVIEW", ""],
-    92: ["  📋 Zoning Jurisdiction", tbd(z.jurisdiction)],
-    93: ["  📞 Zoning Contact Information", zr(rep["zoning_contact"] ?? rep["contact"]) === "TBD" ? "TBD — contact county planning dept" : zr(rep["zoning_contact"] ?? rep["contact"])],
-    94: ["  📋 Zoning Process", zr(rep["zoning_process"] ?? rep["process"])],
-    95: ["  💰 Zoning Fees", zr(rep["zoning_fees"] ?? rep["fees"])],
-    96: ["  ⏱️ Zoning Approval Timeframe", zr(rep["zoning_timeframe"] ?? rep["timeframe"])],
-    97: ["  📋 Property Zoning District", zoningCode],
-    98: ["  🗺️ Property Future Land Use", zr(rep["future_land_use"])],
-    99: ["  🏡 Property Current Usage", tbd(t.land_use)],
-    100: ["  ✅ Meets minimum lot requirements?", tbd(x.meetsLotReq ?? zr(rep["meets_min_lot"]))],
-    101: ["TOWER SPECIFICS", ""],
-    102: ["  📋 LDC Section Reference(s)", zr(rep["ldc_section"])],
-    103: ["  📏 Maximum Tower Height", zr(rep["max_height_ft"] ?? rep["max_height"])],
-    104: ["  🎭 Stealth Required?", zr(rep["stealth_required"])],
-    105: ["  🤝 Required Collocations (#)", zr(rep["collocation_required"])],
-    106: ["  📏 Residential Separation (ft or %)", zr(rep["residential_separation_ft"] ?? rep["residential_separation"])],
-    107: ["  📏 Tower Separation (ft or %)", zr(rep["tower_separation_ft"] ?? rep["tower_separation"])],
-    108: ["  📐 Measured from base or center", zr(rep["measured_from"])],
-    109: ["  ⬇️ Fall Zone Requirements", zr(rep["fall_zone_ft"] ?? rep["fall_zone"])],
-    110: ["  🌲 Special Tower Landscaping?", zr(rep["landscaping"])],
-    111: ["ZONING NOTES", ""],
-    112: ["  📝 Zoning Concerns / Fees / Notes", zr(rep["zoning_notes"] ?? rep["notes"]) === "TBD" ? "See jurisdiction LDC for full requirements." : zr(rep["zoning_notes"] ?? rep["notes"])],
-    113: ["SITE PLAN OVERVIEW", ""],
-    114: ["  🏛️ Site Plan Jurisdiction", tbd(zr(rep["site_plan_jurisdiction"]), county)],
-    115: ["  📞 Site Plan Contact Information", tbd(zr(rep["site_plan_contact"]), "TBD — contact planning dept")],
-    116: ["  💰 Site Plan Fees", zr(rep["site_plan_fees"])],
-    117: ["  ⏱️ Timeframe for Approval", zr(rep["site_plan_timeframe"])],
-    118: ["  📋 Existing Site Plan to Amend?", zr(rep["site_plan_amend"])],
-    119: ["  🔄 Concurrent to Zoning or BP?", zr(rep["site_plan_concurrent"])],
-    120: ["  📅 Submittal Deadlines?", zr(rep["site_plan_deadlines"])],
-    121: ["  📄 Electronic, hard copy, or both?", tbd(zr(rep["site_plan_format"]), "TBD — verify with jurisdiction")],
-    122: ["SITE PLAN NOTES", ""],
-    123: ["  📝 Site Plan Concerns / Fees / Notes", tbd(zr(rep["site_plan_notes"]), "See jurisdiction for site plan requirements.")],
-    124: ["BUILDING PERMIT INFORMATION", ""],
-    125: ["  🏛️ Building Permit Jurisdiction", tbd(zr(rep["bp_jurisdiction"]), county)],
-    126: ["  📞 Building Department Contact Info", tbd(zr(rep["bp_contact"]), "TBD — contact building dept")],
-    127: ["  🔨 Does GC have to submit?", zr(rep["bp_gc_required"])],
-    128: ["  💰 Building Permit Fees", zr(rep["bp_fees"])],
-    129: ["  ⏱️ Building Permit Timeframe", zr(rep["bp_timeframe"])],
-    130: ["  💳 Bond Required?", zr(rep["bp_bond_required"])],
-    131: ["  📍 E911 Address Assigned?", zr(rep["bp_e911"])],
-    132: ["BUILDING PERMIT NOTES", ""],
-    133: ["  📝 BP Concerns / Fees / Notes", tbd(zr(rep["bp_notes"]), "See jurisdiction for building permit requirements.")],
-    134: ["APPROVALS — Name and Date", ""],
-    135: ["  ✅ Project Manager", ""],
-    136: ["  ✅ Program Manager", ""],
-    137: ["  ✅ CEO", ""],
-    138: ["  ✅ Carrier", ""],
-  };
+  return [
+    { title: "SITE ACQUISITION", rows: [
+      row("Agent Name", tbd(agent.name)),
+      row("Agent Phone", fmtPhone(agent.phone) || "TBD"),
+      row("Agent E-mail", tbd(agent.email)),
+      row("Submittal Date", today),
+    ]},
+    { title: "SEARCH RING INFORMATION", rows: [
+      row("Site Name", tbd(site.name)),
+      row("Latitude", latS),
+      row("Longitude", lonS),
+      row("Search Radius", site.radius ? `${site.radius} mi` : "TBD"),
+      row("SARF Height", sarfH),
+    ]},
+    { title: "PROJECT INFORMATION", rows: [
+      row("Tower Type", "Self-Supporting"),
+      row("Tower Height", sarfH),
+      row("Centerlines available", site.sarfHeight ? `${Number(site.sarfHeight) - 10}'` : "TBD"),
+      row("Ground Elevation", site.groundElevFt ? `${Math.round(Number(site.groundElevFt))}' AMSL (USGS 3DEP)` : "TBD — USGS"),
+      row("Compound Size (S.F. & dimensions)", "75' x 75'  (5,625 SF)"),
+      row("Latitude", tbd(num(t.latitude)?.toFixed(6), latS)),
+      row("Longitude", tbd(num(t.longitude)?.toFixed(6), lonS)),
+      row("Distance from Search Ring Center", tbd(x.distanceFromCenter)),
+    ]},
+    { title: "SITE INFORMATION (from Property Appraiser's Office)", rows: [
+      row("Parcel County", county),
+      row("Parcel ID Number", tbd(t.apn)),
+      row("Owner Name (on Deed)", tbd(t.owner_name)),
+      row("Parcel Street Address", tbd(t.parcel_address)),
+      row("Parcel City", tbd(t.parcel_city)),
+      row("Parcel State", state || "TBD"),
+      row("Parcel Zip", tbd(t.parcel_zip)),
+      row("Parcel Size (acres, MOL)", t.acreage ? `${t.acreage} ac` : "TBD"),
+      row("Parcel Dimensions (feet)", tbd(t.boundaries ?? x.parcelDims, "TBD — verify survey")),
+      row("Conforming Size?", tbd(x.conformingSize)),
+      row("Taxes Paid-to-Date?", tbd(x.taxesPaid, "TBD — verify PA")),
+    ]},
+    { title: "OWNER INFORMATION", rows: [
+      row("Name(s)", tbd(t.owner_name)),
+      row("Contact Person", tbd(t.contact_person, "TBD — skip-trace required")),
+      row("Mailing Address", tbd(t.mailing_address)),
+      row("E-mail Address", tbd(t.owner_email, "TBD — skip-trace required")),
+      row("Phone Number", tbd(fmtPhone(t.owner_phone), "TBD — skip-trace required")),
+    ]},
+    { title: "EXISTING CONDITIONS", rows: [
+      row("Flood Zone(s)", tbd(c.flood_zone ?? t.fema_risk_factor, "TBD — See FEMA FIRM Map")),
+      row("Wetland Concerns?", tbd(c.wetland_concerns ?? c.wetlands)),
+      row("Water Management District", tbd(c.water_management_district)),
+      row("Hazardous Waste Concerns?", tbd(c.hazardous_waste, "None detected")),
+      row("Access Notes (ROW, driveway, code)", tbd(c.access_notes, "TBD — verify driveway permit requirements")),
+      row("Power Provider (name & phone)", tbd(x.powerStr ?? c.power_provider)),
+      row("Fiber Available?", tbd(x.fiberStr ?? c.fiber, "TBD — verify with county")),
+      row("Telco Provider (name & phone)", tbd(x.telcoStr ?? c.telco_provider)),
+      row("Nearest Airport (name & distance)", tbd(x.airportStr ?? c.airport)),
+      row("Local Police (municipality & phone)", tbd(c.local_police)),
+      row("Local Fire Dept (municipality & phone)", tbd(c.local_fire)),
+    ]},
+    { title: "SITE NOTES", rows: [
+      row("Site development concerns (terrain, foliage, obstructions, generators or microwaves prohibited)",
+        tbd(x.siteNotes, `No major development concerns identified. Zoning: ${zoningCode}.`)),
+    ]},
+    { title: "ZONING OVERVIEW", rows: [
+      row("Zoning Jurisdiction", tbd(z.jurisdiction)),
+      row("Zoning Contact Information", tbd(zr(rep["zoning_contact"] ?? rep["contact"]), "TBD — contact county planning dept")),
+      row("Zoning Process", zr(rep["zoning_process"] ?? rep["process"])),
+      row("Zoning Fees", zr(rep["zoning_fees"] ?? rep["fees"])),
+      row("Zoning Approval Timeframe", zr(rep["zoning_timeframe"] ?? rep["timeframe"])),
+      row("Property Zoning District Classification", zoningCode),
+      row("Meets minimum lot requirements?", tbd(x.meetsLotReq ?? zr(rep["meets_min_lot"]))),
+    ]},
+    { title: "TOWER SPECIFICS", rows: [
+      row("LDC Section Reference(s)", zr(rep["ldc_section"] ?? rep["ldc_reference"])),
+      row("Maximum Tower Height", zr(rep["max_height_ft"] ?? rep["max_height"])),
+      row("Stealth Required?", zr(rep["stealth_required"] ?? rep["stealth"])),
+      row("Required Collocations (#)", zr(rep["collocation_required"] ?? rep["collocations"])),
+      row("Residential Separation (ft or %)", zr(rep["residential_separation_ft"] ?? rep["residential_separation"])),
+      row("Tower Separation (ft or %)", zr(rep["tower_separation_ft"] ?? rep["tower_separation"])),
+      row("Measured from base or center", zr(rep["measured_from"])),
+      row("Fall Zone Requirements", zr(rep["fall_zone_ft"] ?? rep["fall_zone"])),
+      row("Special Tower Landscaping?", zr(rep["landscaping"])),
+    ]},
+    { title: "SITE PLAN OVERVIEW", rows: [
+      row("Site Plan Jurisdiction", tbd(zr(rep["site_plan_jurisdiction"]), county)),
+      row("Site Plan Contact Information", tbd(zr(rep["site_plan_contact"]), "TBD — contact planning dept")),
+      row("Site Plan Fees", zr(rep["site_plan_fees"])),
+      row("Timeframe for approval", zr(rep["site_plan_timeframe"])),
+      row("Existing Site Plan to Amend?", zr(rep["site_plan_amend"])),
+      row("Concurrent to Zoning or BP?", zr(rep["site_plan_concurrent"])),
+      row("Submittal deadlines?", zr(rep["site_plan_deadlines"])),
+      row("Electronic, hard copy, or both?", tbd(zr(rep["site_plan_format"]), "TBD — verify with jurisdiction")),
+    ]},
+    { title: "SITE PLAN FILING DOCUMENTS", rows: [
+      row("Site plan concerns, fees, etc.", tbd(zr(rep["site_plan_notes"]), "See jurisdiction for site plan requirements.")),
+    ]},
+    { title: "BUILDING PERMIT INFORMATION", rows: [
+      row("Building Permit Jurisdiction", tbd(zr(rep["bp_jurisdiction"]), county)),
+      row("Building Department Contact Info", tbd(zr(rep["bp_contact"]), "TBD — contact building dept")),
+      row("Does GC have to submit?", zr(rep["bp_gc_required"])),
+      row("Building Permit Fees", zr(rep["bp_fees"])),
+      row("Building Permit Timeframe", zr(rep["bp_timeframe"])),
+      row("Bond Required?", zr(rep["bp_bond_required"])),
+      row("E911 Address assigned?", zr(rep["bp_e911"])),
+    ]},
+    { title: "BUILDING PERMIT NOTES", rows: [
+      row("When does the building permit expire once it's been pulled", tbd(zr(rep["bp_notes"]), "See jurisdiction for building permit requirements.")),
+    ]},
+  ];
 }
 
-// ── Workbook builder (exported for smoke tests) ─────────────────────────────
-export async function buildScipWorkbook(n: ReturnType<typeof normalize>) {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "SiteHawk — SkyWave LLC";
-  wb.created = new Date();
-
-  const ws = wb.addWorksheet("Candidate", {
-    pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-  });
-  ws.getColumn("A").width = COL_A_WIDTH;
-  ws.getColumn("B").width = COL_B_WIDTH;
-
-  const rows = buildRows(n);
-  const thin = { style: "thin" as const, color: { argb: "FFDDDDDD" } };
-
-  for (let r = 1; r <= 138; r++) {
-    const [aVal, bVal] = rows[r] || ["", ""];
-    if (ROW_HEIGHTS[r]) ws.getRow(r).height = ROW_HEIGHTS[r];
-
-    if (r === 1) {
-      ws.mergeCells("A1:B1");
-      const cell = ws.getCell("A1");
-      cell.value = `${aVal}  |  ${bVal}`;
-      cell.font = { name: FONT, size: 14, bold: true, color: { argb: DARK_TEXT } };
-      cell.alignment = { horizontal: "center", vertical: "middle" };
-      continue;
-    }
-
-    if (SECTION_HEADER_ROWS.has(r)) {
-      ws.mergeCells(`A${r}:B${r}`);
-      const cell = ws.getCell(`A${r}`);
-      cell.value = aVal;
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_GREEN } };
-      cell.font = { name: FONT, size: 11, bold: true, color: { argb: "FFFFFFFF" } };
-      cell.alignment = { horizontal: "left", vertical: "middle", indent: 1 };
-      continue;
-    }
-
-    const aCell = ws.getCell(`A${r}`);
-    const bCell = ws.getCell(`B${r}`);
-    aCell.value = aVal;
-    aCell.font = { name: FONT, size: 10, bold: true, color: { argb: DARK_TEXT } };
-    aCell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
-    aCell.border = { left: thin, right: thin, top: thin, bottom: thin };
-    bCell.value = bVal;
-    bCell.font = { name: FONT, size: 10, color: { argb: DARK_TEXT } };
-    bCell.alignment = { horizontal: "left", vertical: "top", wrapText: true, indent: 1 };
-    bCell.border = { left: thin, right: thin, top: thin, bottom: thin };
-  }
-
-  // ── Images: fetch every available URL, embed at its exact template row ──
-  const embedded: string[] = [];
-  const missing: string[] = [];
-  const jobs = Object.entries(IMAGE_ROWS).map(async ([rowStr, key]) => {
-    const row = Number(rowStr);
-    const url = (n.images as Record<string, string>)[key];
-    if (!url) { missing.push(key); return; }
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const buf = new Uint8Array(await res.arrayBuffer());
-      const ext = /\.jpe?g($|\?)/i.test(url) ? "jpeg" : "png";
-      const imgId = wb.addImage({ buffer: buf, extension: ext });
-      const isSarf = row === 14;
-      // 380pt ≈ 507px, 420pt ≈ 560px of row height; Mapbox statics are 4:3.
-      const height = isSarf ? 548 : 496;
-      const width = Math.round(height * (4 / 3));
-      ws.addImage(imgId, {
-        tl: { col: 1.02, row: row - 0.99 },
-        ext: { width, height },
-        editAs: "oneCell",
-      });
-      embedded.push(key);
-    } catch (_e) {
-      missing.push(key);
-      const bCell = ws.getCell(`B${row}`);
-      bCell.value = `Image pending — ${key.replace(/_/g, " ")}`;
-      bCell.font = { name: FONT, size: 10, italic: true, color: { argb: "FF888888" } };
-    }
-  });
-  await Promise.allSettled(jobs);
-
-  // ── Sheet 2: Site Contact Summary ────────────────────────────────────────
-  const ws2 = wb.addWorksheet("Site Contact Summary");
-  ws2.getColumn("A").width = COL_A_WIDTH;
-  ws2.getColumn("B").width = COL_B_WIDTH;
-  const c = n.conditions as Record<string, string>;
-  const x = n.extras as Record<string, string>;
-  const summary: Array<[string, string] | ["__HDR__", string]> = [
-    ["__HDR__", "SITE CONTACT SUMMARY"],
-    ["  👤 Site Acquisition Agent", `${tbd(n.agent.name)} | ${fmtPhone(n.agent.phone)} | ${tbd(n.agent.email)}`],
-    ["  👤 Property Owner", `${tbd((n.target as any).owner_name)} | ${tbd(fmtPhone((n.target as any).owner_phone), "phone TBD")}`],
-    ["  📋 Zoning Jurisdiction", tbd((n.zoning as any).jurisdiction)],
-    ["  ⚡ Power Provider", tbd(x.powerStr)],
-    ["  📡 Telco Provider", tbd(x.telcoStr)],
-    ["  ✈️ Nearest Airport", tbd(x.airportStr)],
-    ["  🚔 Local Police", tbd(c.local_police)],
-    ["  🚒 Local Fire Department", tbd(c.local_fire)],
+// ── Pages 2–8 (paired map exhibits, NEW SCIP 8.1.2026) ──────────────────────
+function buildMapPages(images: Record<string, string>) {
+  const slot = (label: string, key: string, caption: string) => ({ label, url: images[key] || null, caption });
+  return [
+    { title: "AERIAL MAP & TOPO MAP", slots: [
+      slot("AERIAL MAP", "aerial", "High-resolution aerial / satellite view of the candidate parcel, access route, and surrounding land uses."),
+      slot("TOPO MAP", "topo", "USGS topographic map showing ground elevations, contours, and terrain affecting siting and access."),
+    ]},
+    { title: "FEMA MAP & ZONING MAP", slots: [
+      slot("FEMA MAP", "fema", "FEMA Flood Insurance Rate Map (FIRM) panel showing flood zone designations at the candidate site."),
+      slot("ZONING MAP", "zoning", "Official zoning map of the governing jurisdiction showing the parcel's zoning district classification."),
+    ]},
+    { title: "FLU MAP & WETLANDS MAP", slots: [
+      slot("FLU MAP", "flum", "Comprehensive plan Future Land Use (FLU) map showing the long-range land use designation of the parcel."),
+      slot("WETLANDS MAP", "wetlands", "National Wetlands Inventory (USFWS) map showing mapped wetlands and surface waters on or near the parcel."),
+    ]},
+    { title: "NEAREST AIRPORT & NEAREST CELL TOWER MAP", slots: [
+      slot("NEAREST AIRPORT MAP", "airport", "Location and distance of the nearest airport / airfield relative to the candidate — supports FAA Part 77 review."),
+      slot("NEAREST CELL TOWER MAP", "celltower", "Existing towers / wireless facilities nearest the search ring — collocation opportunities and coverage context."),
+    ]},
+    { title: "PARCEL MAP & WIND SPEED MAP", slots: [
+      slot("PARCEL MAP", "parcel", "County property appraiser parcel map showing boundaries, dimensions, parcel ID, and adjacent tracts."),
+      slot("WIND SPEED MAP", "wind", "ASCE 7 basic wind speed map for the site location — basis for tower structural design requirements."),
+    ]},
+    { title: "MAP 2D & VIEWSHED MAP", slots: [
+      slot("MAP 2D", "map2d", "SiteHawk-generated 2D site map — candidate point, search ring, access, and proposed compound layout."),
+      slot("VIEWSHED MAP", "viewshed", "Viewshed (line-of-sight) analysis showing areas with potential visibility of the proposed tower."),
+    ]},
+    { title: "FIBER OPTICS MAP & SUPPLEMENTAL EXHIBIT", slots: [
+      slot("FIBER OPTICS MAP", "fiber", "Fiber optic routes nearest to the candidate — backhaul availability and distance-to-fiber."),
+      slot("SUPPLEMENTAL EXHIBIT (OPTIONAL)", "supplemental", "Reserved frame for an additional exhibit (second fiber view, carrier map, or close-up) if required."),
+    ]},
   ];
-  summary.forEach(([a, b], i) => {
-    const r = i + 1;
-    ws2.getRow(r).height = 18;
-    if (a === "__HDR__") {
-      ws2.mergeCells(`A${r}:B${r}`);
-      const cell = ws2.getCell(`A${r}`);
-      cell.value = b;
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEADER_GREEN } };
-      cell.font = { name: FONT, size: 11, bold: true, color: { argb: "FFFFFFFF" } };
-      cell.alignment = { horizontal: "left", vertical: "middle", indent: 1 };
-    } else {
-      ws2.getCell(`A${r}`).value = a;
-      ws2.getCell(`A${r}`).font = { name: FONT, size: 10, bold: true, color: { argb: DARK_TEXT } };
-      ws2.getCell(`B${r}`).value = b;
-      ws2.getCell(`B${r}`).font = { name: FONT, size: 10, color: { argb: DARK_TEXT } };
-    }
-  });
-
-  const out = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
-  return { bytes: new Uint8Array(out), embedded, missing };
 }
 
 // ── HTTP handler ─────────────────────────────────────────────────────────────
-Deno.serve(async (req) => {
+export default async function (req: Request): Promise<Response> {
   try {
     const base44 = createClientFromRequest(req);
     if (!(await base44.auth.isAuthenticated())) {
@@ -475,7 +303,12 @@ Deno.serve(async (req) => {
       return Response.json({ error: "Provide { record } or { scipId }" }, { status: 400 });
     }
 
-    const { bytes, embedded, missing } = await buildScipWorkbook(normalized);
+    const images = normalized.images as Record<string, string>;
+    const { bytes, embedded, missing } = await renderBookWorkbook({
+      sections: buildSections(normalized),
+      mapPages: buildMapPages(images),
+      sarfUrl: images.sarf || null,
+    });
 
     const siteName = String((normalized.site as any).name || "Site")
       .replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_") || "Site";
@@ -496,4 +329,4 @@ Deno.serve(async (req) => {
   } catch (e) {
     return Response.json({ error: String((e as Error)?.message || e) }, { status: 500 });
   }
-});
+}

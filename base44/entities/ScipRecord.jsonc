@@ -405,6 +405,11 @@
       "description": "SCIP Book Gemini QC results: { filled: {field_key: verified value}, needs_human: [{key,label,why}], summary, ran_at, ran_by }. Filled values overlay blank fields in the SCIP Book viewer and printed package; needs_human lists fields a person must complete before client delivery. Written by the scipBookQc backend function.",
       "additionalProperties": true
     },
+    "gsheet": {
+      "type": "object",
+      "description": "Live Google Sheets SCIP built on the NEW SCIP 8.1.2026 eight-page template: { spreadsheet_id, url, pdf_url, synced_at }. Created/refreshed by the scipBookSheet backend function via the shared Google Sheets connector (anyone-with-link readable). url = live shareable spreadsheet; pdf_url = 8.5x11 letter PDF export link.",
+      "additionalProperties": true
+    },
     "status": {
       "type": "string",
       "enum": [

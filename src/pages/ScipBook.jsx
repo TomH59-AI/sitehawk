@@ -5,6 +5,7 @@ import { ArrowLeft, Printer, Loader2, ChevronLeft, ChevronRight } from "lucide-r
 import BookPropertyPage from "@/components/scipbook/BookPropertyPage";
 import BookMapPage from "@/components/scipbook/BookMapPage";
 import BookQcPanel from "@/components/scipbook/BookQcPanel";
+import BookSheetExport from "@/components/scipbook/BookSheetExport";
 import { buildMapPages } from "@/components/scipbook/scipBookData";
 
 const PRINT_CSS = `
@@ -55,8 +56,9 @@ export default function ScipBook() {
           <button onClick={() => navigate(`/scip/${record.id}`)} className="inline-flex items-center gap-1.5 text-sm text-slate-500">
             <ArrowLeft className="w-4 h-4" /> Back to SCIP
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-slate-500">Page {page + 1} of {total}</span>
+            <BookSheetExport record={record} onUpdate={setRecord} />
             <button onClick={() => window.print()}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white"
               style={{ background: "#0f2a43" }}>

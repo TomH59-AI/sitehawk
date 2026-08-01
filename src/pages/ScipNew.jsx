@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { generateSarfMap } from "@/functions/generateSarfMap";
+import { scipBookSheet } from "@/functions/scipBookSheet";
+import { buildPropertySections, buildMapPages } from "@/components/scipbook/scipBookData";
 import { Loader2, MapPinned } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE, US_STATES } from "@/lib/skywave";
@@ -18,6 +20,15 @@ function maskPhone(v) {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+// On SCIP creation, spin up the live Google Sheets SCIP (NEW SCIP 8.1.2026
+// template) in the background — fire-and-forget, never blocks the flow.
+const syncSheetInBackground = (rec) =>
+  scipBookSheet({
+    scip_id: rec.id,
+    sections: buildPropertySections(rec),
+    map_pages: buildMapPages(rec),
+  }).catch(() => {});
 
 export default function ScipNew() {
   const navigate = useNavigate();
@@ -73,6 +84,7 @@ export default function ScipNew() {
     setBusy(true);
     try {
       const rec = await base44.entities.ScipRecord.create(await buildPayload("draft"));
+      syncSheetInBackground(rec);
       toast.success("Saved as draft");
       navigate(`/scip/${rec.id}`);
     } catch (err) {
@@ -95,10 +107,12 @@ export default function ScipNew() {
         const mapUrl = res.data?.map_image_url;
         if (mapUrl) {
           await base44.entities.ScipRecord.update(rec.id, { map_image_url: mapUrl, status: "map_generated" });
+          rec.map_image_url = mapUrl;
         }
       } catch {
         toast.error("Map generation failed — try again");
       }
+      syncSheetInBackground(rec);
       navigate(`/scip/${rec.id}`);
     } catch (err) {
       toast.error(err.message || "Failed to create record");
