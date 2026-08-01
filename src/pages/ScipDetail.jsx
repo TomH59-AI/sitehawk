@@ -158,6 +158,7 @@ export default function ScipDetail() {
             <span className="px-3 py-1 rounded-full text-white text-xs font-semibold" style={{ background: st.bg }}>{st.label}</span>
             <ToolbarBtn icon={RefreshCw} label="Regenerate Map" onClick={handleRegenerate} busy={busy} />
             <ToolbarBtn icon={Layers} label="Doc Studio" onClick={() => navigate(`/scip/${record.id}/studio`)} />
+            <ToolbarBtn icon={FileText} label="SCIP Book" onClick={() => navigate(`/scip/${record.id}/book`)} />
             <PrintSiteHawkScipButton scip={record} variant="toolbar" />
             <ToolbarBtn icon={Printer} label="Print SCIP (Classic)" onClick={handlePrint} />
             <ToolbarBtn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />

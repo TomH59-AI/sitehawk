@@ -400,6 +400,11 @@
       "default": false,
       "description": "True when the match was manual or low-confidence \u2014 flagged for admin review in the Jurisdiction Resource Manager."
     },
+    "book_qc": {
+      "type": "object",
+      "description": "SCIP Book Gemini QC results: { filled: {field_key: verified value}, needs_human: [{key,label,why}], summary, ran_at, ran_by }. Filled values overlay blank fields in the SCIP Book viewer and printed package; needs_human lists fields a person must complete before client delivery. Written by the scipBookQc backend function.",
+      "additionalProperties": true
+    },
     "status": {
       "type": "string",
       "enum": [

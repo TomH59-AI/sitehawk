@@ -64,6 +64,7 @@ import InfrastructureIntelligence from './pages/InfrastructureIntelligence';
 import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
 import ScipStudio from './pages/ScipStudio';
+import ScipBook from './pages/ScipBook';
 import HawkScip from './pages/HawkScip';
 import HawkDocs from './pages/HawkDocs';
 import HawkDocShareView from './pages/HawkDocShareView';
@@ -194,6 +195,8 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id" element={<ScipDetail />} />
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}
         <Route path="/scip/:id/studio" element={<ScipStudio />} />
+        {/* SCIP Book — client-facing page-by-page SCIP with print + Gemini QC */}
+        <Route path="/scip/:id/book" element={<ScipBook />} />
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
         {/* AnthemNet-format SCIP — auto-populated carrier submittal package */}
         <Route path="/scip/:id/anthemnet" element={<AnthemNetScip />} />
