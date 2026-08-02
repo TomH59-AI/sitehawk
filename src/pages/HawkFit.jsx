@@ -18,6 +18,7 @@ import TalonReachPanel from "@/components/talonreach/TalonReachPanel";
 import LayerTogglePanel from "@/components/hawkfit/LayerTogglePanel";
 import HawkPerchControls from "@/components/hawkfit/HawkPerchControls";
 import ExportMapButton from "@/components/hawkfit/ExportMapButton";
+import AiHawkSitMethod from "@/components/hawkfit/AiHawkSitMethod";
 
 // HawkFit Map — interactive tower-siting: Realie property lookup, parcel
 // outline, draggable tower, live fall zone + compound + feasibility status.
@@ -104,7 +105,7 @@ export default function HawkFit() {
           if (!placed.fits) {
             toast({
               title: "Won't fit at these settings",
-              description: "No spot clears the active HawkPerch fall zone, compound, and ordinance settings.",
+              description: "No spot clears the active AIHawkSit™ fall zone, compound, and ordinance settings.",
               variant: "destructive",
             });
           }
@@ -182,11 +183,13 @@ export default function HawkFit() {
           <Crosshair className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="font-heading font-bold text-2xl text-foreground">TalonFit® <span className="text-primary">Map</span></h1>
-          <p className="text-sm text-muted-foreground">Deterministic fall-zone + compound fit checks on the active Target A — with AI spatial intelligence built in for accuracy.</p>
+          <h1 className="font-heading font-bold text-2xl text-foreground">AIHawkSit<sup className="ml-0.5 text-[10px] text-primary">™</sup></h1>
+          <p className="text-sm text-muted-foreground">Deterministic fall-zone, setback, height, and compound fit checks on the active Target A.</p>
           <TalonFitTagline className="mt-1" />
         </div>
       </div>
+
+      <AiHawkSitMethod />
 
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 items-start">
         <div className="space-y-4 pr-1">
