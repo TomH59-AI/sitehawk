@@ -61,6 +61,24 @@ const MAPBOX_SOURCES = [
 ];
 const LOAD_TIMEOUT_MS = 15000;
 
+// Basemap-blocked fallback — if Mapbox tile/resource requests keep failing in
+// the user's browser (network filter / ad-blocker blocking api.mapbox.com),
+// the ring still draws (local geojson) but the background stays blank. After a
+// few resource errors we swap to an OSM raster basemap so the map is never blank.
+const OSM_FALLBACK_STYLE = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [{ id: "osm-base", type: "raster", source: "osm" }],
+};
+const TILE_ERRORS_BEFORE_FALLBACK = 3;
+
 function injectCss(href) {
   if (document.querySelector(`link[data-mapbox-css="1"]`)) return;
   const css = document.createElement("link");
@@ -162,15 +180,24 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
   // the lookup returns so targets are easier to eyeball. Never blocks onReady.
   const zoningFcRef = useRef(null);
   const [zoningCount, setZoningCount] = useState(0);
+  // Blank-basemap self-heal: count failed Mapbox tile/resource fetches after
+  // load; past the threshold, swap to the OSM raster fallback basemap.
+  const tileErrorsRef = useRef(0);
+  const [osmFallback, setOsmFallback] = useState(false);
+  const osmFallbackRef = useRef(false);
 
   // Visual-only basemap swap: setStyle preserves center/zoom/bearing/pitch and
   // DOM markers. We only re-add the ring layers (and parcel lines if they were on).
   // Coordinates, Target A, and all workflow state are never touched.
   const switchBasemap = (key) => {
     const map = mapRef.current;
-    if (!map || key === basemapRef.current) return;
+    if (!map) return;
     basemapRef.current = key;
     setBasemap(key);
+    // Give Mapbox tiles another chance after a fallback (user-initiated retry).
+    tileErrorsRef.current = 0;
+    osmFallbackRef.current = false;
+    setOsmFallback(false);
     const parcelOn = !!map.getLayer(PARCEL_LINES_LAYER_ID) &&
       map.getLayoutProperty(PARCEL_LINES_LAYER_ID, "visibility") !== "none";
     map.setStyle(BASEMAP_STYLES[key].style);
@@ -185,6 +212,9 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
     let cancelled = false;
     setError(null);
     setClickedParcel(null);
+    tileErrorsRef.current = 0;
+    osmFallbackRef.current = false;
+    setOsmFallback(false);
 
     function clearTimeoutSafe() {
       if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
@@ -277,14 +307,37 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
       map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
       map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-left");
 
+      // Swap to the OSM raster basemap when Mapbox tiles can't be fetched in
+      // this browser. Ring + zoning layers are re-added after the style loads.
+      function engageOsmFallback() {
+        if (cancelled || osmFallbackRef.current || !mapRef.current) return;
+        osmFallbackRef.current = true;
+        setOsmFallback(true);
+        console.log("[SARF DIAG] Mapbox tiles unreachable — switching to OSM fallback basemap");
+        const m = mapRef.current;
+        m.setStyle(OSM_FALLBACK_STYLE);
+        m.once("style.load", () => {
+          if (cancelled) return;
+          addRingLayers(m, lat, lon, radiusMiles);
+          if (zoningFcRef.current) addSarfZoningLayers(m, zoningFcRef.current);
+        });
+      }
+
       // 6 + 8 — surface GL errors (401/403 → token rejected)
       map.on("error", (e) => {
         const status = e?.error?.status;
         console.log("[SARF DIAG] map 'error' event:", status, e?.error?.message);
         if (status === 401 || status === 403) {
-          fail("MapBox token rejected — likely expired or wrong scopes. Regenerate a public token at account.mapbox.com.");
+          if (osmFallbackRef.current) return; // fallback basemap needs no token
+          if (lastKeyRef.current) return engageOsmFallback(); // post-load tile auth failure → don't kill a visible ring
+          return fail("MapBox token rejected — likely expired or wrong scopes. Regenerate a public token at account.mapbox.com.");
         }
-        // non-fatal tile errors are ignored (load may still succeed)
+        // Repeated tile/resource fetch failures (blocked network, offline CDN)
+        // leave the ring visible over a blank background — self-heal to OSM.
+        if (!osmFallbackRef.current) {
+          tileErrorsRef.current += 1;
+          if (tileErrorsRef.current >= TILE_ERRORS_BEFORE_FALLBACK) engageOsmFallback();
+        }
       });
 
       map.on("load", () => {
@@ -386,6 +439,11 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
         </div>
         <ParcelLinesToggle mapRef={mapRef} />
         <ZayoFiberToggle mapRef={mapRef} />
+        {osmFallback && (
+          <div className="rounded-lg bg-amber-500/90 text-slate-900 text-[11px] font-semibold px-2.5 py-1.5 shadow-lg">
+            Backup basemap — Mapbox tiles blocked on this network
+          </div>
+        )}
       </div>
       {zoningCount > 0 && (
         <div className="absolute bottom-8 right-3 z-10 rounded-lg bg-slate-900/85 border border-white/15 shadow-lg px-3 py-2 space-y-1">
