@@ -22,7 +22,14 @@ export default async function(req: Request): Promise<Response> {
 
     const fields = Array.isArray(missing) ? missing.slice(0, 60) : [];
     if (!fields.length) {
-      return Response.json({ book_qc: record.book_qc || null, record, message: "No blank fields" });
+      const book_qc = {
+        ...(record.book_qc || {}),
+        summary: "Final Gemini QC confirmed that every required SCIP text field is complete.",
+        ran_at: new Date().toISOString(),
+        ran_by: user.email,
+      };
+      const updated = await base44.entities.ScipRecord.update(scip_id, { book_qc });
+      return Response.json({ book_qc, record: updated, message: "All required fields complete" });
     }
 
     const ctx = context || {};

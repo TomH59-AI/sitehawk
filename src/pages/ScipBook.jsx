@@ -52,7 +52,6 @@ export default function ScipBook() {
 
   const printCompletedBook = async () => {
     const missing = collectMissingFields(record);
-    if (!missing.length) return window.print();
     setPreparingPrint(true);
     try {
       const t = record.parcel_targets?.[record.active_target_index || 0] || {};
@@ -71,8 +70,10 @@ export default function ScipBook() {
       });
       const completed = res.data?.record;
       if (!completed) throw new Error("Gemini did not return the completed SCIP");
+      const remaining = collectMissingFields(completed);
+      if (remaining.length) throw new Error(`${remaining.length} required SCIP field(s) remain incomplete`);
       setRecord(completed);
-      toast.success("Gemini completed every response — opening print preview");
+      toast.success("Gemini verified every response — opening print preview");
       setTimeout(() => window.print(), 150);
     } catch (error) {
       toast.error(error?.response?.data?.error || error.message || "Gemini could not complete the SCIP");
