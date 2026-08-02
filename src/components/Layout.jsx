@@ -245,7 +245,7 @@ export default function Layout() {
       {/* Mobile Menu */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-20 bg-background/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)}>
-          <div className="absolute top-16 left-0 right-0 bg-sidebar border-b border-border p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute top-16 left-0 right-0 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-sidebar border-b border-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-1 sidebar-scroll" onClick={(e) => e.stopPropagation()}>
             {navItems.map((item, idx) => {
               if (item.header) {
                 return (

@@ -86,10 +86,23 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body {
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: auto;
+  }
+
+  #root {
+    min-height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
     -webkit-touch-callout: none;
+    touch-action: pan-y;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
