@@ -32,7 +32,8 @@ export default function BookQcPanel({ record, onUpdate }) {
         },
       });
       if (res.data?.record) onUpdate(res.data.record);
-      toast.success(`Gemini QC complete — ${Object.keys(res.data?.book_qc?.filled || {}).length} field(s) filled`);
+      toast.success(`Gemini QC complete — ${Object.keys(res.data?.book_qc?.filled || {}).length} response(s) completed`);
+      return res.data?.record || record;
     } catch (err) {
       toast.error(err?.response?.data?.error || "Gemini QC failed — try again");
     } finally {

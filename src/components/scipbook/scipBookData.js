@@ -75,7 +75,9 @@ export function buildPropertySections(record) {
       ["parcel_id", "Parcel ID Number", t.apn],
       ["owner_deed", "Owner Name (on Deed)", t.owner_name],
       ["parcel_address", "Parcel Street Address", t.parcel_address],
+      ["parcel_city", "Parcel City", t.parcel_city],
       ["parcel_state", "Parcel State", r.state],
+      ["parcel_zip", "Parcel Zip", t.parcel_zip],
       ["parcel_size", "Parcel Size (acres, MOL)", t.acreage != null ? `${t.acreage} ac` : null],
       ["parcel_dims", "Parcel Dimensions (feet)", t.boundaries],
       ["conforming_size", "Conforming Size?", zr(r, "conforming")],
@@ -102,7 +104,7 @@ export function buildPropertySections(record) {
       ["local_fire", "Local Fire Dept (municipality & phone)", ec.local_fire],
     ]},
     { title: "SITE NOTES", rows: [
-      ["site_notes", "Site development concerns (terrain, foliage, obstructions, generators or microwaves prohibited)", pick(zr(r, "site notes"), r.description)],
+      ["site_notes", "Please elaborate on any site development concerns (i.e. terrain, foliage, obstructions, generators or microwaves prohibited)", pick(zr(r, "site notes"), r.description)],
     ]},
     { title: "ZONING OVERVIEW", rows: [
       ["zoning_jurisdiction", "Zoning Jurisdiction", r.zoning_jurisdiction],
@@ -134,6 +136,9 @@ export function buildPropertySections(record) {
       ["sp_deadlines", "Submittal deadlines?", zr(r, "deadline")],
       ["sp_format", "Electronic, hard copy, or both?", zr(r, "electronic")],
     ]},
+    { title: "SITE PLAN FILING DOCUMENTS", rows: [
+      ["site_plan_notes", "Please elaborate on any site plan concerns, fees, etc.", zr(r, "site plan notes")],
+    ]},
     { title: "BUILDING PERMIT INFORMATION", rows: [
       ["bp_jurisdiction", "Building Permit Jurisdiction", zr(r, "building permit jurisdiction")],
       ["bp_contact", "Building Department Contact Info", zr(r, "building department contact")],
@@ -142,7 +147,9 @@ export function buildPropertySections(record) {
       ["bp_timeframe", "Building Permit Timeframe", zr(r, "building permit timeframe")],
       ["bp_bond", "Bond Required?", zr(r, "bond")],
       ["bp_e911", "E911 Address assigned?", zr(r, "e911")],
-      ["bp_expire", "Building permit expiration once pulled", zr(r, "expire")],
+    ]},
+    { title: "BUILDING PERMIT NOTES", rows: [
+      ["bp_expire", "When does the building permit expire once it's been pulled?", zr(r, "expire")],
     ]},
   ];
 

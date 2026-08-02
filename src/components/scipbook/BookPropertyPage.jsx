@@ -11,12 +11,12 @@ export default function BookPropertyPage({ record }) {
   const after = sections.slice(2);
 
   return (
-    <div className="text-[11px] leading-snug" style={{ color: "#1a2733" }}>
-      <div className="text-center py-2 mb-3 rounded" style={{ background: NAVY }}>
+    <div className="text-[9px] leading-tight" style={{ color: "#1a2733" }}>
+      <div className="text-center py-1.5 mb-2 rounded" style={{ background: NAVY }}>
         <h1 className="text-white text-base font-bold tracking-wide">SITE CANDIDATE INFORMATION PACKAGE</h1>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+      <div className="grid grid-cols-2 gap-x-5 gap-y-1.5">
         <div className="col-span-2 grid grid-cols-2 gap-x-6">
           {before.map((s) => <Section key={s.title} section={s} />)}
         </div>
@@ -24,9 +24,9 @@ export default function BookPropertyPage({ record }) {
         <div className="col-span-2">
           <SectionHeader title="SARF MAP" />
           {record?.map_image_url ? (
-            <img src={record.map_image_url} alt="SARF map" className="w-full rounded border object-contain" style={{ borderColor: "#c8d4de", maxHeight: "3.4in" }} />
+            <img src={record.map_image_url} alt="SARF map" className="w-full rounded border object-contain" style={{ borderColor: "#c8d4de", maxHeight: "2.1in" }} />
           ) : (
-            <div className="w-full rounded border border-dashed flex items-center justify-center text-slate-400" style={{ height: "2.2in", borderColor: "#c8d4de" }}>
+            <div className="w-full rounded border border-dashed flex items-center justify-center text-slate-400" style={{ height: "1.5in", borderColor: "#c8d4de" }}>
               SARF map not yet generated
             </div>
           )}
@@ -40,7 +40,7 @@ export default function BookPropertyPage({ record }) {
 
 function SectionHeader({ title }) {
   return (
-    <div className="px-2 py-1 mb-1 rounded-sm text-white font-bold text-[10px] tracking-wider" style={{ background: BLUE }}>
+    <div className="px-2 py-0.5 mb-0.5 rounded-sm text-white font-bold text-[8px] tracking-wider" style={{ background: BLUE }}>
       {title}
     </div>
   );
@@ -54,8 +54,8 @@ function Section({ section }) {
         <tbody>
           {section.rows.map((row) => (
             <tr key={row.key} className="border-b" style={{ borderColor: "#e4ebf1" }}>
-              <td className="py-[3px] pr-2 font-semibold align-top" style={{ width: "46%", color: "#3b4a58" }}>{row.label}</td>
-              <td className="py-[3px] align-top">
+              <td className="py-px pr-2 font-semibold align-top" style={{ width: "46%", color: "#3b4a58" }}>{row.label}</td>
+              <td className="py-px align-top">
                 {row.value ? (
                   <span>
                     {row.value}

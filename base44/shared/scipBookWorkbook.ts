@@ -15,6 +15,7 @@ const FONT = "Calibri";
 const COL_A_WIDTH = 33.42578125;
 const COL_B_WIDTH = 56.7109375;
 const IMAGE_ROW_PT = 400;
+const TEMPLATE_URL = "https://media.base44.com/files/public/69dd277f9504047a559d5834/d44409d24_NEWSCIP_7312026.xlsx";
 
 export interface BookSection { title: string; rows: Array<{ label: string; value?: string | null }>; }
 export interface BookMapSlot { label: string; url?: string | null; caption?: string; }
@@ -43,95 +44,77 @@ function captionCell(ws: any, r: number, text: string) {
   cell.alignment = { wrapText: true, vertical: "top" };
 }
 
-// Renders the full 8-page workbook; fetches and embeds every available map.
+// Uses the builder-uploaded workbook as the single master template, preserving
+// its eight sheets, formatting, print areas, and clickable next/back hyperlinks.
 export async function renderBookWorkbook(input: BookInput) {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "SiteHawk — SkyWave LLC";
-  wb.created = new Date();
-  const thin = { style: "thin" as const, color: { argb: "FFDDDDDD" } };
-  const imageJobs: Array<{ ws: any; row: number; key: string; url: string | null }> = [];
+  const template = await fetch(TEMPLATE_URL);
+  if (!template.ok) throw new Error(`SCIP template unavailable (${template.status})`);
 
-  // ── Tab 1: Property Data (SCIP) ───────────────────────────────────────────
-  const ws1 = wb.addWorksheet("1 · Property Data (SCIP)", {
-    pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-  });
-  ws1.getColumn("A").width = COL_A_WIDTH;
-  ws1.getColumn("B").width = COL_B_WIDTH;
-  let r = 1;
-  headerCell(ws1, r, input.title || "SITE CANDIDATE INFORMATION PACKAGE", true, true);
-  for (const s of input.sections || []) {
-    r += 1;
-    headerCell(ws1, r, s.title, false, true);
-    for (const row of s.rows || []) {
-      r += 1;
-      const aCell = ws1.getCell(`A${r}`), bCell = ws1.getCell(`B${r}`);
-      aCell.value = `  ${row.label}`;
-      aCell.font = { name: FONT, size: 10, bold: true, color: { argb: DARK_TEXT } };
-      aCell.alignment = { horizontal: "left", vertical: "top", wrapText: true };
-      aCell.border = { left: thin, right: thin, top: thin, bottom: thin };
-      bCell.value = row.value != null ? String(row.value) : "";
-      bCell.font = { name: FONT, size: 10, color: { argb: DARK_TEXT } };
-      bCell.alignment = { horizontal: "left", vertical: "top", wrapText: true, indent: 1 };
-      bCell.border = { left: thin, right: thin, top: thin, bottom: thin };
-    }
-    if (String(s.title).toUpperCase().startsWith("SEARCH RING")) {
-      r += 1;
-      headerCell(ws1, r, "SARF MAP", false, true);
-      r += 1;
-      ws1.getRow(r).height = IMAGE_ROW_PT;
-      imageJobs.push({ ws: ws1, row: r, key: "sarf", url: input.sarfUrl || null });
-      r += 1;
-      captionCell(ws1, r, "Auto-populated by the SiteHawk pipeline");
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await template.arrayBuffer());
+  wb.creator = "SiteHawk — SkyWave LLC";
+  wb.modified = new Date();
+
+  const property = wb.getWorksheet("Property Data");
+  if (!property) throw new Error("Uploaded SCIP template is missing the Property Data sheet");
+  property.pageSetup = { ...property.pageSetup, paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 1 };
+  property.pageMargins = { left: 0.35, right: 0.35, top: 0.35, bottom: 0.35, header: 0.15, footer: 0.15 };
+
+  const normalize = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  const labelCells = new Map<string, any[]>();
+  property.eachRow((row: any) => row.eachCell((cell: any) => {
+    if (typeof cell.value !== "string") return;
+    const key = normalize(cell.value);
+    if (!key) return;
+    labelCells.set(key, [...(labelCells.get(key) || []), cell]);
+  }));
+
+  for (const section of input.sections || []) {
+    for (const item of section.rows || []) {
+      const queue = labelCells.get(normalize(item.label));
+      const label = queue?.shift();
+      if (!label) continue;
+      const target = property.getCell(label.row, label.col + 1);
+      target.value = item.value == null ? "" : String(item.value);
+      target.alignment = { ...target.alignment, wrapText: true, vertical: "top" };
     }
   }
 
-  // ── Tabs 2–8: paired map exhibits ────────────────────────────────────────
-  (input.mapPages || []).forEach((p, i) => {
-    const clean = String(p.title || `Page ${i + 2}`).replace(/\s+/g, " ").replace(/[\[\]:*?/\\]/g, "").trim();
-    const ws = wb.addWorksheet(`${i + 2} · ${clean.slice(0, 26)}`, {
-      pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-    });
-    ws.getColumn("A").width = COL_A_WIDTH + COL_B_WIDTH;
-    let mr = 1;
-    headerCell(ws, mr, clean, true, false);
-    for (const slot of p.slots || []) {
-      mr += 1;
-      headerCell(ws, mr, slot.label, false, false);
-      mr += 1;
-      ws.getRow(mr).height = IMAGE_ROW_PT;
-      imageJobs.push({ ws, row: mr, key: slot.label, url: slot.url || null });
-      mr += 1;
-      captionCell(ws, mr, slot.caption || "");
-    }
-  });
-
-  // ── Embed every available image at its slot ──────────────────────────────
   const embedded: string[] = [];
   const missing: string[] = [];
-  const markPending = (ws: any, row: number, key: string) => {
-    const cell = ws.getCell(`A${row}`);
-    cell.value = `[ INSERT ${String(key).toUpperCase()} IMAGE HERE ] — not yet generated by the pipeline`;
-    cell.font = { name: FONT, size: 10, italic: true, color: { argb: "FF888888" } };
-    cell.alignment = { horizontal: "center", vertical: "middle" };
-  };
-  const jobs = imageJobs.map(async ({ ws, row, key, url }) => {
-    if (!url || !/^https?:\/\//.test(url)) { missing.push(key); markPending(ws, row, key); return; }
+  const addImage = async (ws: any, label: string, url: string | null | undefined, rowSpan = 14) => {
+    if (!url || !/^https?:\/\//i.test(url)) { missing.push(label); return; }
+    let labelCell: any = null;
+    ws.eachRow((row: any) => row.eachCell((cell: any) => {
+      if (!labelCell && normalize(cell.value) === normalize(label)) labelCell = cell;
+    }));
+    if (!labelCell) { missing.push(label); return; }
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const buf = new Uint8Array(await res.arrayBuffer());
-      const ext = /\.jpe?g($|\?)/i.test(url) ? "jpeg" : "png";
-      const imgId = wb.addImage({ buffer: buf, extension: ext });
-      const height = 520; // ≈400pt row
-      const width = Math.round(height * (4 / 3));
-      ws.addImage(imgId, { tl: { col: 0.05, row: row - 0.98 }, ext: { width, height }, editAs: "oneCell" });
-      embedded.push(key);
-    } catch (_e) {
-      missing.push(key);
-      markPending(ws, row, key);
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const contentType = response.headers.get("content-type") || "";
+      const extension = contentType.includes("jpeg") || /\.jpe?g($|\?)/i.test(url) ? "jpeg" : "png";
+      const imageId = wb.addImage({ buffer: new Uint8Array(await response.arrayBuffer()), extension });
+      const startRow = labelCell.row + 1;
+      const startCol = Math.max(1, labelCell.col);
+      ws.getCell(startRow, startCol).value = null;
+      ws.addImage(imageId, { tl: { col: startCol - 1, row: startRow - 1 }, br: { col: 7, row: startRow + rowSpan - 1 }, editAs: "oneCell" });
+      embedded.push(label);
+    } catch (_error) {
+      missing.push(label);
     }
-  });
-  await Promise.allSettled(jobs);
+  };
+
+  await addImage(property, "SARF MAP", input.sarfUrl, 22);
+  const sheetNames = ["Aerial Topo Map", "FEMA Zoning Map", "FLU Wetlands Map", "Airport Cell Towers Map", "Parcel Wind Map", "2D Viewshed Map", "Fiber Optics Map"];
+  for (let index = 0; index < sheetNames.length; index += 1) {
+    const ws = wb.getWorksheet(sheetNames[index]);
+    if (!ws) throw new Error(`Uploaded SCIP template is missing the ${sheetNames[index]} sheet`);
+    ws.pageSetup = { ...ws.pageSetup, paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 1 };
+    ws.pageMargins = { left: 0.35, right: 0.35, top: 0.35, bottom: 0.35, header: 0.15, footer: 0.15 };
+    const slots = input.mapPages?.[index]?.slots || [];
+    for (const slot of slots) await addImage(ws, slot.label, slot.url, 14);
+  }
 
   const out = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
   return { bytes: new Uint8Array(out), embedded, missing };

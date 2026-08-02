@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
-import { ArrowLeft, Printer, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Printer, Loader2, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { toast } from "sonner";
+import { scipBookQc } from "@/functions/scipBookQc";
 import BookPropertyPage from "@/components/scipbook/BookPropertyPage";
 import BookMapPage from "@/components/scipbook/BookMapPage";
 import BookQcPanel from "@/components/scipbook/BookQcPanel";
 import BookSheetExport from "@/components/scipbook/BookSheetExport";
-import { buildMapPages } from "@/components/scipbook/scipBookData";
+import { buildMapPages, collectMissingFields } from "@/components/scipbook/scipBookData";
 
 const PRINT_CSS = `
 @page { size: Letter; margin: 0; }
@@ -14,7 +16,7 @@ const PRINT_CSS = `
   body { background: #fff !important; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .no-print { display: none !important; }
-  .book-page { display: flex !important; box-shadow: none !important; border: none !important; margin: 0 !important; page-break-after: always; }
+  .book-page { display: flex !important; width: 8.5in !important; height: 11in !important; min-height: 0 !important; overflow: hidden !important; box-shadow: none !important; border: none !important; margin: 0 !important; page-break-after: always; }
   .book-page:last-child { page-break-after: auto; }
 }`;
 
@@ -26,6 +28,7 @@ export default function ScipBook() {
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
+  const [preparingPrint, setPreparingPrint] = useState(false);
 
   useEffect(() => {
     base44.entities.ScipRecord.get(id).then(setRecord).catch(() => setRecord(null)).finally(() => setLoading(false));
@@ -47,6 +50,37 @@ export default function ScipBook() {
   const total = pages.length;
   const go = (n) => { setPage(Math.max(0, Math.min(total - 1, n))); window.scrollTo({ top: 0 }); };
 
+  const printCompletedBook = async () => {
+    const missing = collectMissingFields(record);
+    if (!missing.length) return window.print();
+    setPreparingPrint(true);
+    try {
+      const t = record.parcel_targets?.[record.active_target_index || 0] || {};
+      const res = await scipBookQc({
+        scip_id: record.id,
+        missing,
+        context: {
+          site_name: record.site_name,
+          latitude: t.latitude ?? record.latitude,
+          longitude: t.longitude ?? record.longitude,
+          address: t.parcel_address || null,
+          county: record.county || null,
+          state: record.state || null,
+          jurisdiction: record.zoning_jurisdiction || null,
+        },
+      });
+      const completed = res.data?.record;
+      if (!completed) throw new Error("Gemini did not return the completed SCIP");
+      setRecord(completed);
+      toast.success("Gemini completed every response — opening print preview");
+      setTimeout(() => window.print(), 150);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error.message || "Gemini could not complete the SCIP");
+    } finally {
+      setPreparingPrint(false);
+    }
+  };
+
   return (
     <div className="min-h-screen py-6 px-3" style={{ background: "#e9eef3" }}>
       <style>{PRINT_CSS}</style>
@@ -59,10 +93,11 @@ export default function ScipBook() {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-slate-500">Page {page + 1} of {total}</span>
             <BookSheetExport record={record} onUpdate={setRecord} />
-            <button onClick={() => window.print()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white"
+            <button onClick={printCompletedBook} disabled={preparingPrint}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: "#0f2a43" }}>
-              <Printer className="w-4 h-4" /> Print Full SCIP
+              {preparingPrint ? <Loader2 className="w-4 h-4 animate-spin" /> : collectMissingFields(record).length ? <Sparkles className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
+              {preparingPrint ? "Gemini completing responses…" : "Print Full SCIP"}
             </button>
           </div>
         </div>
@@ -99,7 +134,7 @@ export default function ScipBook() {
             style={{ borderColor: "#1d6fb8", color: "#1d6fb8" }}
           >
             <ChevronLeft className="w-4 h-4" />
-            {page > 0 ? `BACK — ${pages[page - 1].title}` : "BACK"}
+            {page > 0 ? `CLICK HERE TO GO BACK — ${pages[page - 1].title}` : "BACK"}
           </button>
           <button
             onClick={() => go(page + 1)}
@@ -107,7 +142,7 @@ export default function ScipBook() {
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-40"
             style={{ background: "#1d6fb8" }}
           >
-            {page < total - 1 ? `CLICK FOR NEXT — ${pages[page + 1].title}` : "END"}
+            {page < total - 1 ? `CLICK HERE FOR NEXT PAGE — ${pages[page + 1].title}` : "END OF SCIP"}
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>

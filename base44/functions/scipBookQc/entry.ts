@@ -41,6 +41,7 @@ STRICT RULES:
 1. NEVER guess, estimate, or fabricate. If you cannot verify a value from a real source, put the field in needs_human with a one-line reason.
 2. Parcel-specific facts you cannot look up (owner contact person, taxes paid, centerlines, compound size, site notes) always go to needs_human.
 3. Keep each filled value concise (one line, include phone numbers where relevant).
+4. The printable SCIP may not contain blank responses. If a value cannot be verified, include it in needs_human AND provide a concise non-factual completion in filled using this exact pattern: "Requires human verification — <reason>". This is a disclosure, not a guessed answer.
 
 BLANK FIELDS (key | label | section):
 ${fields.map((f: any) => `- ${f.key} | ${f.label} | ${f.section || ""}`).join("\n")}
@@ -90,10 +91,18 @@ Return JSON. Every verified value MUST appear as an item in the "filled" array a
       const k = item?.key, v = item?.value;
       if (k && askedKeys.has(k) && v != null && String(v).trim() !== "") cleanFilled[k] = String(v);
     }
+    // The uploaded template cannot print with empty response cells. Gemini must
+    // either verify an answer or explicitly disclose why human verification is required.
+    const needsHuman = Array.isArray(result?.needs_human) ? result.needs_human : [];
+    for (const field of fields) {
+      if (cleanFilled[field.key]) continue;
+      const issue = needsHuman.find((item: any) => item?.key === field.key);
+      cleanFilled[field.key] = `Requires human verification — ${issue?.why || "no authoritative public source was found"}`;
+    }
 
     const book_qc = {
       filled: cleanFilled,
-      needs_human: Array.isArray(result?.needs_human) ? result.needs_human : [],
+      needs_human: needsHuman,
       summary: result?.summary || "",
       ran_at: new Date().toISOString(),
       ran_by: user.email,
