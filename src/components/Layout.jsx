@@ -35,7 +35,7 @@ const BASE_NAV = [
   { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡️ Zoning Verifier" },
   { path: "/rfi-engine", icon: Radar, label: "📡 RF Intelligence Engine" },
-  { path: "/fiber-operators", icon: Network, label: "🔌 Fiber Operators" },
+  { path: "/fiber-operators", icon: Network, label: "🔌 Local Fiber & Utility Directory" },
   { header: "FORMS & DOCUMENTS" },
   { path: "/hawk-fill", icon: ClipboardEdit, label: "🪶 HawkFill" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
