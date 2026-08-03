@@ -1,14 +1,41 @@
-import DashboardToolPages from "@/components/dashboard/DashboardToolPages";
+import { Link } from "react-router-dom";
+import { ArrowRight, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import HawkIcon from "@/components/HawkIcon";
+import WorkflowIndex from "@/components/dashboard/WorkflowIndex";
 
 export default function Dashboard() {
   return (
-    <div>
-      <header className="border-b border-border pb-5">
-        <p className="text-xs font-bold uppercase tracking-[0.22em] text-primary">SiteHawk Dashboard</p>
-        <h1 className="mt-1 font-heading text-2xl font-bold text-foreground md:text-3xl">Every workspace, out in the open.</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Scroll page by page or open any tool directly. Your existing Site Search pipeline stays in its current order.</p>
-      </header>
-      <DashboardToolPages />
+    <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/15 via-card to-muted p-6 md:p-9">
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-4 max-w-2xl">
+            <HawkIcon size={64} />
+            <div>
+              <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">Your SiteHawk Journey</div>
+              <h1 className="font-heading font-bold text-3xl md:text-4xl text-foreground mt-1">From search ring to signed site.</h1>
+              <p className="text-sm md:text-base text-muted-foreground mt-2 leading-relaxed">
+                Follow the complete SiteHawk workflow in order, then use the time-saving tools that keep every site organized and moving.
+                And if you feel lost or confused just ask Brian — he's an expert.
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 flex flex-col items-center gap-2 max-w-xs">
+            <Link to="/search">
+              <Button size="lg" className="gap-3 font-heading font-bold text-base md:text-lg h-14 px-8 uppercase tracking-wide shadow-lg">
+                <Search className="w-5 h-5" />
+                Start Your Journey
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </Link>
+            <p className="text-xs md:text-sm font-bold text-foreground text-center leading-snug">
+              Powered by TalonFit® — designed by AI engineers to make sure every parcel meets the criteria required.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <WorkflowIndex />
     </div>
   );
 }

@@ -117,6 +117,15 @@ export default function SARFCoachTour() {
     activeRef.current = true;
   }, [location.pathname, onSearch]);
 
+  // Close the Site Search coach immediately when the user leaves /search.
+  useEffect(() => {
+    if (onSearch) return;
+    setActive(false);
+    activeRef.current = false;
+    setRect(null);
+    setSteps([]);
+  }, [onSearch]);
+
   // When step changes, wait for the anchor to mount, then measure its rect
   useLayoutEffect(() => {
     if (!active || !steps.length) return;
