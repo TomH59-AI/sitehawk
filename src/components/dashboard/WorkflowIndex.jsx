@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import DocumentsIndex from "@/components/dashboard/DocumentsIndex";
 import {
   ClipboardList, Map, FileText, Target, RadioTower, Layers, Cable, Radio,
@@ -36,7 +37,7 @@ function IndexGrid({ items, accent, cardClassName = "rounded-xl border border-bo
       {items.map((item) => {
         const Icon = item.icon;
         return (
-          <div key={item.n} className={cardClassName}>
+          <Link key={item.n} to={item.to} className={`${cardClassName} block transition-all hover:border-primary/50 hover:shadow-sm`}>
             <div className="flex items-start gap-3">
               <div className={`relative shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${accent}`}>
                 <Icon className="w-5 h-5" />
@@ -47,7 +48,7 @@ function IndexGrid({ items, accent, cardClassName = "rounded-xl border border-bo
                 <p className={descClassName}>{item.desc}</p>
               </div>
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>

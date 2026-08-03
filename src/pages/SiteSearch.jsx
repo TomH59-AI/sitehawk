@@ -10,6 +10,8 @@ import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
+import Section7Infrastructure from "../components/search/Section7Infrastructure";
+import Section8Propagation from "../components/search/Section8Propagation";
 import Section9Colocation from "../components/search/Section9Colocation";
 import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
 import TargetLanePipeline from "../components/search/TargetLanePipeline";
@@ -67,7 +69,7 @@ export default function SiteSearch() {
   // Clearing a section also rolls back the parent readiness flags for it AND
   // every section downstream, so the pipeline correctly re-locks after it.
   const [clearKeys, setClearKeys] = useState({
-    sarf: 0, zoning: 0, targets: 0, maps: 0,
+    sarf: 0, zoning: 0, targets: 0, maps: 0, infrastructure: 0, propagation: 0,
   });
   const bumpKeys = (steps) =>
     setClearKeys((prev) => {
@@ -119,7 +121,7 @@ export default function SiteSearch() {
   };
 
   // Ordered pipeline steps (sarf is Section 1, always present).
-  const PIPELINE_ORDER = ["zoning", "targets", "maps"];
+  const PIPELINE_ORDER = ["zoning", "targets", "maps", "infrastructure", "propagation"];
 
   // Clear ONE section and everything downstream of it: remount those sections
   // (wipes their internal state) and roll back the parent readiness flags so the
@@ -154,7 +156,7 @@ export default function SiteSearch() {
     setSearchCenter(null);
     setGeneratedLabels([]);
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "infrastructure", "propagation"]);
   };
 
   // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
@@ -275,7 +277,7 @@ export default function SiteSearch() {
     setSearchParams((prev) => ({ ...prev, ring_name: `${prev.ring_name || "Search Ring"} — ${label}` }));
     setSearchCenter({ lat: round4(point.lat), lon: round4(point.lng) });
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "infrastructure", "propagation"]);
     setTimeout(() => document.querySelector('[data-coach="sarf-map"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
@@ -491,6 +493,37 @@ export default function SiteSearch() {
           onData={mergeSectionData}
         />
         </div>
+      )}
+
+      {/* TARGET A INFRASTRUCTURE — reconnects the existing power/fiber map after
+          the Hawk Maps suite completes. It runs only when the user requests it. */}
+      {coordsReady && sarfReady && zoningReady && targetA && (
+        <Section7Infrastructure
+          key={`infrastructure-${clearKeys.infrastructure}-${targetA?.apn || `${targetA?.latitude},${targetA?.longitude}`}`}
+          unlocked={mapsComplete}
+          active={pipelineStep === "infrastructure"}
+          targetA={targetA}
+          radiusMiles={searchParams.radius_miles}
+          onRun={() => setPipelineStep("infrastructure")}
+          onData={mergeSectionData}
+          onClear={() => clearFrom("infrastructure")}
+        />
+      )}
+
+      {/* TARGET A RF PROPAGATION — the existing carrier/CloudRF map remains
+          standalone and does not gate SCIP generation or any other section. */}
+      {coordsReady && sarfReady && zoningReady && targetA && (
+        <Section8Propagation
+          key={`propagation-${clearKeys.propagation}-${targetA?.apn || `${targetA?.latitude},${targetA?.longitude}`}`}
+          unlocked={true}
+          targetA={targetA}
+          towerHeightFt={searchParams.tower_height_ft || 150}
+          onData={mergeSectionData}
+          onClear={() => {
+            bumpKeys(["propagation"]);
+            setPipelineStep("propagation");
+          }}
+        />
       )}
 
       {/* HAWKFIT MAP — deterministic fit checks AFTER the Tower Siter /
