@@ -15,7 +15,7 @@ const FONT = "Calibri";
 const COL_A_WIDTH = 33.42578125;
 const COL_B_WIDTH = 56.7109375;
 const IMAGE_ROW_PT = 400;
-const TEMPLATE_URL = "https://media.base44.com/files/public/69dd277f9504047a559d5834/d44409d24_NEWSCIP_7312026.xlsx";
+const TEMPLATE_URL = "https://media.base44.com/files/public/69dd277f9504047a559d5834/bd7a44f11_NEWSCIP_7312026.xlsx";
 
 export interface BookSection { title: string; rows: Array<{ label: string; value?: string | null }>; }
 export interface BookMapSlot { label: string; url?: string | null; caption?: string; }

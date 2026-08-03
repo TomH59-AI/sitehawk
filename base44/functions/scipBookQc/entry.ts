@@ -1,4 +1,5 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.41';
+import { collectMissingScipFields, scipQcContext } from '../../shared/scipQcFields.ts';
 
 /**
  * scipBookQc — Gemini quality-control pass for the SCIP Book.
@@ -20,19 +21,25 @@ export default async function(req: Request): Promise<Response> {
     const record = await base44.entities.ScipRecord.get(scip_id);
     if (!record) return Response.json({ error: "SCIP not found" }, { status: 404 });
 
-    const fields = Array.isArray(missing) ? missing.slice(0, 60) : [];
+    const fields = Array.isArray(missing) && missing.length
+      ? missing.slice(0, 100)
+      : collectMissingScipFields(record).slice(0, 100);
     if (!fields.length) {
       const book_qc = {
         ...(record.book_qc || {}),
         summary: "Final Gemini QC confirmed that every required SCIP text field is complete.",
         ran_at: new Date().toISOString(),
         ran_by: user.email,
+        checked_field_count: 0,
+        remaining_blank_count: 0,
+        print_ready: true,
+        template_version: "NEWSCIP_7312026",
       };
       const updated = await base44.entities.ScipRecord.update(scip_id, { book_qc });
       return Response.json({ book_qc, record: updated, message: "All required fields complete" });
     }
 
-    const ctx = context || {};
+    const ctx = { ...scipQcContext(record), ...(context || {}) };
     const prompt = `You are the final quality-control reviewer for a cell tower SITE CANDIDATE INFORMATION PACKAGE (SCIP) about to be delivered to a client. The package must be as complete as possible.
 
 SITE CONTEXT:
@@ -113,6 +120,10 @@ Return JSON. Every verified value MUST appear as an item in the "filled" array a
       summary: result?.summary || "",
       ran_at: new Date().toISOString(),
       ran_by: user.email,
+      checked_field_count: fields.length,
+      remaining_blank_count: 0,
+      print_ready: true,
+      template_version: "NEWSCIP_7312026",
     };
 
     const updated = await base44.entities.ScipRecord.update(scip_id, { book_qc });

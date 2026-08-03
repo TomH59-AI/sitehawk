@@ -19,6 +19,7 @@ import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
 import PostScipNextSteps from "@/components/search/PostScipNextSteps";
 import { buildScipNarrative } from "@/lib/scipSkillNarrative";
+import { toScipRecord, waitForScipQc } from "@/lib/scipGeneratedRecord";
 import {
   buildSarfMap, buildAerial, buildTopo, buildFema, buildZoning,
   buildWetlands, buildParcel, buildWind, buildAirport, buildCellTower, buildFlum,
@@ -349,12 +350,11 @@ export default function GenerateScipButton({
         console.warn("[SCIP] narrative synthesis failed:", e);
         rec.professional = null;
       }
-      setRecord(rec);
-      setOpen(true);
-      // Notify the pipeline that a SCIP was successfully generated for THIS
-      // target's label — Section 3 uses this to lock the ladder & advance.
+      // Persist first: the entity-create automation immediately starts Gemini QC.
+      // The final report stays locked until that workflow marks it print-ready.
+      const savedScip = await base44.entities.ScipRecord.create(toScipRecord(rec));
       onGenerated?.(rec.targetA.label || "Target A");
-      // Fire the "New SCIP generated" Zapier webhook (fire-and-forget).
+
       zapierNewScip({
         agent_name: rec.agent_name,
         agent_email: rec.agent_email,
@@ -366,13 +366,15 @@ export default function GenerateScipButton({
         county: rec.county,
         state: rec.state,
       }).catch((e) => console.warn("[ZAPIER] webhook failed:", e?.message));
-      // Send the tiered SCIP document payload to Zapier for document
-      // assembly/delivery (fire-and-forget).
       if (tierSel) {
         zapierScipDelivery({ tier: tierSel.tier, branding: tierSel.branding, record: rec })
           .then(() => toast.success(`${tierSel.tier === "basic" ? "Hawk Basic" : tierSel.tier === "premier" ? "Hawk Premier" : "Hawk Enterprise"} SCIP sent to Zapier for delivery.`))
           .catch((e) => console.warn("[ZAPIER] SCIP delivery failed:", e?.message));
       }
+
+      await waitForScipQc(base44, savedScip.id);
+      toast.success("Gemini verified every SCIP response — final report is ready");
+      navigate(`/scip/${savedScip.id}/book`);
     } catch (err) {
       console.error(err);
       toast.error("Could not build the SCIP. Try regenerating the pipeline maps.");

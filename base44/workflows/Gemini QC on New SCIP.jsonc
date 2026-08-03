@@ -1,0 +1,40 @@
+{
+  "description": "Immediately runs Gemini quality control after a SCIP record is created, fills every incomplete response with verified data or a human-verification disclosure, and unlocks the final report for printing.",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "gemini_qc_on_new_scip",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "run_gemini_qc": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "scipBookQc",
+            "args": {
+              "scip_id": "${ .trigger.entity_id }"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Run Gemini SCIP QC",
+            "description": "Complete and unlock report"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "ScipRecord"
+    }
+  },
+  "name": "Gemini QC on New SCIP"
+}

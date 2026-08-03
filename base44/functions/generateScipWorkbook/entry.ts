@@ -15,6 +15,7 @@
 // OUTPUT: { ok, filename, signed_url, bytes, images_embedded, images_missing }
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
 import { renderBookWorkbook } from "../../shared/scipBookWorkbook.ts";
+import { applyQcFills } from "../../shared/scipQcFields.ts";
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 const tbd = (v: unknown, label = "TBD"): string => {
@@ -83,10 +84,11 @@ function normalize(src: Record<string, any>, fromEntity: boolean) {
         viewshed: urlOf(vs.aerial_ring_url),
         fiber: "",
       },
+      qc: src.book_qc || {},
       extras: {
         taxesPaid: src.taxes_paid, conformingSize: src.conforming_size,
         parcelDims: src.parcel_dimensions, meetsLotReq: src.meets_min_lot,
-        siteNotes: src.site_notes,
+        siteNotes: src.site_notes, compoundSize: src.compound_size, centerlines: src.centerlines,
         powerStr: src.power_provider_str, telcoStr: src.telco_provider_str,
         fiberStr: src.fiber_provider_str, airportStr: src.airport_str,
         airportCaption: proximityCaption("Airport", maps.airport && typeof maps.airport === "object" ? maps.airport : null),
@@ -127,6 +129,7 @@ function normalize(src: Record<string, any>, fromEntity: boolean) {
       map2d: src.map_image_url, viewshed: vs.aerial_ring_url || "",
       fiber: urlOf(rf?.coverage?.png_url),
     },
+    qc: src.book_qc || {},
     extras: {
       powerStr: pwr.name ? `${pwr.name}${pwr.phone ? " | " + fmtPhone(pwr.phone) : ""}` : "",
       airportStr: arpt.name ? `${arpt.name}${arpt.distance_miles ? ` (${arpt.distance_miles} mi)` : ""}` : "",
@@ -167,11 +170,11 @@ function buildSections(n: ReturnType<typeof normalize>) {
       row("SARF Height", sarfH),
     ]},
     { title: "PROJECT INFORMATION", rows: [
-      row("Tower Type", "Self-Supporting"),
+      row("Tower Type", tbd(zr(rep["tower_type"]))),
       row("Tower Height", sarfH),
-      row("Centerlines available", site.sarfHeight ? `${Number(site.sarfHeight) - 10}'` : "TBD"),
+      row("Centerlines available", tbd(x.centerlines)),
       row("Ground Elevation", site.groundElevFt ? `${Math.round(Number(site.groundElevFt))}' AMSL (USGS 3DEP)` : "TBD — USGS"),
-      row("Compound Size (S.F. & dimensions)", "75' x 75'  (5,625 SF)"),
+      row("Compound Size (S.F. & dimensions)", tbd(x.compoundSize ?? zr(rep["compound_size"]))),
       row("Latitude", tbd(num(t.latitude)?.toFixed(6), latS)),
       row("Longitude", tbd(num(t.longitude)?.toFixed(6), lonS)),
       row("Distance from Search Ring Center", tbd(x.distanceFromCenter)),
@@ -200,7 +203,7 @@ function buildSections(n: ReturnType<typeof normalize>) {
       row("Flood Zone(s)", tbd(c.flood_zone ?? t.fema_risk_factor, "TBD — See FEMA FIRM Map")),
       row("Wetland Concerns?", tbd(c.wetland_concerns ?? c.wetlands)),
       row("Water Management District", tbd(c.water_management_district)),
-      row("Hazardous Waste Concerns?", tbd(c.hazardous_waste, "None detected")),
+      row("Hazardous Waste Concerns?", tbd(c.hazardous_waste)),
       row("Access Notes (ROW, driveway, code)", tbd(c.access_notes, "TBD — verify driveway permit requirements")),
       row("Power Provider (name & phone)", tbd(x.powerStr ?? c.power_provider)),
       row("Fiber Available?", tbd(x.fiberStr ?? c.fiber, "TBD — verify with county")),
@@ -211,7 +214,7 @@ function buildSections(n: ReturnType<typeof normalize>) {
     ]},
     { title: "SITE NOTES", rows: [
       row("Site development concerns (terrain, foliage, obstructions, generators or microwaves prohibited)",
-        tbd(x.siteNotes, `No major development concerns identified. Zoning: ${zoningCode}.`)),
+        tbd(x.siteNotes)),
     ]},
     { title: "ZONING OVERVIEW", rows: [
       row("Zoning Jurisdiction", tbd(z.jurisdiction)),
@@ -313,6 +316,9 @@ export default async function (req: Request): Promise<Response> {
     } else if (body.scipId) {
       const rec = await base44.entities.ScipRecord.get(String(body.scipId));
       if (!rec) return Response.json({ error: "ScipRecord not found" }, { status: 404 });
+      if (!rec.book_qc?.print_ready) {
+        return Response.json({ error: "Gemini QC is not complete; printing remains locked" }, { status: 409 });
+      }
       normalized = normalize(rec, true);
     } else {
       return Response.json({ error: "Provide { record } or { scipId }" }, { status: 400 });
@@ -320,7 +326,7 @@ export default async function (req: Request): Promise<Response> {
 
     const images = normalized.images as Record<string, string>;
     const { bytes, embedded, missing } = await renderBookWorkbook({
-      sections: buildSections(normalized),
+      sections: applyQcFills(buildSections(normalized), normalized.qc?.filled || {}),
       mapPages: buildMapPages(normalized),
       sarfUrl: images.sarf || null,
     });
