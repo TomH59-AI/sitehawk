@@ -1,4 +1,4 @@
-import { ExternalLink, Phone } from "lucide-react";
+import { ExternalLink, Mail, Phone } from "lucide-react";
 
 export default function DirectoryContactCard({ item, kind }) {
   return (
@@ -13,6 +13,7 @@ export default function DirectoryContactCard({ item, kind }) {
       </div>
       <div className="mt-3 flex flex-wrap gap-2 text-sm">
         {item.phone ? <a href={`tel:${item.phone}`} className="inline-flex items-center gap-1 text-primary"><Phone className="h-4 w-4" />{item.phone}</a> : <span className="text-muted-foreground">Phone: No data available</span>}
+        {item.email && <a href={`mailto:${item.email}`} className="inline-flex items-center gap-1 text-primary"><Mail className="h-4 w-4" />{item.email}</a>}
         {item.website ? <a href={item.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">Website <ExternalLink className="h-3.5 w-3.5" /></a> : <span className="text-muted-foreground">Website: No data available</span>}
       </div>
       {item.address && <p className="mt-2 text-xs text-muted-foreground">{item.address}</p>}

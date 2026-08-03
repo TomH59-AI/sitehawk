@@ -1,4 +1,5 @@
 import DirectoryContactCard from "./DirectoryContactCard";
+import DirectoryAuthorities from "./DirectoryAuthorities";
 
 export default function DirectoryResults({ result }) {
   const place = [result.location?.city, result.location?.county, result.location?.state].filter(Boolean).join(", ");
@@ -8,6 +9,7 @@ export default function DirectoryResults({ result }) {
         <h2 className="font-heading text-lg font-bold text-foreground">Results for {result.zip}</h2>
         <p className="text-xs text-muted-foreground">{place || "Location name unavailable"} · Source: {result.location?.source}</p>
       </div>
+      <DirectoryAuthorities authorities={result.authorities} notice={result.notices?.authorities} />
       <div>
         <h2 className="mb-2 font-heading text-base font-bold text-foreground">Local electric utility</h2>
         {result.utility ? <DirectoryContactCard item={result.utility} kind="Electric utility" /> : <p className="rounded-xl border border-border p-4 text-sm text-muted-foreground">{result.notices?.utility}</p>}

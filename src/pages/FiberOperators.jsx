@@ -34,14 +34,14 @@ export default function FiberOperators() {
   return (
     <div className="mx-auto max-w-4xl p-2 md:p-6">
       <h1 className="flex items-center gap-2 font-heading text-2xl font-bold text-foreground">
-        <Network className="h-6 w-6 text-primary" /> Local Fiber &amp; Utility Directory
+        <Network className="h-6 w-6 text-primary" /> Local Services &amp; Governing Authority Directory
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Enter a ZIP code to find the local electric utility and verified fiber or backhaul contacts.
+        Enter a ZIP code to find governing jurisdictions, police, fire, non-emergency dispatch, electric utility, and verified fiber contacts.
       </p>
       <div className="mt-4 flex items-start gap-2 rounded-xl border border-border bg-secondary/50 p-3 text-xs text-muted-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
-        <span>Utility territory comes from HIFLD. Fiber contacts only appear when their coverage and contact details are verified; confirm service at the exact site before relying on it.</span>
+        <span>Government and public-safety contacts are verified against official sources by built-in Gemini. Utility territory comes from HIFLD; confirm all service and non-emergency contacts before relying on them.</span>
       </div>
       <DirectorySearchForm zip={zip} onZipChange={setZip} onSubmit={search} onClear={clear} loading={loading} hasResult={!!result || !!error} />
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
