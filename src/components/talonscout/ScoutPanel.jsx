@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import ScoutAddressForm from "./ScoutAddressForm";
 import ScoutRingMap from "./ScoutRingMap";
 import ScoutTargetCard from "./ScoutTargetCard";
+import ScoutSheetsExport from "./ScoutSheetsExport";
 
 const LETTERS = "ABCDEFGHIJ".split("");
 const BASE_TARGETS = 5;
@@ -202,6 +203,7 @@ export default function ScoutPanel() {
                 All {maxTargets} saved spots used{peLetter ? "" : " — turn on PE letter for five more"}.
               </p>
             )}
+            {targets.length > 0 && <ScoutSheetsExport targets={targets} center={center} />}
             {targets.map((t) => (
               <ScoutTargetCard
                 key={t.id}

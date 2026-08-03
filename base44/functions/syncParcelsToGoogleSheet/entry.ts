@@ -23,23 +23,34 @@ function fmt(v) {
 function buildRow(deal, sr, ord, now) {
   const permitType = ord?.requires_cup ? "CUP" : ord?.requires_sup ? "SUP" : ord?.permit_type || "";
   return [
-    fmt(deal.owner_name),
-    fmt(deal.parcel_address || sr?.parcel_address),
-    fmt(sr?.parcel_id),
-    fmt(sr?.parcel_size_acres),
-    fmt(sr?.zoning_classification),
-    fmt(sr?.zoning_jurisdiction || ord?.jurisdiction),
-    fmt(permitType),
-    fmt(ord?.height_limit_ft),
-    fmt(ord?.setback_ft),
-    fmt(deal.stage),
-    fmt(deal.follow_up_date),
-    fmt(deal.phone),
-    fmt(deal.email),
-    fmt(deal.match_score),
-    fmt(deal.latitude ?? sr?.latitude),
-    fmt(deal.longitude ?? sr?.longitude),
-    now,
+    fmt(deal.owner_name), fmt(deal.parcel_address || sr?.parcel_address), fmt(sr?.parcel_id),
+    fmt(sr?.parcel_size_acres), fmt(sr?.zoning_classification), fmt(sr?.zoning_jurisdiction || ord?.jurisdiction),
+    fmt(permitType), fmt(ord?.height_limit_ft), fmt(ord?.setback_ft), fmt(deal.stage),
+    fmt(deal.follow_up_date), fmt(deal.phone), fmt(deal.email), fmt(deal.match_score),
+    fmt(deal.latitude ?? sr?.latitude), fmt(deal.longitude ?? sr?.longitude), now,
+  ];
+}
+
+const SCOUT_HEADERS = [
+  "Target", "Search Ring Center", "Parcel Address", "APN", "Owner", "Acres", "Zoning",
+  "County", "State", "Jurisdiction", "Verdict", "Max Height (ft)", "Binding Constraint",
+  "Edge Distance (ft)", "Latitude", "Longitude", "Parcel Source", "Ordinance Source",
+  "Exported By", "Last Synced",
+];
+
+function scoutCoordinate(value) {
+  return Number.isFinite(Number(value)) ? Number(value).toFixed(6) : "";
+}
+
+function buildScoutRow(target, center, user, now) {
+  return [
+    fmt(target.letter), fmt(center?.label), fmt(target.parcel?.address), fmt(target.parcel?.apn),
+    fmt(target.parcel?.owner), fmt(target.parcel?.acreage), fmt(target.parcel?.zoning),
+    fmt(target.parcel?.county), fmt(target.parcel?.state), fmt(target.ordinance?.jurisdiction),
+    fmt(target.verdict), fmt(target.max_height_ft), fmt(target.binding_constraint),
+    fmt(target.edge_distance_ft), scoutCoordinate(target.lat), scoutCoordinate(target.lon),
+    target.parcel ? "Realie" : "", target.ordinance ? "Built-in ordinance library" : "",
+    fmt(user.email), now,
   ];
 }
 
@@ -61,15 +72,50 @@ async function gfetch(url, accessToken, init = {}) {
   return data;
 }
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    const payload = await req.json().catch(() => ({}));
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection("googlesheets");
     if (!accessToken) {
       return Response.json({ error: 'Google Sheets not connected' }, { status: 400 });
+    }
+
+    if (Array.isArray(payload.targets)) {
+      if (!payload.targets.length) return Response.json({ error: "No scout targets to export" }, { status: 400 });
+      const settingKey = "scout_candidate_master_sheet_id";
+      const tabName = "Candidates";
+      const settings = await base44.entities.AppSetting.filter({ key: settingKey }, "-updated_date", 1);
+      const setting = settings[0];
+      let sheetId = setting?.value || null;
+
+      if (sheetId) {
+        try {
+          await gfetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=spreadsheetId`, accessToken);
+        } catch {
+          sheetId = null;
+        }
+      }
+      if (!sheetId) {
+        const created = await gfetch("https://sheets.googleapis.com/v4/spreadsheets", accessToken, {
+          method: "POST",
+          body: JSON.stringify({ properties: { title: "SiteHawk Scouted Candidate Master List" }, sheets: [{ properties: { title: tabName } }] }),
+        });
+        sheetId = created.spreadsheetId;
+        if (setting) await base44.entities.AppSetting.update(setting.id, { value: sheetId });
+        else await base44.entities.AppSetting.create({ key: settingKey, value: sheetId });
+      }
+
+      const now = new Date().toISOString();
+      const values = [SCOUT_HEADERS, ...payload.targets.map((target) => buildScoutRow(target, payload.center, user, now))];
+      await gfetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(tabName)}:clear`, accessToken, { method: "POST", body: "{}" });
+      await gfetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(tabName)}!A1?valueInputOption=RAW`, accessToken, { method: "PUT", body: JSON.stringify({ values }) });
+      const spreadsheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+      console.log(`[syncParcelsToGoogleSheet] user=${user.email} replaced scout master with ${payload.targets.length} targets`);
+      return Response.json({ success: true, spreadsheet_id: sheetId, spreadsheet_url: spreadsheetUrl, rows_synced: payload.targets.length });
     }
 
     // 1. Load tracked parcels (CRMDeals) and enrich with linked SearchResults
@@ -151,4 +197,4 @@ Deno.serve(async (req) => {
     console.error('syncParcelsToGoogleSheet error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}
