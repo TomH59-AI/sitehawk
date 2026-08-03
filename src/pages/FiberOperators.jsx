@@ -10,6 +10,12 @@ export default function FiberOperators() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const clear = () => {
+    setZip("");
+    setResult(null);
+    setError("");
+  };
+
   const search = async (event) => {
     event.preventDefault();
     setLoading(true);
@@ -37,7 +43,7 @@ export default function FiberOperators() {
         <Info className="mt-0.5 h-4 w-4 shrink-0" />
         <span>Utility territory comes from HIFLD. Fiber contacts only appear when their coverage and contact details are verified; confirm service at the exact site before relying on it.</span>
       </div>
-      <DirectorySearchForm zip={zip} onZipChange={setZip} onSubmit={search} loading={loading} />
+      <DirectorySearchForm zip={zip} onZipChange={setZip} onSubmit={search} onClear={clear} loading={loading} hasResult={!!result || !!error} />
       {error && <p role="alert" className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       {result && <DirectoryResults result={result} />}
     </div>
