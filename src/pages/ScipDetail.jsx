@@ -24,6 +24,7 @@ import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection
 import ScipQualityAuditor from "../components/scip/audit/ScipQualityAuditor";
 import JurisdictionPermitsCard from "../components/jurisdiction/JurisdictionPermitsCard";
 import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
+import ScipLiveSketch from "../components/scip/livesketch/ScipLiveSketch";
 
 // Thin, self-contained print row placed above each on-screen SCIP panel. Lets a
 // user print the ENTIRE branded SCIP from wherever they're reviewing — without
@@ -289,6 +290,13 @@ export default function ScipDetail() {
             />
           </div>
         )}
+
+        {/* LIVE SITE SKETCH — the finale. Freehand-draws Target A to scale
+            (Talon FT geometry), stamps the verdict, PE-letter toggle re-draws
+            the engineered fall zone live. Screen-only gimmick — not printed. */}
+        <div className="mt-5 no-print">
+          <ScipLiveSketch record={record} />
+        </div>
       </div>
     </div>
   );
