@@ -45,6 +45,15 @@ const zr = (v: unknown): string => {
 const urlOf = (u: unknown): string =>
   typeof u === "string" ? u : ((u as Record<string, unknown>)?.url as string) || "";
 
+const proximityCaption = (kind: string, item: Record<string, any> | null): string => {
+  if (!item) return `Distance from Target A: No data available — RF Proximity analysis returned no ${kind.toLowerCase()} result.`;
+  const name = tbd(item.name ?? item.airport_name ?? item.licensee ?? item.call_letters ?? item.site_name, kind);
+  const distance = item.distance_label || [item.distance_miles != null ? `${item.distance_miles} mi` : "", item.distance_feet != null ? `${Number(item.distance_feet).toLocaleString("en-US")} ft` : ""].filter(Boolean).join(" / ");
+  return distance
+    ? `Distance from Target A to ${name}: ${distance} (straight-line). Source: RF Proximity analysis.`
+    : `Distance from Target A to ${name}: No data available — RF Proximity analysis returned no distance.`;
+};
+
 // ── Normalize input → one internal shape ───────────────────────────────────
 function normalize(src: Record<string, any>, fromEntity: boolean) {
   if (!fromEntity) {
@@ -80,6 +89,8 @@ function normalize(src: Record<string, any>, fromEntity: boolean) {
         siteNotes: src.site_notes,
         powerStr: src.power_provider_str, telcoStr: src.telco_provider_str,
         fiberStr: src.fiber_provider_str, airportStr: src.airport_str,
+        airportCaption: proximityCaption("Airport", maps.airport && typeof maps.airport === "object" ? maps.airport : null),
+        towerCaption: proximityCaption("Cell tower", maps.celltower && typeof maps.celltower === "object" ? maps.celltower : null),
         distanceFromCenter: src.distance_from_center,
       },
     };
@@ -119,6 +130,8 @@ function normalize(src: Record<string, any>, fromEntity: boolean) {
     extras: {
       powerStr: pwr.name ? `${pwr.name}${pwr.phone ? " | " + fmtPhone(pwr.phone) : ""}` : "",
       airportStr: arpt.name ? `${arpt.name}${arpt.distance_miles ? ` (${arpt.distance_miles} mi)` : ""}` : "",
+      airportCaption: proximityCaption("Airport", rf?.rf?.airport || arpt || null),
+      towerCaption: proximityCaption("Cell tower", rf?.rf?.tower || null),
     },
   };
 }
@@ -249,7 +262,9 @@ function buildSections(n: ReturnType<typeof normalize>) {
 }
 
 // ── Pages 2–8 (paired map exhibits, NEW SCIP 8.1.2026) ──────────────────────
-function buildMapPages(images: Record<string, string>) {
+function buildMapPages(n: ReturnType<typeof normalize>) {
+  const images = n.images as Record<string, string>;
+  const extras = n.extras as Record<string, string>;
   const slot = (label: string, key: string, caption: string) => ({ label, url: images[key] || null, caption });
   return [
     { title: "AERIAL MAP & TOPO MAP", slots: [
@@ -265,8 +280,8 @@ function buildMapPages(images: Record<string, string>) {
       slot("WETLANDS MAP", "wetlands", "National Wetlands Inventory (USFWS) map showing mapped wetlands and surface waters on or near the parcel."),
     ]},
     { title: "NEAREST AIRPORT & NEAREST CELL TOWER MAP", slots: [
-      slot("NEAREST AIRPORT MAP", "airport", "Location and distance of the nearest airport / airfield relative to the candidate — supports FAA Part 77 review."),
-      slot("NEAREST CELL TOWER MAP", "celltower", "Existing towers / wireless facilities nearest the search ring — collocation opportunities and coverage context."),
+      slot("NEAREST AIRPORT MAP", "airport", extras.airportCaption),
+      slot("NEAREST CELL TOWER MAP", "celltower", extras.towerCaption),
     ]},
     { title: "PARCEL MAP & WIND SPEED MAP", slots: [
       slot("PARCEL MAP", "parcel", "County property appraiser parcel map showing boundaries, dimensions, parcel ID, and adjacent tracts."),
@@ -306,7 +321,7 @@ export default async function (req: Request): Promise<Response> {
     const images = normalized.images as Record<string, string>;
     const { bytes, embedded, missing } = await renderBookWorkbook({
       sections: buildSections(normalized),
-      mapPages: buildMapPages(images),
+      mapPages: buildMapPages(normalized),
       sarfUrl: images.sarf || null,
     });
 

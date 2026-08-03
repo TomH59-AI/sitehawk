@@ -27,6 +27,17 @@ const url = (...cands) => {
   return null;
 };
 
+function proximityCaption(kind, item) {
+  if (!item) return `Distance from Target A: No data available — RF Proximity analysis returned no ${kind.toLowerCase()} result.`;
+  const name = pick(item.name, item.airport_name, item.licensee, item.call_letters, item.site_name, kind);
+  const miles = item.distance_miles;
+  const feet = item.distance_feet;
+  const distance = item.distance_label || [miles != null ? `${miles} mi` : null, feet != null ? `${Number(feet).toLocaleString()} ft` : null].filter(Boolean).join(" / ");
+  return distance
+    ? `Distance from Target A to ${name}: ${distance} (straight-line). Source: RF Proximity analysis.`
+    : `Distance from Target A to ${name}: No data available — RF Proximity analysis returned no distance.`;
+}
+
 function milesBetween(lat1, lon1, lat2, lon2) {
   if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return null;
   const R = 3958.8, d = Math.PI / 180;
@@ -170,6 +181,8 @@ export function buildMapPages(record) {
   const hm = r.hawk_maps || {};
   const rf = r.rf_enrichment?.[String(r.active_target_index || 0)] || {};
   const pam = r.power_airport_maps || {};
+  const airport = rf?.rf?.airport || pam.airport || null;
+  const tower = rf?.rf?.tower || null;
   return [
     { id: "aerial_topo", title: "AERIAL MAP  &  TOPO MAP", slots: [
       { label: "AERIAL MAP", url: url(hm.aerial_url), caption: "High-resolution aerial / satellite view of the candidate parcel, access route, and surrounding land uses." },
@@ -184,8 +197,8 @@ export function buildMapPages(record) {
       { label: "WETLANDS MAP", url: null, caption: "National Wetlands Inventory (USFWS) map showing mapped wetlands and surface waters on or near the parcel." },
     ]},
     { id: "airport_tower", title: "NEAREST AIRPORT  &  NEAREST CELL TOWER MAP", slots: [
-      { label: "NEAREST AIRPORT MAP", url: url(rf?.rf?.airport?.map_url, rf?.rf?.airport?.url, pam.airport?.map_url, pam.airport?.url, pam.airport?.image_url), caption: "Location and distance of the nearest airport / airfield relative to the candidate — supports FAA Part 77 review." },
-      { label: "NEAREST CELL TOWER MAP", url: url(rf?.rf?.tower?.map_url, rf?.rf?.tower?.url), caption: "Existing towers / wireless facilities nearest the search ring — collocation opportunities and coverage context." },
+      { label: "NEAREST AIRPORT MAP", url: url(airport?.map_url, airport?.url, airport?.image_url), caption: proximityCaption("Airport", airport) },
+      { label: "NEAREST CELL TOWER MAP", url: url(tower?.map_url, tower?.url), caption: proximityCaption("Cell tower", tower) },
     ]},
     { id: "parcel_wind", title: "PARCEL MAP  &  WIND SPEED MAP", slots: [
       { label: "PARCEL MAP", url: null, caption: "County property appraiser parcel map showing boundaries, dimensions, parcel ID, and adjacent tracts." },
