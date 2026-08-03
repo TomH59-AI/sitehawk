@@ -86,7 +86,7 @@ export function buildPropertySections(record) {
       ["parcel_id", "Parcel ID Number", t.apn],
       ["owner_deed", "Owner Name (on Deed)", t.owner_name],
       ["parcel_address", "Parcel Street Address", t.parcel_address],
-      ["parcel_city", "Parcel City", t.parcel_city],
+      ["parcel_city", "Parcel City", pick(t.parcel_city, t.city, "No data available — Realie")],
       ["parcel_state", "Parcel State", r.state],
       ["parcel_zip", "Parcel Zip", t.parcel_zip],
       ["parcel_size", "Parcel Size (acres, MOL)", t.acreage != null ? `${t.acreage} ac` : null],

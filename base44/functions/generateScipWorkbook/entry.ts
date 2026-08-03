@@ -181,7 +181,7 @@ function buildSections(n: ReturnType<typeof normalize>) {
       row("Parcel ID Number", tbd(t.apn)),
       row("Owner Name (on Deed)", tbd(t.owner_name)),
       row("Parcel Street Address", tbd(t.parcel_address)),
-      row("Parcel City", tbd(t.parcel_city)),
+      row("Parcel City", tbd(t.parcel_city ?? t.city, "No data available — Realie")),
       row("Parcel State", state || "TBD"),
       row("Parcel Zip", tbd(t.parcel_zip)),
       row("Parcel Size (acres, MOL)", t.acreage ? `${t.acreage} ac` : "TBD"),

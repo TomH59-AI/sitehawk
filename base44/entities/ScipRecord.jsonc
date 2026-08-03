@@ -141,6 +141,10 @@
           "parcel_address": {
             "type": "string"
           },
+          "parcel_city": {
+            "type": "string",
+            "description": "Situs city returned by the parcel data source."
+          },
           "apn": {
             "type": "string"
           },

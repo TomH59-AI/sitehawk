@@ -59,6 +59,7 @@ function normalize(p) {
     owner_name: p.owner_name || p.ownerName || p.owner || null,
     mailing_address: mailingAddress(p),
     parcel_address: p.site_address || p.address || p.addressFull || p.fullAddress || null,
+    parcel_city: p.parcel_city || p.city || p.addressCity || p.siteCity || p.situsCity || p.propertyCity || null,
     acreage: p.acres ?? p.acreage ?? p.lotSizeAcres ?? null,
     acres_formatted: p.acres_formatted || null,
     lot_frontage_ft: p.lotFrontage || p.frontage || p.lot_frontage || null,
