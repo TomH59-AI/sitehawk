@@ -102,6 +102,10 @@ export default function ScipLiveSketch({ record }) {
       /\b(accept|allow|permit|may|reduc|less)\b/i.test(fzText);
     const rule = /110\s*%/.test(fzText) ? "110" : "100";
     const jurisdiction = zr?.zoning_overview?.zoning_jurisdiction?.value || "";
+    // Ordinance max height from the zoning report — flag (never silently redraw)
+    const maxHM = String(zr?.tower_specifics?.maximum_tower_height?.value || "").match(/(\d{2,4})/);
+    const maxHeightFt = maxHM ? Number(maxHM[1]) : null;
+    const heightExceeds = !!(maxHeightFt && heightFt > maxHeightFt);
 
     let shape = "rectangle", widthFt = 360, depthFt = 420, polygonText = "", sourceNote;
     const ring = extractRing(ctx.parcel_geometry);
@@ -136,7 +140,7 @@ export default function ScipLiveSketch({ record }) {
     const peModel = computeExhibit({ ...cfg, fallZone: { rule: "custom", customFt: String(peRadius) } });
     const peInfo = { available: true, accepted: peAccepted, ruleLabel: "50% H", radiusFt: peRadius };
     const dateLabel = (record?.submittal_date || new Date().toISOString().slice(0, 10)).toUpperCase();
-    return { ctx, cfg, baseModel, peModel, peInfo, sourceNote, dateLabel };
+    return { ctx, cfg, baseModel, peModel, peInfo, sourceNote, dateLabel, maxHeightFt, heightExceeds };
   }, [record]);
 
   // Remount the engine only when the drawn geometry actually changes.
@@ -183,7 +187,7 @@ export default function ScipLiveSketch({ record }) {
           <div>
             <div className="font-heading font-bold text-foreground">Live Site Sketch — The Reveal</div>
             <div className="text-xs text-muted-foreground">
-              Watches your SCIP draw itself: Target A boundary, setbacks, compound, fall zone, tower — to scale, freehand, verdict stamped. Talon FT engine.
+              Draws the active {built.ctx.target_label}{built.ctx.parcel_address ? ` — ${built.ctx.parcel_address}` : ""} to scale from its saved parcel geometry, with the fall-zone rule and PE acceptance read from this record's zoning report. Talon FT engine.
             </div>
           </div>
         </div>
@@ -228,6 +232,11 @@ export default function ScipLiveSketch({ record }) {
           )}
         </div>
 
+        {built.heightExceeds && (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-600">
+            ⚠ SARF height {Math.round(built.cfg.tower.heightFt)}′ exceeds the ordinance maximum {built.maxHeightFt}′ from this record's zoning report — variance/waiver path required.
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           {chips.map((c) => (
             <span key={c.key}
