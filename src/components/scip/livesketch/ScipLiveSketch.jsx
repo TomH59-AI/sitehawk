@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PencilRuler, Play, RotateCcw, Gauge, Volume2, VolumeX, Zap, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { computeExhibit } from "@/lib/towerFitExhibit";
 import { resolveScipActiveTarget } from "@/lib/scipTarget";
 import { mountLiveSketch } from "./liveSketchEngine";
@@ -80,7 +81,7 @@ function simplifyRing(pts, maxPts = 26) {
   return out.length >= 3 ? out : pts;
 }
 
-export default function ScipLiveSketch({ record }) {
+export default function ScipLiveSketch({ record, pipelineMode = false }) {
   const svgRef = useRef(null);
   const ctrlRef = useRef(null);
   const [started, setStarted] = useState(false);
@@ -98,8 +99,9 @@ export default function ScipLiveSketch({ record }) {
     const heightFt = Number(record?.sarf_height) || 199;
     const zr = record?.zoning_report || {};
     const fzText = String(zr?.tower_specifics?.fall_zone_requirements?.value || "");
-    const peAccepted = /\b(PE|engineer|certif|yield|collapse|structural)\b/i.test(fzText) &&
-      /\b(accept|allow|permit|may|reduc|less)\b/i.test(fzText);
+    const peText = `${fzText} ${String(zr?.tower_specifics?.pe_letter?.value || "")}`;
+    const peAccepted = /\b(PE|engineer|certif|yield|collapse|structural)\b/i.test(peText) &&
+      /\b(accept|allow|permit|may|reduc|less)\b/i.test(peText);
     const rule = /110\s*%/.test(fzText) ? "110" : "100";
     const jurisdiction = zr?.zoning_overview?.zoning_jurisdiction?.value || "";
     // Ordinance max height from the zoning report — flag (never silently redraw)
@@ -195,11 +197,19 @@ export default function ScipLiveSketch({ record }) {
           <Button size="sm" variant="outline" onClick={handleReplay} disabled={!done || running}>
             <RotateCcw className="w-4 h-4 mr-1" /> Replay
           </Button>
-          <Button size="sm" variant={peOn ? "default" : "outline"} onClick={handlePE}
-            disabled={!done || running}
-            className={!verdictIsFits && done && !running && !peOn ? "animate-pulse" : ""}>
-            <Zap className="w-4 h-4 mr-1" /> {peOn ? "PE letter: ON" : "Apply PE letter"}
-          </Button>
+          {pipelineMode ? (
+            <label className="flex h-8 items-center gap-2 rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground">
+              <Zap className="w-4 h-4 text-primary" />
+              PE letter
+              <Switch checked={peOn} onCheckedChange={handlePE} disabled={!done || running} aria-label="Toggle PE letter fall-zone relief" />
+            </label>
+          ) : (
+            <Button size="sm" variant={peOn ? "default" : "outline"} onClick={handlePE}
+              disabled={!done || running}
+              className={!verdictIsFits && done && !running && !peOn ? "animate-pulse" : ""}>
+              <Zap className="w-4 h-4 mr-1" /> {peOn ? "PE letter: ON" : "Apply PE letter"}
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={handleSpeed}>
             <Gauge className="w-4 h-4 mr-1" /> {speed}×
           </Button>

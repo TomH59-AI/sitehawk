@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import ScipLiveSketch from "@/components/scip/livesketch/ScipLiveSketch";
+import PipelineSketchData from "@/components/search/PipelineSketchData";
 
 export default function PipelineLiveSketch({ targetA, searchCenter, searchParams, zoningResult }) {
   const record = useMemo(() => {
@@ -21,11 +22,17 @@ export default function PipelineLiveSketch({ targetA, searchCenter, searchParams
         zoning_overview: { zoning_jurisdiction: { value: zoning.jurisdiction || "" } },
         tower_specifics: {
           fall_zone_requirements: { value: zoning.fall_zone || "" },
+          pe_letter: { value: zoning.pe_letter || zoning.pe_self_certification || "" },
           maximum_tower_height: { value: zoning.max_height || "" },
         },
       },
     };
   }, [targetA, searchCenter, searchParams, zoningResult]);
 
-  return <ScipLiveSketch record={record} />;
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+      <ScipLiveSketch record={record} pipelineMode />
+      <PipelineSketchData zoning={zoningResult?.zoning || {}} />
+    </div>
+  );
 }
