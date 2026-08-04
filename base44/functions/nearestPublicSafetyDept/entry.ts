@@ -3,6 +3,7 @@
 // Police (FBI CDE) records carry coordinates → nearest by distance.
 // Fire (USFA registry) records carry address/phone but no coords → matched by county.
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { scrapePsapNonEmergencyPhone } from '../../shared/psapPhoneScrape.ts';
 
 function haversineMi(lat1, lon1, lat2, lon2) {
   const R = 3958.7613, toRad = (d) => (d * Math.PI) / 180;
@@ -97,7 +98,17 @@ Deno.serve(async (req) => {
           distance_mi: Number.isFinite(bestPD) ? Math.round(bestPD * 10) / 10 : null,
           address: null,
           phone: null,
+          phone_source: null,
+          phone_source_url: null,
         };
+        // 1) Scrapfly — read the number off the agency's own public page.
+        const scraped = await scrapePsapNonEmergencyPhone(best, Deno.env.get('SCRAPFLY_API_KEY'));
+        if (scraped) {
+          psap.phone = scraped.phone;
+          psap.phone_source = 'source-scraped';
+          psap.phone_source_url = scraped.source_url;
+        }
+        // 2) Web-grounded lookup — address always, phone only if scraping found none.
         try {
           const info = await base44.asServiceRole.integrations.Core.InvokeLLM({
             prompt: `Find the public NON-EMERGENCY administrative contact information for this 911 dispatch center (PSAP): "${best.psap_name}" in ${best.city || best.county}, ${best.state} (${best.county} County). Return its street/mailing address and its non-emergency (administrative) phone number. Do NOT return 911. If a value cannot be verified, return null for it.`,
@@ -111,7 +122,10 @@ Deno.serve(async (req) => {
             },
           });
           if (info?.address) psap.address = info.address;
-          if (info?.phone && !/^9-?1-?1$/.test(String(info.phone).trim())) psap.phone = info.phone;
+          if (!psap.phone && info?.phone && !/^9-?1-?1$/.test(String(info.phone).trim())) {
+            psap.phone = info.phone;
+            psap.phone_source = 'web-grounded-unverified';
+          }
         } catch (e) {
           console.warn('PSAP contact enrichment failed:', e.message);
         }
