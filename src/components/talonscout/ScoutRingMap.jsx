@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import TribalLandLayer from "./TribalLandLayer";
 
 const MI_TO_M = 1609.34;
 const RINGS = [
@@ -90,8 +91,25 @@ function ClickCatcher({ center, onProbe, onSave, enabled }) {
 // TalonFit® ring map — SRC waypoint + 0.25 / 0.50 / 1-mile radii. Click to grade a
 // point, double-click to save it as a lettered candidate.
 export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, onSelect, canPick }) {
+  const [tribalOn, setTribalOn] = useState(false);
   return (
-    <div className="h-[520px] w-full">
+    <div className="relative h-[520px] w-full">
+      <div className="absolute right-3 top-3 z-[500] rounded-lg bg-black/70 px-2.5 py-2 text-[11px] font-mono text-white shadow backdrop-blur">
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={tribalOn}
+            onChange={(e) => setTribalOn(e.target.checked)}
+            className="h-3.5 w-3.5 accent-amber-400"
+          />
+          <span>Tribal lands (BIA LAR)</span>
+        </label>
+        {tribalOn && (
+          <div className="mt-1 max-w-[190px] text-[10px] leading-tight text-white/70">
+            Federal trust / restricted-fee boundaries — a THPO/TCNS review flag, not a determination.
+          </div>
+        )}
+      </div>
       <MapContainer
         center={[center.lat, center.lon]}
         zoom={14}
@@ -104,6 +122,7 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
           attribution="Esri"
           maxZoom={19}
         />
+        {tribalOn && <TribalLandLayer />}
         {RINGS.map((r) => (
           <Circle
             key={r.mi}
