@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PencilRuler, Play, RotateCcw, Gauge, Volume2, VolumeX, Zap, SkipForward } from "lucide-react";
+import { PencilRuler, Play, RotateCcw, Gauge, Volume2, VolumeX, Zap, SkipForward, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { computeExhibit } from "@/lib/towerFitExhibit";
 import { resolveScipActiveTarget } from "@/lib/scipTarget";
 import { mountLiveSketch } from "./liveSketchEngine";
+import SketchHeightControl from "./SketchHeightControl";
 
 /**
  * ScipLiveSketch — "The Reveal": the SCIP finale that freehand-draws the active
@@ -88,15 +89,19 @@ export default function ScipLiveSketch({ record, pipelineMode = false }) {
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [peOn, setPeOn] = useState(false);
+  const [heightFt, setHeightFt] = useState(() => Number(record?.sarf_height) || 199);
   const [speed, setSpeed] = useState(1);
   const [sound, setSound] = useState(true);
   const [caption, setCaption] = useState("SCIP compiled. Ready to draft the site concept.");
   const [chips, setChips] = useState([]);
   const [lit, setLit] = useState(() => new Set());
 
+  useEffect(() => {
+    setHeightFt(Number(record?.sarf_height) || 199);
+  }, [record?.sarf_height]);
+
   const built = useMemo(() => {
     const ctx = resolveScipActiveTarget(record || {});
-    const heightFt = Number(record?.sarf_height) || 199;
     const zr = record?.zoning_report || {};
     const fzText = String(zr?.tower_specifics?.fall_zone_requirements?.value || "");
     const peText = `${fzText} ${String(zr?.tower_specifics?.pe_letter?.value || "")}`;
@@ -143,7 +148,7 @@ export default function ScipLiveSketch({ record, pipelineMode = false }) {
     const peInfo = { available: true, accepted: peAccepted, ruleLabel: "50% H", radiusFt: peRadius };
     const dateLabel = (record?.submittal_date || new Date().toISOString().slice(0, 10)).toUpperCase();
     return { ctx, cfg, baseModel, peModel, peInfo, sourceNote, dateLabel, maxHeightFt, heightExceeds };
-  }, [record]);
+  }, [record, heightFt]);
 
   // Remount the engine only when the drawn geometry actually changes.
   const cfgKey = useMemo(() => JSON.stringify(built.cfg), [built]);
@@ -172,6 +177,14 @@ export default function ScipLiveSketch({ record, pipelineMode = false }) {
   const ctrl = () => ctrlRef.current;
   const handleStart = () => { setStarted(true); ctrl()?.start(); };
   const handleReplay = () => { setLit(new Set()); setStarted(true); ctrl()?.replay(); };
+  const handleClear = () => {
+    setLit(new Set());
+    setStarted(false);
+    setDone(false);
+    setPeOn(false);
+    setCaption("Site sketch cleared. Adjust the height or draw it again.");
+    ctrl()?.clear();
+  };
   const handleSkip = () => ctrl()?.skip();
   const handlePE = () => { if (peOn) ctrl()?.revertPE(); else ctrl()?.applyPE(); };
   const handleSpeed = () => { const m = speed === 1 ? 2 : 1; setSpeed(m); ctrl()?.setSpeed(m); };
@@ -194,6 +207,10 @@ export default function ScipLiveSketch({ record, pipelineMode = false }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <SketchHeightControl value={heightFt} onChange={setHeightFt} disabled={running} />
+          <Button size="sm" variant="outline" onClick={handleClear} disabled={!started || running}>
+            <Trash2 className="w-4 h-4 mr-1" /> Clear
+          </Button>
           <Button size="sm" variant="outline" onClick={handleReplay} disabled={!done || running}>
             <RotateCcw className="w-4 h-4 mr-1" /> Replay
           </Button>

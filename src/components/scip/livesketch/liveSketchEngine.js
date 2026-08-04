@@ -347,6 +347,12 @@ export function mountLiveSketch(svg, opts) {
   const title = handLabel(40, 52, "CONCEPT SITE SKETCH", { size: 17, weight: 700 });
   const titleUL = stroke(roughLineD(40, 60, 248, 60, { amp: 1 }), C.ink, 1.4, { op: 0.6 });
   const lblEnv = env.valid ? handLabel(X(env.x1) + 8, Y(env.y2) + 19, "SETBACK LINE — BUILDABLE AREA", { size: 12, fill: C.cyanDk }) : null;
+  const setbackLabels = env.valid ? [
+    handLabel((X(env.x1) + X(env.x2)) / 2, Y(env.y1) - 8, `FRONT ${base.setbacks.front}'`, { size: 10.5, fill: C.cyanDk, anchor: "middle" }),
+    handLabel((X(env.x1) + X(env.x2)) / 2, Y(env.y2) + 34, `REAR ${base.setbacks.rear}'`, { size: 10.5, fill: C.cyanDk, anchor: "middle" }),
+    handLabel(X(env.x1) + 8, (Y(env.y1) + Y(env.y2)) / 2, `LEFT ${base.setbacks.left}'`, { size: 10.5, fill: C.cyanDk, rot: -90, anchor: "middle" }),
+    handLabel(X(env.x2) - 8, (Y(env.y1) + Y(env.y2)) / 2, `RIGHT ${base.setbacks.right}'`, { size: 10.5, fill: C.cyanDk, rot: 90, anchor: "middle" }),
+  ] : [];
   const lblEase = ease ? handLabel(
     ease.from === "south" || ease.from === "north" ? X(ease.x2) + 14 : (X(ease.x1) + X(ease.x2)) / 2,
     ease.from === "south" || ease.from === "north" ? (Y(ease.y1) + Y(ease.y2)) / 2 + 30 : Y(ease.y2) - 10,
@@ -421,7 +427,7 @@ export function mountLiveSketch(svg, opts) {
 
   if (env.valid) {
     cap(`Dashing the setback envelope — F${base.setbacks.front}' R${base.setbacks.rear}' S${base.setbacks.left}'/${base.setbacks.right}'`);
-    st(envDash, SPD.tick); fill(envFill); on(lblEnv); chip("setbacks"); wait(240);
+    st(envDash, SPD.tick); fill(envFill); on(lblEnv); setbackLabels.forEach(on); chip("setbacks"); wait(240);
   }
   if (ease) {
     cap(`Routing the ${Math.round(ease.w)}' access easement`);
@@ -628,6 +634,20 @@ export function mountLiveSketch(svg, opts) {
       startQueue(TL);
     },
     skip() { if (!destroyed && !done) finishAll(); },
+    clear() {
+      if (destroyed || running) return;
+      done = false; Q = null; scratch(false);
+      svg.classList.add("ls-noanim");
+      for (const item of TL) {
+        if (item.t === "s") item.el.style.strokeDashoffset = item.len;
+        else if ((item.t === "r" || item.t === "f") && item.el) item.el.classList.remove("on");
+      }
+      if (conflict) conflict.classList.remove("on");
+      stampBase.g.classList.remove("landed");
+      resetPE(); hidePencil(); emitState();
+      void svg.getBoundingClientRect();
+      svg.classList.remove("ls-noanim");
+    },
     replay() {
       if (destroyed || running) return;
       done = false;
