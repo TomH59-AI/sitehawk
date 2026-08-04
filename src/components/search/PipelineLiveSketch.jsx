@@ -31,7 +31,7 @@ export default function PipelineLiveSketch({ targetA, searchCenter, searchParams
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      <ScipLiveSketch record={record} pipelineMode />
+      <ScipLiveSketch record={record} pipelineMode zoningData={zoningResult?.zoning || {}} />
       <PipelineSketchData zoning={zoningResult?.zoning || {}} />
     </div>
   );

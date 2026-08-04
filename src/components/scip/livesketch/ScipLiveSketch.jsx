@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PencilRuler, Play, RotateCcw, Gauge, Volume2, VolumeX, Zap, SkipForward, Trash2 } from "lucide-react";
+import { PencilRuler, Play, RotateCcw, Gauge, Volume2, VolumeX, Zap, SkipForward, Trash2, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { computeExhibit } from "@/lib/towerFitExhibit";
 import { resolveScipActiveTarget } from "@/lib/scipTarget";
 import { mountLiveSketch } from "./liveSketchEngine";
 import SketchHeightControl from "./SketchHeightControl";
+import { downloadLiveSketchPdf } from "./downloadLiveSketchPdf";
+import { base44 } from "@/api/base44Client";
 
 /**
  * ScipLiveSketch — "The Reveal": the SCIP finale that freehand-draws the active
@@ -82,7 +84,7 @@ function simplifyRing(pts, maxPts = 26) {
   return out.length >= 3 ? out : pts;
 }
 
-export default function ScipLiveSketch({ record, pipelineMode = false }) {
+export default function ScipLiveSketch({ record, pipelineMode = false, zoningData = null }) {
   const svgRef = useRef(null);
   const ctrlRef = useRef(null);
   const [started, setStarted] = useState(false);
@@ -95,6 +97,8 @@ export default function ScipLiveSketch({ record, pipelineMode = false }) {
   const [caption, setCaption] = useState("SCIP compiled. Ready to draft the site concept.");
   const [chips, setChips] = useState([]);
   const [lit, setLit] = useState(() => new Set());
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
   useEffect(() => {
     setHeightFt(Number(record?.sarf_height) || 199);
@@ -189,6 +193,25 @@ export default function ScipLiveSketch({ record, pipelineMode = false }) {
   const handlePE = () => { if (peOn) ctrl()?.revertPE(); else ctrl()?.applyPE(); };
   const handleSpeed = () => { const m = speed === 1 ? 2 : 1; setSpeed(m); ctrl()?.setSpeed(m); };
   const handleSound = () => { const v = !sound; setSound(v); ctrl()?.setSound(v); };
+  const handleDownload = async () => {
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      const preparedBy = await base44.auth.me();
+      await downloadLiveSketchPdf({
+        svg: svgRef.current,
+        record,
+        zoningData,
+        heightFt,
+        sourceNote: built.sourceNote,
+        preparedBy,
+      });
+    } catch (error) {
+      setDownloadError(error?.message || "PDF download failed. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const verdictIsFits = built.baseModel.verdict === "FITS";
 
@@ -207,8 +230,12 @@ export default function ScipLiveSketch({ record, pipelineMode = false }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <SketchHeightControl value={heightFt} onChange={setHeightFt} disabled={running} />
-          <Button size="sm" variant="outline" onClick={handleClear} disabled={!started || running}>
+          <SketchHeightControl value={heightFt} onChange={setHeightFt} disabled={running || downloading} />
+          <Button size="sm" onClick={handleDownload} disabled={!done || running || downloading} aria-label="Download Live Site Sketch PDF">
+            {downloading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
+            {downloading ? "Preparing PDF…" : "Download PDF"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={handleClear} disabled={!started || running || downloading}>
             <Trash2 className="w-4 h-4 mr-1" /> Clear
           </Button>
           <Button size="sm" variant="outline" onClick={handleReplay} disabled={!done || running}>
@@ -240,6 +267,11 @@ export default function ScipLiveSketch({ record, pipelineMode = false }) {
       </div>
 
       <div className="border-t border-border p-4 space-y-3">
+        {downloadError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs font-semibold text-destructive">
+            {downloadError}
+          </div>
+        )}
         <div className="text-sm italic text-muted-foreground min-h-[22px]">
           <span className="text-primary not-italic font-bold mr-1.5">▸</span>{caption}
         </div>
