@@ -4,7 +4,7 @@
 // it appears on a scraped page next to non-emergency/administrative wording,
 // and it always comes back with the page it was read from.
 
-const SCRAPFLY = "https://api.scrapfly.io/scrape";
+import { scrapePage } from "./webScrape.ts";
 
 // Phone patterns like (352) 369-7000, 352-369-7000, 352.369.7000
 const PHONE_RE = /\(?\b(\d{3})\)?[\s.-]?(\d{3})[\s.-](\d{4})\b/g;
@@ -13,14 +13,15 @@ const NON_EMERGENCY_RE =
 
 const fmt = (a: string, b: string, c: string) => `(${a}) ${b}-${c}`;
 
-async function scrape(url: string, key: string) {
-  const params = new URLSearchParams({
-    key, url, asp: "true", country: "us", render_js: "true", format: "markdown",
-  });
-  const res = await fetch(`${SCRAPFLY}?${params.toString()}`);
-  if (!res.ok) return null;
-  const body = await res.json().catch(() => null);
-  return body?.result?.content || null;
+// Oxylabs primary, Scrapfly fallback. Tags stripped so the text scanners below
+// work the same whether the provider returned HTML or markdown.
+async function scrape(url: string, _key: string) {
+  const page = await scrapePage(url, { renderJs: true, scrapflyFormat: "markdown" });
+  if (!page) return null;
+  return page.content
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
 }
 
 // Pull the first phone number that sits within ~200 chars of non-emergency wording.

@@ -1,7 +1,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
-import { secrets } from 'base44:runtime';
+import { scrapePage } from '../../shared/webScrape.ts';
 
-// Admin-only. Uses Scrapfly (ASP + JS render) to look for a published main
+// Admin-only. Uses Oxylabs (primary) with Scrapfly as the default fallback to look for a published main
 // business phone number on each FiberOperator website that still has none.
 // Returns CANDIDATES only — it never writes to the entity. A human decides.
 
@@ -14,18 +14,10 @@ function plausible(area, mid, last) {
   return true;
 }
 
-async function scrape(url, apiKey, renderJs) {
-  const qs = new URLSearchParams({
-    key: apiKey,
-    url,
-    asp: 'true',
-    format: 'raw',
-    render_js: renderJs ? 'true' : 'false',
-  });
-  const res = await fetch(`https://api.scrapfly.io/scrape?${qs}`);
-  const json = await res.json();
-  if (!res.ok) throw new Error(json?.message || `Scrapfly ${res.status}`);
-  return json?.result?.content || '';
+async function scrape(url, renderJs) {
+  const page = await scrapePage(url, { renderJs });
+  if (!page) throw new Error('No content from Oxylabs or Scrapfly');
+  return page.content;
 }
 
 function extract(html) {
@@ -83,9 +75,6 @@ export default async function (req) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     if (user.role !== 'admin') return Response.json({ error: 'Forbidden' }, { status: 403 });
 
-    const apiKey = secrets.get('SCRAPFLY_API_KEY');
-    if (!apiKey) return Response.json({ error: 'SCRAPFLY_API_KEY is not set' }, { status: 500 });
-
     const body = await req.json().catch(() => ({}));
     const ids = Array.isArray(body.ids) ? body.ids : null;
 
@@ -103,7 +92,7 @@ export default async function (req) {
       const urls = [op.website, `${base}/contact`, `${base}/contact-us`];
       for (let i = 0; i < urls.length && !candidates.length; i++) {
         try {
-          const html = await scrape(urls[i], apiKey, i === urls.length - 1);
+          const html = await scrape(urls[i], i === urls.length - 1);
           candidates = extract(html);
           attempts.push({ url: urls[i], ok: true, hits: candidates.length });
         } catch (e) {
