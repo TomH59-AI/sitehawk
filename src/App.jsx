@@ -58,8 +58,6 @@ import SCIPPreview from './pages/SCIPPreview';
 import SCIPShareView from './pages/SCIPShareView';
 import PowerLinesDashboard from './pages/PowerLinesDashboard';
 import SitePowerMap from './pages/SitePowerMap';
-import HawkFrequency from './pages/HawkFrequency';
-import CoverageAnalysis from './pages/CoverageAnalysis';
 import InfrastructureIntelligence from './pages/InfrastructureIntelligence';
 import ScipNew from './pages/ScipNew';
 import ScipDetail from './pages/ScipDetail';
@@ -175,8 +173,6 @@ const AuthenticatedApp = () => {
         <Route path="/scip" element={<SCIPPreview />} />
         <Route path="/power-lines" element={<PowerLinesDashboard />} />
         <Route path="/site-power-map" element={<SitePowerMap />} />
-        <Route path="/hawk-frequency" element={<HawkFrequency />} />
-        <Route path="/coverage-analysis" element={<CoverageAnalysis />} />
         <Route path="/InfrastructureIntelligence" element={<InfrastructureIntelligence />} />
         {/* Admin-only ScipHawk fiber KMZ importer */}
         <Route path="/fiber-layers-admin" element={<FiberLayersAdmin />} />
