@@ -358,7 +358,12 @@ export function evaluatePoint({
 // ── BUILDABLE-AREA OVERLAY ──────────────────────────────────────────────────
 // Grid-sample the parcel and color each cell green / yellow / red for the
 // requested height. Uses the same setback math as evaluatePoint (fast path).
-export function buildBuildableOverlay({ parcelGeometry, requestedHeightFt, rules, waterFeatures }) {
+export function buildBuildableOverlay({
+  parcelGeometry, requestedHeightFt, rules, waterFeatures,
+  nearbyTowers = [], towerDataAvailable = false,
+  structures = [], structureDataAvailable = false,
+  usePeReduction = false,
+}) {
   if (!parcelGeometry) return null;
   const parcelFeature = { type: "Feature", properties: {}, geometry: parcelGeometry };
   let bbox, lines;
@@ -366,8 +371,14 @@ export function buildBuildableOverlay({ parcelGeometry, requestedHeightFt, rules
 
   const setbackRule = (rules || []).find((r) => r.category === "setback") || { fixedSetbackFt: 0, heightMultiplier: 1, confidence: "assumed" };
   const heightRule = (rules || []).find((r) => r.category === "height");
+  const towerRule = (rules || []).find((r) => r.category === "separation" && r.measuredFrom === "existing tower");
+  const structureRule = (rules || []).find((r) => r.category === "separation" && r.measuredFrom !== "existing tower");
   const ordMax = heightRule?.maxHeightFt || Infinity;
   const anyMissing = (rules || []).some((r) => r.confidence === "missing" || r.confidence === "assumed");
+  const separationDataMissing = !!(
+    (towerRule?.fixedSetbackFt && !towerDataAvailable)
+    || (structureRule?.fixedSetbackFt && !structureDataAvailable)
+  );
 
   const widthKm = turf.distance([bbox[0], bbox[1]], [bbox[2], bbox[1]], { units: "kilometers" });
   const heightKm = turf.distance([bbox[0], bbox[1]], [bbox[0], bbox[3]], { units: "kilometers" });
@@ -392,12 +403,38 @@ export function buildBuildableOverlay({ parcelGeometry, requestedHeightFt, rules
     const lngLat = center.geometry.coordinates;
     const edgeFt = edgeFtOf(center);
     const fixed = setbackRule.fixedSetbackFt || 0;
-    const mult = setbackRule.heightMultiplier ?? 1;
+    const mult = usePeReduction && setbackRule.peReductionAllowed
+      ? setbackRule.peMultiplier ?? 0.5
+      : setbackRule.heightMultiplier ?? 1;
     const derivedMax = mult > 0 ? Math.max(0, (edgeFt - fixed) / mult) : edgeFt >= fixed ? ordMax : 0;
     const maxH = Math.min(ordMax, derivedMax);
+    let towerViolation = false;
+    if (towerRule?.fixedSetbackFt && towerDataAvailable) {
+      towerViolation = nearbyTowers.some((tower) => {
+        const lon = Number(tower.lon ?? tower.longitude), lat = Number(tower.lat ?? tower.latitude);
+        return Number.isFinite(lon) && Number.isFinite(lat)
+          && distFt(lngLat, [lon, lat]) < towerRule.fixedSetbackFt;
+      });
+    }
+    let structureViolation = false;
+    if (structureRule?.fixedSetbackFt && structureDataAvailable) {
+      const nearest = nearestExternalStructure(
+        center,
+        structures,
+        parcelFeature,
+        /residential/i.test(structureRule.measuredFrom || structureRule.name),
+      );
+      structureViolation = nearest.count > 0 && nearest.minFt < structureRule.fixedSetbackFt;
+    }
     let color;
-    if (onWater(lngLat, waterFeatures) || maxH < requestedHeightFt || requestedHeightFt > ordMax) color = "red";
-    else if (anyMissing) color = "yellow";
+    if (
+      onWater(lngLat, waterFeatures)
+      || maxH < requestedHeightFt
+      || requestedHeightFt > ordMax
+      || towerViolation
+      || structureViolation
+    ) color = "red";
+    else if (anyMissing || separationDataMissing) color = "yellow";
     else color = "green";
     cell.properties = { fill: COLOR_HEX[color], color, maxH: Math.round(maxH) };
     cells.push(cell);
