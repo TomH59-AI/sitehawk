@@ -122,36 +122,78 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, targetKey]);
 
-  const fit = useMemo(() => {
-    if (!towerLngLat) return null;
-    return computeFit({
+  // One rule set drives the cursor, map verdict, rejection reason, and saved height.
+  const aiRules = useMemo(() => buildOrdinanceRules(zoningResult), [zoningResult]);
+  const solverRules = useMemo(() => {
+    const heightRule = aiRules.find((rule) => rule.category === "height");
+    const setbackRule = aiRules.find((rule) => rule.category === "setback");
+    return {
+      maxHeightFt: heightRule?.maxHeightFt || 199,
+      fixedSetbackFt: setbackRule?.fixedSetbackFt || 0,
+      hasPELetter: !!setbackRule?.peReductionAllowed,
+      fallZoneMultiplier: setbackRule?.peMultiplier ?? 0.5,
+    };
+  }, [aiRules]);
+
+  const evaluateFitAt = useCallback((lngLat) => {
+    if (!lngLat) return null;
+    const physical = computeFit({
       parcelGeometry: siteTarget?.parcel_geometry || null,
-      towerLngLat,
+      towerLngLat: lngLat,
       heightFt: controls.heightFt,
       widthFt: controls.widthFt,
       depthFt: controls.depthFt,
       zoning: siteTarget?.zoning || null,
       waterFeatures: water,
+      frontSetbackFt: solverRules.fixedSetbackFt,
+      sideSetbackFt: solverRules.fixedSetbackFt,
+      rearSetbackFt: solverRules.fixedSetbackFt,
+      maxHeightFt: solverRules.maxHeightFt,
+      hasPELetter: solverRules.hasPELetter,
+      fallZoneMultiplier: solverRules.fallZoneMultiplier,
     });
-  }, [siteTarget, towerLngLat, controls, water]);
-
-  const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
-
-  // AI Equation — structured ordinance rules from the pipeline's Section 2
-  // zoning result, evaluated live at the current cursor position.
-  const aiRules = useMemo(() => buildOrdinanceRules(zoningResult), [zoningResult]);
-  const aiEval = useMemo(() => {
-    if (!towerLngLat) return null;
-    return evaluatePoint({
+    const ordinance = evaluatePoint({
       parcelGeometry: siteTarget?.parcel_geometry || null,
-      towerLngLat,
+      towerLngLat: lngLat,
       requestedHeightFt: controls.heightFt,
       rules: aiRules,
       waterFeatures: water,
+      nearbyTowers,
+      towerDataAvailable,
+      structures,
+      structureDataAvailable,
+      usePeReduction: solverRules.hasPELetter,
       carrierCenter: searchCenter,
       targetA,
     });
-  }, [siteTarget, towerLngLat, controls.heightFt, aiRules, water, searchCenter, targetA]);
+    const status = physical.status === "fails" || ordinance.color === "red"
+      ? "fails"
+      : physical.status === "needs_review" || ordinance.color === "yellow"
+        ? "needs_review"
+        : "works";
+    const ceilings = [physical.maxAvailableHeight, ordinance.maxAllowedHeightFt]
+      .filter((value) => Number.isFinite(value) && value >= 0);
+    const maxAvailableHeight = ceilings.length ? Math.min(...ceilings) : 0;
+    const reasons = [...new Set([
+      ...ordinance.failing,
+      ...physical.reasons,
+      ...ordinance.conditional,
+      ...ordinance.missing,
+      ...ordinance.passing,
+    ].filter(Boolean))];
+    return {
+      ...physical,
+      status,
+      errorCode: physical.errorCode || (ordinance.color === "red" ? "ERR_ORDINANCE" : ordinance.color === "yellow" ? "VERIFY" : null),
+      reasons,
+      maxAvailableHeight,
+      aiEvaluation: ordinance,
+    };
+  }, [siteTarget, controls, water, solverRules, aiRules, nearbyTowers, towerDataAvailable, structures, structureDataAvailable, searchCenter, targetA]);
+
+  const fit = useMemo(() => evaluateFitAt(towerLngLat), [evaluateFitAt, towerLngLat]);
+  const aiEval = fit?.aiEvaluation || null;
+  const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
 
   const handleMapSelect = useCallback((point) => {
     const slot = savedTargets.findIndex((target) => !target);
