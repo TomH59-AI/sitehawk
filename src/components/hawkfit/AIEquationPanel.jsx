@@ -15,6 +15,9 @@ import AIEquationComparison from "@/components/hawkfit/AIEquationComparison";
 export default function AIEquationPanel({
   siteTarget, towerLngLat, requestedHeightFt, onHeightChange,
   rules, evalResult, water, targetA, onOverlayChange, onPromote,
+  nearbyTowers = [], towerDataAvailable = false,
+  structures = [], structureDataAvailable = false,
+  usePeReduction = false,
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(true);
@@ -26,6 +29,8 @@ export default function AIEquationPanel({
     const result = buildBuildableOverlay({
       parcelGeometry: siteTarget?.parcel_geometry || null,
       requestedHeightFt, rules, waterFeatures: water,
+      nearbyTowers, towerDataAvailable,
+      structures, structureDataAvailable, usePeReduction,
     });
     if (!result) {
       toast({ title: "No parcel geometry", description: "A parcel boundary is required to compute the buildable area.", variant: "destructive" });
@@ -44,10 +49,12 @@ export default function AIEquationPanel({
     const result = buildBuildableOverlay({
       parcelGeometry: siteTarget?.parcel_geometry || null,
       requestedHeightFt, rules, waterFeatures: water,
+      nearbyTowers, towerDataAvailable,
+      structures, structureDataAvailable, usePeReduction,
     });
     if (result) { setOverlayStats(result.stats); onOverlayChange?.(result.fc); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestedHeightFt]);
+  }, [requestedHeightFt, rules, water, nearbyTowers, towerDataAvailable, structures, structureDataAvailable, usePeReduction, siteTarget]);
 
   // Promote a saved candidate to Target A — deliberate, confirmed action only.
   // The former Target A is retained: promotion re-runs the pipeline at the new
