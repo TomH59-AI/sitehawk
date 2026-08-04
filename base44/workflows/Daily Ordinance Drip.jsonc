@@ -1,0 +1,45 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 2 * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Daily Ordinance Drip",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "daily_ordinance_drip",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "refresh_ordinance": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "ordinanceDrip",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Refresh daily ordinance",
+            "description": "Official source to Supabase"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Refreshes one telecom ordinance every day from its official local code source, then updates the Supabase ordinance table and the live SiteHawk ordinance registry using only explicitly verified rules and citations."
+}
