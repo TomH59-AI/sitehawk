@@ -218,12 +218,12 @@ export default function Layout() {
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 min-h-16 pt-[env(safe-area-inset-top)] bg-sidebar border-b border-border z-30 flex items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2 min-w-0">
           <HawkIcon size={32} />
-          <span className="font-heading font-bold text-sidebar-foreground">SiteHawk</span>
+          <span className="font-heading font-bold text-sidebar-foreground truncate">SiteHawk</span>
         </Link>
-        <div className="flex items-center gap-1">
-          <UsageBadge className="mr-1" />
+        <div className="flex items-center gap-1 shrink-0">
+          <UsageBadge className="mr-1 hidden sm:flex" />
           {location.pathname === "/search" && <RestartTourButton />}
           <Button variant="ghost" size="icon" onClick={toggle}>
             {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -237,7 +237,7 @@ export default function Layout() {
       {/* Mobile Menu */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-20 bg-background/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)}>
-          <div className="absolute top-16 left-0 right-0 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-sidebar border-b border-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-1 sidebar-scroll" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute top-[calc(4rem+env(safe-area-inset-top))] left-0 right-0 max-h-[calc(100dvh-4rem-env(safe-area-inset-top))] overflow-y-auto overscroll-contain bg-sidebar border-b border-border p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] space-y-1 sidebar-scroll" onClick={(e) => e.stopPropagation()}>
             {navItems.map((item, idx) => {
               if (item.header) {
                 return (
@@ -280,9 +280,9 @@ export default function Layout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0 pb-20 lg:pb-0 flex flex-col min-h-screen">
+      <main className="flex-1 min-w-0 overflow-x-hidden lg:ml-64 pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 flex flex-col min-h-screen">
         <HistoryNavigation />
-        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex-1">
+        <div className="px-3 py-4 md:p-8 max-w-7xl mx-auto w-full min-w-0 flex-1">
           <AppErrorBoundary>
             <Outlet />
           </AppErrorBoundary>
