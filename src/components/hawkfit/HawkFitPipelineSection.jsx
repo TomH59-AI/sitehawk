@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { distance as turfDistance } from "@turf/turf";
 import { Button } from "@/components/ui/button";
 import { Crosshair, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -8,6 +9,8 @@ import { resolveActiveTargetA, resolve3DContext } from "@/lib/hawkfitTargetResol
 import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
 import { saveTowerScenario } from "@/functions/saveTowerScenario";
 import { hawkfitWaterBodies } from "@/functions/hawkfitWaterBodies";
+import { regridBuildingFootprints } from "@/functions/regridBuildingFootprints";
+import { towerSiterNearbyTowers } from "@/functions/towerSiterNearbyTowers";
 import HawkFitMap from "@/components/hawkfit/HawkFitMap";
 import PropertyLookupForm from "@/components/hawkfit/PropertyLookupForm";
 import SiteTargetSummary from "@/components/hawkfit/SiteTargetSummary";
@@ -20,6 +23,21 @@ import HawkPerchTargetPicker from "@/components/hawkfit/HawkPerchTargetPicker";
 import AIEquationPanel from "@/components/hawkfit/AIEquationPanel";
 
 const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v != null && v !== ""));
+
+async function loadConstraintData(target) {
+  const [waterResult, structuresResult, towersResult] = await Promise.allSettled([
+    hawkfitWaterBodies({ lat: target.latitude, lon: target.longitude }),
+    regridBuildingFootprints({ lat: target.latitude, lon: target.longitude, radius_ft: 2500 }),
+    towerSiterNearbyTowers({ lat: target.latitude, lon: target.longitude, radius_miles: 5 }),
+  ]);
+  return {
+    water: waterResult.status === "fulfilled" ? waterResult.value?.data?.water || null : null,
+    structures: structuresResult.status === "fulfilled" ? structuresResult.value?.data?.buildings?.features || [] : [],
+    structureDataAvailable: structuresResult.status === "fulfilled",
+    nearbyTowers: towersResult.status === "fulfilled" ? towersResult.value?.data?.towers || [] : [],
+    towerDataAvailable: towersResult.status === "fulfilled",
+  };
+}
 
 // HawkFit Map — pipeline-embedded section, mounted AFTER the Tower Siter /
 // Preliminary Tower Siting Exhibit. Consumes the SAME active Target A as the
@@ -40,6 +58,10 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   const [threeD, setThreeD] = useState(null);
   const [manualBusy, setManualBusy] = useState(false);
   const [water, setWater] = useState(null); // water-body FeatureCollection near the target
+  const [structures, setStructures] = useState([]);
+  const [structureDataAvailable, setStructureDataAvailable] = useState(false);
+  const [nearbyTowers, setNearbyTowers] = useState([]);
+  const [towerDataAvailable, setTowerDataAvailable] = useState(false);
   const [aiOverlay, setAiOverlay] = useState(null); // AI Equation buildable-area FeatureCollection
 
   // Refresh whenever the pipeline's active Target A changes (Target promotion /
@@ -68,20 +90,20 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       setResolvedFrom(res?.source || null);
       setResolving(false);
       if (t) {
-        // Fetch nearby water, then auto-place the tower on dry land inside the parcel.
-        let waterFC = null;
-        try {
-          const { data } = await hawkfitWaterBodies({ lat: t.latitude, lon: t.longitude });
-          waterFC = data?.water || null;
-        } catch { /* no water data — placement falls back to boundary-only */ }
+        // Load all spatial constraints before placing or approving a tower point.
+        const constraintData = await loadConstraintData(t);
         if (cancelled) return;
-        setWater(waterFC);
+        setWater(constraintData.water);
+        setStructures(constraintData.structures);
+        setStructureDataAvailable(constraintData.structureDataAvailable);
+        setNearbyTowers(constraintData.nearbyTowers);
+        setTowerDataAvailable(constraintData.towerDataAvailable);
         let placed = [t.longitude, t.latitude];
         if (t.parcel_geometry) {
           const auto = autoPlaceTower({
             parcelGeometry: t.parcel_geometry,
             heightFt: controls.heightFt, widthFt: controls.widthFt, depthFt: controls.depthFt,
-            zoning: t.zoning || null, waterFeatures: waterFC,
+            zoning: t.zoning || null, waterFeatures: constraintData.water,
           });
           if (auto?.lngLat) placed = auto.lngLat;
         }
@@ -89,6 +111,10 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
         resolve3DContext(t).then((ctx) => { if (!cancelled) setThreeD(ctx); });
       } else {
         setWater(null);
+        setStructures([]);
+        setStructureDataAvailable(false);
+        setNearbyTowers([]);
+        setTowerDataAvailable(false);
         setTowerLngLat(null);
       }
     })();
