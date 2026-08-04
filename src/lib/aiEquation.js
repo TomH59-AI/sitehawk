@@ -151,12 +151,12 @@ function onWater(lngLat, waterFeatures) {
   });
 }
 
-// Structures whose footprint centroid is inside the selected parcel are existing
-// on-property improvements and are intentionally excluded from the ordinance
+// A structure footprint that intersects the selected parcel is an existing
+// on-property improvement and is intentionally excluded from the ordinance
 // structure-separation check.
 function structureOnSelectedParcel(feature, parcelFeature) {
   try {
-    return !!feature?.geometry && turf.booleanPointInPolygon(turf.centroid(feature), parcelFeature);
+    return !!feature?.geometry && turf.booleanIntersects(feature, parcelFeature);
   } catch {
     return false;
   }
