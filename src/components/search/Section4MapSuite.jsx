@@ -57,7 +57,8 @@ import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import { windSpeedLookup } from "@/functions/windSpeedLookup";
-import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
+import { fiberSplicePoints } from "@/functions/fiberSplicePoints";
+import { fccBdcConnectivity } from "@/functions/fccBdcConnectivity";
 import { electricUtilityLookup } from "@/functions/electricUtilityLookup";
 import { scipViewshed } from "@/functions/scipViewshed";
 import ViewshedTiles from "./section4/ViewshedTiles";
@@ -66,8 +67,9 @@ import CustomizeProbe from "@/components/maps/CustomizeProbe";
 import ViewshedTerrainControls from "@/components/maps/ViewshedTerrainControls";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlumPolygon, renderRegridZoningMap, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiber, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
+  renderZoningGrid, renderFlumPolygon, renderRegridZoningMap, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiberOptics, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
+import FiberOpticsBanner from "./section4/FiberOpticsBanner";
 
 import { zoneResolve } from "@/functions/zoneResolve";
 
@@ -399,17 +401,28 @@ export default function Section4MapSuite({
         onData?.({ wind: { wind_speed_mph: wind?.wind_speed_mph ?? null, risk_level: wind?.wind_risk_level ?? null } });
         map = await renderWind(refs.wind.current, targetA, token);
       } else if (step === "fiber") {
-        const fres = await carrierFinderFiber({ lat: targetA.latitude, lon: targetA.longitude, radius_miles: 1.0 });
-        const body = fres?.data ?? fres;
-        const litBuildings = body?.lit_buildings || [];
-        const telco = body?.telco || null;
-        // Nearest lit carrier (smallest distance) for the banner.
-        const nearestLit = litBuildings
-          .filter((b) => b.carrier)
-          .sort((a, b) => (a.distance_int ?? Infinity) - (b.distance_int ?? Infinity))[0] || null;
-        setFiberInfo({ telco, count: litBuildings.length, nearestLit });
-        onData?.({ fiber: { count: litBuildings.length }, carriers: { telco, count: litBuildings.length, lit_buildings: litBuildings } });
-        map = await renderFiber(refs.fiber.current, targetA, litBuildings, token, 1.0);
+        // Fiber hookup / splice point (OSM mapped telecom assets) + FCC BDC
+        // provider list for backhaul contacts. CarrierFinder is retired.
+        const [cpRes, fccRes] = await Promise.all([
+          fiberSplicePoints({ lat: targetA.latitude, lon: targetA.longitude }),
+          fccBdcConnectivity({ lat: targetA.latitude, lon: targetA.longitude }).catch(() => null),
+        ]);
+        const cp = cpRes?.data ?? cpRes;
+        const fcc = fccRes?.data ?? fccRes ?? null;
+        const info = { fiber: cp?.fiber || null, access: cp?.access || null, fcc };
+        setFiberInfo(info);
+        onData?.({
+          fiber: {
+            splice_point: cp?.fiber?.point || null,
+            asset: cp?.fiber?.asset || null,
+            operator: cp?.fiber?.operator || null,
+            distance_ft: cp?.fiber?.distance_ft ?? null,
+            assumed: !!cp?.fiber?.assumed,
+            fcc_provider_count: fcc?.provider_count ?? null,
+            fcc_providers: fcc?.provider_names || [],
+          },
+        });
+        map = await renderFiberOptics(refs.fiber.current, targetA, info, token, 0.5);
       } else if (step === "power") {
         const [power, ures] = await Promise.all([
           fetchPowerInfrastructure(targetA.latitude, targetA.longitude),
@@ -631,25 +644,7 @@ export default function Section4MapSuite({
       </div>
     ) : null,
     fiber: fiberInfo ? (
-      <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 border-y border-emerald-300/50 text-sm text-emerald-800 dark:text-emerald-200 space-y-0.5">
-        {fiberInfo.telco ? (
-          <div>
-            <span className="font-semibold">Local fiber telco:</span>{" "}
-            <span className="font-mono">{fiberInfo.telco.name}</span>
-            {fiberInfo.telco.parent && fiberInfo.telco.parent !== fiberInfo.telco.name ? <span className="opacity-80"> ({fiberInfo.telco.parent})</span> : null}
-            {fiberInfo.telco.phone ? <span className="opacity-80"> · 📞 {fiberInfo.telco.phone}</span> : null}
-            {fiberInfo.telco.co_distance ? <span className="opacity-80"> · CO {fiberInfo.telco.co_distance} away · {fiberInfo.telco.co_city}, {fiberInfo.telco.co_state}</span> : null}
-          </div>
-        ) : null}
-        {fiberInfo.nearestLit ? (
-          <div>
-            <span className="font-semibold">Nearest lit carrier:</span>{" "}
-            <span className="font-mono">{fiberInfo.nearestLit.carrier}</span>
-            {fiberInfo.nearestLit.distance ? <span className="opacity-80"> · {fiberInfo.nearestLit.distance} ft</span> : null}
-          </div>
-        ) : null}
-        <div className="opacity-80 text-xs">{fiberInfo.count} fiber-lit / near-net building{fiberInfo.count !== 1 ? "s" : ""} within 1 mi · green = On-Net (lit), yellow = Near-Net</div>
-      </div>
+      <FiberOpticsBanner fiber={fiberInfo.fiber} access={fiberInfo.access} fcc={fiberInfo.fcc} />
     ) : null,
     power: powerInfo ? (
       <div className="px-4 py-2 bg-yellow-50 dark:bg-yellow-950/20 border-y border-yellow-300/50 text-sm text-yellow-800 dark:text-yellow-200 space-y-0.5">
