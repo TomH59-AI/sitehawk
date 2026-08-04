@@ -260,27 +260,33 @@ export function evaluatePoint({
 
     if (r.category === "setback") {
       const fixed = r.fixedSetbackFt || 0;
-      const mult = r.heightMultiplier ?? 1;
+      const standardMult = r.heightMultiplier ?? 1;
+      const peMult = r.peMultiplier ?? 0.5;
+      const peApplied = usePeReduction && r.peReductionAllowed;
+      const mult = peApplied ? peMult : standardMult;
       const requiredFt = fixed + requestedHeightFt * mult;
       const derivedMax = mult > 0 ? Math.max(0, (edgeFt - fixed) / mult) : (edgeFt >= fixed ? Infinity : 0);
       heights.push(derivedMax);
+      if (usePeReduction && !r.peReductionAllowed) {
+        softFlag = true;
+        conditional.push("A PE fall-zone reduction was requested, but the connected ordinance data does not authorize it. Manual ordinance verification is required.");
+      }
       if (edgeFt >= requiredFt) {
-        passing.push(`${r.name}: ${Math.round(edgeFt)} ft to the nearest property line; ${Math.round(requiredFt)} ft required (${fixed ? `${fixed} ft + ` : ""}${Math.round(mult * 100)}% of height).`);
+        passing.push(`${r.name}: ${Math.round(edgeFt)} ft to the nearest property line; ${Math.round(requiredFt)} ft required (${fixed ? `${fixed} ft + ` : ""}${Math.round(mult * 100)}% of height${peApplied ? ", PE letter required" : ""}).`);
       } else {
         const shortBy = Math.round(requiredFt - edgeFt);
         const msg = `${r.name}: requested height ${Math.round(requestedHeightFt)} ft. Maximum calculated height at this location: ${Math.round(derivedMax)} ft. The proposed base is ${Math.round(edgeFt)} ft from the nearest property line; ${r.citation ? `${r.citation} requires` : "the ordinance rule requires"} ${Math.round(requiredFt)} ft. This location fails by ${shortBy} ft.`;
         if (r.confidence === "assumed") { softFlag = true; conditional.push(`${msg} (Default rule — ordinance language not confirmed. Manual ordinance review required.)`); }
         else { hardFail = true; failing.push(msg); }
       }
-      // PE scenario — only when the ordinance authorizes it
       if (r.peReductionAllowed) {
-        const peMult = r.peMultiplier ?? 0.5;
         const peRequired = fixed + requestedHeightFt * peMult;
         peScenario = {
           allowed: true,
+          applied: peApplied,
           multiplier: peMult,
           result: edgeFt >= peRequired ? "pass" : "fail",
-          detail: `With a PE-certified fall-zone reduction (${Math.round(peMult * 100)}% of height): ${Math.round(peRequired)} ft required vs ${Math.round(edgeFt)} ft available.`,
+          detail: `${peApplied ? "Applied" : "Available"} PE-certified fall-zone reduction (${Math.round(peMult * 100)}% of height): ${Math.round(peRequired)} ft required vs ${Math.round(edgeFt)} ft available.`,
         };
       }
     }
@@ -289,23 +295,43 @@ export function evaluatePoint({
       if (!r.fixedSetbackFt) {
         missing.push("Tower-separation distance not stated in the ordinance data.");
         softFlag = true;
-      } else if (!nearbyTowers.length) {
-        conditional.push(`Tower separation of ${Math.round(r.fixedSetbackFt)} ft required — no nearby-tower data loaded; verify separately.`);
+      } else if (!towerDataAvailable) {
+        conditional.push(`Tower separation of ${Math.round(r.fixedSetbackFt)} ft required — nearby-tower data is unavailable; verify separately.`);
         softFlag = true;
+      } else if (!nearbyTowers.length) {
+        passing.push(`Tower separation: no existing towers found in the loaded search area; ${Math.round(r.fixedSetbackFt)} ft required.`);
       } else {
         let minFt = Infinity;
         for (const t of nearbyTowers) {
-          const lon = t.lon ?? t.longitude, lat = t.lat ?? t.latitude;
+          const lon = Number(t.lon ?? t.longitude), lat = Number(t.lat ?? t.latitude);
           if (Number.isFinite(lon) && Number.isFinite(lat)) minFt = Math.min(minFt, distFt(towerLngLat, [lon, lat]));
         }
+        nearestTowerFt = Number.isFinite(minFt) ? minFt : null;
         if (minFt >= r.fixedSetbackFt) passing.push(`Tower separation: nearest existing tower ${Math.round(minFt)} ft away; ${Math.round(r.fixedSetbackFt)} ft required.`);
         else { hardFail = true; failing.push(`Tower separation: nearest existing tower is ${Math.round(minFt)} ft away; ${Math.round(r.fixedSetbackFt)} ft required${r.citation ? ` (${r.citation})` : ""}.`); }
       }
     }
 
     if (r.category === "separation" && r.measuredFrom !== "existing tower") {
-      if (r.fixedSetbackFt) { conditional.push(`${r.name}: ${Math.round(r.fixedSetbackFt)} ft required — residential boundary data not loaded; verify separately.`); softFlag = true; }
-      else { missing.push(`${r.name} distance not stated in the ordinance data.`); softFlag = true; }
+      if (!r.fixedSetbackFt) {
+        missing.push(`${r.name} distance not stated in the ordinance data.`);
+        softFlag = true;
+      } else if (!structureDataAvailable) {
+        conditional.push(`${r.name}: ${Math.round(r.fixedSetbackFt)} ft required — off-parcel structure data is unavailable; verify separately.`);
+        softFlag = true;
+      } else {
+        const nearest = nearestExternalStructure(pt, structures, parcelFeature, /residential/i.test(r.measuredFrom || r.name));
+        externalStructureCount = nearest.count;
+        nearestExternalStructureFt = Number.isFinite(nearest.minFt) ? nearest.minFt : null;
+        if (!nearest.count) {
+          passing.push(`${r.name}: no applicable off-parcel structures found in the loaded search area. Structures on the selected parcel were excluded.`);
+        } else if (nearest.minFt >= r.fixedSetbackFt) {
+          passing.push(`${r.name}: nearest off-parcel structure ${Math.round(nearest.minFt)} ft away; ${Math.round(r.fixedSetbackFt)} ft required. On-parcel structures excluded.`);
+        } else {
+          hardFail = true;
+          failing.push(`${r.name}: nearest off-parcel structure is ${Math.round(nearest.minFt)} ft away; ${Math.round(r.fixedSetbackFt)} ft required${r.citation ? ` (${r.citation})` : ""}. Structures on the selected parcel were excluded.`);
+        }
+      }
     }
 
     if (r.category === "approval") {
