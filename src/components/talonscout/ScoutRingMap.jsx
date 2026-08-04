@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from "react-lea
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import TribalLandLayer from "./TribalLandLayer";
+import UtilityTerritoryLayer from "./UtilityTerritoryLayer";
 
 const MI_TO_M = 1609.34;
 const RINGS = [
@@ -92,6 +93,8 @@ function ClickCatcher({ center, onProbe, onSave, enabled }) {
 // point, double-click to save it as a lettered candidate.
 export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, onSelect, canPick }) {
   const [tribalOn, setTribalOn] = useState(false);
+  const [utilityOn, setUtilityOn] = useState(false);
+  const [utilityNames, setUtilityNames] = useState([]);
   return (
     <div className="relative h-[520px] w-full">
       <div className="absolute right-3 top-3 z-[500] rounded-lg bg-black/70 px-2.5 py-2 text-[11px] font-mono text-white shadow backdrop-blur">
@@ -109,6 +112,22 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
             Federal trust / restricted-fee boundaries — a THPO/TCNS review flag, not a determination.
           </div>
         )}
+        <label className="mt-1.5 flex cursor-pointer items-center gap-2 border-t border-white/15 pt-1.5">
+          <input
+            type="checkbox"
+            checked={utilityOn}
+            onChange={(e) => setUtilityOn(e.target.checked)}
+            className="h-3.5 w-3.5 accent-sky-400"
+          />
+          <span>Electric utility (HIFLD)</span>
+        </label>
+        {utilityOn && (
+          <div className="mt-1 max-w-[190px] text-[10px] leading-tight text-white/70">
+            {utilityNames.length
+              ? utilityNames.map((n) => <div key={n}>⚡ {n}</div>)
+              : "No HIFLD territory returned for this ring center."}
+          </div>
+        )}
       </div>
       <MapContainer
         center={[center.lat, center.lon]}
@@ -123,6 +142,16 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
           maxZoom={19}
         />
         {tribalOn && <TribalLandLayer />}
+        {utilityOn && (
+          <UtilityTerritoryLayer
+            center={center}
+            onLoaded={(fc) =>
+              setUtilityNames([
+                ...new Set((fc?.features || []).map((f) => f.properties?.NAME).filter(Boolean)),
+              ])
+            }
+          />
+        )}
         {RINGS.map((r) => (
           <Circle
             key={r.mi}
