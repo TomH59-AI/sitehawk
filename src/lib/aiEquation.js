@@ -151,13 +151,55 @@ function onWater(lngLat, waterFeatures) {
   });
 }
 
+// Structures whose footprint centroid is inside the selected parcel are existing
+// on-property improvements and are intentionally excluded from the ordinance
+// structure-separation check.
+function structureOnSelectedParcel(feature, parcelFeature) {
+  try {
+    return !!feature?.geometry && turf.booleanPointInPolygon(turf.centroid(feature), parcelFeature);
+  } catch {
+    return false;
+  }
+}
+
+function pointToStructureFt(point, feature) {
+  try {
+    if (turf.booleanPointInPolygon(point, feature)) return 0;
+    let minKm = Infinity;
+    turf.flattenEach(turf.polygonToLine(feature), (line) => {
+      const km = turf.pointToLineDistance(point, line, { units: "kilometers" });
+      if (km < minKm) minKm = km;
+    });
+    return Number.isFinite(minKm) ? minKm / FT_TO_KM : Infinity;
+  } catch {
+    return Infinity;
+  }
+}
+
+function nearestExternalStructure(point, structures, parcelFeature, residentialOnly = false) {
+  const features = structures?.features || (Array.isArray(structures) ? structures : []);
+  let minFt = Infinity;
+  let count = 0;
+  for (const feature of features) {
+    if (!feature?.geometry || structureOnSelectedParcel(feature, parcelFeature)) continue;
+    if (residentialOnly && feature.properties?.residential === false) continue;
+    const dFt = pointToStructureFt(point, feature);
+    if (!Number.isFinite(dFt)) continue;
+    count += 1;
+    minFt = Math.min(minFt, dFt);
+  }
+  return { count, minFt };
+}
+
 // ── PRIMARY EQUATION ────────────────────────────────────────────────────────
 // Maximum Allowed Height at P = min(ordinance max, setback-derived heights,
 // fall-zone-derived height, tower-separation-derived height).
 // Returns the full pass/fail/conditional/missing breakdown for the panel.
 export function evaluatePoint({
   parcelGeometry, towerLngLat, requestedHeightFt, rules,
-  waterFeatures, nearbyTowers = [], carrierCenter, targetA,
+  waterFeatures, nearbyTowers = [], towerDataAvailable = false,
+  structures = [], structureDataAvailable = false,
+  usePeReduction = false, carrierCenter, targetA,
 }) {
   const now = new Date();
   const passing = [], failing = [], conditional = [], missing = [];
@@ -193,6 +235,9 @@ export function evaluatePoint({
   let softFlag = false;
   let peScenario = null;
   let approvalType = null;
+  let nearestTowerFt = null;
+  let nearestExternalStructureFt = null;
+  let externalStructureCount = 0;
   const citations = [];
 
   for (const r of rules || []) {
@@ -279,6 +324,7 @@ export function evaluatePoint({
   const color = hardFail ? "red" : softFlag ? "yellow" : "green";
   return {
     ...base, color, maxAllowedHeightFt, edgeDistanceFt: edgeFt,
+    nearestTowerFt, nearestExternalStructureFt, externalStructureCount,
     passing, failing, conditional, missing, peScenario, approvalType, citations,
   };
 }
