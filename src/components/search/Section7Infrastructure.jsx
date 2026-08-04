@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import InfraToolbar from "./section7/InfraToolbar";
+import InfraCallCard from "./section7/InfraCallCard";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { section7Infrastructure } from "@/functions/section7Infrastructure";
@@ -168,26 +169,14 @@ export default function Section7Infrastructure({
         </div>
       </div>
 
-      {/* Utility-to-contact banner */}
-      {done && utility && (
-        <div className="px-4 py-2 bg-muted/30 border-b border-border text-sm flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-foreground">Utility to contact:</span>
-          <span className="font-mono">{utility.name}</span>
-          {utility.phone && <span className="font-mono text-muted-foreground">· 📞 {utility.phone}</span>}
-          <span className="ml-auto text-[11px] font-mono text-muted-foreground">
-            {counts.power} power · {counts.carriers} FCC fiber providers
-          </span>
-        </div>
-      )}
-
-      {/* FCC BDC availability summary — area-level, never presented as a parcel service confirmation. */}
-      {done && fccCoverage && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-primary/30 bg-primary/5 px-4 py-2 text-sm">
-          <span className="font-semibold text-primary">FCC fiber availability:</span>
-          <span className="font-mono">{fccCoverage.coverage?.fiber?.servedPct ?? "No data"}% served BSLs</span>
-          <span className="font-mono text-muted-foreground">· {fccCoverage.provider_count ?? "No data"} provider(s) reported in the block group</span>
-          <span className="ml-auto text-[11px] text-muted-foreground">Area summary only · confirm parcel service directly</span>
-        </div>
+      {/* Who-to-call panel — power utility + FCC-reported fiber providers for this target */}
+      {done && (
+        <InfraCallCard
+          targetLabel={targetA?.label || "Target A"}
+          targetA={targetA}
+          utility={utility}
+          coverage={fccCoverage}
+        />
       )}
 
       {loading && <HawkFlightSpinner label="Loading power & fiber infrastructure for Target A…" />}
@@ -216,8 +205,16 @@ export default function Section7Infrastructure({
           visible & sized BEFORE renderInfrastructure runs — Mapbox GL cannot
           measure a display:none (0×0) container, so it would never paint tiles
           or the power/fiber data layers. Keep it rendered whenever loading||done. */}
+      {done && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-4 py-2 text-[11px] font-mono">
+          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700 dark:text-amber-300">{counts.power} power features</span>
+          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{counts.carriers} FCC fiber provider(s) in block group</span>
+          <span className="ml-auto text-muted-foreground">Drive the map with the toolbar — toggle layers, switch basemap</span>
+        </div>
+      )}
+
       <div style={{ display: (loading || done) ? "block" : "none" }}>
-        <div className="relative w-full bg-[#0C1B2E]" style={{ height: 600 }}>
+        <div className="relative w-full overflow-hidden rounded-b-xl bg-[#0C1B2E] ring-1 ring-inset ring-cyan-500/20" style={{ height: 600 }}>
           <div ref={mapRef} className="absolute inset-0" />
 
           {/* Floating interactive toolbar */}
