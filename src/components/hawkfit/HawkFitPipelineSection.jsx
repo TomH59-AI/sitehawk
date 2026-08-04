@@ -298,6 +298,17 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
           compound_depth_ft: controls.depthFt,
           fit_status: fit.status,
           fit_reasons: fit.reasons,
+          hawkperch_error_code: fit.errorCode || undefined,
+          edge_distance_ft: fit.edgeDistanceFt ?? undefined,
+          max_available_height_ft: fit.maxAvailableHeight ?? undefined,
+          hawkperch_config: {
+            front_setback_ft: solverRules.fixedSetbackFt,
+            side_setback_ft: solverRules.fixedSetbackFt,
+            rear_setback_ft: solverRules.fixedSetbackFt,
+            max_height_ft: solverRules.maxHeightFt,
+            has_pe_letter: solverRules.hasPELetter,
+            fall_zone_multiplier: solverRules.hasPELetter ? solverRules.fallZoneMultiplier : 1,
+          },
         },
         fit: { status: fit.status, reasons: fit.reasons },
       });
@@ -322,7 +333,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
           <div>
             <div className="font-heading font-bold text-foreground">HawkFit Map</div>
             <div className="text-xs text-muted-foreground">
-              Deterministic fall-zone + compound fit checks on the active Target A.
+              TalonFit ordinance intelligence + HawkPerch spatial solver on the active Target A.
             </div>
           </div>
         </div>
@@ -414,7 +425,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                     onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
                     overlay={aiOverlay}
                     cursorColor={aiEval ? COLOR_HEX[aiEval.color] : null}
-                    searchRing={searchRing || searchCenter}
+                    searchRing={(searchRing || searchCenter) ? { ...(searchRing || searchCenter), radius_miles: 1 } : null}
                   />
                 </div>
               ) : (
@@ -435,6 +446,11 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
               evalResult={aiEval}
               water={water}
               targetA={targetA}
+              nearbyTowers={nearbyTowers}
+              towerDataAvailable={towerDataAvailable}
+              structures={structures}
+              structureDataAvailable={structureDataAvailable}
+              usePeReduction={solverRules.hasPELetter}
               onOverlayChange={setAiOverlay}
               onPromote={onRunTarget}
             />
