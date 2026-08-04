@@ -1,7 +1,7 @@
 {
   "name": "PSAP",
   "type": "object",
-  "description": "911 Master PSAP (Public Safety Answering Point) Registry. Source: 911_Master_PSAP_Registry.csv. Used to identify the nearest 911 dispatch / public-safety answering point for a site.",
+  "description": "911 Master PSAP (Public Safety Answering Point) Registry. Source: FCC 911 Master PSAP Registry. Used to identify the nearest 911 dispatch / public-safety answering point for a site. NOTE: the FCC registry publishes NO phone numbers \u2014 non-emergency numbers must come from PublicSafetyAgency / verified research, never inferred here. Coordinates are city-level geocodes from the registry, not the PSAP's exact street location.",
   "properties": {
     "description": {
       "type": "string",
@@ -39,6 +39,19 @@
     "geocode_city_level": {
       "type": "string",
       "description": "Raw 'Geocode City Level' value as provided (may contain embedded coordinates)."
+    },
+    "latitude": {
+      "type": "number",
+      "description": "City-level latitude parsed verbatim from geocode_city_level. Blank when the registry publishes no coordinate \u2014 never estimated."
+    },
+    "longitude": {
+      "type": "number",
+      "description": "City-level longitude parsed verbatim from geocode_city_level. Blank when the registry publishes no coordinate \u2014 never estimated."
+    },
+    "source": {
+      "type": "string",
+      "default": "FCC 911 Master PSAP Registry",
+      "description": "Data source, displayed for attribution."
     }
   },
   "required": [
@@ -50,7 +63,7 @@
         "role": "admin"
       }
     },
-    "read": null,
+    "read": {},
     "update": {
       "user_condition": {
         "role": "admin"
