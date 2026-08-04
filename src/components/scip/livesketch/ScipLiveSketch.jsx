@@ -226,7 +226,7 @@ export default function ScipLiveSketch({ record }) {
                 SiteHawk sketches the parcel, setbacks, compound, fall zone and tower — freehand, to scale, from the Talon FT geometry — then stamps the verdict.
               </p>
               <Button onClick={handleStart} size="lg" className="rounded-full font-bold">
-                <Play className="w-4 h-4 mr-2" /> Draw my site
+                <Play className="w-4 h-4 mr-2" /> Draw Sketch
               </Button>
             </div>
           )}
