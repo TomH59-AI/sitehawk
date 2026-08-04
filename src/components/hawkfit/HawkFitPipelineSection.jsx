@@ -199,26 +199,56 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
     const slot = savedTargets.findIndex((target) => !target);
     if (slot === -1 || !siteTarget) return;
     const pointLngLat = [point.lng, point.lat];
-    const pointFit = computeFit({
-      parcelGeometry: siteTarget.parcel_geometry || null,
-      towerLngLat: pointLngLat,
-      heightFt: controls.heightFt,
-      widthFt: controls.widthFt,
-      depthFt: controls.depthFt,
-      zoning: siteTarget.zoning || null,
-      waterFeatures: water,
-    });
     setTowerLngLat(pointLngLat);
-    if (pointFit.status !== "works") {
-      const reason = pointFit.reasons?.[0] || "The selected point does not meet the active HawkPerch requirements.";
+
+    const ringSource = searchRing || searchCenter;
+    const centerLat = Number(ringSource?.lat);
+    const centerLon = Number(ringSource?.lon);
+    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLon)) {
+      const reason = "Search-ring center is unavailable, so the required one-mile limit cannot be verified.";
       setRejectedPoint({ ...point, reason });
-      toast({ title: "Location rejected", description: reason, variant: "destructive" });
+      toast({ title: "REJECTED", description: reason, variant: "destructive" });
       return;
     }
+    const milesFromCenter = turfDistance(pointLngLat, [centerLon, centerLat], { units: "miles" });
+    if (milesFromCenter > 1) {
+      const reason = `Outside the one-mile TalonFit search ring (${milesFromCenter.toFixed(2)} miles from center).`;
+      setRejectedPoint({ ...point, reason });
+      toast({ title: "REJECTED", description: reason, variant: "destructive" });
+      return;
+    }
+
+    const pointFit = evaluateFitAt(pointLngLat);
+    if (pointFit?.status !== "works") {
+      const reason = pointFit?.aiEvaluation?.failing?.[0]
+        || pointFit?.aiEvaluation?.conditional?.[0]
+        || pointFit?.aiEvaluation?.missing?.[0]
+        || pointFit?.reasons?.[0]
+        || "The selected point does not meet the active TalonFit requirements.";
+      setRejectedPoint({ ...point, reason });
+      toast({ title: "REJECTED", description: reason, variant: "destructive" });
+      return;
+    }
+
+    const maxHeightFt = Math.floor(pointFit.maxAvailableHeight);
+    const savedPoint = {
+      ...point,
+      max_height_ft: maxHeightFt,
+      tower_height_ft: Math.min(controls.heightFt, maxHeightFt),
+      pe_letter_required: solverRules.hasPELetter,
+      distance_from_ring_center_miles: milesFromCenter,
+      decision_status: "approved",
+      binding_constraint: pointFit.aiEvaluation?.passing?.find((reason) => /height|setback|fall zone/i.test(reason))
+        || pointFit.reasons?.[0]
+        || null,
+    };
     setRejectedPoint(null);
-    onSaveTarget?.(slot, point);
-    toast({ title: `Target ${["D", "E", "F"][slot]} saved`, description: `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}` });
-  }, [savedTargets, siteTarget, controls, water, onSaveTarget, toast]);
+    onSaveTarget?.(slot, savedPoint);
+    toast({
+      title: `Target ${["D", "E", "F"][slot]} approved and saved`,
+      description: `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)} · maximum ${maxHeightFt} ft`,
+    });
+  }, [savedTargets, siteTarget, searchRing, searchCenter, evaluateFitAt, controls.heightFt, solverRules.hasPELetter, onSaveTarget, toast]);
 
   // Manual lookup stays available but never replaces the pipeline order —
   // the section re-resolves from the pipeline whenever Target A changes.
