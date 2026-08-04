@@ -6,10 +6,13 @@ import TribalLandLayer from "./TribalLandLayer";
 import UtilityTerritoryLayer from "./UtilityTerritoryLayer";
 
 const MI_TO_M = 1609.34;
+// Scan radius handed to scouts — clicks are graded anywhere inside SCAN_MI.
+const SCAN_MI = 2;
 const RINGS = [
   { mi: 0.25, color: "#22d3ee" },
   { mi: 0.5, color: "#a855f7" },
   { mi: 1, color: "#f59e0b" },
+  { mi: SCAN_MI, color: "#f43f5e" },
 ];
 
 const VERDICT_COLOR = { fit: "#16a34a", ejected: "#dc2626", verify: "#d97706", pending: "#64748b" };
@@ -60,7 +63,9 @@ function probeIcon(probe) {
     className: "",
     html: `<div style="position:relative;width:240px">
       <div style="position:absolute;left:0;bottom:14px;width:240px;box-sizing:border-box;background:${bg};color:#fff;font:700 11px/1.35 system-ui;padding:6px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.45)">${head}${body}${coords}
-        <div style="font-weight:500;opacity:.85;margin-top:3px">Double-click to save this spot</div>
+        <div style="font-weight:500;opacity:.85;margin-top:3px">${
+          v === "fit" ? "Double-click to save this spot" : v === "pending" ? "" : "Not saveable — fails TalonFit®"
+        }</div>
       </div>
       <div style="position:absolute;left:115px;bottom:0;width:10px;height:10px;border-radius:50%;background:${bg};border:2px solid #fff"></div>
     </div>`,
@@ -70,10 +75,10 @@ function probeIcon(probe) {
 }
 
 // Single click probes the point; double click saves it as a lettered target.
-// Clicks outside the 1-mile ring are ignored.
+// Clicks outside the 2-mile scan ring are ignored.
 function ClickCatcher({ center, onProbe, onSave, enabled }) {
   const timer = useRef(null);
-  const inRing = (latlng) => L.latLng(center).distanceTo(latlng) <= MI_TO_M;
+  const inRing = (latlng) => L.latLng(center).distanceTo(latlng) <= SCAN_MI * MI_TO_M;
   useMapEvents({
     click(e) {
       if (!enabled || !inRing(e.latlng)) return;
@@ -89,7 +94,7 @@ function ClickCatcher({ center, onProbe, onSave, enabled }) {
   return null;
 }
 
-// TalonFit® ring map — SRC waypoint + 0.25 / 0.50 / 1-mile radii. Click to grade a
+// TalonFit® ring map — SRC waypoint + 0.25 / 0.50 / 1 / 2-mile radii. Click to grade a
 // point, double-click to save it as a lettered candidate.
 export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, onSelect, canPick }) {
   const [tribalOn, setTribalOn] = useState(false);
@@ -131,7 +136,7 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
       </div>
       <MapContainer
         center={[center.lat, center.lon]}
-        zoom={14}
+        zoom={13}
         className="h-full w-full"
         scrollWheelZoom
         doubleClickZoom={false}
@@ -157,7 +162,7 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
             key={r.mi}
             center={[center.lat, center.lon]}
             radius={r.mi * MI_TO_M}
-            pathOptions={{ color: r.color, weight: 2, fill: false, dashArray: r.mi === 1 ? "6 6" : null }}
+            pathOptions={{ color: r.color, weight: 2, fill: false, dashArray: r.mi >= 1 ? "6 6" : null }}
           />
         ))}
         <Marker position={[center.lat, center.lon]} icon={srcIcon()} />

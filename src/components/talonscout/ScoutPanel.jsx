@@ -61,24 +61,44 @@ export default function ScoutPanel() {
     });
   };
 
+  // Only spots the TalonFit® formula APPROVES are saved as lettered targets.
+  // Anything the solver ejects (or can't confirm) stays on the map as a probe
+  // readout with its binding reason — it never becomes a candidate.
   const handleSavePoint = async ({ lat, lon }) => {
     if (targets.length >= maxTargets) return;
+    setProbe({ lat, lon, verdict: "pending" });
+    const { data } = await gradePoint(lat, lon);
+    const verdict = data?.verdict || "verify";
+    if (verdict !== "fit" || data?.max_height_ft == null) {
+      setProbe({
+        lat,
+        lon,
+        verdict,
+        reason: data?.reason || "Does not meet the TalonFit® buildable-height requirement — not saved.",
+        max_height_ft: data?.max_height_ft ?? null,
+      });
+      return;
+    }
     setProbe(null);
     const id = `${Date.now()}-${lat}`;
-    const letter = LETTERS[targets.length];
-    setTargets((prev) => [...prev, { id, letter, lat, lon, verdict: "pending" }]);
+    setTargets((prev) => [
+      ...prev,
+      {
+        id,
+        letter: LETTERS[prev.length],
+        lat,
+        lon,
+        verdict,
+        reason: data?.reason || null,
+        max_height_ft: data.max_height_ft,
+        binding_constraint: data?.binding_constraint || null,
+        parcel: data?.parcel || null,
+        ordinance: data?.ordinance || null,
+        edge_distance_ft: data?.edge_distance_ft ?? null,
+        unverified_fields: data?.unverified_fields || [],
+      },
+    ]);
     setActiveId(id);
-    const { data } = await gradePoint(lat, lon);
-    patch(id, {
-      verdict: data?.verdict || "verify",
-      reason: data?.reason || null,
-      max_height_ft: data?.max_height_ft ?? null,
-      binding_constraint: data?.binding_constraint || null,
-      parcel: data?.parcel || null,
-      ordinance: data?.ordinance || null,
-      edge_distance_ft: data?.edge_distance_ft ?? null,
-      unverified_fields: data?.unverified_fields || [],
-    });
   };
 
   const handleSave = async (id) => {
@@ -113,7 +133,7 @@ export default function ScoutPanel() {
         fit: { source: "TalonFit® point screen", timestamp: now, status: "source-scraped" },
       },
       unverified_fields: t.unverified_fields || [],
-      status: t.verdict === "fit" ? "qualified" : "partially_qualified",
+      status: "qualified",
       qualified_at: now,
     });
     patch(id, { saving: false, saved: true });
@@ -154,7 +174,7 @@ export default function ScoutPanel() {
           Ten-Target Scout
         </div>
         <span className="text-xs text-muted-foreground">
-          Click inside the 1-mile ring to grade a point · double-click to save it
+          Click inside the 2-mile ring to grade a point · double-click saves it only if it passes TalonFit®
         </span>
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           <Switch checked={peLetter} onCheckedChange={setPeLetter} />
@@ -186,7 +206,9 @@ export default function ScoutPanel() {
             <p className="text-[11px] text-muted-foreground">
               SRC (search ring center): {center.label}. A single click grades that exact coordinate —
               APPROVED with the maximum allowable tower height, or REJECTED with the binding reason.
-              Double-click to save the spot as {peLetter ? "A–J" : "A–E"}
+              Anywhere inside the 2-mile scan radius can be graded. Double-click saves the spot as{" "}
+              {peLetter ? "A–J" : "A–E"} — but ONLY when TalonFit® approves it and returns a buildable
+              height; rejected spots are never saved
               {peLetter ? "" : " (turn on PE letter for five more)"}. Select one saved target and run the
               SCIP on it — one at a time. Picking a better parcel after your SCIP requires a re-SCIP,
               which is billable.
