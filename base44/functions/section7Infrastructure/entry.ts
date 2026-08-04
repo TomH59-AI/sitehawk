@@ -143,6 +143,44 @@ export default async function(req) {
       console.log(`[section7Infrastructure] FCC BDC lookup failed: ${e.message}`);
     }
 
+    // 4) FIBER CONNECTION POINTS — PeeringDB carrier facilities / carrier hotels
+    // and internet exchange points from the FiberConnectionPoint reference table.
+    // These are REAL published coordinates (never inferred). We pull a coarse bbox
+    // then rank by true crow-flies distance and keep the closest handful, because
+    // backhaul handoff shopping happens at a metro scale, not inside the ring.
+    const CONN_SEARCH_MI = 75; // metro-scale backhaul shopping radius
+    let connectionPoints = [];
+    try {
+      const [w, s, e, n] = bboxAround(cLat, cLon, CONN_SEARCH_MI);
+      const rows = await base44.asServiceRole.entities.FiberConnectionPoint.filter({
+        latitude: { $gte: s, $lte: n },
+        longitude: { $gte: w, $lte: e },
+      }, undefined, 500);
+      connectionPoints = (rows || [])
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          point_type: r.point_type,
+          org_name: r.org_name || null,
+          lat: r.latitude,
+          lon: r.longitude,
+          address: r.address || null,
+          city: r.city || null,
+          state: r.state || null,
+          website: r.website || null,
+          net_count: r.net_count ?? null,
+          carrier_count: r.carrier_count ?? null,
+          ix_count: r.ix_count ?? null,
+          clli: r.clli || null,
+          distance_miles: Math.round(haversineMiles(cLat, cLon, r.latitude, r.longitude) * 100) / 100,
+        }))
+        .sort((a, b) => a.distance_miles - b.distance_miles)
+        .slice(0, 12);
+      console.log(`[section7Infrastructure] fiber connection points within ${CONN_SEARCH_MI}mi: ${connectionPoints.length}`);
+    } catch (e) {
+      console.log(`[section7Infrastructure] connection point lookup failed: ${e.message}`);
+    }
+
     const utilityName = utility?.name || null;
 
     return Response.json({
@@ -165,6 +203,12 @@ export default async function(req) {
         telco: null,
         coverage: fccCoverage,
         count: fccCoverage?.provider_count ?? 0,
+      },
+      connection_points: {
+        points: connectionPoints,
+        count: connectionPoints.length,
+        search_radius_miles: CONN_SEARCH_MI,
+        source: "PeeringDB public API",
       },
     });
   } catch (error) {

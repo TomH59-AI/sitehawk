@@ -18,6 +18,7 @@ export const POWER_RED = "#E60000";   // APWA — electric
 export const FIBER_ORANGE = "#FF8C00"; // APWA — communication / fiber
 export const CARRIER_GREEN = "#16A34A"; // Reserved for verified carrier points
 export const CARRIER_YELLOW = "#EAB308"; // Reserved for verified carrier points
+export const CONN_MAGENTA = "#D946EF"; // PeeringDB carrier facilities / IXPs
 
 // ────────────── Mapbox GL JS loader (idempotent, shared) ──────────────
 let mapboxLoadingPromise = null;
@@ -124,7 +125,27 @@ function buildSources(data, target) {
         },
       })),
   };
-  return { parcel, power, powerLines, fiberLines, fiberPoints, carriers };
+  // Physical fiber handoff locations — PeeringDB carrier facilities + IXPs.
+  const connPoints = {
+    type: "FeatureCollection",
+    features: (data.connection_points?.points || [])
+      .filter((p) => Number.isFinite(p.lon) && Number.isFinite(p.lat))
+      .map((p) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+        properties: {
+          name: p.name || "",
+          ptype: p.point_type || "",
+          org: p.org_name || "",
+          place: [p.address, p.city, p.state].filter(Boolean).join(", "),
+          website: p.website || "",
+          nets: p.net_count != null ? String(p.net_count) : "",
+          carriers: p.carrier_count != null ? String(p.carrier_count) : "",
+          distance: p.distance_miles != null ? String(p.distance_miles) : "",
+        },
+      })),
+  };
+  return { parcel, power, powerLines, fiberLines, fiberPoints, carriers, connPoints };
 }
 
 // Add all infrastructure layers (idempotent — call after each style load).
@@ -135,6 +156,7 @@ function addInfraLayers(map, sources) {
   map.addSource("s7-fiber-lines", { type: "geojson", data: sources.fiberLines });
   map.addSource("s7-fiber-points", { type: "geojson", data: sources.fiberPoints });
   map.addSource("s7-carriers", { type: "geojson", data: sources.carriers });
+  map.addSource("s7-conn", { type: "geojson", data: sources.connPoints });
 
   // Target A parcel boundary — drawn FIRST (under all assets) as a reference
   // outline so transformers & splice points read clearly on top of the parcel.
@@ -224,6 +246,33 @@ function addInfraLayers(map, sources) {
     },
     paint: { "text-color": "#fff", "text-halo-color": "#0f172a", "text-halo-width": 2 },
   });
+
+  // Fiber connection points — magenta squares (carrier facilities) / diamonds
+  // (internet exchanges), drawn on top so backhaul handoffs are unmistakable.
+  map.addLayer({
+    id: "s7-conn-pt", type: "circle", source: "s7-conn",
+    paint: {
+      "circle-radius": 8, "circle-color": CONN_MAGENTA,
+      "circle-stroke-color": "#fff", "circle-stroke-width": 2.5,
+    },
+  });
+  map.addLayer({
+    id: "s7-conn-glyph", type: "symbol", source: "s7-conn",
+    layout: {
+      "text-field": ["case", ["==", ["get", "ptype"], "internet_exchange"], "◆", "▪"],
+      "text-size": 11, "text-allow-overlap": true, "text-ignore-placement": true,
+    },
+    paint: { "text-color": "#fff" },
+  });
+  map.addLayer({
+    id: "s7-conn-label", type: "symbol", source: "s7-conn",
+    layout: {
+      "text-field": ["get", "name"], "text-size": 10, "text-offset": [0, 1.4],
+      "text-anchor": "top", "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-allow-overlap": false, "text-max-width": 12,
+    },
+    paint: { "text-color": "#fff", "text-halo-color": "#0f172a", "text-halo-width": 2 },
+  });
 }
 
 // Wire hover/click popups for power + fiber features.
@@ -266,6 +315,22 @@ function wirePopups(map) {
       `${p.carrier_count ? `<b>Carriers at site:</b> ${esc(p.carrier_count)}` : ""}</div>`
     ).addTo(map);
   };
+  const showConn = (e) => {
+    const p = e.features[0].properties;
+    map.getCanvas().style.cursor = "pointer";
+    const kind = p.ptype === "internet_exchange" ? "INTERNET EXCHANGE" : "CARRIER FACILITY";
+    popup.setLngLat(e.lngLat).setHTML(
+      `<div style="font-family:monospace;font-size:11px;line-height:1.45;">` +
+      `<strong style="color:${CONN_MAGENTA};">🔗 ${kind}</strong><br/>` +
+      `<b>${esc(p.name)}</b><br/>` +
+      `${p.org ? `${esc(p.org)}<br/>` : ""}` +
+      `${p.place ? `${esc(p.place)}<br/>` : ""}` +
+      `${p.distance ? `<b>Distance:</b> ${esc(p.distance)} mi<br/>` : ""}` +
+      `${p.nets ? `<b>Networks:</b> ${esc(p.nets)}<br/>` : ""}` +
+      `${p.carriers ? `<b>Carriers:</b> ${esc(p.carriers)}<br/>` : ""}` +
+      `<span style="color:#64748b;">Source: PeeringDB</span></div>`
+    ).addTo(map);
+  };
   const clear = () => { map.getCanvas().style.cursor = ""; popup.remove(); };
 
   ["s7-power-pt", "s7-power-line"].forEach((id) => {
@@ -281,6 +346,11 @@ function wirePopups(map) {
   ["s7-carrier-pt"].forEach((id) => {
     map.on("mouseenter", id, showCarrier);
     map.on("click", id, showCarrier);
+    map.on("mouseleave", id, clear);
+  });
+  ["s7-conn-pt"].forEach((id) => {
+    map.on("mouseenter", id, showConn);
+    map.on("click", id, showConn);
     map.on("mouseleave", id, clear);
   });
 }
@@ -347,6 +417,8 @@ export async function renderInfrastructure(container, target, data, token) {
             ? ["s7-power-pt", "s7-power-pt-glyph", "s7-power-line"]
             : which === "carriers"
             ? ["s7-carrier-pt", "s7-carrier-label"]
+            : which === "connections"
+            ? ["s7-conn-pt", "s7-conn-glyph", "s7-conn-label"]
             : ["s7-fiber-line", "s7-fiber-pt", "s7-fiber-pt-glyph"];
           ids.forEach((id) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis); });
         },

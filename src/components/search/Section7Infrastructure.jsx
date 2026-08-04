@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import HawkFlightSpinner from "./HawkFlightSpinner";
 import InfraToolbar from "./section7/InfraToolbar";
 import InfraCallCard from "./section7/InfraCallCard";
+import InfraConnectionPoints from "./section7/InfraConnectionPoints";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { section7Infrastructure } from "@/functions/section7Infrastructure";
@@ -35,9 +36,11 @@ export default function Section7Infrastructure({
   const [error, setError] = useState(null);
   const [utility, setUtility] = useState(null);
   const [fccCoverage, setFccCoverage] = useState(null);
-  const [counts, setCounts] = useState({ power: 0, fiber: 0, carriers: 0 });
+  const [connection, setConnection] = useState(null);
+  const [counts, setCounts] = useState({ power: 0, fiber: 0, carriers: 0, connections: 0 });
   const [powerOn, setPowerOn] = useState(true);
   const [carriersOn, setCarriersOn] = useState(true);
+  const [connectionsOn, setConnectionsOn] = useState(true);
   const [base, setBase] = useState("streets");
 
   const mapRef = useRef(null);
@@ -78,7 +81,11 @@ export default function Section7Infrastructure({
       ctrl.current = controller;
       setUtility(data.utility || null);
       setFccCoverage(data.carriers?.coverage || null);
-      setCounts({ power: data.power?.count || 0, fiber: data.fiber?.count || 0, carriers: data.carriers?.count || 0 });
+      setConnection(data.connection_points || null);
+      setCounts({
+        power: data.power?.count || 0, fiber: data.fiber?.count || 0,
+        carriers: data.carriers?.count || 0, connections: data.connection_points?.count || 0,
+      });
       // Emit fiber + carriers to the bus (Fiber/backhaul scorecard factor).
       // NOTE: §7's utility (electricProviderContact = nearest provider office) is
       // intentionally NOT emitted as the Power factor — Power canonical is HIFLD
@@ -92,7 +99,7 @@ export default function Section7Infrastructure({
         },
       });
       // Reset interactive controls to defaults: all layers ON, Streets view.
-      setPowerOn(true); setCarriersOn(true); setBase("streets");
+      setPowerOn(true); setCarriersOn(true); setConnectionsOn(true); setBase("streets");
       setDone(true);
       toast.success(`Infrastructure map generated for Target A — ${data.power?.count || 0} power features · ${data.carriers?.count || 0} FCC-reported fiber providers.`);
     } catch (err) {
@@ -111,6 +118,7 @@ export default function Section7Infrastructure({
   // ── interactive toolbar handlers ──
   const togglePower = () => { const v = !powerOn; setPowerOn(v); ctrl.current?.toggleLayer("power", v); };
   const toggleCarriers = () => { const v = !carriersOn; setCarriersOn(v); ctrl.current?.toggleLayer("carriers", v); };
+  const toggleConnections = () => { const v = !connectionsOn; setConnectionsOn(v); ctrl.current?.toggleLayer("connections", v); };
   const switchBase = (b) => {
     setBase(b);
     ctrl.current?.setBaseStyle(b === "satellite" ? SAT_STYLE : STREETS_STYLE);
@@ -118,6 +126,7 @@ export default function Section7Infrastructure({
     setTimeout(() => {
       ctrl.current?.toggleLayer("power", powerOn);
       ctrl.current?.toggleLayer("carriers", carriersOn);
+      ctrl.current?.toggleLayer("connections", connectionsOn);
     }, 400);
   };
 
@@ -179,6 +188,9 @@ export default function Section7Infrastructure({
         />
       )}
 
+      {/* Nearest physical fiber handoff locations (PeeringDB) */}
+      {done && <InfraConnectionPoints connection={connection} />}
+
       {loading && <HawkFlightSpinner label="Loading power & fiber infrastructure for Target A…" />}
 
       {/* Error surface — no silent forever-spinner. */}
@@ -209,6 +221,7 @@ export default function Section7Infrastructure({
         <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-4 py-2 text-[11px] font-mono">
           <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-700 dark:text-amber-300">{counts.power} power features</span>
           <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary">{counts.carriers} FCC fiber provider(s) in block group</span>
+          <span className="rounded-full bg-fuchsia-500/15 px-2 py-0.5 text-fuchsia-700 dark:text-fuchsia-300">{counts.connections} fiber connection point(s)</span>
           <span className="ml-auto text-muted-foreground">Drive the map with the toolbar — toggle layers, switch basemap</span>
         </div>
       )}
@@ -219,9 +232,9 @@ export default function Section7Infrastructure({
 
           {/* Floating interactive toolbar */}
           <InfraToolbar
-            powerOn={powerOn} carriersOn={carriersOn} base={base}
+            powerOn={powerOn} carriersOn={carriersOn} connectionsOn={connectionsOn} base={base}
             onTogglePower={togglePower} onToggleCarriers={toggleCarriers}
-            onSwitchBase={switchBase}
+            onToggleConnections={toggleConnections} onSwitchBase={switchBase}
             onZoomIn={() => ctrl.current?.zoomIn?.()}
             onZoomOut={() => ctrl.current?.zoomOut?.()}
             onReset={() => ctrl.current?.resetView?.()}
