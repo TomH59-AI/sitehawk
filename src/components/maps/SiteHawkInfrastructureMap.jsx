@@ -30,24 +30,7 @@ const LAYERS = [
     minZoom: 10,
     live: true,
   },
-  {
-    id: "fiber_routes",
-    group: "Fiber & backhaul",
-    label: "Long-haul & metro fiber",
-    description: "Known and licensed fiber routes",
-    color: "#22d3ee",
-    geometry: "line",
-    source: "CarrierFinder",
-  },
-  {
-    id: "fiber_pops",
-    group: "Fiber & backhaul",
-    label: "POPs, IXPs & lit buildings",
-    description: "Interconnection and on-net access points",
-    color: "#67e8f9",
-    geometry: "point",
-    source: "CarrierFinder",
-  },
+
   {
     id: "transmission_lines",
     group: "Power infrastructure",
@@ -104,17 +87,9 @@ const LAYERS = [
     description: "Registered and commercially sourced structures",
     color: "#a78bfa",
     geometry: "point",
-    source: "CarrierFinder / FCC",
+    source: "FCC ASR / public records",
   },
-  {
-    id: "carrier_sites",
-    group: "Wireless",
-    label: "Carrier presence",
-    description: "Known carrier assignments and technologies",
-    color: "#c084fc",
-    geometry: "point",
-    source: "CarrierFinder",
-  },
+
   {
     id: "cloudrf_coverage",
     group: "RF intelligence",
@@ -444,7 +419,7 @@ export default function SiteHawkInfrastructureMap({
   const [fatalError, setFatalError] = useState("");
   const [search, setSearch] = useState("");
   const [active, setActive] = useState(() => new Set([
-    "fiber_routes", "transmission_lines", "substations",
+    "transmission_lines", "substations",
     // Layers declaring visible: true in their definition start enabled
     ...LAYERS.filter((layer) => layer.visible === true).map((layer) => layer.id),
   ]));

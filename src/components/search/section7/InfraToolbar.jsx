@@ -33,7 +33,7 @@ export default function InfraToolbar({
       {/* Layer toggles */}
       <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-white/95 backdrop-blur shadow-lg border border-slate-200">
         <Toggle on={powerOn} color="#E60000" icon={Zap} label="Power" onClick={onTogglePower} />
-        <Toggle on={carriersOn} color="#16A34A" icon={Router} label="Carriers" onClick={onToggleCarriers} />
+        <Toggle on={carriersOn} color="#16A34A" icon={Router} label="FCC Fiber" onClick={onToggleCarriers} />
       </div>
 
       {/* Base layer switcher (segmented control) */}

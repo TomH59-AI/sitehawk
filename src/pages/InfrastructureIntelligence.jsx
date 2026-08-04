@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import SiteHawkInfrastructureMap from "@/components/maps/SiteHawkInfrastructureMap";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
-import { carrierFinderInfrastructure } from "@/functions/carrierFinderInfrastructure";
+import { fccBdcInfrastructure } from "@/functions/fccBdcInfrastructure";
 import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
 import { fiberProviderRoutes } from "@/functions/fiberProviderRoutes";
 import { infrastructureMap } from "@/functions/infrastructureMap";
@@ -18,8 +18,8 @@ const loadInfrastructureLayer = (payload) => LIVE_DETAIL_LAYERS.has(payload.laye
       ? fiberProviderRoutes(payload)
       : payload.layer === "zayo_routes"
         ? zayoFiberRoutes(payload)
-        : payload.layer.startsWith("fiber_")
-          ? carrierFinderInfrastructure(payload)
+        : payload.layer === "broadband_service"
+          ? fccBdcInfrastructure(payload)
           : hifldTransmissionLines(payload);
 
 // Parcel Intelligence — click an empty map spot to sample zoning, utility,

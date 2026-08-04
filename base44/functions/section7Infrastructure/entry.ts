@@ -8,8 +8,8 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
  *   POWER  — high-voltage transmission lines from HIFLD (hifldTransmissionLines,
  *            ArcGIS FeatureServer) within a bbox around Target A, plus the UTILITY
  *            COMPANY to contact + phone via electricProviderContact.
- *   FIBER  — fiber-lit buildings (named carriers) + incumbent telco contact from
- *            CarrierFinder (carrierFinderFiber).
+ *   FIBER  — official FCC BDC block-group availability summary and provider count.
+ *            No private route, central-office, or lit-building records are inferred.
  *
  * Returns clean arrays for the Mapbox layers + contact cards. Power is delivered
  * as `power.lines` (HIFLD line segments); `power.points` stays empty.
@@ -67,7 +67,7 @@ function clipLineNearCenter(cLat, cLon, coords, keepMi) {
   return runs.filter((r) => r.length >= 2);
 }
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const user = await base44.auth.me();
@@ -134,18 +134,13 @@ Deno.serve(async (req) => {
       console.log(`[section7Infrastructure] utility contact lookup failed: ${e.message}`);
     }
 
-    // 3) CarrierFinder — fiber-lit buildings (named carriers) + incumbent telco.
-    let litBuildings = [];
-    let telco = null;
+    // 3) FCC BDC — official block-group fiber availability summary.
+    let fccCoverage = null;
     try {
-      const cfRes = await base44.functions.invoke('carrierFinderFiber', {
-        lat: cLat, lon: cLon, radius_miles: radiusMi,
-      });
-      const body = cfRes?.data ?? cfRes;
-      litBuildings = body?.lit_buildings || [];
-      telco = body?.telco || null;
+      const fccRes = await base44.functions.invoke('fccBdcConnectivity', { lat: cLat, lon: cLon });
+      fccCoverage = fccRes?.data ?? fccRes;
     } catch (e) {
-      console.log(`[section7Infrastructure] CarrierFinder lookup failed: ${e.message}`);
+      console.log(`[section7Infrastructure] FCC BDC lookup failed: ${e.message}`);
     }
 
     const utilityName = utility?.name || null;
@@ -160,20 +155,20 @@ Deno.serve(async (req) => {
         count: powerLines.length,
       },
       fiber: {
-        // Fiber runs/splices came only from OSM — removed. CarrierFinder lit
-        // buildings now carry the fiber story (see `carriers`).
+        // FCC BDC is an availability dataset, not a physical route or facility dataset.
         lines: [],
         points: [],
         count: 0,
       },
       carriers: {
-        lit_buildings: litBuildings,
-        telco,
-        count: litBuildings.length,
+        lit_buildings: [],
+        telco: null,
+        coverage: fccCoverage,
+        count: fccCoverage?.provider_count ?? 0,
       },
     });
   } catch (error) {
     console.error('section7Infrastructure error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });
   }
-});
+}

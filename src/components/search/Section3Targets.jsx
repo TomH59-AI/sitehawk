@@ -706,7 +706,7 @@ export default function Section3Targets({
               ))}
             </div>
           )}
-          {/* CONNECTIVITY — CarrierFinder fiber/telco intel per target (additive, display-only) */}
+          {/* CONNECTIVITY — FCC BDC fiber availability per target (additive, display-only) */}
           {!noData && <ConnectivityPanel targets={targets} />}
         </>
       )}

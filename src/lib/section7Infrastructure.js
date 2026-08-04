@@ -16,8 +16,8 @@ export const SAT_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 export const BRAND_GREEN = "#628C83";
 export const POWER_RED = "#E60000";   // APWA — electric
 export const FIBER_ORANGE = "#FF8C00"; // APWA — communication / fiber
-export const CARRIER_GREEN = "#16A34A"; // CarrierFinder — OnNet lit building
-export const CARRIER_YELLOW = "#EAB308"; // CarrierFinder — NearNet building
+export const CARRIER_GREEN = "#16A34A"; // Reserved for verified carrier points
+export const CARRIER_YELLOW = "#EAB308"; // Reserved for verified carrier points
 
 // ────────────── Mapbox GL JS loader (idempotent, shared) ──────────────
 let mapboxLoadingPromise = null;
@@ -102,7 +102,7 @@ function buildSources(data, target) {
       properties: { id: p.id, kind: p.kind, company: p.fiber_company || "" },
     })),
   };
-  // CarrierFinder lit buildings — named carriers at known coordinates.
+  // Verified carrier points, when a source supplies precise facility coordinates.
   const carriers = {
     type: "FeatureCollection",
     features: (data.carriers?.lit_buildings || [])
@@ -205,7 +205,7 @@ function addInfraLayers(map, sources) {
     },
     paint: { "text-color": "#fff" },
   });
-  // CarrierFinder lit buildings — OnNet = solid green, NearNet = hollow yellow.
+  // Verified carrier points — currently empty because FCC BDC does not publish facilities.
   map.addLayer({
     id: "s7-carrier-pt", type: "circle", source: "s7-carriers",
     paint: {
