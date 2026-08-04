@@ -3,7 +3,7 @@ import { Radio, Eye, ShieldCheck, MapPin, FileSignature, Scale } from "lucide-re
 
 const TOOLS = [
   { path: "/hawkfit-map", icon: Radio, label: "TalonFit® Map", desc: "AI spatial intelligence and deterministic tower-fit checks." },
-  { path: "/hawk-vision", icon: Eye, label: "HawkVision", desc: "Show the proposed tower, compound, and landscaping." },
+  { path: "/hawk-vision", icon: Eye, label: "HawkVision", desc: "Replay the live Target A parcel, setback, fall-zone, compound, and tower sketch." },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "Zoning Verifier", desc: "Cross-check zoning findings and approval requirements." },
   { path: "/rfi-engine", icon: Radio, label: "RF Intelligence", desc: "Explore coverage, nearby assets, and RF opportunity." },
   { path: "/hawk-tracker", icon: MapPin, label: "Hawk Tracker", desc: "Carry the selected site from outreach through build-out." },

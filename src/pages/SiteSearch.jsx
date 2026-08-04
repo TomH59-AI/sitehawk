@@ -24,6 +24,7 @@ import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
 import { tribalLandLookup } from "@/functions/tribalLandLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
 import FollowingToolsIndex from "../components/search/FollowingToolsIndex";
+import PipelineLiveSketch from "../components/search/PipelineLiveSketch";
 import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
 import ExportSvpButton from "../components/search/ExportSvpButton";
 import { round4 } from "@/lib/coords";
@@ -618,6 +619,14 @@ export default function SiteSearch() {
               <p className="text-sm text-sidebar-foreground/70 mt-2 max-w-2xl mx-auto">Turn the active Target A, maps, zoning, infrastructure, environmental findings, and Hawk Intelligence into the full SiteHawk SCIP.</p>
             </div>
             <div className="p-4 md:p-6 space-y-5">
+              {mapsComplete && targetA && (
+                <PipelineLiveSketch
+                  targetA={targetA}
+                  searchCenter={searchCenter}
+                  searchParams={searchParams}
+                  zoningResult={zoningResult}
+                />
+              )}
               <LocalAuthoritiesTable
                 lat={Number.isFinite(targetA?.latitude) ? targetA.latitude : Number(searchCenter.lat)}
                 lng={Number.isFinite(targetA?.longitude) ? targetA.longitude : Number(searchCenter.lon)}
