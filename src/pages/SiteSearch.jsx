@@ -10,7 +10,6 @@ import Section1SarfMap from "../components/search/Section1SarfMap";
 import Section2Zoning from "../components/search/Section2Zoning";
 import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
-import Section7Infrastructure from "../components/search/Section7Infrastructure";
 import Section8Propagation from "../components/search/Section8Propagation";
 import Section9Colocation from "../components/search/Section9Colocation";
 import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
@@ -63,14 +62,14 @@ export default function SiteSearch() {
   // ("Target A"/"Target B"/"Target C"). Persisted per search ring so a refresh
   // never resets the ladder. Locking one target unlocks the next in Section 3.
   const [generatedLabels, setGeneratedLabels] = useState([]);
-  // True once all ten Section 4 maps are complete (Wind is now map #10) — unlocks Section 7.
+  // True once all ten Section 4 maps are complete (Wind is now map #10).
   const [mapsComplete, setMapsComplete] = useState(false);
   // ── PER-SECTION CLEAR / REMOUNT ───────────────────────────────────────────
   // Each pipeline section is remounted (state wiped) by bumping its key here.
   // Clearing a section also rolls back the parent readiness flags for it AND
   // every section downstream, so the pipeline correctly re-locks after it.
   const [clearKeys, setClearKeys] = useState({
-    sarf: 0, zoning: 0, targets: 0, maps: 0, infrastructure: 0, propagation: 0,
+    sarf: 0, zoning: 0, targets: 0, maps: 0, propagation: 0,
   });
   const bumpKeys = (steps) =>
     setClearKeys((prev) => {
@@ -122,7 +121,7 @@ export default function SiteSearch() {
   };
 
   // Ordered pipeline steps (sarf is Section 1, always present).
-  const PIPELINE_ORDER = ["zoning", "targets", "maps", "infrastructure", "propagation"];
+  const PIPELINE_ORDER = ["zoning", "targets", "maps", "propagation"];
 
   // Clear ONE section and everything downstream of it: remount those sections
   // (wipes their internal state) and roll back the parent readiness flags so the
@@ -157,7 +156,7 @@ export default function SiteSearch() {
     setSearchCenter(null);
     setGeneratedLabels([]);
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps", "infrastructure", "propagation"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "propagation"]);
   };
 
   // Mirror the live pipeline into the sidebar progress tracker (flying hawk).
@@ -278,7 +277,7 @@ export default function SiteSearch() {
     setSearchParams((prev) => ({ ...prev, ring_name: `${prev.ring_name || "Search Ring"} — ${label}` }));
     setSearchCenter({ lat: round4(point.lat), lon: round4(point.lng) });
     setPipelineStep("sarf");
-    bumpKeys(["sarf", "zoning", "targets", "maps", "infrastructure", "propagation"]);
+    bumpKeys(["sarf", "zoning", "targets", "maps", "propagation"]);
     setTimeout(() => document.querySelector('[data-coach="sarf-map"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
@@ -494,21 +493,6 @@ export default function SiteSearch() {
           onData={mergeSectionData}
         />
         </div>
-      )}
-
-      {/* TARGET A INFRASTRUCTURE — reconnects the existing power/fiber map after
-          the Hawk Maps suite completes. It runs only when the user requests it. */}
-      {coordsReady && sarfReady && zoningReady && targetA && (
-        <Section7Infrastructure
-          key={`infrastructure-${clearKeys.infrastructure}-${targetA?.apn || `${targetA?.latitude},${targetA?.longitude}`}`}
-          unlocked={mapsComplete}
-          active={pipelineStep === "infrastructure"}
-          targetA={targetA}
-          radiusMiles={searchParams.radius_miles}
-          onRun={() => setPipelineStep("infrastructure")}
-          onData={mergeSectionData}
-          onClear={() => clearFrom("infrastructure")}
-        />
       )}
 
       {/* TARGET A RF PROPAGATION — the existing carrier/CloudRF map remains
