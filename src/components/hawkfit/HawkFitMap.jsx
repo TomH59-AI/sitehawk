@@ -222,9 +222,17 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     if (!canvas) return;
     canvas.style.cursor = selectionEnabled ? "crosshair" : "";
     if (!selectionEnabled) return;
-    const pick = (event) => onMapSelect?.({ lat: event.lngLat.lat, lng: event.lngLat.lng });
-    map.on("click", pick);
-    return () => { try { map.off("click", pick); } catch {} if (canvas) canvas.style.cursor = ""; };
+    map.doubleClickZoom.disable();
+    const pick = (event) => {
+      event.preventDefault?.();
+      onMapSelect?.({ lat: event.lngLat.lat, lng: event.lngLat.lng });
+    };
+    map.on("dblclick", pick);
+    return () => {
+      try { map.off("dblclick", pick); } catch {}
+      try { map.doubleClickZoom.enable(); } catch {}
+      if (canvas) canvas.style.cursor = "";
+    };
   }, [ready, selectionEnabled, onMapSelect]);
 
   if (loadError) {
@@ -234,8 +242,20 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full rounded-xl overflow-hidden" />
       {fit && (
-        <div className={`absolute left-3 top-3 z-10 rounded-full border px-3 py-1.5 text-xs font-bold shadow ${fit.status === "works" ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-red-300 bg-red-50 text-red-700"}`}>
-          HawkPerch · {fit.status === "works" ? "ALLOWABLE" : fit.errorCode || "UNALLOWABLE"}
+        <div className={`absolute left-3 top-3 z-10 rounded-full border px-3 py-1.5 text-xs font-bold shadow ${
+          fit.status === "works"
+            ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+            : fit.status === "needs_review"
+              ? "border-amber-300 bg-amber-50 text-amber-700"
+              : "border-red-300 bg-red-50 text-red-700"
+        }`}>
+          TalonFit · {fit.status === "works" ? "APPROVED" : fit.status === "needs_review" ? "VERIFY" : "REJECTED"}
+          {fit.maxAvailableHeight > 0 ? ` · max ${Math.floor(fit.maxAvailableHeight)} ft` : ""}
+        </div>
+      )}
+      {selectionEnabled && (
+        <div className="absolute left-3 top-12 z-10 max-w-[310px] rounded-lg border border-cyan-300/70 bg-slate-950/85 px-3 py-2 text-[11px] font-semibold text-white shadow-lg">
+          Double-click a green point to save D, E, or F · three maximum · inside the one-mile ring
         </div>
       )}
       {savedTargets.some(Boolean) && (
