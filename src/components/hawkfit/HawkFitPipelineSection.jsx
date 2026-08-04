@@ -260,18 +260,18 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       setSiteTarget(t);
       setResolvedFrom("manual lookup");
       setSavedScenario(null);
-      let waterFC = null;
-      try {
-        const wr = await hawkfitWaterBodies({ lat: t.latitude, lon: t.longitude });
-        waterFC = wr?.data?.water || null;
-      } catch { /* no water data */ }
-      setWater(waterFC);
+      const constraintData = await loadConstraintData(t);
+      setWater(constraintData.water);
+      setStructures(constraintData.structures);
+      setStructureDataAvailable(constraintData.structureDataAvailable);
+      setNearbyTowers(constraintData.nearbyTowers);
+      setTowerDataAvailable(constraintData.towerDataAvailable);
       let placed = [t.longitude, t.latitude];
       if (t.parcel_geometry) {
         const auto = autoPlaceTower({
           parcelGeometry: t.parcel_geometry,
           heightFt: controls.heightFt, widthFt: controls.widthFt, depthFt: controls.depthFt,
-          zoning: t.zoning || null, waterFeatures: waterFC,
+          zoning: t.zoning || null, waterFeatures: constraintData.water,
         });
         if (auto?.lngLat) placed = auto.lngLat;
       }
