@@ -1,0 +1,110 @@
+{
+  "name": "FiberConnectionPoint",
+  "type": "object",
+  "description": "Physical fiber connection points \u2014 carrier-neutral facilities / carrier hotels / data centers and internet exchange points (IXPs). Sourced from the PeeringDB public API (free with attribution). These are the real backhaul handoff locations the FCC BDC area summaries cannot provide. App-wide shared reference data; admin-only writes. NOTE: TeleGeography submarine-cable and cable-landing layers are deliberately EXCLUDED \u2014 CC BY-NC-SA is non-commercial only.",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Facility or exchange name as published by PeeringDB."
+    },
+    "point_type": {
+      "type": "string",
+      "enum": [
+        "carrier_facility",
+        "internet_exchange"
+      ],
+      "description": "carrier_facility = carrier hotel / data center. internet_exchange = IXP."
+    },
+    "org_name": {
+      "type": "string",
+      "description": "Operating organization (facilities only)."
+    },
+    "name_long": {
+      "type": "string",
+      "description": "Long-form exchange name (IXPs only)."
+    },
+    "peeringdb_id": {
+      "type": "number",
+      "description": "PeeringDB record id \u2014 dedupe key within a point_type."
+    },
+    "latitude": {
+      "type": "number"
+    },
+    "longitude": {
+      "type": "number"
+    },
+    "address": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase US state code where published."
+    },
+    "zipcode": {
+      "type": "string"
+    },
+    "clli": {
+      "type": "string",
+      "description": "CLLI code (facilities only) where published."
+    },
+    "website": {
+      "type": "string"
+    },
+    "media": {
+      "type": "string",
+      "description": "Exchange media type, e.g. Ethernet (IXPs only)."
+    },
+    "net_count": {
+      "type": "number",
+      "description": "Networks present \u2014 higher means richer carrier choice for backhaul."
+    },
+    "ix_count": {
+      "type": "number",
+      "description": "Exchanges present at this facility."
+    },
+    "carrier_count": {
+      "type": "number",
+      "description": "Carriers present at this facility."
+    },
+    "fac_count": {
+      "type": "number",
+      "description": "Facilities this exchange spans (IXPs only)."
+    },
+    "source": {
+      "type": "string",
+      "default": "PeeringDB public API",
+      "description": "Data source \u2014 displayed in the UI for attribution."
+    },
+    "source_as_of": {
+      "type": "string",
+      "description": "When the source snapshot was generated."
+    }
+  },
+  "required": [
+    "name",
+    "point_type",
+    "latitude",
+    "longitude"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
