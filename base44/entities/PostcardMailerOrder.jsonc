@@ -1,11 +1,10 @@
 {
   "name": "PostcardMailerOrder",
   "type": "object",
-  "description": "A paid Postcard Mailer Pack order tied to one ScipRecord. Recipients are the SCIP's parcel_targets (Target A/B/C) plus up to 2 optional extra already-evaluated parcels. Lob postcards are created server-side only after payment is confirmed; Lob postcard IDs/statuses are stored per recipient. Never stores Lob credentials.",
+  "description": "A paid Postcard Mailer Pack order tied to one ScipRecord. Recipients are the SCIP's parcel_targets plus optional already-evaluated parcels. Lob postcards are created server-side only after payment is confirmed.",
   "properties": {
     "description": {
       "type": "string",
-      "description": "Optional description or notes for this record (up to 1000 characters).",
       "maxLength": 1000
     },
     "scip_record_id": {
@@ -13,18 +12,15 @@
       "description": "The ScipRecord this mailer order belongs to."
     },
     "site_name": {
-      "type": "string",
-      "description": "Cached SCIP site name for display."
+      "type": "string"
     },
     "recipients": {
       "type": "array",
-      "description": "The selected postcard recipients with their per-recipient mailing data and status.",
       "items": {
         "type": "object",
         "properties": {
           "label": {
-            "type": "string",
-            "description": "Target A | Target B | Target C | Extra 1 | Extra 2"
+            "type": "string"
           },
           "source": {
             "type": "string",
@@ -32,23 +28,19 @@
               "scip_target",
               "extra"
             ],
-            "default": "scip_target",
-            "description": "Whether this recipient is a SCIP parcel_target or an optional extra evaluated parcel."
+            "default": "scip_target"
           },
           "owner_name": {
             "type": "string"
           },
           "mailing_address": {
-            "type": "string",
-            "description": "Owner mailing address used for the postcard To field."
+            "type": "string"
           },
           "parcel_address": {
-            "type": "string",
-            "description": "Site / situs address (display only)."
+            "type": "string"
           },
           "apn": {
-            "type": "string",
-            "description": "Parcel / APN identifier."
+            "type": "string"
           },
           "latitude": {
             "type": "number"
@@ -58,12 +50,10 @@
           },
           "address_verified": {
             "type": "boolean",
-            "default": false,
-            "description": "True if Lob US address verification deliverable."
+            "default": false
           },
           "verification_note": {
-            "type": "string",
-            "description": "Lob deliverability summary or failure reason."
+            "type": "string"
           },
           "status": {
             "type": "string",
@@ -75,39 +65,31 @@
               "failed",
               "canceled"
             ],
-            "default": "draft",
-            "description": "Per-recipient mailing status."
+            "default": "draft"
           },
           "lob_postcard_id": {
-            "type": "string",
-            "description": "Lob postcard ID once mailed."
+            "type": "string"
           },
           "expected_delivery": {
-            "type": "string",
-            "description": "Lob expected_delivery_date."
+            "type": "string"
           },
           "tracking_url": {
-            "type": "string",
-            "description": "Lob postcard URL/tracking if available."
+            "type": "string"
           },
           "failure_reason": {
-            "type": "string",
-            "description": "Reason this recipient failed, if any."
+            "type": "string"
           },
           "idempotency_key": {
-            "type": "string",
-            "description": "Idempotency key used for the Lob create call to prevent duplicate sends."
+            "type": "string"
           }
         }
       }
     },
     "message_copy": {
-      "type": "string",
-      "description": "The edited postcard body copy (HawkBot-drafted or user-typed) printed on the back of every postcard."
+      "type": "string"
     },
     "sender": {
       "type": "object",
-      "description": "The user's private-label contact block printed on the postcard.",
       "properties": {
         "name": {
           "type": "string"
@@ -123,16 +105,25 @@
         },
         "address": {
           "type": "string"
+        },
+        "branding_mode": {
+          "type": "string",
+          "enum": [
+            "sitehawk",
+            "customer"
+          ],
+          "default": "sitehawk"
+        },
+        "logo_url": {
+          "type": "string"
         }
       }
     },
     "recipient_count": {
-      "type": "number",
-      "description": "Number of recipients in this order."
+      "type": "number"
     },
     "price_charged_usd": {
-      "type": "number",
-      "description": "Amount charged for this order (USD)."
+      "type": "number"
     },
     "payment_status": {
       "type": "string",
@@ -142,8 +133,7 @@
         "failed",
         "canceled"
       ],
-      "default": "pending_payment",
-      "description": "Order-level payment status."
+      "default": "pending_payment"
     },
     "mailing_status": {
       "type": "string",
@@ -156,25 +146,21 @@
         "failed",
         "canceled"
       ],
-      "default": "draft",
-      "description": "Order-level mailing status rollup."
+      "default": "draft"
     },
     "stripe_session_id": {
-      "type": "string",
-      "description": "Stripe Checkout session id for this order."
+      "type": "string"
     },
     "lob_mode": {
       "type": "string",
       "enum": [
         "TEST",
         "LIVE"
-      ],
-      "description": "Which Lob environment the postcards were created in."
+      ]
     },
     "sent_at": {
       "type": "string",
-      "format": "date-time",
-      "description": "ISO timestamp when the postcards were created in Lob."
+      "format": "date-time"
     }
   },
   "required": [

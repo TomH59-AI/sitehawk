@@ -4,7 +4,7 @@ import { sendPostcardMailers } from "@/functions/sendPostcardMailers";
 import { draftHawkBotLetter } from "@/functions/draftHawkBotLetter";
 import {
   X, Send, Loader2, CheckCircle2, AlertTriangle, MapPin, Wand2, PenLine,
-  ShieldCheck, Eye, Plus,
+  ShieldCheck, Eye, Plus, ImagePlus,
 } from "lucide-react";
 import PostcardPreview from "./PostcardPreview";
 
@@ -33,7 +33,8 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
   const [extraPool, setExtraPool] = useState([]); // available evaluated parcels
   const [poolLoading, setPoolLoading] = useState(true);
 
-  const [sender, setSender] = useState({ name: "", company: "", phone: "", email: "", address: "" });
+  const [sender, setSender] = useState({ name: "", company: "", phone: "", email: "", address: "", branding_mode: "sitehawk", logo_url: "" });
+  const [logoUploading, setLogoUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [tone, setTone] = useState("friendly");
   const [drafting, setDrafting] = useState(false);
@@ -101,7 +102,7 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
     const chosenScip = scipRecips.filter((r) => selected.includes(r.key));
     const chosenExtras = extras.map((e, i) => ({ ...e, label: `Extra ${i + 1}` }));
     return [...chosenScip, ...chosenExtras].slice(0, 5);
-  }, [scipRecips, selected, extras, recipients?.length]); // eslint-disable-line
+  }, [scipRecips, selected, extras]);
 
   const count = recipients.length;
   const price = count === 0 ? 0 : count <= 3 ? 49 : 79;
@@ -179,6 +180,17 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
     }
   }
 
+  async function handleLogoUpload(file) {
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const uploaded = await base44.integrations.Core.UploadFile({ file });
+      setSender((current) => ({ ...current, branding_mode: "customer", logo_url: uploaded.file_url }));
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
   const deliverableCount = (verified || []).filter((v) => v.address_verified).length;
   const confirmPrice = deliverableCount === 0 ? 0 : deliverableCount <= 3 ? 49 : 79;
 
@@ -215,7 +227,7 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
               {/* Optional extra evaluated parcels (max 2) */}
               <div>
                 <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
-                  Add Extra Evaluated Parcels (optional, up to 2) — {extras.length}/2
+                  Add More Parcels You Evaluated (optional, up to 2) — {extras.length}/2
                 </p>
                 {poolLoading ? (
                   <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading evaluated parcels…</div>
@@ -234,6 +246,20 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
 
               {/* Sender */}
               <div>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">Postcard Branding</p>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <button onClick={() => setSender({ ...sender, branding_mode: "sitehawk", logo_url: "" })}
+                    className={`rounded-lg border p-3 text-left text-xs ${sender.branding_mode === "sitehawk" ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <strong className="block text-foreground">Use SiteHawk branding</strong>
+                    <span className="text-muted-foreground">Our logo and design</span>
+                  </button>
+                  <label className={`rounded-lg border p-3 text-left text-xs cursor-pointer ${sender.branding_mode === "customer" ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <strong className="flex items-center gap-1 text-foreground"><ImagePlus className="w-3.5 h-3.5" /> Use my logo</strong>
+                    <span className="text-muted-foreground">{logoUploading ? "Uploading…" : sender.logo_url ? "Logo ready" : "Upload PNG or JPG"}</span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" disabled={logoUploading}
+                      onChange={(e) => handleLogoUpload(e.target.files?.[0])} className="hidden" />
+                  </label>
+                </div>
                 <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">Your Contact Info (printed on the postcard)</p>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label="Your Name" value={sender.name} onChange={(v) => setSender({ ...sender, name: v })} />

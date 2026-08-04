@@ -20,7 +20,12 @@ export default function PostcardPreview({ recipient, sender, message }) {
       <div className="rounded-lg overflow-hidden shadow-sm border border-border">
         <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-1 bg-secondary">Front</div>
         <div className="p-4 text-white" style={{ background: "linear-gradient(135deg,#0b3d91 0%,#1769e0 55%,#19a7d8 100%)", aspectRatio: "9/5.75" }}>
-          <div className="text-[8px] font-bold uppercase tracking-[2px]" style={{ color: "#ffd24a" }}>Cellular Tower Lease — Exploratory Inquiry</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[8px] font-bold uppercase tracking-[2px]" style={{ color: "#ffd24a" }}>Cellular Tower Lease — Exploratory Inquiry</div>
+            {sender?.branding_mode === "customer" && sender?.logo_url
+              ? <img src={sender.logo_url} alt="Customer logo" className="h-7 max-w-24 object-contain" />
+              : <div className="text-[10px] font-black tracking-wide">SITEHAWK</div>}
+          </div>
           <div className="font-bold leading-tight mt-2" style={{ fontSize: 17 }}>
             Would you consider a <span style={{ color: "#ffd24a" }}>cell tower ground lease</span>?
           </div>

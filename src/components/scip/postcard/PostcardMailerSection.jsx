@@ -41,7 +41,7 @@ export default function PostcardMailerSection({ record }) {
         <Mail className="w-5 h-5 text-white" />
         <div className="flex-1">
           <div className="text-[10px] font-bold uppercase tracking-[2px]" style={{ color: SKYWAVE.yellow }}>Direct Mail Add-On</div>
-          <h3 className="font-heading font-bold text-white leading-tight">Send Postcard Mailers</h3>
+          <h3 className="font-heading font-bold text-white leading-tight">Want to Mail These Property Owners?</h3>
         </div>
         <button onClick={load} title="Refresh status" className="text-white/80 hover:text-white">
           <RefreshCw className="w-4 h-4" />
@@ -50,7 +50,7 @@ export default function PostcardMailerSection({ record }) {
 
       <div className="p-5 bg-card">
         <p className="text-sm text-muted-foreground mb-4">
-          Mail an exploratory cell-tower-lease postcard to your three SCIP targets (and optionally up to two more parcels you've already evaluated). Brian drafts it, you review &amp; edit, addresses are verified, you pay, and we mail via Lob. <strong>Up to 3 for $49 · up to 5 for $79.</strong>
+          Choose any of your three SCIP targets and optionally add up to two more parcels you already evaluated. Add your name and logo or use SiteHawk branding, review the card, verify the addresses, then pay and mail. <strong>Up to 3 for $49 · up to 5 for $79.</strong>
         </p>
 
         {!hasTargets ? (

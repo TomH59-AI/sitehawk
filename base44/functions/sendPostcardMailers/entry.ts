@@ -1,5 +1,6 @@
-import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import Stripe from 'npm:stripe@14.21.0';
+import { secrets } from 'base44:runtime';
 
 /**
  * sendPostcardMailers — Postcard Mailer Pack for a ScipRecord.
@@ -31,7 +32,7 @@ function priceForCount(n) {
 }
 
 function lobKey() {
-  const key = Deno.env.get('LOB_API_KEY_SECRET') || Deno.env.get('LOB_API_KEY');
+  const key = secrets.get('LOB_API_KEY_SECRET') || secrets.get('LOB_API_KEY');
   if (!key) throw new Error('Server missing Lob API key (LOB_API_KEY_SECRET).');
   return key;
 }
@@ -85,8 +86,10 @@ async function verifyAddress(parsed) {
   }
 }
 
-function postcardFront(r) {
+function postcardFront(r, sender) {
   const addr = esc(r.parcel_address || 'your property');
+  const logoUrl = sender?.branding_mode === 'customer' && /^https:\/\//i.test(sender?.logo_url || '') ? esc(sender.logo_url) : '';
+  const brand = logoUrl ? `<img class="brand-logo" src="${logoUrl}" alt="Company logo"/>` : '<div class="brand-name">SITEHAWK</div>';
   return `<html><head><style>
     *{margin:0;padding:0;box-sizing:border-box;}
     body{font-family:'Helvetica Neue',Arial,sans-serif;}
@@ -96,7 +99,11 @@ function postcardFront(r) {
     p{font-size:19px;line-height:1.4;max-width:6.2in;}
     .gold{color:#ffd24a;font-weight:800;}
     .addr{margin-top:18px;font-size:14px;opacity:.9;}
+    .brand{position:absolute;top:.38in;right:.45in;display:flex;align-items:center;justify-content:flex-end;}
+    .brand-logo{max-width:1.7in;max-height:.55in;object-fit:contain;}
+    .brand-name{font-size:18px;font-weight:900;letter-spacing:2px;color:#fff;}
   </style></head><body><div class="wrap">
+    <div class="brand">${brand}</div>
     <div class="kicker">Cellular Tower Lease — Exploratory Inquiry</div>
     <h1>Would you consider a<br/><span class="gold">cell tower ground lease</span>?</h1>
     <p>We're exploring potential wireless tower sites in your area and wanted to ask whether you'd be open to a conversation about your property. There's no obligation — just an exploratory question.</p>
@@ -141,7 +148,7 @@ function postcardBack(r, sender, message) {
   </div></body></html>`;
 }
 
-Deno.serve(async (req) => {
+export default async function(req) {
   try {
     const base44 = createClientFromRequest(req);
     const body = (await req.json()) ?? {};
@@ -184,7 +191,7 @@ Deno.serve(async (req) => {
             form.set('from[address_state]', fromParsed.state);
             form.set('from[address_zip]', fromParsed.zip || '');
           }
-          form.set('front', postcardFront(r));
+          form.set('front', postcardFront(r, sender));
           form.set('back', postcardBack(r, sender, order.message_copy));
           form.set('size', '6x9');
 
@@ -297,7 +304,7 @@ Deno.serve(async (req) => {
         mailing_status: 'pending_payment',
       });
 
-      const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY'));
+      const stripe = new Stripe(secrets.get('STRIPE_SECRET_KEY'));
       const origin = req.headers.get('origin') || 'https://app.base44.com';
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -317,7 +324,7 @@ Deno.serve(async (req) => {
         success_url: `${origin}${body.return_path || '/scip/' + scipRecordId}?postcard_order=${order.id}&postcard_success=1`,
         cancel_url: `${origin}${body.return_path || '/scip/' + scipRecordId}?postcard_order=${order.id}&postcard_cancel=1`,
         metadata: {
-          base44_app_id: Deno.env.get('BASE44_APP_ID'),
+          base44_app_id: secrets.get('BASE44_APP_ID'),
           type: 'postcard_mailer_pack',
           user_email: user.email,
           order_id: order.id,
@@ -334,4 +341,4 @@ Deno.serve(async (req) => {
     console.error('sendPostcardMailers error:', err?.message ?? err);
     return Response.json({ error: String(err?.message ?? err) }, { status: 500 });
   }
-});
+}
