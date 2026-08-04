@@ -51,27 +51,70 @@ export async function resolveFccGeography(lat, lon) {
   };
 }
 
+const fips = (value) => (value == null ? null : String(value).padStart(2, "0"));
+
+// The published availability index for one as-of date. One fetch, cached, then
+// filtered per state — the index itself names every provider publishing
+// fixed-broadband location coverage, so provider names need no file download.
+async function getAvailabilityIndex(asOfDate, username, token) {
+  const cacheKey = `availability-index:${asOfDate}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+  const payload = await request(`/map/downloads/listAvailabilityData/${asOfDate}`, username, token);
+  return cacheSet(cacheKey, payload.data || []);
+}
+
 export async function getStateProviderFileContext(lat, lon, username, token) {
   const geography = await resolveFccGeography(lat, lon);
   const asOfDate = await getLatestAvailabilityDate(username, token);
   const cacheKey = `provider-list:${asOfDate}:${geography.stateFips}`;
   const cached = cacheGet(cacheKey);
   if (cached) return { ...cached, geography };
-  const query = new URLSearchParams({
-    category: "State",
-    subcategory: "Provider List",
-    technology_type: "Fixed Broadband",
-  });
-  const payload = await request(`/map/downloads/listAvailabilityData/${asOfDate}?${query}`, username, token);
-  const file = (payload.data || []).find((item) => String(item.state_fips).padStart(2, "0") === geography.stateFips) || null;
+
+  const rows = await getAvailabilityIndex(asOfDate, username, token);
+  const inState = rows.filter((row) => fips(row.state_fips) === geography.stateFips);
+
+  // NOTE: State|Provider List rows publish an EMPTY technology_type — never
+  // filter this subcategory by technology or it silently matches nothing.
+  const listFile = inState.find(
+    (row) => row.category === "State" && row.subcategory === "Provider List",
+  ) || null;
+
+  // Per-provider fixed-broadband location-coverage files published for this state.
+  const fixedRows = rows.filter(
+    (row) => row.category === "Provider" &&
+      row.subcategory === "Location Coverage" &&
+      row.technology_type === "Fixed Broadband" &&
+      fips(row.state_fips) === geography.stateFips,
+  );
+  const byProvider = new Map();
+  for (const row of fixedRows) {
+    if (!row.provider_name) continue;
+    const entry = byProvider.get(row.provider_name) || {
+      provider_name: row.provider_name,
+      provider_id: row.provider_id ?? null,
+      technologies: new Set(),
+    };
+    if (row.technology_code_desc) entry.technologies.add(row.technology_code_desc);
+    byProvider.set(row.provider_name, entry);
+  }
+  const fixedProviders = [...byProvider.values()]
+    .map((entry) => ({ ...entry, technologies: [...entry.technologies].sort() }))
+    .sort((a, b) => a.provider_name.localeCompare(b.provider_name));
+
   const value = {
     asOfDate,
-    providerListFile: file ? {
-      fileId: file.file_id,
-      fileName: file.file_name,
-      recordCount: file.record_count == null ? null : Number(file.record_count),
-      stateName: file.state_name || geography.stateName,
+    providerListFile: listFile ? {
+      fileId: listFile.file_id,
+      fileName: listFile.file_name,
+      recordCount: listFile.record_count == null ? null : Number(listFile.record_count),
+      stateName: listFile.state_name || geography.stateName,
     } : null,
+    fixedProviders,
+    stateProviderTotals: {
+      fixed_broadband_providers: fixedProviders.length,
+      fixed_coverage_files: fixedRows.length,
+    },
   };
   cacheSet(cacheKey, value);
   return { ...value, geography };

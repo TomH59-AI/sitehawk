@@ -22,7 +22,10 @@ export default async function(req) {
       center: { lat: latitude, lon: longitude },
       coverage: coverage?.found ? coverage : null,
       provider_count: coverage?.providers?.fiber ?? null,
-      provider_names: [],
+      // State-level fixed-broadband providers named in the FCC availability index.
+      provider_names: bdc.fixedProviders.map((p) => p.provider_name),
+      state_fixed_providers: bdc.fixedProviders,
+      state_provider_totals: bdc.stateProviderTotals,
       facilities: [],
       source: {
         dataset: "FCC Broadband Data Collection",
