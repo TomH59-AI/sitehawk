@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { distance as turfDistance } from "@turf/turf";
 import { Button } from "@/components/ui/button";
-import { Crosshair, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { computeFit, autoPlaceTower } from "@/lib/hawkfitGeometry";
 import { buildOrdinanceRules, evaluatePoint, COLOR_HEX } from "@/lib/aiEquation";
@@ -45,7 +45,7 @@ async function loadConstraintData(target) {
 // TowerVisualization → Tower3DRender) and runs deterministic turf fit checks.
 export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget, zoningResult = null, searchCenter = null, searchRing = null }) {
   const { toast, dismiss } = useToast();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [rejectedPoint, setRejectedPoint] = useState(null);
   const [resolving, setResolving] = useState(false);
   const [siteTarget, setSiteTarget] = useState(null);
@@ -324,27 +324,50 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   if (!unlocked) return null;
 
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-            <Crosshair className="w-4 h-4 text-primary" />
+    <div
+      id="talonfit-ai"
+      className="relative scroll-mt-24 rounded-3xl border-2 border-cyan-400/70 bg-gradient-to-br from-cyan-500/10 via-card to-emerald-500/10 overflow-hidden shadow-[0_0_36px_rgba(34,211,238,0.18)]"
+    >
+      <div className="bg-gradient-to-r from-cyan-500 via-blue-600 to-emerald-500 px-5 py-2 text-center text-[10px] font-black uppercase tracking-[0.24em] text-white">
+        AI-Powered Ordinance Intelligence · Patent Pending · Powered by HawkPerch
+      </div>
+      <div className="flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-500 text-white shadow-lg">
+            <Sparkles className="h-6 w-6" />
           </div>
           <div>
-            <div className="font-heading font-bold text-foreground">HawkFit Map</div>
-            <div className="text-xs text-muted-foreground">
-              TalonFit ordinance intelligence + HawkPerch spatial solver on the active Target A.
+            <div className="font-heading text-xl font-black text-foreground md:text-2xl">
+              TalonFit® AI — Instant Tower Feasibility
+            </div>
+            <div className="mt-1 max-w-3xl text-sm font-medium text-muted-foreground">
+              Click any property to calculate its maximum buildable tower height—or receive an immediate rejection with the exact reason.
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wide">
+              <span className="rounded-full border border-cyan-400/50 bg-cyan-500/10 px-2.5 py-1 text-cyan-700 dark:text-cyan-300">AI ordinance analysis</span>
+              <span className="rounded-full border border-emerald-400/50 bg-emerald-500/10 px-2.5 py-1 text-emerald-700 dark:text-emerald-300">Live max-height solver</span>
+              <span className="rounded-full border border-violet-400/50 bg-violet-500/10 px-2.5 py-1 text-violet-700 dark:text-violet-300">3 additional sites</span>
             </div>
           </div>
         </div>
-        <Button size="sm" variant="outline" onClick={() => setExpanded((v) => !v)}>
+        <Button
+          size="sm"
+          onClick={() => setExpanded((value) => !value)}
+          className="shrink-0 bg-gradient-to-r from-cyan-600 to-emerald-600 font-extrabold text-white shadow-lg hover:from-cyan-500 hover:to-emerald-500"
+        >
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          {expanded ? "Collapse" : "Open HawkFit"}
+          {expanded ? "Collapse TalonFit AI" : "Find 3 More Approved Sites"}
         </Button>
       </div>
 
       {expanded && (
-        <div className="border-t border-border p-4 space-y-4">
+        <div className="border-t border-cyan-400/30 bg-background/55 p-4 space-y-4">
+          <div className="flex items-start gap-3 rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-4 py-3">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-600" />
+            <p className="text-xs font-semibold leading-relaxed text-foreground">
+              TalonFit AI reads the jurisdiction rules, applies setbacks, height limits, fall-zone and PE-letter allowances, checks tower and off-parcel structure separation, and explains every approval or rejection.
+            </p>
+          </div>
           {resolving && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" /> Resolving active Target A…
