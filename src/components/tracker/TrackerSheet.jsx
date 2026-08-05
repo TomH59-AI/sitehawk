@@ -2,15 +2,9 @@ import { useState, useEffect } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TRACKER_GREEN } from "@/lib/hawkTracker";
-
-const COLUMNS = [
-  "Site Name", "Owner's Name", "Parcel Address", "Parcel ID", "Parcel Size (acres)",
-  "Zoning Classification", "Jurisdiction", "Latitude", "Longitude",
-  "FEMA Risk Factor Letter", "Phone", "Email Address", "Owner's Mailing Address",
-];
-
-const STORE_KEY = "hawk_tracker_sheet_rows";
-const blankRow = () => COLUMNS.map(() => "");
+import {
+  TRACKER_COLUMNS, TRACKER_SHEET_EVENT, blankTrackerRow, loadTrackerRows, saveTrackerRows,
+} from "@/lib/trackerSheet";
 
 /**
  * Site Candidate Tracker — the SiteHawk template opened INSIDE the app as a
@@ -18,20 +12,19 @@ const blankRow = () => COLUMNS.map(() => "");
  * browser so the user can follow their sites during a meeting.
  */
 export default function TrackerSheet() {
-  const [rows, setRows] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-      if (Array.isArray(saved) && saved.length) return saved;
-    } catch { /* ignore */ }
-    return [blankRow(), blankRow(), blankRow()];
-  });
+  const [rows, setRows] = useState(loadTrackerRows);
 
+  // New sites created elsewhere on the page drop straight into this grid.
   useEffect(() => {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(rows)); } catch { /* ignore */ }
-  }, [rows]);
+    const sync = () => setRows(loadTrackerRows());
+    window.addEventListener(TRACKER_SHEET_EVENT, sync);
+    return () => window.removeEventListener(TRACKER_SHEET_EVENT, sync);
+  }, []);
+
+  const update = (next) => { setRows(next); saveTrackerRows(next); };
 
   const setCell = (r, c, v) =>
-    setRows((prev) => prev.map((row, i) => (i === r ? row.map((cell, j) => (j === c ? v : cell)) : row)));
+    update(rows.map((row, i) => (i === r ? row.map((cell, j) => (j === c ? v : cell)) : row)));
 
   return (
     <div className="space-y-3">
@@ -42,7 +35,7 @@ export default function TrackerSheet() {
             Fill this in live during your meetings. It stays inside SiteHawk — nothing is exported.
           </p>
         </div>
-        <Button size="sm" onClick={() => setRows((p) => [...p, blankRow()])} style={{ background: TRACKER_GREEN }} className="font-heading font-semibold">
+        <Button size="sm" onClick={() => update([...rows, blankTrackerRow()])} style={{ background: TRACKER_GREEN }} className="font-heading font-semibold">
           <Plus className="w-4 h-4 mr-1" /> Add Row
         </Button>
       </div>
@@ -51,7 +44,7 @@ export default function TrackerSheet() {
         <table className="min-w-full text-xs">
           <thead>
             <tr>
-              {COLUMNS.map((c) => (
+              {TRACKER_COLUMNS.map((c) => (
                 <th key={c} className="px-2 py-2 text-left font-heading font-bold text-white whitespace-nowrap" style={{ background: TRACKER_GREEN }}>
                   {c}
                 </th>
@@ -73,7 +66,7 @@ export default function TrackerSheet() {
                 ))}
                 <td className="px-2 text-center">
                   <button
-                    onClick={() => setRows((p) => p.filter((_, i) => i !== r))}
+                    onClick={() => update(rows.filter((_, i) => i !== r))}
                     className="text-muted-foreground hover:text-destructive"
                     aria-label="Delete row"
                   >
