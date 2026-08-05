@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Section4MapSuite from "@/components/search/Section4MapSuite";
 import PipelineLiveSketch from "@/components/search/PipelineLiveSketch";
 import PipelinePageHeader, { NeedsSarf } from "@/components/pipeline/PipelinePageHeader";
+import ChangeTargetCPanel from "@/components/pipeline/ChangeTargetCPanel";
 import { usePipeline } from "@/lib/PipelineContext";
 
 const SLOT = { A: 0, B: 1, C: 2 };
@@ -33,6 +34,23 @@ export default function TargetMapsPage({ letter = "A" }) {
         subtitle={`The full map & data suite for Target ${letter} — aerial, topography, FEMA, zoning, FLUM, wetlands, airport, cell tower, parcel, wind, fiber, power, viewshed and compliance.`}
         context={hasTarget ? `${target.parcel_address || target.owner_name || `Target ${letter}`} · ${Number(target.latitude).toFixed(6)}, ${Number(target.longitude).toFixed(6)}` : null}
       />
+
+      {/* Target C is the LAST target — the subscriber picks it themselves on the
+          TalonFit map, and that pick is what the final SCIP is built from. */}
+      {letter === "C" && ringReady && (
+        <ChangeTargetCPanel
+          center={{ lat: Number(center.lat), lon: Number(center.lon) }}
+          proposal={params}
+          onPick={(picked) => {
+            setSuiteDone(false);
+            patchSession((prev) => {
+              const next = [...(prev.targets || [null, null, null])];
+              next[2] = { ...picked };
+              return { targets: next };
+            });
+          }}
+        />
+      )}
 
       {!ringReady ? (
         <NeedsSarf what={`the Target ${letter} maps`} />
