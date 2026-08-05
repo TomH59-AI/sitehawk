@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { computeExhibit } from "@/lib/towerFitExhibit";
 import { resolveScipActiveTarget } from "@/lib/scipTarget";
 import { mountLiveSketch } from "./liveSketchEngine";
+import { resolveDrawnHeight } from "./maxAllowableHeight";
 import SketchHeightControl from "./SketchHeightControl";
 import { downloadLiveSketchPdf } from "./downloadLiveSketchPdf";
 import { base44 } from "@/api/base44Client";
@@ -133,7 +134,7 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
       sourceNote = "No Target A parcel geometry or acreage on this record — a concept parcel is shown. Run 'Find 3 Best Parcels' to sketch the real site.";
     }
 
-    const cfg = {
+    const cfgRequested = {
       siteName: record?.site_name || ctx.parcel_address || "Tower Site",
       preparedFor: ctx.owner_name || "",
       jurisdiction,
@@ -146,12 +147,19 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
       easement: { enabled: shape === "rectangle", widthFt: 30, from: "south" },
       notes: "",
     };
+    // Grader, not bouncer: draw the tower at the height this site actually
+    // allows, so the sketch matches what TalonFit reports.
+    const fit = resolveDrawnHeight(cfgRequested, heightFt, maxHeightFt);
+    const drawnHeightFt = fit.drawnHeightFt;
+    const cfg = { ...cfgRequested, tower: { ...cfgRequested.tower, heightFt: drawnHeightFt } };
+
     const baseModel = computeExhibit(cfg);
-    const peRadius = Math.round(heightFt * 0.5);
+    const peRadius = Math.round(drawnHeightFt * 0.5);
     const peModel = computeExhibit({ ...cfg, fallZone: { rule: "custom", customFt: String(peRadius) } });
     const peInfo = { available: true, accepted: peAccepted, ruleLabel: "50% H", radiusFt: peRadius };
     const dateLabel = (record?.submittal_date || new Date().toISOString().slice(0, 10)).toUpperCase();
-    return { ctx, cfg, baseModel, peModel, peInfo, sourceNote, dateLabel, maxHeightFt, heightExceeds };
+    const heightNote = fit.limitedBy ? "MAX ALLOWABLE" : null;
+    return { ctx, cfg, baseModel, peModel, peInfo, sourceNote, dateLabel, maxHeightFt, heightExceeds, fit, drawnHeightFt, heightNote };
   }, [record, heightFt]);
 
   // Remount the engine only when the drawn geometry actually changes.
@@ -167,7 +175,7 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
       pe: built.peModel,
       peInfo: built.peInfo,
       utilities,
-      meta: { siteName: built.cfg.siteName, dateLabel: built.dateLabel },
+      meta: { siteName: built.cfg.siteName, dateLabel: built.dateLabel, heightNote: built.heightNote },
       onCaption: setCaption,
       onChip: (k) => setLit((s) => { const n = new Set(s); n.add(k); return n; }),
       onState: (st) => { setRunning(st.running); setDone(st.done); setPeOn(st.peOn); },
@@ -203,7 +211,7 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
         svg: svgRef.current,
         record,
         zoningData,
-        heightFt,
+        heightFt: built.drawnHeightFt,
         sourceNote: built.sourceNote,
         preparedBy,
       });
@@ -292,9 +300,12 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
           )}
         </div>
 
-        {built.heightExceeds && (
+        {built.fit.limitedBy && (
           <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-600">
-            ⚠ SARF height {Math.round(built.cfg.tower.heightFt)}′ exceeds the ordinance maximum {built.maxHeightFt}′ from this record's zoning report — variance/waiver path required.
+            ⚠ Requested {built.fit.requestedFt}′ does not fit this site. Drawn at the maximum allowable {built.drawnHeightFt}′ —
+            {built.fit.limitedBy === "ordinance"
+              ? ` capped by the ${built.maxHeightFt}′ ordinance maximum on this record's zoning report. A taller tower needs a variance/waiver.`
+              : ` the tallest height whose fall zone stays on the parcel under the ${built.cfg.fallZone.rule === "110" ? "110%" : "100%"}-of-height rule.`}
           </div>
         )}
         <div className="flex flex-wrap gap-2">

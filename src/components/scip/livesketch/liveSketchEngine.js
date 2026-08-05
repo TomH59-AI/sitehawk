@@ -381,7 +381,10 @@ export function mountLiveSketch(svg, opts) {
   const lblComp = handLabel((cnw[0] + cne[0]) / 2, csw[1] - 9, `${Math.round(comp.w)}'×${Math.round(comp.d)}' COMPOUND`, { size: 10, fill: C.navy, anchor: "middle" });
   const lblFZ = handLabel((X(T.x) + X(T.x + FZ.radius)) / 2, typ - 8, `R ${Math.round(FZ.radius)}'`, { size: 13, fill: C.amber, anchor: "middle", weight: 700 });
   const lblFZ2 = handLabel(X(T.x) + FZ.radius * S * 0.72, Y(T.y) + FZ.radius * S * 0.72, "FALL ZONE", { size: 12, fill: C.amber, rot: -45, anchor: "middle" });
-  const lblTower = handLabel(txp + 68, typ - 42, `${Math.round(T.heightFt)}' ${(T.type || "Monopole").toUpperCase()}`, { size: 13, weight: 700 });
+  const lblTower = handLabel(
+    txp + 68, typ - 42,
+    `${Math.round(T.heightFt)}' ${(T.type || "Monopole").toUpperCase()}${meta.heightNote ? ` — ${meta.heightNote}` : ""}`,
+    { size: 13, weight: 700 });
   const lblPE1 = pe ? handLabel(X(T.x - pe.fallZone.radius * 0.354) + 6, Y(T.y + pe.fallZone.radius * 0.354) - 6,
     `R ${Math.round(pe.fallZone.radius)}' (PE)`, { size: 12.5, fill: C.amber, anchor: "middle", rot: 45, weight: 700 }) : null;
   const lblPE2 = pe ? handLabel(X(T.x), Y(T.y) - pe.fallZone.radius * S - 12, "ENGINEERED FALL ZONE — PE", { size: 11.5, fill: C.cyanDk, anchor: "middle" }) : null;
