@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Section4MapSuite from "@/components/search/Section4MapSuite";
+import PipelineLiveSketch from "@/components/search/PipelineLiveSketch";
 import PipelinePageHeader, { NeedsSarf } from "@/components/pipeline/PipelinePageHeader";
 import { usePipeline } from "@/lib/PipelineContext";
 
@@ -60,6 +61,26 @@ export default function TargetMapsPage({ letter = "A" }) {
           onComplete={() => {}}
           onData={(data) => patchSession((prev) => ({ sectionData: { ...prev.sectionData, ...data } }))}
         />
+      )}
+
+      {/* Last target in the pipeline — the Live Site Sketch closes it out. */}
+      {letter === "C" && ringReady && hasTarget && (
+        <div className="space-y-2">
+          <div className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/15 via-transparent to-transparent px-4 py-3">
+            <div className="text-[10px] font-mono tracking-[0.3em] text-primary">LIVE SITE SKETCH</div>
+            <div className="font-heading font-bold text-foreground">Scaled site sketch — Target C</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              Draws the parcel, compound, setbacks and fall zone from this target's geometry and the zoning pulled in Step 4.
+            </div>
+          </div>
+          <PipelineLiveSketch
+            targetA={target}
+            searchCenter={center}
+            searchParams={params}
+            zoningResult={session.zoningResult || null}
+            sectionData={session.sectionData || {}}
+          />
+        </div>
       )}
     </div>
   );

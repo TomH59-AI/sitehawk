@@ -46,7 +46,6 @@ const BASE_NAV = [
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
   { path: "/crm", icon: Briefcase, label: "⏱️ AI Time Savers" },
   { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
-  { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡️ Zoning Verifier" },
   { path: "/rfi-engine", icon: Radar, label: "📡 RF Intelligence Engine" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
