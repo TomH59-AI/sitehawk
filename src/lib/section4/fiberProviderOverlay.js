@@ -1,54 +1,84 @@
 /**
  * Draws the imported provider fiber routes (KMZ → PostGIS) onto a Mapbox map.
  * Only what the imported files contain is drawn — nothing is inferred.
+ *
+ * Called without blocking the rest of the map render, so two things matter:
+ *   1. every provider query is bounded (see queryProviderRoutes)
+ *   2. the map may have been retired before the query returns — guard before
+ *      touching it, or addSource throws into a dead style.
  */
-import { base44 } from "@/api/base44Client";
-import { FIBER_PROVIDERS } from "@/components/maps/fiberLayers";
+import { queryFiberProviderRoutes, fiberLegend } from "@/lib/fiber/queryProviderRoutes";
 
-const MI_TO_DEG_LAT = 1 / 69;
+/** True only while the map still has a live style we can add layers to. */
+function mapAlive(map) {
+  try {
+    return !!map && map._removed !== true && typeof map.getStyle === "function" && !!map.getStyle();
+  } catch {
+    return false;
+  }
+}
 
-export async function addFiberProviderRoutes(map, lat, lon, radiusMiles = 0.5) {
-  const dLat = radiusMiles * MI_TO_DEG_LAT;
-  const dLon = dLat / Math.max(0.15, Math.cos((lat * Math.PI) / 180));
-  const bbox = [lon - dLon, lat - dLat, lon + dLon, lat + dLat];
+/**
+ * @param {object}  map          live mapbox-gl map
+ * @param {number}  lat
+ * @param {number}  lon
+ * @param {number}  radiusMiles
+ * @param {object}  [options]
+ * @param {string}  [options.beforeId] insert routes beneath this layer, so the
+ *                  ring, the dashed hookup run and the pins all stay on top.
+ * @returns {Promise<Array>} legend rows for the providers that drew
+ */
+export async function addFiberProviderRoutes(map, lat, lon, radiusMiles = 0.5, options = {}) {
+  const { beforeId } = options;
+  if (!mapAlive(map)) return [];
 
-  const sets = await Promise.all(
-    FIBER_PROVIDERS.map(async (p) => {
-      try {
-        const { data } = await base44.functions.invoke("fiberProviderRoutes", {
-          action: "query_layer",
-          layer: `fiberkmz_${p.id}`,
-          bbox,
-          candidate: { lat, lon },
-        });
-        const features = data?.features || [];
-        return features.length ? { ...p, features } : null;
-      } catch {
-        return null;
-      }
-    })
-  );
+  const loaded = await queryFiberProviderRoutes(lat, lon, radiusMiles);
+  if (!loaded.length || !mapAlive(map)) return [];
 
-  const loaded = sets.filter(Boolean);
+  // Only honour beforeId if that layer is actually still in the style.
+  const anchor = beforeId && map.getLayer(beforeId) ? beforeId : undefined;
+
+  const drawn = [];
   for (const s of loaded) {
     const sourceId = `s4-fiberkmz-${s.id}`;
+    if (!mapAlive(map)) break;
     if (map.getSource(sourceId)) continue;
-    map.addSource(sourceId, { type: "geojson", data: { type: "FeatureCollection", features: s.features } });
-    map.addLayer({
-      id: `${sourceId}-line`,
-      type: "line",
-      source: sourceId,
-      filter: ["!=", ["geometry-type"], "Point"],
-      paint: { "line-color": s.color, "line-width": 2.5, "line-opacity": 0.9 },
-    });
-    map.addLayer({
-      id: `${sourceId}-pt`,
-      type: "circle",
-      source: sourceId,
-      filter: ["==", ["geometry-type"], "Point"],
-      paint: { "circle-radius": 4, "circle-color": s.color, "circle-stroke-color": "#fff", "circle-stroke-width": 1.5 },
-    });
+
+    try {
+      map.addSource(sourceId, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: s.features },
+      });
+      map.addLayer(
+        {
+          id: `${sourceId}-line`,
+          type: "line",
+          source: sourceId,
+          filter: ["!=", ["geometry-type"], "Point"],
+          paint: { "line-color": s.color, "line-width": 2.5, "line-opacity": 0.9 },
+        },
+        anchor
+      );
+      map.addLayer(
+        {
+          id: `${sourceId}-pt`,
+          type: "circle",
+          source: sourceId,
+          filter: ["==", ["geometry-type"], "Point"],
+          paint: {
+            "circle-radius": 4,
+            "circle-color": s.color,
+            "circle-stroke-color": "#fff",
+            "circle-stroke-width": 1.5,
+          },
+        },
+        anchor
+      );
+      drawn.push(s);
+    } catch (err) {
+      console.warn(`[FIBER MAP] could not draw ${s.id}:`, err?.message || err);
+    }
   }
 
-  return loaded.map((s) => ({ id: s.id, name: s.name, color: s.color, count: s.features.length }));
+  return fiberLegend(drawn);
 }
