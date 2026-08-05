@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Printer, Loader2, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
@@ -30,6 +30,8 @@ export default function ScipBook() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [preparingPrint, setPreparingPrint] = useState(false);
+  // One ref per rendered page so the pager can scroll the continuous stack.
+  const pageRefs = useRef([]);
 
   useEffect(() => {
     base44.entities.ScipRecord.get(id).then(setRecord).catch(() => setRecord(null)).finally(() => setLoading(false));
@@ -41,6 +43,22 @@ export default function ScipBook() {
     [mapPages]
   );
 
+  // Track which page is in view so the "Page X of Y" readout follows the scroll.
+  useEffect(() => {
+    const nodes = pageRefs.current.filter(Boolean);
+    if (!nodes.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setPage(Number(visible.target.dataset.pageIndex));
+      },
+      { threshold: [0.15, 0.5, 0.9] }
+    );
+    nodes.forEach((n) => observer.observe(n));
+    return () => observer.disconnect();
+  }, [pages.length]);
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-100"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
   }
@@ -49,7 +67,10 @@ export default function ScipBook() {
   }
 
   const total = pages.length;
-  const go = (n) => { setPage(Math.max(0, Math.min(total - 1, n))); window.scrollTo({ top: 0 }); };
+  const go = (n) => {
+    const i = Math.max(0, Math.min(total - 1, n));
+    pageRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const printCompletedBook = async () => {
     const missing = collectMissingFields(record);
@@ -88,7 +109,7 @@ export default function ScipBook() {
       <style>{PRINT_CSS}</style>
       <div className="mx-auto" style={{ maxWidth: "9in" }}>
         {/* Toolbar */}
-        <div className="no-print flex items-center justify-between flex-wrap gap-2 mb-4">
+        <div className="no-print sticky top-0 z-20 flex items-center justify-between flex-wrap gap-2 mb-4 py-2 px-2 rounded-lg backdrop-blur" style={{ background: "rgba(233,238,243,0.92)" }}>
           <button onClick={() => navigate(`/scip/${record.id}`)} className="inline-flex items-center gap-1.5 text-sm text-slate-500">
             <ArrowLeft className="w-4 h-4" /> Back to SCIP
           </button>
@@ -109,11 +130,13 @@ export default function ScipBook() {
           <BookQcPanel record={record} onUpdate={setRecord} />
         </div>
 
-        {/* Pages — one visible on screen, all rendered for print */}
+        {/* Pages — every page rendered in one continuous scroll, and all printed */}
         {pages.map((p, i) => (
           <div
             key={p.id}
-            className={`book-page bg-white shadow-md mx-auto flex-col ${i === page ? "flex" : "hidden"}`}
+            ref={(el) => { pageRefs.current[i] = el; }}
+            data-page-index={i}
+            className="book-page bg-white shadow-md mx-auto flex flex-col mb-6 scroll-mt-4"
             style={{ width: "8.5in", maxWidth: "100%", minHeight: "11in", padding: "0.5in", boxSizing: "border-box" }}
           >
             <div className="flex-1 flex flex-col min-h-0">
@@ -136,7 +159,7 @@ export default function ScipBook() {
             style={{ borderColor: "#1d6fb8", color: "#1d6fb8" }}
           >
             <ChevronLeft className="w-4 h-4" />
-            {page > 0 ? `CLICK HERE TO GO BACK — ${pages[page - 1].title}` : "BACK"}
+            {page > 0 ? `PREVIOUS PAGE — ${pages[page - 1].title}` : "START OF SCIP"}
           </button>
           <button
             onClick={() => go(page + 1)}
@@ -144,7 +167,7 @@ export default function ScipBook() {
             className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-40"
             style={{ background: "#1d6fb8" }}
           >
-            {page < total - 1 ? `CLICK HERE FOR NEXT PAGE — ${pages[page + 1].title}` : "END OF SCIP"}
+            {page < total - 1 ? `NEXT PAGE — ${pages[page + 1].title}` : "END OF SCIP"}
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
