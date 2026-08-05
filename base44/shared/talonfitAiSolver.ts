@@ -3,7 +3,7 @@
  *
  * Implements the SiteHawk TalonFit AI solver contract EXACTLY:
  *   solver_version         = "TalonFit-AI-1.0"
- *   search ring max radius = 1 mile / 5280 ft
+ *   search ring max radius = 2 miles / 10560 ft
  *   tower minimum height   = 100 ft
  *   effective_multiplier   = IF(pe_reduction_allowed AND pe_letter_will_be_provided,
  *                               pe_multiplier, standard_multiplier)
@@ -19,8 +19,8 @@
  */
 
 export const SOLVER_VERSION = "TalonFit-AI-1.0";
-export const MAX_RING_RADIUS_MILES = 1;
-export const MAX_RING_RADIUS_FEET = 5280;
+export const MAX_RING_RADIUS_MILES = 2;
+export const MAX_RING_RADIUS_FEET = 10560;
 export const MINIMUM_HEIGHT_FT = 100;
 export const MAX_SAVED_CANDIDATES = 3;
 export const CANDIDATE_SLOTS = ["D", "E", "F"] as const;
@@ -228,7 +228,7 @@ export function solveTalonFit(input: any) {
   const failures: string[] = [];
   if (insideParcel === false) failures.push("Candidate point falls outside the selected parcel boundary.");
   if (ringFeet != null && ringFeet > MAX_RING_RADIUS_FEET) {
-    failures.push(`Candidate is ${Math.round(ringFeet)} ft from the ring center — beyond the ${MAX_RING_RADIUS_FEET} ft (1 mile) search ring.`);
+    failures.push(`Candidate is ${Math.round(ringFeet)} ft from the ring center — beyond the ${MAX_RING_RADIUS_FEET} ft (${MAX_RING_RADIUS_MILES} mile) search ring.`);
   }
   if (wet) failures.push("Candidate point falls on a mapped water feature — the point must be dry.");
   if (distToLine != null && halfDiagonal > distToLine) {

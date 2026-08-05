@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { Crosshair } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import ScoutAddressForm from "./ScoutAddressForm";
+import ScoutAnchorBanner from "./ScoutAnchorBanner";
 import ScoutRingMap from "./ScoutRingMap";
 import ScoutTargetCard from "./ScoutTargetCard";
 import ScoutSheetsExport from "./ScoutSheetsExport";
@@ -18,14 +18,22 @@ const MIN_HEIGHT_FT = 100;
 const VERDICT = { APPROVED: "fit", REJECTED: "ejected", VERIFY: "verify" };
 
 /**
- * TalonFit® Scout — drop the SRC waypoint, click inside the 1-mile search ring to
- * solve that exact coordinate against TalonFit-AI-1.0, double-click to save it as
- * a D/E/F candidate. Saving is allowed ONLY for a GREEN APPROVED result, only on
- * double-click, and only while fewer than three candidates are saved.
+ * TalonFit® Scout — patent-pending, all-the-data-in-one-click feasibility solver.
+ *
+ * The search-ring center is NOT user-chosen: TalonFit anchors on the exact
+ * coordinate of the Target the subscriber just ran the SCIP on, and draws the
+ * 2-mile (10,560 ft) ring around it. A single click solves that coordinate;
+ * a double-click saves it as a D/E/F candidate — GREEN/APPROVED only, three max.
  */
 export default function ScoutPanel({ onActiveTargetChange }) {
   const navigate = useNavigate();
   const [center, setCenter] = useState(null);
+  const [anchorLoading, setAnchorLoading] = useState(true);
+  const [anchorError, setAnchorError] = useState("");
+  // The SCIP record TalonFit is anchored to, and how many SCIPs this ring has used.
+  const [anchorRecord, setAnchorRecord] = useState(null);
+  const [locks, setLocks] = useState([]);
+  const [extraScipRequested, setExtraScipRequested] = useState(false);
   const [targets, setTargets] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [probe, setProbe] = useState(null);
@@ -35,12 +43,47 @@ export default function ScoutPanel({ onActiveTargetChange }) {
     compound_width_ft: 100,
     compound_depth_ft: 100,
   });
-  // Only one SCIP may be run per scout ring — lock is persisted server-side.
-  const [lock, setLock] = useState(null);
-
   const srcKey = (lat, lon) => `${lat.toFixed(4)},${lon.toFixed(4)}`;
-  const isLockedTarget = (t) => !!lock && srcKey(lock.latitude, lock.longitude) === srcKey(t.lat, t.lon);
   const patch = (id, data) => setTargets((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+
+  // One SCIP per scout ring. Once the anchoring SCIP has worked through targets
+  // B and C, the subscriber may choose to spend ONE additional SCIP in this ring.
+  const extraScipEligible =
+    (anchorRecord?.parcel_targets?.length || 0) >= 3 && (anchorRecord?.active_target_index ?? 0) >= 2;
+  const scipAllowance = 1 + (extraScipEligible && extraScipRequested ? 1 : 0);
+  const scipsUsed = locks.length;
+  const scipAvailable = scipsUsed < scipAllowance;
+  const isLockedTarget = (t) => locks.some((l) => srcKey(l.latitude, l.longitude) === srcKey(t.lat, t.lon));
+
+  // Anchor on the Target the user just SCIP'd — never an arbitrary new point.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [record] = await base44.entities.ScipRecord.list("-created_date", 1);
+        if (cancelled) return;
+        if (!record) { setAnchorLoading(false); return; }
+        const t = record.parcel_targets?.[record.active_target_index ?? 0] || null;
+        const lat = Number.isFinite(t?.latitude) ? t.latitude : record.latitude;
+        const lon = Number.isFinite(t?.longitude) ? t.longitude : record.longitude;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          setAnchorError("Your most recent SCIP has no target coordinates — TalonFit cannot anchor a search ring.");
+          setAnchorLoading(false);
+          return;
+        }
+        const label = [record.site_name, t?.label, t?.parcel_address].filter(Boolean).join(" · ");
+        setAnchorRecord(record);
+        setCenter({ lat, lon, label: label || record.site_name || "SCIP target" });
+        const existing = await base44.entities.ScoutScipLock.filter({ src_key: srcKey(lat, lon) }, "-locked_at", 5);
+        if (!cancelled) setLocks(existing || []);
+      } catch (e) {
+        if (!cancelled) setAnchorError(e?.message || "Could not load your SCIP target.");
+      } finally {
+        if (!cancelled) setAnchorLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const selectTarget = (id) => {
     setActiveId(id);
@@ -59,16 +102,6 @@ export default function ScoutPanel({ onActiveTargetChange }) {
       pe_letter_will_be_provided: peLetter,
       saved_count: savedCount,
     });
-
-  const handleWaypoint = async (wp) => {
-    setCenter(wp);
-    setTargets([]);
-    setActiveId(null);
-    setProbe(null);
-    onActiveTargetChange?.(null);
-    const existing = await base44.entities.ScoutScipLock.filter({ src_key: srcKey(wp.lat, wp.lon) }, "-locked_at", 1);
-    setLock(existing?.[0] || null);
-  };
 
   const handleProbe = async ({ lat, lon }) => {
     setProbe({ lat, lon, verdict: "pending" });
@@ -185,7 +218,7 @@ export default function ScoutPanel({ onActiveTargetChange }) {
 
   const handleRunScip = async (id) => {
     const t = targets.find((x) => x.id === id);
-    if (!t || lock) return;
+    if (!t || !scipAvailable) return;
     const siteName = `Target ${t.letter}${t.parcel?.address ? ` — ${t.parcel.address}` : ""}`.slice(0, 60);
     const created = await base44.entities.ScoutScipLock.create({
       src_key: srcKey(center.lat, center.lon),
@@ -196,7 +229,7 @@ export default function ScoutPanel({ onActiveTargetChange }) {
       site_name: siteName,
       locked_at: new Date().toISOString(),
     });
-    setLock(created);
+    setLocks((prev) => [created, ...prev]);
     const p = new URLSearchParams({
       lat: String(t.lat.toFixed(6)),
       lon: String(t.lon.toFixed(6)),
@@ -220,7 +253,8 @@ export default function ScoutPanel({ onActiveTargetChange }) {
           TalonFit-AI-1.0 Scout
         </div>
         <span className="text-xs text-muted-foreground">
-          Click inside the 1-mile search ring to solve a point · double-click saves only an APPROVED result
+          Patent-pending, all-the-data-in-one-click · click inside the 2-mile search ring to solve a point ·
+          double-click saves only an APPROVED result
         </span>
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           <Switch checked={peLetter} onCheckedChange={setPeLetter} />
@@ -229,8 +263,8 @@ export default function ScoutPanel({ onActiveTargetChange }) {
         <span className="text-xs font-medium text-foreground">{targets.length}/{MAX_SAVED} saved (D·E·F)</span>
       </div>
 
-      <div className="border-t border-border p-3">
-        <ScoutAddressForm onWaypoint={handleWaypoint} />
+      <div className="border-t border-border">
+        <ScoutAnchorBanner loading={anchorLoading} anchor={center} error={anchorError} />
       </div>
 
       <div className="border-t border-border p-3">
@@ -252,18 +286,30 @@ export default function ScoutPanel({ onActiveTargetChange }) {
           </div>
           <div className="space-y-2 border-t border-border p-3">
             <p className="text-[11px] text-muted-foreground">
-              SRC (search ring center): {center.label}. A single click solves that exact coordinate —
-              APPROVED (green) with the maximum buildable height, REJECTED (red) with the first binding
-              failure, or VERIFY (amber) when an input is missing, assumed or unconfirmed. The search ring
-              maximum is 1 mile / 5,280 ft and the tower minimum height is {MIN_HEIGHT_FT} ft. Double-click
-              saves the spot as D, E or F — approved results only, three maximum. Picking a different parcel
-              after your SCIP requires a billable re-SCIP.
+              SRC (search ring center) is your SCIP target: {center.label}. A single click solves that exact
+              coordinate — APPROVED (green) showing the clicked coordinates and the maximum buildable tower
+              height, REJECTED (red) with the binding failure reason, or VERIFY (amber) when an input is
+              missing, assumed or unconfirmed. The search ring maximum is 2 miles / 10,560 ft and the tower
+              minimum height is {MIN_HEIGHT_FT} ft. Double-click saves the spot as D, E or F — approved
+              results only, three maximum.
             </p>
-            {lock && (
-              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] font-medium text-amber-700">
-                SCIP already started on this search ring — Target {lock.letter}
-                {lock.site_name ? ` (${lock.site_name})` : ""}. All other targets are locked. A different
-                parcel requires a billable re-SCIP.
+            {locks.map((l) => (
+              <p key={l.id} className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[11px] font-medium text-amber-700">
+                SCIP run in this ring on Target {l.letter}{l.site_name ? ` (${l.site_name})` : ""}.
+              </p>
+            ))}
+            {!scipAvailable && extraScipEligible && !extraScipRequested && (
+              <button
+                type="button"
+                onClick={() => setExtraScipRequested(true)}
+                className="w-full rounded-md border border-primary/40 bg-primary/10 px-2 py-1.5 text-left text-[11px] font-medium text-primary"
+              >
+                You've SCIP'd targets B and C — use your one additional SCIP inside this 2-mile ring.
+              </button>
+            )}
+            {!scipAvailable && !extraScipEligible && (
+              <p className="text-[11px] font-medium text-amber-600">
+                This search ring's SCIP has been used. A different parcel requires a billable re-SCIP.
               </p>
             )}
             {targets.length >= MAX_SAVED && (
@@ -281,16 +327,12 @@ export default function ScoutPanel({ onActiveTargetChange }) {
                 onSave={handleSave}
                 onRemove={handleRemove}
                 onRunScip={handleRunScip}
-                scipLocked={!!lock && !isLockedTarget(t)}
+                scipLocked={!scipAvailable && !isLockedTarget(t)}
               />
             ))}
           </div>
         </>
-      ) : (
-        <p className="border-t border-border px-3 py-6 text-center text-sm text-muted-foreground">
-          Enter an address or coordinates to drop the SRC waypoint and draw the 1-mile search ring.
-        </p>
-      )}
+      ) : null}
     </div>
   );
 }

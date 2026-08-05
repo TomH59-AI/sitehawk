@@ -6,12 +6,13 @@ import TribalLandLayer from "./TribalLandLayer";
 import UtilityTerritoryLayer from "./UtilityTerritoryLayer";
 
 const MI_TO_M = 1609.34;
-// TalonFit-AI-1.0: the search ring maximum radius is 1 mile / 5280 ft. Clicks
+// TalonFit-AI-1.0: the search ring maximum radius is 2 miles / 10560 ft. Clicks
 // beyond it are not gradeable — the solver rejects them by contract.
-const SCAN_MI = 1;
+const SCAN_MI = 2;
 const RINGS = [
   { mi: 0.25, color: "#22d3ee" },
   { mi: 0.5, color: "#a855f7" },
+  { mi: 1, color: "#f59e0b" },
   { mi: SCAN_MI, color: "#f43f5e" },
 ];
 
@@ -75,7 +76,7 @@ function probeIcon(probe) {
 }
 
 // Single click probes the point; double click saves it as a lettered target.
-// Clicks outside the 1-mile search ring are ignored.
+// Clicks outside the 2-mile search ring are ignored.
 function ClickCatcher({ center, onProbe, onSave, enabled }) {
   const timer = useRef(null);
   const inRing = (latlng) => L.latLng(center).distanceTo(latlng) <= SCAN_MI * MI_TO_M;
@@ -94,8 +95,8 @@ function ClickCatcher({ center, onProbe, onSave, enabled }) {
   return null;
 }
 
-// TalonFit® ring map — SRC waypoint + 0.25 / 0.50 / 1-mile radii (1 mile is the
-// contract maximum). Click to grade a point, double-click to save it as D/E/F.
+// TalonFit® ring map — SRC waypoint + 0.25 / 0.50 / 1 / 2-mile radii (2 miles is
+// the contract maximum). Click to grade a point, double-click to save it as D/E/F.
 export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, onSelect, canPick }) {
   const [tribalOn, setTribalOn] = useState(false);
   const [utilityOn, setUtilityOn] = useState(false);
@@ -136,7 +137,7 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
       </div>
       <MapContainer
         center={[center.lat, center.lon]}
-        zoom={13}
+        zoom={12}
         className="h-full w-full"
         scrollWheelZoom
         doubleClickZoom={false}
