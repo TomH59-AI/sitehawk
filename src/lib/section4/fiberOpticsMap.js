@@ -31,14 +31,22 @@ export async function renderFiberOptics(container, target, data, token, radiusMi
 
   return new Promise((resolve) => {
     map.on("load", async () => {
-      // Imported provider fiber routes (KMZ → PostGIS), drawn under the pins.
-      await addFiberProviderRoutes(map, lat, lon, radiusMiles).catch(() => []);
       // Search ring used for the fiber asset lookup.
       map.addSource("s4-fiber-ring", { type: "geojson", data: buildCircle(lat, lon, radiusMiles) });
       map.addLayer({
         id: "s4-fiber-ring-line", type: "line", source: "s4-fiber-ring",
         paint: { "line-color": "#FF8C00", "line-width": 2.5, "line-dasharray": [3, 2] },
       });
+
+      // Imported provider fiber routes (KMZ → PostGIS). Deliberately NOT awaited:
+      // a slow or unreachable provider store must never stall the hookup pin, the
+      // access-frontage pin, or this map's own resolve. Layers are inserted beneath
+      // the ring line, so the routes stay under everything drawn below.
+      addFiberProviderRoutes(map, lat, lon, radiusMiles, { beforeId: "s4-fiber-ring-line" })
+        .then((legend) => {
+          if (legend.length) console.info("[FIBER MAP] provider routes drawn:", legend);
+        })
+        .catch((err) => console.error("[FIBER MAP] provider routes failed:", err?.message || err));
 
       // Fiber hookup / splice point + dashed run from Target A.
       if (fiber?.point) {
