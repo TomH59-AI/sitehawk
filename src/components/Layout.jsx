@@ -41,6 +41,7 @@ const BASE_NAV = [
   { path: "/talonfit", icon: Zap, label: "⚡ TalonFit®" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/crm", icon: Briefcase, label: "SiteHawk CRM" },
+  { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
   { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
@@ -84,7 +85,6 @@ export default function Layout() {
         { path: "/usage-analytics", icon: BarChart2, label: "Usage Analytics" },
         { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" },
         { path: "/send-update", icon: Send, label: "Send Update" },
-        { path: "/mail-orders", icon: Mail, label: "Mail Orders" },
         { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" },
       ]
     : [];

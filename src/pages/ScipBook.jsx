@@ -8,7 +8,6 @@ import BookPropertyPage from "@/components/scipbook/BookPropertyPage";
 import BookMapPage from "@/components/scipbook/BookMapPage";
 import BookQcPanel from "@/components/scipbook/BookQcPanel";
 import BookSheetExport from "@/components/scipbook/BookSheetExport";
-import PostcardMailerSection from "@/components/scip/postcard/PostcardMailerSection";
 import { buildMapPages, collectMissingFields } from "@/components/scipbook/scipBookData";
 
 const PRINT_CSS = `
@@ -172,9 +171,6 @@ export default function ScipBook() {
           </button>
         </div>
 
-        <div className="no-print mt-6">
-          <PostcardMailerSection record={record} />
-        </div>
       </div>
     </div>
   );

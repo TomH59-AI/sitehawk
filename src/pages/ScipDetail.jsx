@@ -14,7 +14,6 @@ import HawkParcelBoundaryMap from "../components/skywave/HawkParcelBoundaryMap";
 import HawkPowerAirport from "../components/skywave/HawkPowerAirport";
 import HawkRFCoverage from "../components/skywave/HawkRFCoverage";
 import HawkExistingConditions from "../components/skywave/HawkExistingConditions";
-import HawkOutreachAgent from "../components/scip/outreach/HawkOutreachAgent";
 import TargetScorecard from "../components/scip/TargetScorecard";
 import NotionSyncToggle from "../components/scip/NotionSyncToggle";
 import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
@@ -191,11 +190,6 @@ export default function ScipDetail() {
         {/* Target Selection Scorecard — display-only "why A/B/C" (not printed; in export) */}
         <div className="mb-5 no-print">
           <TargetScorecard record={record} />
-        </div>
-
-        {/* Hawk Outreach agent — mails Target A/B/C + up to 3 bonus parcels (not printed) */}
-        <div className="mb-5 no-print">
-          <HawkOutreachAgent record={record} />
         </div>
 
         {/* Parcel Boundary Map — interactive Target A boundary + candidate toggles (not printed) */}
