@@ -103,7 +103,6 @@ import HawkVision from './pages/HawkVision';
 import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
 import TalonFit from './pages/TalonFit';
-import SearchHub from './pages/SearchHub';
 import SarfMapPage from './pages/pipeline/SarfMapPage';
 import ZoningPage from './pages/pipeline/ZoningPage';
 import TargetsPage from './pages/pipeline/TargetsPage';
@@ -160,8 +159,6 @@ const AuthenticatedApp = () => {
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />
-        {/* Standalone app-wide Search page — independent of the SCIP pipeline */}
-        <Route path="/find" element={<SearchHub />} />
         {/* Standalone site-acquisition flow — each step is its own full page */}
         <Route path="/sarf-map" element={<SarfMapPage />} />
         <Route path="/zoning" element={<ZoningPage />} />

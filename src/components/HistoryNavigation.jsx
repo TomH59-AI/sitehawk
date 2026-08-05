@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import AppSearch from "./AppSearch";
 
 export default function HistoryNavigation() {
   const navigate = useNavigate();
@@ -24,7 +23,6 @@ export default function HistoryNavigation() {
         >
           Forward <ArrowRight className="h-4 w-4" />
         </button>
-        <AppSearch />
       </div>
     </nav>
   );

@@ -39,7 +39,6 @@ const BASE_NAV = [
   { path: "/hawk-lease", icon: FileSignature, label: "15 · HawkLease" },
   { path: "/government-forms", icon: Landmark, label: "16 · Government Forms" },
   { header: "MORE TOOLS" },
-  { path: "/find", icon: Search, label: "🔎 Search" },
   { path: "/talonfit", icon: Zap, label: "⚡ TalonFit®" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },
