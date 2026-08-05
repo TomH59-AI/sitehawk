@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RotateCcw, Square } from "lucide-react";
+import { RotateCcw, Square, Sparkles } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import SearchForm from "../components/search/SearchForm";
@@ -173,6 +173,16 @@ export default function SiteSearch() {
     setCompletedSteps(done);
   }, [sarfReady, zoningReady, targetA, mapsComplete, setCompletedSteps]);
 
+  // Once the initial A/B/C target set is complete, reveal the next-step AI
+  // solver automatically so users cannot miss TalonFit.
+  useEffect(() => {
+    if (!zoningReady || allTargets.filter(Boolean).length < 3) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("talonfit-ai")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [zoningReady, allTargets]);
+
   // Clear the sidebar pipeline when leaving Site Search.
   useEffect(() => {
     return () => { setActiveStep(null); setCompletedSteps([]); };
@@ -341,6 +351,17 @@ export default function SiteSearch() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {targetA && (
+            <button
+              type="button"
+              onClick={() => document.getElementById("talonfit-ai")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/60 bg-gradient-to-r from-cyan-600 to-emerald-600 px-3 py-2 text-sm font-extrabold text-white shadow-lg transition-transform hover:scale-[1.02]"
+              title="Jump to TalonFit AI instant tower feasibility"
+            >
+              <Sparkles className="h-4 w-4" />
+              TalonFit AI · Find 3 More Sites
+            </button>
+          )}
           {coordsReady && (
             <ExportSvpButton
               searchCenter={searchCenter}
