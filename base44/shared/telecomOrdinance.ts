@@ -6,7 +6,11 @@ export function normalizeJurisdiction(j) {
   return (j || "")
     .toUpperCase()
     .replace(/\bCITY OF\b/g, "")
+    .replace(/\bTOWN OF\b/g, "")
+    .replace(/\bVILLAGE OF\b/g, "")
+    .replace(/\bBOROUGH OF\b/g, "")
     .replace(/\bCOUNTY\b/g, "")
+    .replace(/\bPARISH\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
