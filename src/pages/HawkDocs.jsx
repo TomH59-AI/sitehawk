@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ScanLine, Scale, GitCompareArrows, Landmark } from "lucide-react";
+import { ScanLine, Map } from "lucide-react";
 import PermitApplications from "../components/hawkdoc/PermitApplications";
-import JurisdictionResourceManager from "../components/jurisdiction/JurisdictionResourceManager";
-import LeaseAnalysis from "../components/hawklaw/LeaseAnalysis";
-import RedlineCounter from "../components/hawklaw/redline/RedlineCounter";
-import HawkLawDisclaimerBanner from "../components/hawklaw/HawkLawDisclaimerBanner";
+import ZoningMapPanel from "../components/hawkdoc/ZoningMapPanel";
 import HawkFetchModule from "../components/hawkfetch/HawkFetchModule";
 
 // Unified Hawk Document Intelligence hub:
@@ -50,26 +47,14 @@ export default function HawkDocs() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-6">
-          <TabsTrigger value="permits"><ScanLine className="w-4 h-4 mr-1.5" /> Permit Applications</TabsTrigger>
-          <TabsTrigger value="lease"><Scale className="w-4 h-4 mr-1.5" /> Lease Analysis</TabsTrigger>
-          <TabsTrigger value="redline"><GitCompareArrows className="w-4 h-4 mr-1.5" /> Redline Counter</TabsTrigger>
-          <TabsTrigger value="jurisdictions"><Landmark className="w-4 h-4 mr-1.5" /> Jurisdictions</TabsTrigger>
+          <TabsTrigger value="permits"><ScanLine className="w-4 h-4 mr-1.5" /> Zoning Application</TabsTrigger>
+          <TabsTrigger value="zoning-map"><Map className="w-4 h-4 mr-1.5" /> Zoning Map</TabsTrigger>
         </TabsList>
 
         <TabsContent value="permits"><div id="hawkdocs-permits"><PermitApplications formImport={formImport} /></div></TabsContent>
 
-        <TabsContent value="lease">
-          <HawkLawDisclaimerBanner />
-          <LeaseAnalysis />
-        </TabsContent>
-
-        <TabsContent value="redline">
-          <HawkLawDisclaimerBanner />
-          <RedlineCounter />
-        </TabsContent>
-
-        <TabsContent value="jurisdictions">
-          <JurisdictionResourceManager />
+        <TabsContent value="zoning-map">
+          <ZoningMapPanel />
         </TabsContent>
       </Tabs>
     </div>
