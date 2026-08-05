@@ -1,14 +1,27 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
-import { secrets } from "base44:runtime";
 
 // EPA ECHO (Enforcement & Compliance History Online) REST API lookup.
-// Queries active RCRA hazardous waste handlers, facilities with violations,
-// and enforcement actions within a radius of the target site.
-// Complements epaHazWasteLookup (Superfund/Brownfields/CIMC) with the full
-// RCRA permittee universe — which is what 47 CFR 1.1307 actually screens for.
-// Uses the target parcel coordinates so all data aligns to the selected target.
+// Queries regulated facilities (RCRA hazardous waste handlers, air, water, TRI)
+// and their compliance/enforcement status within a radius of the target site.
+// Uses the SAME target parcel coordinates as all other SCIP lookups.
+// Base URL: https://echodata.epa.gov/echo
+// Endpoints: echo_rest_services.get_facility_info (query) → .get_qid (rows)
+// Complements epaHazWasteLookup (Superfund/Brownfields/CIMC) with active
+// permittees — the full 47 CFR 1.1307 hazardous waste screening scope.
+// Public service, no API key required.
 
-const ECHO_BASE = "https://echo.epa.gov/rest_services";
+const ECHO_BASE = "https://echodata.epa.gov/echo";
+const EMPTY = {
+  echo_present: false,
+  echo_count: 0,
+  rcra_handlers: [],
+  facilities_with_violations: [],
+  enforcement_actions: [],
+};
+
+function isHtml(text) {
+  return /^\s*<(!DOCTYPE|html)/i.test(text);
+}
 
 export default async function (req) {
   try {
@@ -21,38 +34,48 @@ export default async function (req) {
     if (!Number.isFinite(la) || !Number.isFinite(lo)) {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
-
-    const apiKey = secrets.get("EPA_ECHO_API_KEY") || "";
     const radiusMiles = Math.min(Number(radius_mi) || 0.5, 2);
 
-    // Search for RCRA hazardous waste handlers within radius
     const params = new URLSearchParams({
       output: "JSON",
-      lat: String(la),
-      long: String(lo),
-      search_type: "radial",
-      radius: String(radiusMiles),
-      program: "RCRA",
-      response_type: "FACILITIES",
+      p_lat: String(la),
+      p_long: String(lo),
+      p_radius: String(radiusMiles),
     });
-    if (apiKey) params.set("api_key", apiKey);
 
-    const res = await fetch(`${ECHO_BASE}/facility_search?${params.toString()}`, {
+    const infoRes = await fetch(`${ECHO_BASE}/echo_rest_services.get_facility_info?${params}`, {
+      headers: { "User-Agent": "SiteHawk/1.0" },
       signal: AbortSignal.timeout(30000),
     });
+    if (!infoRes.ok) return Response.json({ ...EMPTY, error: `ECHO API returned ${infoRes.status}` });
 
-    if (!res.ok) {
-      return Response.json({
-        echo_present: false,
-        echo_count: 0,
-        rcra_handlers: [],
-        facilities_with_violations: [],
-        enforcement_actions: [],
-        error: `ECHO API returned ${res.status}`,
-      });
+    const infoText = await infoRes.text();
+    if (isHtml(infoText)) {
+      return Response.json({ ...EMPTY, error: "ECHO API returned HTML (possibly rate-limited)" });
+    }
+    const info = JSON.parse(infoText);
+    const errorMsg = info?.Results?.Error?.ErrorMessage;
+    if (errorMsg) return Response.json({ ...EMPTY, error: `ECHO API error: ${errorMsg}` });
+
+    const totalCount = parseInt(info?.Results?.QueryRows ?? "0", 10) || 0;
+    const qid = info?.Results?.QueryID;
+    if (!qid || !totalCount) {
+      return Response.json({ ...EMPTY, search_radius_mi: radiusMiles, source: "EPA ECHO REST API (echodata.epa.gov)" });
     }
 
-    const data = await res.json();
+    // Second call returns the actual facility rows for the query id.
+    const rowsRes = await fetch(
+      `${ECHO_BASE}/echo_rest_services.get_qid?qid=${qid}&output=JSON&responseset=50&pageno=1`,
+      { headers: { "User-Agent": "SiteHawk/1.0" }, signal: AbortSignal.timeout(30000) }
+    );
+    if (!rowsRes.ok) {
+      return Response.json({ ...EMPTY, echo_present: true, echo_count: totalCount, error: `ECHO rows returned ${rowsRes.status}` });
+    }
+    const rowsText = await rowsRes.text();
+    if (isHtml(rowsText)) {
+      return Response.json({ ...EMPTY, echo_present: true, echo_count: totalCount, error: "ECHO API returned HTML (possibly rate-limited)" });
+    }
+    const data = JSON.parse(rowsText);
     const facilities = Array.isArray(data?.Results?.Facilities) ? data.Results.Facilities : [];
 
     const rcraHandlers = [];
@@ -61,44 +84,62 @@ export default async function (req) {
 
     for (const f of facilities) {
       const handler = {
-        name: f.FacilityName || f.facilityName || "Unknown",
-        registry_id: f.RegistryID || f.registryId || null,
-        address: f.StreetAddress || f.facilityStreetAddress || null,
-        city: f.City || f.facilityCity || null,
-        state: f.State || f.facilityState || null,
-        zip: f.Zip || f.facilityZip || null,
-        program: f.ProgramCodes || "RCRA",
+        name: f.FacName || "Unknown",
+        registry_id: f.RegistryID || null,
+        address: f.FacStreet || null,
+        city: f.FacCity || null,
+        state: f.FacState || null,
+        zip: f.FacZip || null,
+        county: f.FacCounty || null,
+        rcra: f.RCRAComplianceStatus != null,
+        air: f.CAAComplianceStatus != null,
+        water: f.CWAComplianceStatus != null,
+        sdwa: f.SDWAComplianceStatus != null,
+        compliance_status: f.FacComplianceStatus || null,
+        rcra_compliance_status: f.RCRAComplianceStatus || null,
         source_url: f.RegistryID ? `https://echo.epa.gov/detailed-facility-report?fid=${f.RegistryID}` : null,
       };
       rcraHandlers.push(handler);
 
-      // QNC = quarters in non-compliance
-      const qnc = Number(f.QNC || f.qnc || 0);
-      if (qnc > 0) withViolations.push({ ...handler, quarters_noncompliance: qnc });
+      if (f.FacSNCFlg === "Y" || Number(f.FacQtrsWithNC || 0) > 0) {
+        withViolations.push({
+          name: handler.name,
+          registry_id: handler.registry_id,
+          compliance_status: handler.compliance_status,
+          quarters_noncompliance: Number(f.FacQtrsWithNC || 0),
+          significant_noncompliance: f.FacSNCFlg === "Y",
+          source_url: handler.source_url,
+        });
+      }
 
-      // FEA = formal enforcement actions
-      const fea = Number(f.FEA || f.formalEnforcementActions || 0);
-      if (fea > 0) enforcementActions.push({ ...handler, formal_actions: fea });
+      const formalActions =
+        Number(f.CAAFormalActionCount || 0) +
+        Number(f.CWAFormalActionCount || 0) +
+        Number(f.RCRAFormalActionCount || 0) +
+        Number(f.SDWAFormalActionCount || 0);
+      if (formalActions > 0 || f.FacDateLastFormalAction) {
+        enforcementActions.push({
+          name: handler.name,
+          registry_id: handler.registry_id,
+          formal_actions: formalActions,
+          last_formal_action_date: f.FacDateLastFormalAction || null,
+          source_url: handler.source_url,
+        });
+      }
     }
 
     return Response.json({
       echo_present: facilities.length > 0,
-      echo_count: facilities.length,
+      echo_count: totalCount,
+      returned_count: facilities.length,
       rcra_handlers: rcraHandlers.slice(0, 20),
       facilities_with_violations: withViolations.slice(0, 10),
       enforcement_actions: enforcementActions.slice(0, 10),
       search_radius_mi: radiusMiles,
-      source: "EPA ECHO REST API",
+      source: "EPA ECHO REST API (echodata.epa.gov)",
     });
   } catch (error) {
     console.error("epaEchoLookup error:", error?.message);
-    return Response.json({
-      echo_present: false,
-      echo_count: 0,
-      rcra_handlers: [],
-      facilities_with_violations: [],
-      enforcement_actions: [],
-      error: error?.message,
-    }, { status: 500 });
+    return Response.json({ ...EMPTY, error: error?.message }, { status: 500 });
   }
 }

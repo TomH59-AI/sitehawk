@@ -190,6 +190,27 @@ async function accessRoad(lat, lon) {
   };
 }
 
+// Hazardous-waste screening text built from the live EPA sources, using the SAME
+// target coordinates as every other lookup here. CIMC covers cleanup sites
+// (Superfund/NPL, RCRA Corrective Action, Brownfields); ECHO covers ACTIVE RCRA
+// permittees + violations — together the full 47 CFR 1.1307 scope.
+function buildHazWasteText(cimc, echo) {
+  const parts = [];
+  if (cimc?.hazwaste_present && (cimc.site_names || []).length) {
+    parts.push(`Superfund/cleanup sites: ${cimc.site_names.join(", ")} (${cimc.hazwaste_count} sites, ${cimc.npl_count} NPL/Superfund)`);
+  }
+  if (echo?.echo_present && echo.echo_count > 0) {
+    const v = (echo.facilities_with_violations || []).length;
+    parts.push(`RCRA handlers: ${echo.echo_count} active facilities within ${echo.search_radius_mi} mi (${v} with violations)`);
+  }
+  if (parts.length) return `Yes — ${parts.join(". ")}.`;
+  // Only claim "none" when at least one source actually answered.
+  const cimcOk = cimc && cimc.hazwaste_present === false;
+  const echoOk = echo && echo.echo_present === false && !echo.error;
+  if (cimcOk || echoOk) return "None identified (EPA CIMC / ECHO, 0.5 mi)";
+  return null;
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -201,11 +222,13 @@ Deno.serve(async (req) => {
       return Response.json({ error: "lat and lon required" }, { status: 400 });
     }
 
-    const [flood, wet, safety, road, llmRes] = await Promise.allSettled([
+    const [flood, wet, safety, road, cimcRes, echoRes, llmRes] = await Promise.allSettled([
       femaFlood(lat, lon),
       wetlands(lat, lon),
       publicSafety(lat, lon),
       accessRoad(lat, lon),
+      base44.functions.invoke("epaHazWasteLookup", { lat, lon }),
+      base44.functions.invoke("epaEchoLookup", { lat, lon, radius_mi: 0.5 }),
       base44.integrations.Core.InvokeLLM({
         model: "gemini_3_flash",
         add_context_from_internet: true,
@@ -228,6 +251,11 @@ Be concise and factual. If unknown, say "Requires field verification".`,
     const llm = llmRes.status === "fulfilled" ? (llmRes.value || {}) : {};
     const sf = safety.status === "fulfilled" ? safety.value : { police: null, fire: null };
     const rd = road.status === "fulfilled" ? road.value : null;
+    const cimc = cimcRes.status === "fulfilled" ? (cimcRes.value?.data || cimcRes.value || null) : null;
+    const echo = echoRes.status === "fulfilled" ? (echoRes.value?.data || echoRes.value || null) : null;
+    const epaResult = buildHazWasteText(cimc, echo);
+    if (cimcRes.status === "rejected") console.error("EPA CIMC failed:", cimcRes.reason?.message || cimcRes.reason);
+    if (echoRes.status === "rejected") console.error("EPA ECHO failed:", echoRes.reason?.message || echoRes.reason);
 
     if (flood.status === "rejected") console.error("FEMA flood failed:", flood.reason?.message || flood.reason);
 
@@ -235,7 +263,7 @@ Be concise and factual. If unknown, say "Requires field verification".`,
       flood_zone: flood.status === "fulfilled" ? (flood.value || "Requires verification") : "Requires verification",
       wetland_concerns: wet.status === "fulfilled" ? (wet.value || "Requires verification") : "Requires verification",
       water_management_district: llm.water_management_district || "Requires field verification",
-      hazardous_waste: llm.hazardous_waste || "Requires field verification",
+      hazardous_waste: epaResult || llm.hazardous_waste || "Requires field verification",
       access_notes: rd ? rd.access_notes : "Requires field verification — OSM road query returned no results for this location",
       access_road: rd ? {
         road_name: rd.road_name,
