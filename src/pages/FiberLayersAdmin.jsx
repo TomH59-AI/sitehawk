@@ -9,9 +9,10 @@ import { fiberProviderRoutes } from "@/functions/fiberProviderRoutes";
 import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
 import { FIBER_PROVIDERS } from "@/components/maps/fiberLayers";
 import { Button } from "@/components/ui/button";
-import { Loader2, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, Upload, CheckCircle2, AlertTriangle, HardDrive } from "lucide-react";
 import { Link } from "react-router-dom";
 import KmzInspector from "@/components/fiber/KmzInspector";
+import DriveFilePicker from "@/components/fiber/DriveFilePicker";
 
 export default function FiberLayersAdmin() {
   const [user, setUser] = useState(null);
@@ -19,6 +20,9 @@ export default function FiberLayersAdmin() {
   const [dbStatus, setDbStatus] = useState("");
   const [busy, setBusy] = useState("");
   const [results, setResults] = useState({});
+  // Provider id whose Google Drive browser is open, and the Drive file chosen per provider.
+  const [drivePickerFor, setDrivePickerFor] = useState("");
+  const [driveFiles, setDriveFiles] = useState({});
   const fileRefs = useRef({});
 
   const loadCounts = () => fiberProviderRoutes({ action: "counts" })
@@ -34,15 +38,16 @@ export default function FiberLayersAdmin() {
   }, []);
 
   async function handleImport(provider) {
+    const drivePick = driveFiles[provider.id];
     const file = fileRefs.current[provider.id]?.files?.[0];
-    if (!file) {
-      setResults((r) => ({ ...r, [provider.id]: { error: "Choose a .kmz file first." } }));
+    if (!file && !drivePick) {
+      setResults((r) => ({ ...r, [provider.id]: { error: "Choose a .kmz file, or pick one from Google Drive." } }));
       return;
     }
     setBusy(provider.id);
     setResults((r) => ({ ...r, [provider.id]: null }));
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const file_url = drivePick ? drivePick.file_url : (await base44.integrations.Core.UploadFile({ file })).file_url;
       const res = provider.id === "zayo"
         ? await zayoFiberRoutes({ action: "import_kmz", file_url })
         : await fiberProviderRoutes({ action: "import_kmz", provider: provider.id, file_url });
@@ -101,11 +106,44 @@ export default function FiberLayersAdmin() {
                   ref={(el) => { fileRefs.current[p.id] = el; }}
                   className="max-w-[210px] text-xs"
                 />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => setDrivePickerFor(drivePickerFor === p.id ? "" : p.id)}
+                >
+                  <HardDrive className="h-4 w-4" />
+                  Google Drive
+                </Button>
                 <Button size="sm" disabled={busy === p.id} onClick={() => handleImport(p)} className="gap-1.5">
                   {busy === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   Import
                 </Button>
               </div>
+              {driveFiles[p.id] && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-primary">
+                  <HardDrive className="h-3.5 w-3.5" />
+                  Drive file selected: {driveFiles[p.id].name}
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline"
+                    onClick={() => setDriveFiles((d) => ({ ...d, [p.id]: null }))}
+                  >
+                    clear
+                  </button>
+                </div>
+              )}
+              {drivePickerFor === p.id && (
+                <div className="mt-3">
+                  <DriveFilePicker
+                    onClose={() => setDrivePickerFor("")}
+                    onPick={(picked) => {
+                      setDriveFiles((d) => ({ ...d, [p.id]: picked }));
+                      setDrivePickerFor("");
+                    }}
+                  />
+                </div>
+              )}
               {result?.ok && (
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600">
                   <CheckCircle2 className="h-3.5 w-3.5" /> Imported {Number(result.inserted || 0).toLocaleString()} of {Number(result.parsed || 0).toLocaleString()} features.
