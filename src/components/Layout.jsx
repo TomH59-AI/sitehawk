@@ -8,7 +8,7 @@ import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import HawkVoiceAssistant from "./guide/HawkVoiceAssistant";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack, Radar, ShieldCheck, PhoneCall, Eye, Network, Zap } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ClipboardList, FileStack, Radar, ShieldCheck, PhoneCall, Eye, Network, Zap, Map, Target, ScrollText, Landmark, Compass, FileText } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -21,25 +21,33 @@ import { isDemoCampaignOver } from "@/lib/demoCampaign";
 const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 
 const BASE_NAV = [
-  { header: "FIND & PACKAGE THE SITE" },
-  { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { path: "/search", icon: Search, label: "Site Search" },
-  { path: "/talonfit", icon: Zap, label: "⚡ TalonFit®", desc: "Ordinance intelligence — max buildable height, ten-target scout, boundary map." },
-  { path: "/find", icon: Search, label: "🔎 Search", desc: "Find any page or tool by name or by what it does." },
-  { header: "AFTER YOUR SCIP — DON'T FORGET" },
+  { header: "SITE ACQUISITION FLOW" },
+  { path: "/dashboard", icon: LayoutDashboard, label: "1 · Dashboard" },
+  { path: "/search", icon: Search, label: "2 · Site Search" },
+  { path: "/sarf-map", icon: Map, label: "3 · SARF Map" },
+  { path: "/zoning", icon: ShieldCheck, label: "4 · Zoning" },
+  { path: "/targets", icon: Target, label: "5 · Targets A·B·C" },
+  { path: "/target-a-maps", icon: MapPin, label: "6 · Target A Maps" },
+  { path: "/target-b-maps", icon: MapPin, label: "7 · Target B Maps" },
+  { path: "/target-c-maps", icon: MapPin, label: "8 · Target C Maps" },
+  { path: "/deed-skip-trace", icon: ScrollText, label: "9 · Deed & Skip-Trace" },
+  { path: "/fiber-operators", icon: Network, label: "10 · Local Services Directory" },
+  { path: "/scip", icon: FileText, label: "11 · SCIP" },
+  { path: "/ordinance-hunter", icon: Compass, label: "12 · Ordinance Hunter" },
+  { path: "/hawk-fill", icon: ClipboardEdit, label: "13 · HawkFill" },
+  { path: "/hawk-law", icon: Scale, label: "14 · HawkLaw" },
+  { path: "/hawk-lease", icon: FileSignature, label: "15 · HawkLease" },
+  { path: "/government-forms", icon: Landmark, label: "16 · Government Forms" },
+  { header: "MORE TOOLS" },
+  { path: "/find", icon: Search, label: "🔎 Search" },
+  { path: "/talonfit", icon: Zap, label: "⚡ TalonFit®" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
-  { path: "/crm", icon: Briefcase, label: "⏱️ AI Time Savers", desc: "The tools that save you hours, cut the stress, and keep you on top of your game." },
-  { path: "/hawk-lease", icon: FileSignature, label: "🦅 HawkLease" },
-  { path: "/hawk-law", icon: Scale, label: "⚖️ Hawk Law" },
-  { header: "SPECIALTY TOOLS" },
+  { path: "/crm", icon: Briefcase, label: "⏱️ AI Time Savers" },
   { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡️ Zoning Verifier" },
   { path: "/rfi-engine", icon: Radar, label: "📡 RF Intelligence Engine" },
-  { path: "/fiber-operators", icon: Network, label: "🔌 Local Services Directory" },
-  { header: "FORMS & DOCUMENTS" },
-  { path: "/hawk-fill", icon: ClipboardEdit, label: "🪶 HawkFill" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
   { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
   { header: "ACCOUNT" },
@@ -88,9 +96,9 @@ export default function Layout() {
     : [];
 
   const navItems = [
-    ...BASE_NAV.slice(0, 5), // FIND & PACKAGE header + Dashboard + Site Search + TalonFit + Search
+    ...BASE_NAV.slice(0, 17), // flow header + the 16 numbered site-acquisition steps
     ...(isAdmin ? [{ header: "ADMIN" }, ...adminExtra] : []),
-    ...BASE_NAV.slice(5),
+    ...BASE_NAV.slice(17),
   ];
 
   const handleLogout = () => {

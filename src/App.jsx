@@ -105,6 +105,12 @@ import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
 import TalonFit from './pages/TalonFit';
 import SearchHub from './pages/SearchHub';
+import SarfMapPage from './pages/pipeline/SarfMapPage';
+import ZoningPage from './pages/pipeline/ZoningPage';
+import TargetsPage from './pages/pipeline/TargetsPage';
+import TargetMapsPage from './pages/pipeline/TargetMapsPage';
+import DeedSkipTracePage from './pages/pipeline/DeedSkipTracePage';
+import GovernmentForms from './pages/GovernmentForms';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -157,6 +163,15 @@ const AuthenticatedApp = () => {
         <Route path="/search" element={<SiteSearch />} />
         {/* Standalone app-wide Search page — independent of the SCIP pipeline */}
         <Route path="/find" element={<SearchHub />} />
+        {/* Standalone site-acquisition flow — each step is its own full page */}
+        <Route path="/sarf-map" element={<SarfMapPage />} />
+        <Route path="/zoning" element={<ZoningPage />} />
+        <Route path="/targets" element={<TargetsPage />} />
+        <Route path="/target-a-maps" element={<TargetMapsPage letter="A" />} />
+        <Route path="/target-b-maps" element={<TargetMapsPage letter="B" />} />
+        <Route path="/target-c-maps" element={<TargetMapsPage letter="C" />} />
+        <Route path="/deed-skip-trace" element={<DeedSkipTracePage />} />
+        <Route path="/government-forms" element={<GovernmentForms />} />
         <Route path="/pricing" element={<PricingV2 />} />
         <Route path="/billing" element={<Billing />} />
         <Route path="/plans-selection" element={<PlansSelection />} />
