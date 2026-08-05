@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import HawkIcon from "@/components/HawkIcon";
 import HawkFetchResults from "./HawkFetchResults";
+import HawkPermitDocs from "./HawkPermitDocs";
+import { hawkPermitDocFetch } from "@/functions/hawkPermitDocFetch";
 import { US_STATES } from "./usStates";
 
 const LOADING_LINES = [
@@ -58,6 +60,25 @@ export default function HawkFetchModule({ onUploadCta }) {
   const [lineIdx, setLineIdx] = useState(0);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null); // { payload, last_verified, fromCache }
+  // Oxylabs-sourced building + zoning permit applications for the typed jurisdiction.
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docs, setDocs] = useState(null);
+  const [docsError, setDocsError] = useState(null);
+
+  const fetchPermitDocs = async (j, st) => {
+    setDocsLoading(true);
+    setDocs(null);
+    setDocsError(null);
+    try {
+      const res = await hawkPermitDocFetch({ jurisdiction: j, state: st });
+      setDocs(res.data);
+    } catch (e) {
+      console.error("[HawkPermitDocs]", e);
+      setDocsError("Couldn't retrieve permit applications from Oxylabs. Please try again.");
+    } finally {
+      setDocsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!loading) return;
@@ -71,6 +92,7 @@ export default function HawkFetchModule({ onUploadCta }) {
     setLoading(true);
     setError(null);
     setResult(null);
+    fetchPermitDocs(jurisdiction.trim(), stateCode);
     try {
       const rows = await base44.entities.PermitAppCache.filter({ state: stateCode, jurisdiction: j });
       const cached = rows?.[0];
@@ -110,8 +132,8 @@ export default function HawkFetchModule({ onUploadCta }) {
           <HawkIcon size={28} />
         </div>
         <div>
-          <h2 className="font-heading font-bold text-lg leading-tight">HawkFetch — Find Zoning &amp; Permit Applications</h2>
-          <p className="text-xs text-muted-foreground">Type any US jurisdiction. We'll fetch their permit applications and portal.</p>
+          <h2 className="font-heading font-bold text-lg leading-tight">Find Building &amp; Zoning Permit Applications</h2>
+          <p className="text-xs text-muted-foreground">Enter the jurisdiction — we retrieve the building permit and zoning permit applications, then help you fill them out.</p>
         </div>
       </div>
 
@@ -158,6 +180,8 @@ export default function HawkFetchModule({ onUploadCta }) {
           {error}
         </div>
       )}
+
+      <HawkPermitDocs loading={docsLoading} data={docs} error={docsError} onUploadCta={onUploadCta} />
 
       {result && !loading && (
         <HawkFetchResults
