@@ -7,6 +7,7 @@ import TrackerSiteForm from "../components/tracker/TrackerSiteForm";
 import TrackerSiteCard from "../components/tracker/TrackerSiteCard";
 import WeeklyReport from "../components/tracker/WeeklyReport";
 import ImportWizard from "../components/tracker/import/ImportWizard";
+import TrackerTemplateChip from "../components/tracker/TrackerTemplateChip";
 import { MILESTONES, TRACKER_GREEN } from "@/lib/hawkTracker";
 
 // Hawk Tracker — 18 gates and an exit. Sites + per-gate milestone rows +
@@ -108,6 +109,7 @@ export default function HawkTracker() {
           style={tab === "report" ? { background: TRACKER_GREEN } : undefined}>
           <CalendarCheck className="w-4 h-4 mr-1" /> Weekly Report
         </Button>
+        <TrackerTemplateChip />
       </div>
 
       {showForm && <TrackerSiteForm onSubmit={createSite} onCancel={() => setShowForm(false)} saving={saving} />}
