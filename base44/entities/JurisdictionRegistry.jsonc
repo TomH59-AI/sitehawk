@@ -25,10 +25,11 @@
         "city",
         "unincorporated_county",
         "special_district",
-        "cbsa"
+        "cbsa",
+        "state"
       ],
       "default": "municipality",
-      "description": "Type of governing body. 'cbsa' marks a Core Based Statistical Area rollup (metro/micro area), not a governing body."
+      "description": "Type of governing body. 'cbsa' marks a Core Based Statistical Area rollup (metro/micro area) and 'state' a statewide rollup \u2014 neither is a local governing body."
     },
     "fips_code": {
       "type": "string",

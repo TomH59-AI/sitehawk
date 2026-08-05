@@ -109,12 +109,19 @@ export default async function (req) {
     const records = areas
       .map((a) => {
         const isCbsa = areaType === 'cbsa';
+        const isState = areaType === 'state';
         const { city, county } = parseName(a?.name);
+        const name = String(a?.name || '');
+        // state rollups: the name IS the state; store the 2-letter code when known,
+        // otherwise the name verbatim so the record is never dropped.
+        const state = isState
+          ? toStateCode(name) || name
+          : toStateCode(a?.state_name) || stateFromName(name);
         return {
-          name: String(a?.name || ''),
-          state: toStateCode(a?.state_name) || stateFromName(a?.name),
-          county: isCbsa ? '' : county,
-          jurisdiction_type: isCbsa ? 'cbsa' : getJurisdictionType(city),
+          name,
+          state,
+          county: isCbsa || isState ? '' : county,
+          jurisdiction_type: isCbsa ? 'cbsa' : isState ? 'state' : getJurisdictionType(city),
           fips_code: extractId(a?.url),
           boundary_reference: String(a?.url || ''),
           active: true,
