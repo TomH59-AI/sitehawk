@@ -18,7 +18,13 @@ export default async function(req: Request): Promise<Response> {
 
     const { scip_id, missing, context } = await req.json().catch(() => ({}));
     if (!scip_id) return Response.json({ error: "scip_id required" }, { status: 400 });
-    const record = await base44.entities.ScipRecord.get(scip_id);
+    // The workflow fires the instant the record is created and can beat it to
+    // the database — retry briefly before giving up.
+    let record = null;
+    for (let attempt = 0; attempt < 3 && !record; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 2000));
+      record = await base44.entities.ScipRecord.get(scip_id).catch(() => null);
+    }
     if (!record) return Response.json({ error: "SCIP not found" }, { status: 404 });
 
     const fields = Array.isArray(missing) && missing.length
@@ -40,7 +46,7 @@ export default async function(req: Request): Promise<Response> {
     }
 
     const ctx = { ...scipQcContext(record), ...(context || {}) };
-    const prompt = `You are the final quality-control reviewer for a cell tower SITE CANDIDATE INFORMATION PACKAGE (SCIP) about to be delivered to a client. The package must be as complete as possible.
+    const buildPrompt = (batch: any[]) => `You are the final quality-control reviewer for a cell tower SITE CANDIDATE INFORMATION PACKAGE (SCIP) about to be delivered to a client. The package must be as complete as possible.
 
 SITE CONTEXT:
 - Site name: ${ctx.site_name || "unknown"}
@@ -58,12 +64,19 @@ STRICT RULES:
 4. The printable SCIP may not contain blank responses. If a value cannot be verified, include it in needs_human AND provide a concise non-factual completion in filled using this exact pattern: "Requires human verification — <reason>". This is a disclosure, not a guessed answer.
 
 BLANK FIELDS (key | label | section):
-${fields.map((f: any) => `- ${f.key} | ${f.label} | ${f.section || ""}`).join("\n")}
+${batch.map((f: any) => `- ${f.key} | ${f.label} | ${f.section || ""}`).join("\n")}
 
 Return JSON. Every verified value MUST appear as an item in the "filled" array as {"key": "<field key>", "value": "<verified value>"}, e.g. {"key": "water_mgmt_district", "value": "St. Johns River Water Management District"}. A field you claim to have verified but do not include in "filled" is a failure. Every field NOT in "filled" must appear in "needs_human" with a one-line reason. "summary" is 1-2 sentences on package readiness.`;
 
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt,
+    // Asking Gemini for every blank field in one grounded call blew past the
+    // 120s gateway timeout. Split into small batches and run them in parallel —
+    // each call stays fast and one slow batch can't sink the whole QC pass.
+    const BATCH_SIZE = 12;
+    const batches: any[][] = [];
+    for (let i = 0; i < fields.length; i += BATCH_SIZE) batches.push(fields.slice(i, i + BATCH_SIZE));
+
+    const runBatch = (batch: any[]) => base44.integrations.Core.InvokeLLM({
+      prompt: buildPrompt(batch),
       add_context_from_internet: true,
       model: "gemini_3_1_pro",
       response_json_schema: {
@@ -97,17 +110,32 @@ Return JSON. Every verified value MUST appear as an item in the "filled" array a
       },
     });
 
+    // A failed batch must not sink the rest — its fields fall through to the
+    // human-verification disclosure below.
+    const results = await Promise.all(
+      batches.map((b) => runBatch(b).catch((e) => {
+        console.error("scipBookQc batch failed:", e.message);
+        return null;
+      }))
+    );
+
     // Only accept fills for keys that were actually requested; merge over prior runs.
     const askedKeys = new Set(fields.map((f: any) => f.key));
     const cleanFilled: Record<string, string> = { ...(record.book_qc?.filled || {}) };
-    const filledList = Array.isArray(result?.filled) ? result.filled : [];
-    for (const item of filledList) {
-      const k = item?.key, v = item?.value;
-      if (k && askedKeys.has(k) && v != null && String(v).trim() !== "") cleanFilled[k] = String(v);
+    const needsHuman: any[] = [];
+    const summaries: string[] = [];
+    for (const result of results) {
+      if (!result) continue;
+      for (const item of Array.isArray(result.filled) ? result.filled : []) {
+        const k = item?.key, v = item?.value;
+        if (k && askedKeys.has(k) && v != null && String(v).trim() !== "") cleanFilled[k] = String(v);
+      }
+      if (Array.isArray(result.needs_human)) needsHuman.push(...result.needs_human);
+      if (result.summary) summaries.push(String(result.summary));
     }
+
     // The uploaded template cannot print with empty response cells. Gemini must
     // either verify an answer or explicitly disclose why human verification is required.
-    const needsHuman = Array.isArray(result?.needs_human) ? result.needs_human : [];
     for (const field of fields) {
       if (cleanFilled[field.key]) continue;
       const issue = needsHuman.find((item: any) => item?.key === field.key);
@@ -117,7 +145,7 @@ Return JSON. Every verified value MUST appear as an item in the "filled" array a
     const book_qc = {
       filled: cleanFilled,
       needs_human: needsHuman,
-      summary: result?.summary || "",
+      summary: summaries.join(" ") || "",
       ran_at: new Date().toISOString(),
       ran_by: user.email,
       checked_field_count: fields.length,
