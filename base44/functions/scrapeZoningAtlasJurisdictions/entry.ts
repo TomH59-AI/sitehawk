@@ -28,6 +28,14 @@ function toStateCode(raw) {
   return STATE_CODES[v.toLowerCase()] || '';
 }
 
+// CBSA rollups carry no state_name — the state sits at the end of the name,
+// e.g. "Abilene, TX" or "Kansas City, MO-KS" (multi-state CBSA → first code).
+function stateFromName(name) {
+  const tail = String(name || '').split(',').pop() || '';
+  const m = tail.trim().match(/^([A-Za-z]{2})(?:[-–][A-Za-z]{2})*$/);
+  return m ? m[1].toUpperCase() : '';
+}
+
 function extractId(url) {
   const m = String(url || '').match(/\/(\d+)\/$/);
   return m ? m[1] : '';
@@ -100,12 +108,13 @@ export default async function (req) {
 
     const records = areas
       .map((a) => {
+        const isCbsa = areaType === 'cbsa';
         const { city, county } = parseName(a?.name);
         return {
           name: String(a?.name || ''),
-          state: toStateCode(a?.state_name),
-          county,
-          jurisdiction_type: getJurisdictionType(city),
+          state: toStateCode(a?.state_name) || stateFromName(a?.name),
+          county: isCbsa ? '' : county,
+          jurisdiction_type: isCbsa ? 'cbsa' : getJurisdictionType(city),
           fips_code: extractId(a?.url),
           boundary_reference: String(a?.url || ''),
           active: true,
