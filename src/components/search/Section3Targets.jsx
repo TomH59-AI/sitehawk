@@ -680,7 +680,6 @@ export default function Section3Targets({
                         zoningResult={zoningResult}
                         towerSiting={towerSiting}
                       />
-                      <SaveToHubSpotButton target={targets[colIdx]} />
                       <GenerateScupPdfButton
                         targetLabel={COLS[colIdx]}
                         ringName={ringName}

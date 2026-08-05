@@ -50,15 +50,6 @@ export default function SCIPPreview() {
       }
       setCandidate(c);
 
-      // Auto-fire HubSpot lead capture once per SCIP load (idempotent — keyed by APN)
-      const autoSyncKey = `scip-hs-synced:${c.id || c.parcel_id}`;
-      if (!sessionStorage.getItem(autoSyncKey)) {
-        sessionStorage.setItem(autoSyncKey, "1");
-        hubspotSyncDeal({ candidate: c, agent: agentInfo, source: "scip" }).catch((err) => {
-          console.warn("HubSpot auto-sync failed:", err.message);
-        });
-      }
-
       // Auto-fire Attio + Apollo lead capture.
       const attioSyncKey = `scip-attio-synced:${c.id || c.parcel_id}`;
       if (!sessionStorage.getItem(attioSyncKey)) {
