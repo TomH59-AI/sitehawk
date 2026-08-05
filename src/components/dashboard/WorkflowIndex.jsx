@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import {
   ClipboardList, Map, FileText, Target, RadioTower, Layers, Cable, Radio,
-  Ruler, Box, ShieldCheck, Printer, MapPin, ListChecks,
+  Ruler, Box, ShieldCheck, Printer, MapPin,
   Scale, ClipboardEdit, FileStack, ScanLine, PhoneCall,
 } from "lucide-react";
 
@@ -22,12 +22,11 @@ const JOURNEY = [
 
 const TIME_SAVERS = [
   { n: 13, title: "Hawk Tracker", desc: "Track deployment activity and stay ready for every client meeting.", icon: MapPin, to: "/hawk-tracker" },
-  { n: 14, title: "Follow-Up Tracker", desc: "Keep urgent sites and next actions from slipping behind.", icon: ListChecks, to: "/follow-up-tracker" },
-  { n: 15, title: "Hawk Law", desc: "Speed up negotiations with clause intelligence and saved history.", icon: Scale, to: "/hawk-law" },
-  { n: 16, title: "HawkFill", desc: "Upload your own document and intelligently fill the form.", icon: ClipboardEdit, to: "/hawk-fill" },
-  { n: 17, title: "Hawk Forms", desc: "Open the client forms you need and complete them with assistance.", icon: FileStack, to: "/hawk-forms" },
-  { n: 18, title: "Document Intelligence", desc: "Upload zoning and permit applications and get help completing them.", icon: ScanLine, to: "/hawk-docs" },
-  { n: 19, title: "Local Phone Directory", desc: "Look up a ZIP for the police, fire, dispatch, utility, and jurisdiction numbers that go on the SCIP.", icon: PhoneCall, to: "/fiber-operators" },
+  { n: 14, title: "Hawk Law", desc: "Speed up negotiations with clause intelligence and saved history.", icon: Scale, to: "/hawk-law" },
+  { n: 15, title: "HawkFill", desc: "Upload your own document and intelligently fill the form.", icon: ClipboardEdit, to: "/hawk-fill" },
+  { n: 16, title: "Hawk Forms", desc: "Open the client forms you need and complete them with assistance.", icon: FileStack, to: "/hawk-forms" },
+  { n: 17, title: "Document Intelligence", desc: "Upload zoning and permit applications and get help completing them.", icon: ScanLine, to: "/hawk-docs" },
+  { n: 18, title: "Local Phone Directory", desc: "Look up a ZIP for the police, fire, dispatch, utility, and jurisdiction numbers that go on the SCIP.", icon: PhoneCall, to: "/fiber-operators" },
 ];
 
 function IndexGrid({ items, accent, compact = false, gridClassName = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3", cardClassName = "rounded-xl border border-border bg-card p-4", titleClassName = "font-heading font-bold text-sm text-foreground", descClassName = "text-xs text-muted-foreground mt-1 leading-relaxed", badgeClass = "bg-foreground text-background", badgeBorder = "border-card" }) {
