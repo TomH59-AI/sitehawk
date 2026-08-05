@@ -146,7 +146,7 @@ export default function AIEquationPanel({
   };
 
   return (
-    <div className="rounded-xl border border-primary/30 bg-card overflow-hidden">
+    <div className="rounded-2xl border-2 border-cyan-400/50 bg-card overflow-hidden shadow-[0_0_24px_rgba(34,211,238,0.10)]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -158,10 +158,10 @@ export default function AIEquationPanel({
           </div>
           <div>
             <div className="font-heading font-bold text-sm text-foreground flex items-center gap-2">
-              {TALONFIT_NAME} — Tower Placement Feasibility Engine
+              {TALONFIT_NAME} AI — Tower Placement Feasibility Engine
               <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/15 text-primary">{TALONFIT_TAGLINE}</span>
             </div>
-            <div className="text-[11px] text-muted-foreground">Drag the tower cursor — live max-height equation, ordinance rules, buildable overlay & candidates.</div>
+            <div className="text-[11px] text-muted-foreground">AI ordinance intelligence + live maximum-height equation + green/red buildable-area decisions.</div>
           </div>
         </div>
         {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
@@ -182,7 +182,7 @@ export default function AIEquationPanel({
               />
             </div>
             <Button size="sm" variant="outline" onClick={generateOverlay} className="gap-1.5">
-              <Layers className="w-4 h-4" /> {overlayStats ? "Recalculate Parcel" : "Buildable-Area Overlay"}
+              <Layers className="w-4 h-4" /> {overlayStats ? "Recalculate with AI" : "Generate AI Buildable-Area Overlay"}
             </Button>
             {overlayStats && (
               <Button size="sm" variant="ghost" onClick={clearOverlay} className="gap-1.5">
