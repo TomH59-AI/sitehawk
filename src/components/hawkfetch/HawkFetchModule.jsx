@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, X } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,15 @@ export default function HawkFetchModule({ onUploadCta }) {
     }
   };
 
+  const clearAll = () => {
+    setJurisdiction("");
+    setStateCode("");
+    setError(null);
+    setResult(null);
+    setDocs(null);
+    setDocsError(null);
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card p-5 md:p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
@@ -165,6 +174,18 @@ export default function HawkFetchModule({ onUploadCta }) {
         >
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
           Fetch Applications
+        </Button>
+      </div>
+
+      <div className="mt-3 flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearAll}
+          disabled={loading || docsLoading}
+          className="gap-1.5 text-muted-foreground"
+        >
+          <X className="w-3.5 h-3.5" /> Clear
         </Button>
       </div>
 
