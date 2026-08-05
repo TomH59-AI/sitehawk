@@ -20,6 +20,7 @@ const EMPTY_SESSION = {
   params: { radius_miles: 0.5, tower_height_ft: 150, agent_name: "", ring_name: "", compound_size: "100x100" },
   zoningResult: null,
   targets: [null, null, null],
+  activeTarget: null,
   sectionData: {},
 };
 

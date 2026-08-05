@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import Section3Targets from "@/components/search/Section3Targets";
 import PipelinePageHeader, { NeedsSarf } from "@/components/pipeline/PipelinePageHeader";
 import { usePipeline } from "@/lib/PipelineContext";
-import { round4 } from "@/lib/coords";
 
 /**
  * Targets A·B·C — standalone step 5 page. Scans the ring for candidate parcels
@@ -16,7 +15,7 @@ export default function TargetsPage() {
   const ready = center && Number.isFinite(center.lat) && Number.isFinite(center.lon);
   const ringName = params.ring_name?.trim() || params.agent_name?.trim() || "Search Ring";
 
-  const norm = (t) => (t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : null);
+  const norm = (t) => (t ? { ...t, latitude: Number(t.latitude), longitude: Number(t.longitude) } : null);
 
   return (
     <div className="space-y-5">
@@ -45,11 +44,7 @@ export default function TargetsPage() {
             generatedLabels={[]}
             searchRingCenter={[Number(center.lon), Number(center.lat)]}
             onRun={() => {}}
-            onTargetAReady={(t) => patchSession((prev) => {
-              const targets = [...(prev.targets || [null, null, null])];
-              targets[0] = norm(t);
-              return { targets };
-            })}
+            onTargetAReady={(t) => patchSession({ activeTarget: norm(t) })}
             onAllTargets={(slots) => patchSession({ targets: (slots || []).map(norm) })}
             onData={(data) => patchSession((prev) => ({ sectionData: { ...prev.sectionData, ...data } }))}
           />

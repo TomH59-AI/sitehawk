@@ -46,7 +46,7 @@ export default function TargetMapsPage({ letter = "A" }) {
             patchSession((prev) => {
               const next = [...(prev.targets || [null, null, null])];
               next[2] = { ...picked };
-              return { targets: next };
+              return { targets: next, activeTarget: { ...picked } };
             });
           }}
         />

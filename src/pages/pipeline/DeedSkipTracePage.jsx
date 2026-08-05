@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import DeedStep from "@/components/search/section4/DeedStep";
 import SkipTraceStep from "@/components/search/section4/SkipTraceStep";
@@ -18,9 +18,18 @@ const LETTERS = ["A", "B", "C"];
  */
 export default function DeedSkipTracePage() {
   const { session } = usePipeline();
-  const targets = session.targets || [null, null, null];
-  const firstAvailable = Math.max(0, targets.findIndex(Boolean));
-  const [slot, setSlot] = useState(firstAvailable === -1 ? 0 : firstAvailable);
+  const storedTargets = session.targets || [null, null, null];
+  const activeTarget = session.activeTarget || storedTargets[0] || null;
+  const labelSlot = LETTERS.findIndex((letter) => activeTarget?.label === `Target ${letter}`);
+  const matchingSlot = storedTargets.findIndex((item) => item && activeTarget && (
+    (item.apn && item.apn === activeTarget.apn) ||
+    (Number(item.latitude) === Number(activeTarget.latitude) && Number(item.longitude) === Number(activeTarget.longitude))
+  ));
+  const activeSlot = labelSlot >= 0 ? labelSlot : matchingSlot >= 0 ? matchingSlot : 0;
+  const targets = [...storedTargets];
+  if (activeTarget) targets[activeSlot] = activeTarget;
+  const firstAvailable = targets.findIndex(Boolean);
+  const [slot, setSlot] = useState(activeTarget ? activeSlot : Math.max(0, firstAvailable));
   const target = targets[slot] || null;
 
   const [deed, setDeed] = useState(null);
@@ -32,6 +41,13 @@ export default function DeedSkipTracePage() {
   const [traceDone, setTraceDone] = useState(false);
   const [traceLoading, setTraceLoading] = useState(false);
   const [traceError, setTraceError] = useState(null);
+
+  useEffect(() => {
+    if (!activeTarget) return;
+    setSlot(activeSlot);
+    setDeed(null); setDeedDone(false); setDeedError(null);
+    setTrace(null); setTraceDone(false); setTraceError(null);
+  }, [activeSlot, activeTarget?.apn, activeTarget?.latitude, activeTarget?.longitude]);
 
   const pickSlot = (i) => {
     setSlot(i);
