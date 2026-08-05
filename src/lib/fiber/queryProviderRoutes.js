@@ -15,8 +15,9 @@ import { FIBER_PROVIDERS } from "@/components/maps/fiberLayers";
 
 const MI_TO_DEG_LAT = 1 / 69;
 
-/** Per-provider ceiling. Kept under the Section 4 snapshot pass (8s) plus slack. */
-export const FIBER_QUERY_TIMEOUT_MS = 7000;
+/** Per-provider ceiling. Kept under Section 4's 8s snapshot pass so late routes
+ *  still make it into the captured image that PDF export falls back to. */
+export const FIBER_QUERY_TIMEOUT_MS = 6000;
 
 /** Square bbox around a point, in degrees, corrected for latitude convergence. */
 export function fiberBbox(lat, lon, radiusMiles) {
