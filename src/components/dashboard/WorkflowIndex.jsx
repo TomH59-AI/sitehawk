@@ -30,17 +30,17 @@ const TIME_SAVERS = [
   { n: 19, title: "Document Intelligence", desc: "Upload zoning and permit applications and get help completing them.", icon: ScanLine, to: "/hawk-docs" },
 ];
 
-function IndexGrid({ items, accent, cardClassName = "rounded-xl border border-border bg-card p-4", titleClassName = "font-heading font-bold text-sm text-foreground", descClassName = "text-xs text-muted-foreground mt-1 leading-relaxed", badgeClass = "bg-foreground text-background", badgeBorder = "border-card" }) {
+function IndexGrid({ items, accent, compact = false, gridClassName = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3", cardClassName = "rounded-xl border border-border bg-card p-4", titleClassName = "font-heading font-bold text-sm text-foreground", descClassName = "text-xs text-muted-foreground mt-1 leading-relaxed", badgeClass = "bg-foreground text-background", badgeBorder = "border-card" }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    <div className={gridClassName}>
       {items.map((item) => {
         const Icon = item.icon;
         return (
           <Link key={item.n} to={item.to} className={`${cardClassName} block transition-all hover:border-primary/50 hover:shadow-sm`}>
-            <div className="flex items-start gap-3">
-              <div className={`relative shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${accent}`}>
-                <Icon className="w-5 h-5" />
-                <span className={`absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full ${badgeClass} text-[10px] font-bold flex items-center justify-center border-2 ${badgeBorder}`}>{item.n}</span>
+            <div className={`flex items-start ${compact ? "gap-2.5" : "gap-3"}`}>
+              <div className={`relative shrink-0 rounded-xl flex items-center justify-center ${compact ? "w-8 h-8" : "w-11 h-11"} ${accent}`}>
+                <Icon className={compact ? "w-4 h-4" : "w-5 h-5"} />
+                <span className={`absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full ${badgeClass} text-[9px] font-bold flex items-center justify-center border-2 ${badgeBorder}`}>{item.n}</span>
               </div>
               <div className="min-w-0 flex-1">
                 <div className={titleClassName}>{item.title}</div>
@@ -65,10 +65,12 @@ export default function WorkflowIndex() {
         </div>
         <IndexGrid
           items={JOURNEY}
+          compact
+          gridClassName="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5"
           accent="bg-[#0d9488]/15 text-[#0d9488] border border-[#0d9488]/25"
-          cardClassName="rounded-xl border border-[#0d9488]/20 bg-white p-4"
-          titleClassName="font-heading font-bold text-sm text-[#0d9488]"
-          descClassName="text-xs text-[#0d9488]/70 mt-1 leading-relaxed"
+          cardClassName="rounded-xl border border-[#0d9488]/20 bg-white p-3"
+          titleClassName="font-heading font-bold text-[13px] text-[#0d9488]"
+          descClassName="text-[11px] text-[#0d9488]/70 mt-0.5 leading-snug"
           badgeClass="bg-[#0d9488] text-white"
           badgeBorder="border-white"
         />
@@ -77,7 +79,7 @@ export default function WorkflowIndex() {
       <section className="rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card to-card p-5 md:p-6">
         <div className="mb-4">
           <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">After the SCIP · Stay Organized</div>
-          <h2 className="font-heading font-bold text-2xl text-foreground">Don't Miss These Time Savers</h2>
+          <h2 className="font-heading font-bold text-2xl text-foreground">Legal, Organization, and Forms</h2>
           <p className="text-sm text-muted-foreground mt-1">The tools that save hours, reduce stress, and keep every site moving.</p>
         </div>
         <IndexGrid items={TIME_SAVERS} accent="bg-secondary text-secondary-foreground border border-border" />
