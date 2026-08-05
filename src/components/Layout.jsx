@@ -1,6 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import MobileTabBar from "./MobileTabBar";
-import HubSpotSidebarConnect from "./sidebar/HubSpotSidebarConnect";
 import AppFooter from "./AppFooter";
 import AppErrorBoundary from "./AppErrorBoundary";
 import SARFCoachTour from "./guide/SARFCoachTour";
@@ -41,6 +40,7 @@ const BASE_NAV = [
   { header: "MORE TOOLS" },
   { path: "/talonfit", icon: Zap, label: "⚡ TalonFit®" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
+  { path: "/crm", icon: Briefcase, label: "SiteHawk CRM" },
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
   { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
@@ -178,8 +178,6 @@ export default function Layout() {
           })}
         </nav>
         <div className="p-3 border-t border-border space-y-0.5">
-          <HubSpotSidebarConnect />
-          <div className="border-t border-border/50 my-1" />
           {location.pathname === "/search" && (
             <div className="flex items-center justify-end pb-1">
               <RestartTourButton />

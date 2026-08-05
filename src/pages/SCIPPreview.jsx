@@ -10,7 +10,6 @@ import HawkZoningOverview from "../components/scip/HawkZoningOverview";
 import HawkParcelDetails from "../components/scip/HawkParcelDetails";
 import HawkElectricServiceMap from "../components/scip/HawkElectricServiceMap";
 import HawkSectorCoverage from "../components/scip/HawkSectorCoverage";
-import { hubspotSyncDeal } from "@/functions/hubspotSyncDeal";
 import { attioSyncDeal } from "@/functions/attioSyncDeal";
 import { buildScipData } from "@/lib/scipFields";
 import { notionZoningLookup } from "@/functions/notionZoningLookup";
@@ -60,7 +59,7 @@ export default function SCIPPreview() {
         });
       }
 
-      // Auto-fire Attio + Apollo lead capture in parallel (independent of HubSpot)
+      // Auto-fire Attio + Apollo lead capture.
       const attioSyncKey = `scip-attio-synced:${c.id || c.parcel_id}`;
       if (!sessionStorage.getItem(attioSyncKey)) {
         sessionStorage.setItem(attioSyncKey, "1");
