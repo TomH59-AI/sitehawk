@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import TribalLandLayer from "./TribalLandLayer";
 import UtilityTerritoryLayer from "./UtilityTerritoryLayer";
+import FiberRoutesLayer from "./FiberRoutesLayer";
 
 const MI_TO_M = 1609.34;
 // TalonFit-AI-1.0: the search ring maximum radius is 2 miles / 10560 ft. Clicks
@@ -101,6 +102,8 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
   const [tribalOn, setTribalOn] = useState(false);
   const [utilityOn, setUtilityOn] = useState(false);
   const [utilityNames, setUtilityNames] = useState([]);
+  const [fiberOn, setFiberOn] = useState(false);
+  const [fiberSets, setFiberSets] = useState(null);
   return (
     <div className="relative h-[520px] w-full">
       <div className="absolute right-3 top-3 z-[500] rounded-lg bg-black/70 px-2.5 py-2 text-[11px] font-mono text-white shadow backdrop-blur">
@@ -134,6 +137,29 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
               : "No HIFLD territory returned for this ring center."}
           </div>
         )}
+        <label className="mt-1.5 flex cursor-pointer items-center gap-2 border-t border-white/15 pt-1.5">
+          <input
+            type="checkbox"
+            checked={fiberOn}
+            onChange={(e) => { setFiberOn(e.target.checked); if (!e.target.checked) setFiberSets(null); }}
+            className="h-3.5 w-3.5 accent-violet-400"
+          />
+          <span>Fiber routes (imported KMZ)</span>
+        </label>
+        {fiberOn && (
+          <div className="mt-1 max-w-[190px] text-[10px] leading-tight text-white/70">
+            {fiberSets == null
+              ? "Loading provider routes…"
+              : fiberSets.length
+              ? fiberSets.map((s) => (
+                  <div key={s.id}>
+                    <span style={{ color: s.color }}>▬</span> {s.name} ({s.count})
+                  </div>
+                ))
+              : "No imported fiber routes in this ring."}
+            <div className="mt-1 opacity-70">Approximate, unverified — confirm with the provider.</div>
+          </div>
+        )}
       </div>
       <MapContainer
         center={[center.lat, center.lon]}
@@ -158,6 +184,7 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
             }
           />
         )}
+        {fiberOn && <FiberRoutesLayer center={center} radiusMiles={SCAN_MI} onLoaded={setFiberSets} />}
         {RINGS.map((r) => (
           <Circle
             key={r.mi}

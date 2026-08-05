@@ -10,6 +10,7 @@
  */
 
 import { SAT_STYLE, makeMap, buildCircle, fitToRing, addTowerMarker } from "./mapCore";
+import { addFiberProviderRoutes } from "./fiberProviderOverlay";
 
 const FIBER_PURPLE = "#7C3AED";
 const ACCESS_BLUE = "#2563EB";
@@ -29,7 +30,9 @@ export async function renderFiberOptics(container, target, data, token, radiusMi
   map.on("error", (e) => console.error("[FIBER MAP] Mapbox error event:", e?.error || e));
 
   return new Promise((resolve) => {
-    map.on("load", () => {
+    map.on("load", async () => {
+      // Imported provider fiber routes (KMZ → PostGIS), drawn under the pins.
+      await addFiberProviderRoutes(map, lat, lon, radiusMiles).catch(() => []);
       // Search ring used for the fiber asset lookup.
       map.addSource("s4-fiber-ring", { type: "geojson", data: buildCircle(lat, lon, radiusMiles) });
       map.addLayer({
