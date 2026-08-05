@@ -43,7 +43,6 @@ const BASE_NAV = [
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
-  { path: "/crm", icon: Briefcase, label: "⏱️ AI Time Savers" },
   { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
   { header: "ACCOUNT" },

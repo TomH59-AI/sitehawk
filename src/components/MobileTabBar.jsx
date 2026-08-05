@@ -4,7 +4,6 @@ import { LayoutDashboard, Search, Briefcase, ScanLine } from "lucide-react";
 const TABS = [
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Search" },
-  { path: "/crm", icon: Briefcase, label: "CRM" },
   { path: "/hawk-docs", icon: ScanLine, label: "Documents" },
 ];
 
