@@ -24,9 +24,8 @@ async function oxylabsSearch(query, auth) {
     }),
   });
   if (!r.ok) {
-    const t = (await r.text()).slice(0, 200);
-    console.error(`[hawkPermitDocFetch] Oxylabs HTTP ${r.status}: ${t}`);
-    throw new Error(`Oxylabs HTTP ${r.status}: ${t}`);
+    console.error(`[hawkPermitDocFetch] Oxylabs HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
+    return [];
   }
   const data = await r.json().catch(() => null);
   const content = data?.results?.[0]?.content;
