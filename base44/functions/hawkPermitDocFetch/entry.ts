@@ -56,12 +56,13 @@ export default async function (req) {
     const auth = `Basic ${btoa(`${username}:${password}`)}`;
     const place = `${jurisdiction} ${state}`;
 
-    const [building, zoning] = await Promise.all([
+    const [building, zoning, zoningMap] = await Promise.all([
       oxylabsSearch(`${place} building permit application form filetype:pdf`, auth),
       oxylabsSearch(`${place} zoning permit application form filetype:pdf`, auth),
+      oxylabsSearch(`${place} official zoning map GIS zoning map viewer`, auth),
     ]);
 
-    return Response.json({ building, zoning, source: 'Oxylabs Web Scraper API (Google)' });
+    return Response.json({ building, zoning, zoning_map: zoningMap, source: 'Oxylabs Web Scraper API (Google)' });
   } catch (error) {
     console.error('hawkPermitDocFetch error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });

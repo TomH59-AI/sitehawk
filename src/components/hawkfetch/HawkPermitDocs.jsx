@@ -54,6 +54,7 @@ export default function HawkPermitDocs({ loading, data, error, onUploadCta }) {
     <div className="mt-5 rounded-lg border border-border p-4 space-y-5">
       <DocGroup title="BUILDING PERMIT APPLICATION" items={data.building || []} />
       <DocGroup title="ZONING PERMIT APPLICATION" items={data.zoning || []} />
+      <DocGroup title="OFFICIAL ZONING MAP" items={data.zoning_map || []} />
       <p className="text-[11px] text-muted-foreground border-t border-border pt-3">
         Source: {data.source}. Download the application, then upload it below — Hawk Document Intelligence will help fill it out.
       </p>
