@@ -609,6 +609,7 @@ export default function SiteSearch() {
                   searchCenter={searchCenter}
                   searchParams={searchParams}
                   zoningResult={zoningResult}
+                  sectionData={sectionData}
                 />
               )}
               <LocalAuthoritiesTable

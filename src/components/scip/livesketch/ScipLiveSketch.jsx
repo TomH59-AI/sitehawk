@@ -84,7 +84,7 @@ function simplifyRing(pts, maxPts = 26) {
   return out.length >= 3 ? out : pts;
 }
 
-export default function ScipLiveSketch({ record, pipelineMode = false, zoningData = null }) {
+export default function ScipLiveSketch({ record, pipelineMode = false, zoningData = null, utilities = [] }) {
   const svgRef = useRef(null);
   const ctrlRef = useRef(null);
   const [started, setStarted] = useState(false);
@@ -155,7 +155,7 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
   }, [record, heightFt]);
 
   // Remount the engine only when the drawn geometry actually changes.
-  const cfgKey = useMemo(() => JSON.stringify(built.cfg), [built]);
+  const cfgKey = useMemo(() => JSON.stringify({ cfg: built.cfg, utilities }), [built, utilities]);
 
   useEffect(() => {
     if (!svgRef.current) return undefined;
@@ -166,6 +166,7 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
       base: built.baseModel,
       pe: built.peModel,
       peInfo: built.peInfo,
+      utilities,
       meta: { siteName: built.cfg.siteName, dateLabel: built.dateLabel },
       onCaption: setCaption,
       onChip: (k) => setLit((s) => { const n = new Set(s); n.add(k); return n; }),

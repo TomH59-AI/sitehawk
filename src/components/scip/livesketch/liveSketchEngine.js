@@ -343,6 +343,26 @@ export function mountLiveSketch(svg, opts) {
     C.ink, 1.4, { parent: G });
   const scaleFill = el("rect", { class: "ls-fill", x: sbx, y: sby - 7, width: barPx / 2, height: 7, fill: C.ink });
 
+  /* off-site utilities callout — fiber + power are ALWAYS written with their
+     measured distance, even when they fall outside the drawn sketch extent. */
+  const utilLines = Array.isArray(opts.utilities) ? opts.utilities.filter(Boolean) : [];
+  let utilBox = null;
+  const utilLabels = [];
+  if (utilLines.length) {
+    const uw = 306, uh = 30 + utilLines.length * 18;
+    const ux = VW - uw - 26, uy = VH - uh - 58;
+    el("rect", { x: ux, y: uy, width: uw, height: uh, rx: 6, fill: "#FFFFFF", "fill-opacity": 0.86 });
+    utilBox = stroke(
+      roughLineD(ux, uy, ux + uw, uy, { amp: 0.6 }) + " " +
+      roughLineD(ux + uw, uy, ux + uw, uy + uh, { amp: 0.6 }) + " " +
+      roughLineD(ux + uw, uy + uh, ux, uy + uh, { amp: 0.6 }) + " " +
+      roughLineD(ux, uy + uh, ux, uy, { amp: 0.6 }), C.dim, 1.4, { op: 0.8 });
+    utilLabels.push(handLabel(ux + 10, uy + 18, "OFF-SITE UTILITIES — MEASURED DISTANCE", { size: 10.5, fill: C.dim, weight: 700 }));
+    utilLines.forEach((line, i) => {
+      utilLabels.push(handLabel(ux + 10, uy + 36 + i * 18, line.text, { size: 12, fill: line.color === "power" ? C.amber : C.cyanDk, weight: 700 }));
+    });
+  }
+
   /* labels */
   const title = handLabel(40, 52, "CONCEPT SITE SKETCH", { size: 17, weight: 700 });
   const titleUL = stroke(roughLineD(40, 60, 248, 60, { amp: 1 }), C.ink, 1.4, { op: 0.6 });
@@ -449,6 +469,10 @@ export function mountLiveSketch(svg, opts) {
     for (const p2 of evParts) st(p2, p2 === evParts[1] || p2 === evParts[3] ? SPD.tick : SPD.med);
     for (const l2 of evLabels) on(l2);
     wait(240);
+  }
+  if (utilLines.length) {
+    cap("Noting off-site utilities — fiber and power, with distance to the site");
+    st(utilBox, SPD.tick); utilLabels.forEach(on); chip("utilities"); wait(260);
   }
   cap("True north and graphic scale");
   st(naCirc, SPD.med); st(naArrow, SPD.med); on(lblNA);
@@ -622,6 +646,7 @@ export function mountLiveSketch(svg, opts) {
     { key: "compound", label: `Compound ${Math.round(comp.w)}'×${Math.round(comp.d)}'` },
     { key: "fallzone", label: `Fall zone R${Math.round(FZ.radius)}'` },
     { key: "tower", label: `Tower ${Math.round(T.heightFt)}' ${T.type || "Monopole"}` },
+    ...(utilLines.length ? [{ key: "utilities", label: utilLines.map((u) => u.text).join(" · ") }] : []),
     ...(peInfo ? [{ key: "pe", label: peInfo.accepted ? `PE letter accepted (${peInfo.ruleLabel})` : "PE letter — verify ordinance" }] : []),
   ];
 

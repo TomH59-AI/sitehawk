@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import ScipLiveSketch from "@/components/scip/livesketch/ScipLiveSketch";
 import PipelineSketchData from "@/components/search/PipelineSketchData";
+import { buildSketchUtilityLines } from "@/components/scip/livesketch/sketchUtilityLines";
 
-export default function PipelineLiveSketch({ targetA, searchCenter, searchParams, zoningResult }) {
+export default function PipelineLiveSketch({ targetA, searchCenter, searchParams, zoningResult, sectionData = {} }) {
   const record = useMemo(() => {
     const zoning = zoningResult?.zoning || {};
     return {
@@ -29,9 +30,11 @@ export default function PipelineLiveSketch({ targetA, searchCenter, searchParams
     };
   }, [targetA, searchCenter, searchParams, zoningResult]);
 
+  const utilities = useMemo(() => buildSketchUtilityLines(sectionData), [sectionData]);
+
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card">
-      <ScipLiveSketch record={record} pipelineMode zoningData={zoningResult?.zoning || {}} />
+      <ScipLiveSketch record={record} pipelineMode zoningData={zoningResult?.zoning || {}} utilities={utilities} />
       <PipelineSketchData zoning={zoningResult?.zoning || {}} />
     </div>
   );
