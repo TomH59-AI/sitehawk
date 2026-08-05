@@ -21,6 +21,7 @@ export default function SCIPPreview() {
   const { state } = useLocation();
   const navigate = useNavigate();
   const [scipData, setScipData] = useState(null);
+  const [noCandidate, setNoCandidate] = useState(false);
   const [candidate, setCandidate] = useState(null);
   const [agent, setAgent] = useState({ name: "", phone: "", email: "" });
   const [targets3, setTargets3] = useState(null);
@@ -43,7 +44,9 @@ export default function SCIPPreview() {
       const ctr = state?.searchCenter;
 
       if (!c) {
-        navigate("/results");
+        // Opened straight from the sidebar (Step 11) with no site chosen yet —
+        // show the empty state instead of bouncing the user to another page.
+        setNoCandidate(true);
         return;
       }
       setCandidate(c);
@@ -86,6 +89,24 @@ export default function SCIPPreview() {
     }
     init();
   }, [state, navigate]);
+
+  if (noCandidate) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-4 py-10 text-center">
+        <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">Step 11</div>
+        <h1 className="font-heading font-bold text-2xl text-foreground">SCIP</h1>
+        <p className="text-sm text-muted-foreground">
+          No site candidate selected yet. Pick your Targets A·B·C first, then generate the SCIP for the chosen site.
+        </p>
+        <button
+          onClick={() => navigate("/targets")}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          Go to Targets A·B·C
+        </button>
+      </div>
+    );
+  }
 
   if (!scipData) {
     return (
