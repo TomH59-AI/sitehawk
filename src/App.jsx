@@ -104,6 +104,7 @@ import HawkVision from './pages/HawkVision';
 import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
 import TalonFit from './pages/TalonFit';
+import SearchHub from './pages/SearchHub';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -154,6 +155,8 @@ const AuthenticatedApp = () => {
       <Route element={<Layout />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />
+        {/* Standalone app-wide Search page — independent of the SCIP pipeline */}
+        <Route path="/find" element={<SearchHub />} />
         <Route path="/pricing" element={<PricingV2 />} />
         <Route path="/billing" element={<Billing />} />
         <Route path="/plans-selection" element={<PlansSelection />} />

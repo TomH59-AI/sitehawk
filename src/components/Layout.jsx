@@ -25,6 +25,7 @@ const BASE_NAV = [
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { path: "/search", icon: Search, label: "Site Search" },
   { path: "/talonfit", icon: Zap, label: "⚡ TalonFit®", desc: "Ordinance intelligence — max buildable height, ten-target scout, boundary map." },
+  { path: "/find", icon: Search, label: "🔎 Search", desc: "Find any page or tool by name or by what it does." },
   { header: "AFTER YOUR SCIP — DON'T FORGET" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "📋 Follow-Up Tracker" },
@@ -87,9 +88,9 @@ export default function Layout() {
     : [];
 
   const navItems = [
-    ...BASE_NAV.slice(0, 3), // FIND & PACKAGE header + Dashboard + Site Search
+    ...BASE_NAV.slice(0, 5), // FIND & PACKAGE header + Dashboard + Site Search + TalonFit + Search
     ...(isAdmin ? [{ header: "ADMIN" }, ...adminExtra] : []),
-    ...BASE_NAV.slice(3),
+    ...BASE_NAV.slice(5),
   ];
 
   const handleLogout = () => {
