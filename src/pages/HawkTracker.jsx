@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Plus, ClipboardList, CalendarCheck, Upload } from "lucide-react";
+import { Plus, ClipboardList, Upload, FileSpreadsheet, CheckSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import TrackerSiteForm from "../components/tracker/TrackerSiteForm";
 import TrackerSiteCard from "../components/tracker/TrackerSiteCard";
-import WeeklyReport from "../components/tracker/WeeklyReport";
 import ImportWizard from "../components/tracker/import/ImportWizard";
-import TrackerTemplateChip from "../components/tracker/TrackerTemplateChip";
+import TrackerSheet from "../components/tracker/TrackerSheet";
+import TrackerTasks from "../components/tracker/TrackerTasks";
 import { MILESTONES, TRACKER_GREEN } from "@/lib/hawkTracker";
 
 // Hawk Tracker — 18 gates and an exit. Sites + per-gate milestone rows +
@@ -105,11 +105,14 @@ export default function HawkTracker() {
           style={tab === "sites" ? { background: TRACKER_GREEN } : undefined}>
           <ClipboardList className="w-4 h-4 mr-1" /> Sites ({sites.length})
         </Button>
-        <Button size="sm" variant={tab === "report" ? "default" : "outline"} onClick={() => setTab("report")}
-          style={tab === "report" ? { background: TRACKER_GREEN } : undefined}>
-          <CalendarCheck className="w-4 h-4 mr-1" /> Weekly Report
+        <Button size="sm" variant={tab === "tracker" ? "default" : "outline"} onClick={() => setTab("tracker")}
+          style={tab === "tracker" ? { background: TRACKER_GREEN } : undefined}>
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Click for tracker
         </Button>
-        <TrackerTemplateChip />
+        <Button size="sm" variant={tab === "tasks" ? "default" : "outline"} onClick={() => setTab("tasks")}
+          style={tab === "tasks" ? { background: TRACKER_GREEN } : undefined}>
+          <CheckSquare className="w-4 h-4 mr-1" /> Tasks
+        </Button>
       </div>
 
       {showForm && <TrackerSiteForm onSubmit={createSite} onCancel={() => setShowForm(false)} saving={saving} />}
@@ -135,7 +138,9 @@ export default function HawkTracker() {
         </div>
       )}
 
-      {tab === "report" && <WeeklyReport sites={sites} milestones={milestones} />}
+      {tab === "tracker" && <TrackerSheet />}
+
+      {tab === "tasks" && <TrackerTasks />}
     </div>
   );
 }
