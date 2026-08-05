@@ -33,7 +33,7 @@ const BASE_NAV = [
   { path: "/deed-skip-trace", icon: ScrollText, label: "9 · Deed & Skip-Trace" },
   { path: "/fiber-operators", icon: Network, label: "10 · Local Services Directory" },
   { path: "/scip", icon: FileText, label: "11 · SCIP" },
-  { path: "/ordinance-hunter", icon: Compass, label: "12 · Ordinance Hunter" },
+  { path: "/hawk-docs", icon: ScanLine, label: "12 · Permitting Applications Fetcher" },
   { path: "/hawk-fill", icon: ClipboardEdit, label: "13 · HawkFill" },
   { path: "/hawk-law", icon: Scale, label: "14 · HawkLaw" },
   { path: "/hawk-lease", icon: FileSignature, label: "15 · HawkLease" },
@@ -47,7 +47,6 @@ const BASE_NAV = [
   { path: "/crm", icon: Briefcase, label: "⏱️ AI Time Savers" },
   { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
-  { path: "/hawk-docs", icon: ScanLine, label: "Document Intelligence" },
   { header: "ACCOUNT" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },
 ];

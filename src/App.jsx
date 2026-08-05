@@ -97,7 +97,6 @@ import HawkLawHistory from './pages/hawklaw/HawkLawHistory';
 import FiberLayersAdmin from './pages/FiberLayersAdmin';
 import RfiEngine from './pages/RfiEngine';
 import ZoningVerifier from './pages/ZoningVerifier';
-import OrdinanceHunter from './pages/OrdinanceHunter';
 import AnthemNetScip from './pages/AnthemNetScip';
 import SkipTrace from './pages/SkipTrace';
 import HawkVision from './pages/HawkVision';
@@ -203,8 +202,8 @@ const AuthenticatedApp = () => {
         <Route path="/rfi-engine" element={<RfiEngine />} />
         {/* Hawk Zoning Verifier — AI agent for zoning accuracy checks */}
         <Route path="/zoning-verifier" element={<ZoningVerifier />} />
-        {/* Ordinance Hunter — super agent: scrape → extract → registry → Notion */}
-        <Route path="/ordinance-hunter" element={<OrdinanceHunter />} />
+        {/* Ordinance Hunter retired — slot 12 is now the Permitting Applications Fetcher (/hawk-docs) */}
+        <Route path="/ordinance-hunter" element={<Navigate to="/hawk-docs" replace />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}

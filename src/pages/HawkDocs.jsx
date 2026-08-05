@@ -32,7 +32,8 @@ export default function HawkDocs() {
           <ScanLine className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h1 className="font-heading font-bold text-2xl leading-tight">Hawk Building and Permit Applications Assistant</h1>
+          <div className="text-[10px] font-mono tracking-[0.3em] text-primary uppercase">Step 12</div>
+          <h1 className="font-heading font-bold text-2xl leading-tight">Permitting Applications Fetcher</h1>
           <p className="text-sm text-muted-foreground">Retrieve a jurisdiction's building and zoning permit applications, then get AI help completing them.</p>
         </div>
       </div>
