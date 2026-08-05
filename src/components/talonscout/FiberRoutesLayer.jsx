@@ -1,51 +1,36 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { GeoJSON, CircleMarker, Tooltip } from "react-leaflet";
-import { base44 } from "@/api/base44Client";
-import { FIBER_PROVIDERS } from "@/components/maps/fiberLayers";
-
-const MI_TO_DEG_LAT = 1 / 69;
+import { queryFiberProviderRoutes, fiberLegend } from "@/lib/fiber/queryProviderRoutes";
 
 // Imported provider fiber routes (KMZ → PostGIS) drawn inside the scout ring.
 // Nothing is inferred — only what each provider's imported file actually contains.
+// Shares the bounded query with Map 11, so a stalled provider drops out here too
+// instead of leaving the layer permanently empty with no signal.
 export default function FiberRoutesLayer({ center, radiusMiles = 2, onLoaded }) {
   const [sets, setSets] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const dLat = radiusMiles * MI_TO_DEG_LAT;
-      const dLon = dLat / Math.max(0.15, Math.cos((center.lat * Math.PI) / 180));
-      const bbox = [center.lon - dLon, center.lat - dLat, center.lon + dLon, center.lat + dLat];
-      const results = await Promise.all(
-        FIBER_PROVIDERS.map(async (p) => {
-          try {
-            const { data } = await base44.functions.invoke("fiberProviderRoutes", {
-              action: "query_layer",
-              layer: `fiberkmz_${p.id}`,
-              bbox,
-              candidate: { lat: center.lat, lon: center.lon },
-            });
-            const features = data?.features || [];
-            return features.length ? { ...p, features } : null;
-          } catch {
-            return null;
-          }
-        })
-      );
+      const loaded = await queryFiberProviderRoutes(center.lat, center.lon, radiusMiles);
       if (cancelled) return;
-      const loaded = results.filter(Boolean);
       setSets(loaded);
-      onLoaded?.(loaded.map((s) => ({ id: s.id, name: s.name, color: s.color, count: s.features.length })));
+      onLoaded?.(fiberLegend(loaded));
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [center.lat, center.lon, radiusMiles]);
 
   return (
     <>
       {sets.map((s) => (
-        <div key={s.id} style={{ display: "contents" }}>
+        <Fragment key={s.id}>
           <GeoJSON
-            data={{ type: "FeatureCollection", features: s.features.filter((f) => f.geometry?.type !== "Point") }}
+            data={{
+              type: "FeatureCollection",
+              features: s.features.filter((f) => f.geometry?.type !== "Point"),
+            }}
             style={{ color: s.color, weight: 2.5, opacity: 0.9 }}
             onEachFeature={(f, layer) =>
               layer.bindTooltip(
@@ -70,7 +55,7 @@ export default function FiberRoutesLayer({ center, radiusMiles = 2, onLoaded }) 
                 </Tooltip>
               </CircleMarker>
             ))}
-        </div>
+        </Fragment>
       ))}
     </>
   );
