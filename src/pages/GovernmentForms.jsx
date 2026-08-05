@@ -1,5 +1,6 @@
 import { Landmark } from "lucide-react";
 import { GOV_FORM_CATEGORIES } from "@/components/govforms/govFormsData";
+import { FORM_CATEGORIES } from "@/components/hawkforms/hawkFormsData";
 import HawkFormCard from "@/components/hawkforms/HawkFormCard";
 
 /**
@@ -9,7 +10,11 @@ import HawkFormCard from "@/components/hawkforms/HawkFormCard";
  * agency's own form or portal; nothing is generated or altered here.
  */
 export default function GovernmentForms() {
-  const totalForms = GOV_FORM_CATEGORIES.reduce((n, c) => n + c.items.length, 0);
+  // Government Forms is now the single home for every official filing — the
+  // wetland/NEPA/SHPO/THPO set plus the FCC / FAA / environmental / portal
+  // reference library that used to sit on the Dashboard.
+  const categories = [...GOV_FORM_CATEGORIES, ...FORM_CATEGORIES];
+  const totalForms = categories.reduce((n, c) => n + c.items.length, 0);
 
   return (
     <div className="space-y-10">
@@ -23,13 +28,13 @@ export default function GovernmentForms() {
             <p className="text-[10px] uppercase tracking-[3px] text-primary font-bold mb-1">Step 16 · Official filings</p>
             <h1 className="font-heading font-bold text-3xl text-sidebar-foreground">🏛️ Government Forms</h1>
             <p className="text-sm text-sidebar-foreground/60 mt-1">
-              {totalForms} filings for wetland-proximity FAA review plus NEPA, SHPO and THPO compliance. The FCC/FAA ASR &amp; 7460 library lives in Hawk Forms.
+              {totalForms} official forms, reports and filing portals used throughout site acquisition — wetland-proximity FAA review, NEPA/SHPO/THPO compliance, and the full FCC &amp; FAA reference library, all in one place.
             </p>
           </div>
         </div>
       </div>
 
-      {GOV_FORM_CATEGORIES.map((cat) => (
+      {categories.map((cat) => (
         <section key={cat.key}>
           <div className="flex items-center gap-3 mb-4">
             <span className="text-2xl">{cat.icon}</span>

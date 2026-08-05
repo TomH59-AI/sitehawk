@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import DocumentsIndex from "@/components/dashboard/DocumentsIndex";
 import {
   ClipboardList, Map, FileText, Target, RadioTower, Layers, Cable, Radio,
   Ruler, Box, ShieldCheck, Printer, MapPin, ListChecks, FileSignature,
@@ -83,8 +82,6 @@ export default function WorkflowIndex() {
         </div>
         <IndexGrid items={TIME_SAVERS} accent="bg-secondary text-secondary-foreground border border-border" />
       </section>
-
-      <DocumentsIndex />
     </div>
   );
 }
