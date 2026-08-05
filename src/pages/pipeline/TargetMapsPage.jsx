@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import Section4MapSuite from "@/components/search/Section4MapSuite";
 import PipelineLiveSketch from "@/components/search/PipelineLiveSketch";
@@ -14,6 +15,9 @@ const STEP = { A: "6", B: "7", C: "8" };
  */
 export default function TargetMapsPage({ letter = "A" }) {
   const { session, patchSession } = usePipeline();
+  // The TalonFit Live Site Sketch stays hidden until the map suite above it has
+  // finished — it must never appear straight off the SARF.
+  const [suiteDone, setSuiteDone] = useState(false);
   const center = session.center;
   const target = session.targets?.[SLOT[letter]] || null;
   const params = session.params;
@@ -58,13 +62,14 @@ export default function TargetMapsPage({ letter = "A" }) {
           towerHeightFt={params.tower_height_ft || 150}
           sectionData={session.sectionData || {}}
           onRun={() => {}}
-          onComplete={() => {}}
+          onComplete={() => setSuiteDone(true)}
           onData={(data) => patchSession((prev) => ({ sectionData: { ...prev.sectionData, ...data } }))}
         />
       )}
 
-      {/* Last target in the pipeline — the Live Site Sketch closes it out. */}
-      {letter === "C" && ringReady && hasTarget && (
+      {/* Last target in the pipeline — the Live Site Sketch closes it out, and
+          only after every map above it has been generated. */}
+      {letter === "C" && ringReady && hasTarget && suiteDone && (
         <div className="space-y-2">
           <div className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/15 via-transparent to-transparent px-4 py-3">
             <div className="text-[10px] font-mono tracking-[0.3em] text-primary">LIVE SITE SKETCH</div>
