@@ -12,6 +12,10 @@ import TalonFitProposalControls from "./TalonFitProposalControls";
 // TalonFit-AI-1.0 contract constants.
 const SLOTS = ["D", "E", "F"];
 const MAX_SAVED = 3;
+// Three SCIPs per search ring — Targets A, B and C all get completed. TalonFit
+// picks the top three; if one gets turned down, saving all three unlocks a free
+// 4th SCIP in this same ring, named off the ring.
+const SCIPS_PER_RING = 3;
 const MIN_HEIGHT_FT = 100;
 
 // Solver decision → the verdict vocabulary the existing cards/map markers use.
@@ -46,12 +50,11 @@ export default function ScoutPanel({ onActiveTargetChange }) {
   const srcKey = (lat, lon) => `${lat.toFixed(4)},${lon.toFixed(4)}`;
   const patch = (id, data) => setTargets((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
 
-  // One SCIP per scout ring, plus ONE additional the subscriber may spend on a
-  // D/E/F candidate whenever they need it. Targets B and C are SCIP'd from their
-  // own map-suite pages and are never gated here — this allowance covers only
-  // the extra TalonFit pick, so the ring still tops out at one lettered SCIP
-  // beyond the anchoring one.
-  const scipAllowance = 1 + (extraScipRequested ? 1 : 0);
+  // Three SCIPs per ring (A·B·C). Once all three saved candidates are in the
+  // CRM, a turned-down target earns ONE free 4th SCIP in this ring.
+  const savedCount = targets.filter((t) => t.saved).length;
+  const fourthScipEligible = savedCount >= MAX_SAVED;
+  const scipAllowance = SCIPS_PER_RING + (fourthScipEligible && extraScipRequested ? 1 : 0);
   const scipsUsed = locks.length;
   const scipAvailable = scipsUsed < scipAllowance;
   const isLockedTarget = (t) => locks.some((l) => srcKey(l.latitude, l.longitude) === srcKey(t.lat, t.lon));
@@ -220,7 +223,10 @@ export default function ScoutPanel({ onActiveTargetChange }) {
   const handleRunScip = async (id) => {
     const t = targets.find((x) => x.id === id);
     if (!t || !scipAvailable) return;
-    const siteName = `Target ${t.letter}${t.parcel?.address ? ` — ${t.parcel.address}` : ""}`.slice(0, 60);
+    // The free 4th SCIP is named off the search ring, per the ring allowance rule.
+    const isFourth = scipsUsed >= SCIPS_PER_RING;
+    const base = `Target ${t.letter}${t.parcel?.address ? ` — ${t.parcel.address}` : ""}`;
+    const siteName = (isFourth && center.label ? `${center.label} — Target ${t.letter}` : base).slice(0, 60);
     const created = await base44.entities.ScoutScipLock.create({
       src_key: srcKey(center.lat, center.lon),
       src_label: center.label || undefined,
@@ -262,6 +268,9 @@ export default function ScoutPanel({ onActiveTargetChange }) {
           PE letter will be provided
         </label>
         <span className="text-xs font-medium text-foreground">{targets.length}/{MAX_SAVED} saved (D·E·F)</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {scipsUsed}/{scipAllowance} SCIPs used in this ring
+        </span>
       </div>
 
       <div className="border-t border-border">
@@ -299,18 +308,24 @@ export default function ScoutPanel({ onActiveTargetChange }) {
                 SCIP run in this ring on Target {l.letter}{l.site_name ? ` (${l.site_name})` : ""}.
               </p>
             ))}
-            {!scipAvailable && !extraScipRequested && (
+            {!scipAvailable && fourthScipEligible && !extraScipRequested && (
               <button
                 type="button"
                 onClick={() => setExtraScipRequested(true)}
                 className="w-full rounded-md border border-primary/40 bg-primary/10 px-2 py-1.5 text-left text-[11px] font-medium text-primary"
               >
-                Need another? Use your one additional SCIP in this ring on Target D, E or F.
+                Turned down on one? All three targets are saved — claim your free 4th SCIP in this ring.
               </button>
             )}
-            {!scipAvailable && extraScipRequested && (
+            {!scipAvailable && !fourthScipEligible && (
               <p className="text-[11px] font-medium text-amber-600">
-                Both SCIPs for this search ring have been used. A different parcel requires a billable re-SCIP.
+                All {SCIPS_PER_RING} SCIPs for this ring are used ({savedCount}/{MAX_SAVED} targets saved). Save all
+                three to your CRM to unlock a free 4th SCIP in this ring.
+              </p>
+            )}
+            {!scipAvailable && fourthScipEligible && extraScipRequested && (
+              <p className="text-[11px] font-medium text-amber-600">
+                Your free 4th SCIP for this ring has been used. A different parcel requires a billable re-SCIP.
               </p>
             )}
             {targets.length >= MAX_SAVED && (
