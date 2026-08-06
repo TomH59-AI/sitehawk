@@ -12,7 +12,7 @@ import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
 import HistoryNavigation from "./HistoryNavigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { isDemoCampaignOver } from "@/lib/demoCampaign";
@@ -56,6 +56,17 @@ export default function Layout() {
     try { return localStorage.getItem("sh_is_admin") === "1"; } catch { return false; }
   });
   const [demoExpired, setDemoExpired] = useState(false);
+  const navRef = useRef(null);
+
+  // Keep the sidebar free-scrolling, but bring the active step into view on
+  // every route change so deep steps (12-16) are never hidden below the fold.
+  useEffect(() => {
+    const nav = navRef.current;
+    const el = nav?.querySelector('[data-nav-active="true"]');
+    if (!nav || !el) return;
+    const target = el.offsetTop - nav.clientHeight / 2 + el.clientHeight / 2;
+    nav.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+  }, [location.pathname]);
 
   useEffect(() => {
     base44.auth.me().then(u => {
@@ -136,7 +147,7 @@ export default function Layout() {
             </div>
           </Link>
         </div>
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto min-h-0 sidebar-scroll">
+        <nav ref={navRef} className="flex-1 p-3 space-y-0.5 overflow-y-auto min-h-0 sidebar-scroll">
           {navItems.map((item, idx) => {
             if (item.header) {
               return (
@@ -152,6 +163,7 @@ export default function Layout() {
               <div key={item.path}>
                 <Link
                   to={item.path}
+                  data-nav-active={isActive ? "true" : undefined}
                   className={`flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActive
                       ? "bg-primary/10 text-primary border border-primary/20"
