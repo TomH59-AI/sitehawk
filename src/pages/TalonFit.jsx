@@ -1,15 +1,9 @@
-import { useState } from "react";
 import { Zap } from "lucide-react";
 import HawkBoltBoundaryMap from "@/components/hawkbolt/HawkBoltBoundaryMap";
 import ScoutPanel from "@/components/talonscout/ScoutPanel";
-import TalonFitPropagationSection from "@/components/talonfit/TalonFitPropagationSection";
-import TalonFitRfSection from "@/components/talonfit/TalonFitRfSection";
 
-// TalonFit® — TalonFit-AI-1.0 feasibility solver, boundary map, propagation map,
-// and the RF Intelligence Engine merged in at the bottom.
+// TalonFit® — TalonFit-AI-1.0 feasibility solver and boundary map.
 export default function TalonFit() {
-  const [activeTarget, setActiveTarget] = useState(null);
-
   return (
     <div className="mx-auto flex max-w-5xl flex-col p-4">
       <div className="flex items-center gap-2 pb-1">
@@ -25,10 +19,8 @@ export default function TalonFit() {
         drawing or the jurisdiction's own determination.
       </p>
 
-      <ScoutPanel onActiveTargetChange={setActiveTarget} />
+      <ScoutPanel />
       <HawkBoltBoundaryMap />
-      <TalonFitPropagationSection target={activeTarget} />
-      <TalonFitRfSection />
     </div>
   );
 }
