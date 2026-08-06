@@ -7,7 +7,7 @@ import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import HawkVoiceAssistant from "./guide/HawkVoiceAssistant";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, FileStack, Radar, ShieldCheck, PhoneCall, Eye, Network, Zap, Map, Target, ScrollText, Landmark, Compass, FileText } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, FileStack, Radar, ShieldCheck, PhoneCall, Network, Zap, Map, Target, ScrollText, Landmark, Compass, FileText } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -43,7 +43,6 @@ const BASE_NAV = [
   { path: "/crm", icon: Briefcase, label: "SiteHawk CRM" },
   { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
-  { path: "/hawk-vision", icon: Eye, label: "🦅 HawkVision" },
   { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
   { header: "ACCOUNT" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },

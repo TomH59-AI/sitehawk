@@ -97,7 +97,6 @@ import RfiEngine from './pages/RfiEngine';
 import ZoningVerifier from './pages/ZoningVerifier';
 import AnthemNetScip from './pages/AnthemNetScip';
 import SkipTrace from './pages/SkipTrace';
-import HawkVision from './pages/HawkVision';
 import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
 import TalonFit from './pages/TalonFit';
@@ -223,8 +222,6 @@ const AuthenticatedApp = () => {
         {/* Interactive Cesium scene for a Tower3DRender (viewer_html_url target) */}
         <Route path="/cesium-tower-viewer" element={<CesiumTowerViewer />} />
         <Route path="/photo-3d-viewer" element={<Photo3DViewer />} />
-        {/* HawkVision — upload a parcel photo → AI composites tower + compound + landscaping */}
-        <Route path="/hawk-vision" element={<HawkVision />} />
         {/* HawkLease */}
         <Route path="/hawk-lease" element={<HawkLease />}>
           <Route index element={<HawkLeaseDashboard />} />

@@ -1,7 +1,7 @@
 import {
   Search, Zap, ShieldCheck, Radar, Network, Briefcase, MapPin,
   ClipboardList, PhoneCall, FileSignature, Scale, ClipboardEdit,
-  FileStack, ScanLine, Eye, CreditCard, Settings, Info,
+  FileStack, ScanLine, CreditCard, Settings, Info,
 } from "lucide-react";
 
 export const DASHBOARD_TOOL_PAGES = [
@@ -63,7 +63,6 @@ export const DASHBOARD_TOOL_PAGES = [
     title: "Visuals and Account",
     description: "Create site visuals and manage your SiteHawk subscription.",
     tools: [
-      { title: "HawkVision", description: "Create presentation-ready proposed-site visuals.", to: "/hawk-vision", icon: Eye },
       { title: "Pricing and Plans", description: "Compare available SiteHawk plans.", to: "/pricing", icon: CreditCard },
       { title: "Billing", description: "Manage billing and subscription access.", to: "/billing", icon: Settings },
       { title: "About SiteHawk", description: "Review the platform and its core capabilities.", to: "/about", icon: Info },
