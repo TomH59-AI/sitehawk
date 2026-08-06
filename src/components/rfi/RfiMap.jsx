@@ -5,7 +5,6 @@ import { rfiTowersInBBox } from "@/functions/rfiTowersInBBox";
 import { cloudRFCoveragePolygon } from "@/functions/cloudRFCoveragePolygon";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import RfiFilters from "./RfiFilters";
 import RfiLegend from "./RfiLegend";
 import RfiSearchBox from "./RfiSearchBox";
 import RfiCompass from "./RfiCompass";
@@ -18,7 +17,13 @@ import * as turf from "@turf/turf";
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
 // Nationwide RF Intelligence Engine map. Standalone — no pipeline coupling.
-export default function RfiMap({ overlays = { sites: true, rings: true } }) {
+export default function RfiMap({
+  overlays = { sites: true, rings: true },
+  filters,
+  layers,
+  onRegisterDrawCoverage,
+  onDrawingChange,
+}) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
@@ -29,13 +34,6 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
   const [baseLayer, setBaseLayer] = useState("usgs_imagery_topo");
   const searchMarker = useRef(null);
-
-  const [filters, setFilters] = useState({
-    carriers: new Set(["ATT", "VZW", "TMO", "DISH", "OTHER"]),
-    bands: new Set(["Low-Band", "Mid-Band", "C-Band", "mmWave"]),
-    techs: new Set(["5G NR", "LTE", "UMTS", "GSM", "CDMA"]),
-  });
-  const [layers, setLayers] = useState({ towers: true, coverage: true, deadzones: true });
 
   const allTowers = useRef([]);
 
@@ -257,6 +255,7 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
     const c = map.getCenter();
     const activeCarrier = [...filters.carriers][0] || "VZW";
     setDrawing(true);
+    onDrawingChange?.(true);
     try {
       const { data } = await cloudRFCoveragePolygon({
         lat: c.lat, lon: c.lng, height_ft: 199, radius_mi: 8,
@@ -281,8 +280,14 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
       toast.error(e?.response?.data?.error || e.message || "Coverage modeling failed.");
     } finally {
       setDrawing(false);
+      onDrawingChange?.(false);
     }
-  }, [filters]);
+  }, [filters, onDrawingChange]);
+
+  // Expose the coverage action to the left control panel.
+  useEffect(() => {
+    onRegisterDrawCoverage?.(handleDrawCoverage);
+  }, [handleDrawCoverage, onRegisterDrawCoverage]);
 
   // ── Jump to a searched address / coordinate + drop a marker ─────────────────
   const handleGoTo = useCallback((lngLat, label) => {
@@ -320,13 +325,6 @@ export default function RfiMap({ overlays = { sites: true, rings: true } }) {
         <div className="absolute top-4 left-14 z-10 rounded-full bg-slate-900/85 text-white text-xs px-3 py-1.5 shadow-lg">
           {towerCount > 0 ? `${towerCount} towers in view` : "Zoom in to load towers"}
         </div>
-      )}
-      {ready && (
-        <RfiFilters
-          filters={filters} setFilters={setFilters}
-          layers={layers} setLayers={setLayers}
-          onDrawCoverage={handleDrawCoverage} drawing={drawing}
-        />
       )}
       {ready && <RfiLegend />}
       {ready && <RfiBaseLayerSwitcher baseLayer={baseLayer} onChange={setBaseLayer} />}

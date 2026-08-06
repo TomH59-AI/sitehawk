@@ -1,5 +1,6 @@
-import { MapPin, Circle, Radio } from "lucide-react";
+import { MapPin, Circle, Radio, SlidersHorizontal } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import RfiFilters from "./RfiFilters";
 
 function ToggleRow({ icon: Icon, color, label, hint, checked, onChange }) {
   return (
@@ -21,15 +22,20 @@ function ToggleRow({ icon: Icon, color, label, hint, checked, onChange }) {
   );
 }
 
-// Side control panel next to the RF map — toggles the user's own overlays
-// (site pins, search rings) on top of the national map.
-export default function RfiControlPanel({ overlays, setOverlays }) {
+// Side control panel next to the RF map — the user's own overlays (site pins,
+// search rings) plus the RF layer / carrier / band / technology filters.
+export default function RfiControlPanel({
+  overlays, setOverlays,
+  filters, setFilters,
+  layers, setLayers,
+  onDrawCoverage, drawing,
+}) {
   const set = (key) => (val) => setOverlays((prev) => ({ ...prev, [key]: val }));
 
   return (
-    <aside className="w-full lg:w-72 shrink-0 rounded-2xl border border-white/10 bg-slate-900 text-white shadow-sm overflow-hidden">
+    <aside className="w-full lg:w-72 shrink-0 rounded-2xl border border-white/10 bg-slate-900 text-white shadow-sm overflow-hidden flex flex-col">
       <div className="h-1.5 w-full bg-gradient-to-r from-primary to-emerald-500" />
-      <div className="p-4">
+      <div className="p-4 overflow-y-auto min-h-0">
         <div className="flex items-center gap-2 mb-1">
           <Radio className="h-4 w-4 text-primary" />
           <h2 className="font-heading text-base">My Overlays</h2>
@@ -54,6 +60,18 @@ export default function RfiControlPanel({ overlays, setOverlays }) {
             hint="1-mile rings around your searches"
             checked={overlays.rings}
             onChange={set("rings")}
+          />
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-white/10">
+          <div className="flex items-center gap-2 mb-3">
+            <SlidersHorizontal className="h-4 w-4 text-primary" />
+            <h2 className="font-heading text-base">RF Filters</h2>
+          </div>
+          <RfiFilters
+            filters={filters} setFilters={setFilters}
+            layers={layers} setLayers={setLayers}
+            onDrawCoverage={onDrawCoverage} drawing={drawing}
           />
         </div>
       </div>

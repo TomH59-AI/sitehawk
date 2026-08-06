@@ -1,7 +1,8 @@
 import { CARRIERS, BANDS, TECHNOLOGIES } from "./rfiConfig";
 
-// RFI Engine filter panel — carrier / band / technology selectors + layer
-// visibility toggles for towers, coverage, and dead zones.
+// RFI Engine filter controls — carrier / band / technology selectors + layer
+// visibility toggles for towers, coverage, and dead zones. Rendered inside the
+// left control panel (no map-overlay positioning of its own).
 function Chip({ active, onClick, children, color }) {
   return (
     <button
@@ -28,7 +29,7 @@ export default function RfiFilters({ filters, setFilters, layers, setLayers, onD
   };
 
   return (
-    <div className="absolute top-4 right-4 z-10 w-72 rounded-xl border border-white/10 bg-slate-900/85 backdrop-blur text-white p-3 space-y-3 text-xs shadow-2xl">
+    <div className="space-y-3 text-xs text-white">
       <div>
         <div className="font-heading font-bold text-[11px] tracking-wide uppercase text-white/70 mb-1.5">Layers</div>
         <div className="flex flex-wrap gap-1.5">
