@@ -37,6 +37,9 @@ export default function ScoutPanel({ onActiveTargetChange }) {
   const [anchorRecord, setAnchorRecord] = useState(null);
   const [locks, setLocks] = useState([]);
   const [targets, setTargets] = useState([]);
+  // Slots already spent this session — a replacement pick in a reused slot is
+  // labelled "D Alternate" so letters never shift under a SCIP'd target.
+  const [usedSlots, setUsedSlots] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [probe, setProbe] = useState(null);
   const [peLetter, setPeLetter] = useState(false);
@@ -135,9 +138,15 @@ export default function ScoutPanel({ onActiveTargetChange }) {
     }
     setProbe(null);
     const id = `${Date.now()}-${lat}`;
+    // Letters are pinned to slots, not to list position. A freed slot that was
+    // used before comes back as an Alternate.
+    const slot = SLOTS.find((s) => !targets.some((t) => t.slot === s)) || SLOTS[targets.length];
+    setUsedSlots((prev) => (prev.includes(slot) ? prev : [...prev, slot]));
     const target = {
       id,
-      letter: save.slot || SLOTS[targets.length],
+      slot,
+      letter: usedSlots.includes(slot) ? `${slot} Alternate` : slot,
+      marker_label: usedSlots.includes(slot) ? `${slot}′` : slot,
       lat,
       lon,
       verdict: VERDICT[r.decision],
@@ -230,6 +239,7 @@ export default function ScoutPanel({ onActiveTargetChange }) {
       locked_at: new Date().toISOString(),
     });
     setLocks((prev) => [created, ...prev]);
+    patch(id, { scip_run: true });
     const p = new URLSearchParams({
       lat: String(t.lat.toFixed(6)),
       lon: String(t.lon.toFixed(6)),
@@ -241,7 +251,10 @@ export default function ScoutPanel({ onActiveTargetChange }) {
   };
 
   const handleRemove = (id) => {
-    setTargets((prev) => prev.filter((t) => t.id !== id).map((t, i) => ({ ...t, letter: SLOTS[i] })));
+    // A SCIP'd target keeps its letter and its card — the spend is already made.
+    const t = targets.find((x) => x.id === id);
+    if (t?.scip_run || (t && isLockedTarget(t))) return;
+    setTargets((prev) => prev.filter((x) => x.id !== id));
     if (activeId === id) { setActiveId(null); onActiveTargetChange?.(null); }
   };
 
@@ -322,6 +335,7 @@ export default function ScoutPanel({ onActiveTargetChange }) {
                 onRemove={handleRemove}
                 onRunScip={handleRunScip}
                 scipLocked={!scipAvailable && !isLockedTarget(t)}
+                removeLocked={t.scip_run || isLockedTarget(t)}
               />
             ))}
           </div>

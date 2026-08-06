@@ -232,7 +232,7 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
           <Marker
             key={t.id}
             position={[t.lat, t.lon]}
-            icon={targetIcon(t.letter, t.verdict)}
+            icon={targetIcon(t.marker_label || t.letter, t.verdict)}
             eventHandlers={{ click: () => onSelect(t.id) }}
           />
         ))}

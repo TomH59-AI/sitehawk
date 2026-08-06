@@ -16,7 +16,7 @@ const BADGE = {
 };
 
 // One graded candidate point: letter, coordinates, allowed height or EJECTED reason.
-export default function ScoutTargetCard({ target, active, onSelect, onSave, onRemove, onRunScip, scipLocked }) {
+export default function ScoutTargetCard({ target, active, onSelect, onSave, onRemove, onRunScip, scipLocked, removeLocked }) {
   const v = target.verdict;
   const label = v === "fit" ? `${target.max_height_ft} FT ALLOWED` : v === "ejected" ? "EJECTED" : v === "verify" ? "VERIFY" : "SCREENING…";
 
@@ -26,7 +26,7 @@ export default function ScoutTargetCard({ target, active, onSelect, onSave, onRe
       className={`cursor-pointer rounded-xl border p-3 transition-shadow ${STYLES[v] || STYLES.pending} ${active ? "ring-2 ring-primary" : ""}`}
     >
       <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground/10 text-xs font-bold text-foreground">
+        <span className="flex h-6 items-center justify-center whitespace-nowrap rounded-full bg-foreground/10 px-2 text-xs font-bold text-foreground">
           {target.letter}
         </span>
         <span className={`rounded px-2 py-0.5 text-[10px] font-bold tracking-wide ${BADGE[v] || BADGE.pending}`}>
@@ -90,7 +90,14 @@ export default function ScoutTargetCard({ target, active, onSelect, onSave, onRe
         >
           <FileText className="h-3.5 w-3.5" /> Run SCIP
         </Button>
-        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onRemove(target.id); }} className="gap-1.5">
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={removeLocked}
+          title={removeLocked ? "This target has been SCIP'd — its letter and spend are locked." : undefined}
+          onClick={(e) => { e.stopPropagation(); onRemove(target.id); }}
+          className="gap-1.5"
+        >
           <Trash2 className="h-3.5 w-3.5" /> Remove
         </Button>
       </div>
