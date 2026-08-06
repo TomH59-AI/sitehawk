@@ -46,11 +46,12 @@ export default function ScoutPanel({ onActiveTargetChange }) {
   const srcKey = (lat, lon) => `${lat.toFixed(4)},${lon.toFixed(4)}`;
   const patch = (id, data) => setTargets((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
 
-  // One SCIP per scout ring. Once the anchoring SCIP has worked through targets
-  // B and C, the subscriber may choose to spend ONE additional SCIP in this ring.
-  const extraScipEligible =
-    (anchorRecord?.parcel_targets?.length || 0) >= 3 && (anchorRecord?.active_target_index ?? 0) >= 2;
-  const scipAllowance = 1 + (extraScipEligible && extraScipRequested ? 1 : 0);
+  // One SCIP per scout ring, plus ONE additional the subscriber may spend on a
+  // D/E/F candidate whenever they need it. Targets B and C are SCIP'd from their
+  // own map-suite pages and are never gated here — this allowance covers only
+  // the extra TalonFit pick, so the ring still tops out at one lettered SCIP
+  // beyond the anchoring one.
+  const scipAllowance = 1 + (extraScipRequested ? 1 : 0);
   const scipsUsed = locks.length;
   const scipAvailable = scipsUsed < scipAllowance;
   const isLockedTarget = (t) => locks.some((l) => srcKey(l.latitude, l.longitude) === srcKey(t.lat, t.lon));
@@ -298,18 +299,18 @@ export default function ScoutPanel({ onActiveTargetChange }) {
                 SCIP run in this ring on Target {l.letter}{l.site_name ? ` (${l.site_name})` : ""}.
               </p>
             ))}
-            {!scipAvailable && extraScipEligible && !extraScipRequested && (
+            {!scipAvailable && !extraScipRequested && (
               <button
                 type="button"
                 onClick={() => setExtraScipRequested(true)}
                 className="w-full rounded-md border border-primary/40 bg-primary/10 px-2 py-1.5 text-left text-[11px] font-medium text-primary"
               >
-                You've SCIP'd targets B and C — use your one additional SCIP inside this 2-mile ring.
+                Need another? Use your one additional SCIP in this ring on Target D, E or F.
               </button>
             )}
-            {!scipAvailable && !extraScipEligible && (
+            {!scipAvailable && extraScipRequested && (
               <p className="text-[11px] font-medium text-amber-600">
-                This search ring's SCIP has been used. A different parcel requires a billable re-SCIP.
+                Both SCIPs for this search ring have been used. A different parcel requires a billable re-SCIP.
               </p>
             )}
             {targets.length >= MAX_SAVED && (
