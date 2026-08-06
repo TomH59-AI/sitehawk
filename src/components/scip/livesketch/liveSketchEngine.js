@@ -145,6 +145,7 @@ export function mountLiveSketch(svg, opts) {
     .ls-ghosted{opacity:.22;transition:opacity .5s}
     .ls-dim{opacity:.25;transition:opacity .5s}
     .ls-noanim *{transition:none !important;animation:none !important}
+    .ls-noanim .ls-stamp.landed{opacity:1;transform:none}
   `;
 
   /* ── paper ── */
