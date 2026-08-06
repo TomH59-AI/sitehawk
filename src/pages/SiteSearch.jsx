@@ -177,16 +177,6 @@ export default function SiteSearch() {
     setCompletedSteps(done);
   }, [sarfReady, zoningReady, targetA, mapsComplete, setCompletedSteps]);
 
-  // Reveal TalonFit only after the Hawk RF propagation map has finished so it
-  // cannot mount or pull focus while the earlier map pipeline is still running.
-  useEffect(() => {
-    if (!propagationComplete || allTargets.filter(Boolean).length < 3) return;
-    const timer = window.setTimeout(() => {
-      document.getElementById("talonfit-ai")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 500);
-    return () => window.clearTimeout(timer);
-  }, [propagationComplete, allTargets]);
-
   // Clear the sidebar pipeline when leaving Site Search.
   useEffect(() => {
     return () => { setActiveStep(null); setCompletedSteps([]); };

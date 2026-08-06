@@ -45,7 +45,7 @@ async function loadConstraintData(target) {
 // TowerVisualization → Tower3DRender) and runs deterministic turf fit checks.
 export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightFt, savedTargets = [], onSaveTarget, onClearTarget, onRunTarget, zoningResult = null, searchCenter = null, searchRing = null }) {
   const { toast, dismiss } = useToast();
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [rejectedPoint, setRejectedPoint] = useState(null);
   const [resolving, setResolving] = useState(false);
   const [siteTarget, setSiteTarget] = useState(null);
