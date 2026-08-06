@@ -54,7 +54,7 @@ function normBounds(b) {
 }
 const layerId = (name) => `rf-${String(name).replace(/[^a-z0-9]/gi, "_")}`;
 
-export default function Section8Propagation({ unlocked, targetA, towerHeightFt = 150, onData, onClear }) {
+export default function Section8Propagation({ unlocked, targetA, towerHeightFt = 150, onData, onComplete, onClear }) {
   const lat = targetA?.latitude;
   const lon = targetA?.longitude;
   const coordsOk = Number.isFinite(lat) && Number.isFinite(lon);
@@ -98,6 +98,7 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
       setResult(cached);
       initFromResult(cached);
       setStatus("done");
+      onComplete?.();
       return;
     }
     setStatus("running");
@@ -116,6 +117,7 @@ export default function Section8Propagation({ unlocked, targetA, towerHeightFt =
       // Emit propagation summary to the bus (bonus context, not a weighted factor).
       onData?.({ propagation: { carrier_count: data.carrier_count ?? (data.coverages?.length || 0) } });
       setStatus("done");
+      onComplete?.();
     } catch (err) {
       setError(err?.response?.data?.error || err?.message || "Propagation run failed");
       setStatus("error");

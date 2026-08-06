@@ -64,6 +64,8 @@ export default function SiteSearch() {
   const [generatedLabels, setGeneratedLabels] = useState([]);
   // True once all ten Section 4 maps are complete (Wind is now map #10).
   const [mapsComplete, setMapsComplete] = useState(false);
+  // TalonFit stays completely unmounted until the Hawk RF propagation map finishes.
+  const [propagationComplete, setPropagationComplete] = useState(false);
   // ── PER-SECTION CLEAR / REMOUNT ───────────────────────────────────────────
   // Each pipeline section is remounted (state wiped) by bumping its key here.
   // Clearing a section also rolls back the parent readiness flags for it AND
@@ -136,6 +138,7 @@ export default function SiteSearch() {
     if (affected.includes("zoning")) setZoningReady(false);
     if (affected.includes("targets")) { setTargetA(null); setAllTargets([null, null, null]); setPerchTargets([null, null, null]); setLanesOpen({ B: false, C: false }); }
     if (affected.includes("maps")) setMapsComplete(false);
+    if (affected.includes("propagation")) setPropagationComplete(false);
 
     // Drop bus data emitted by the cleared sections so the scorecard can't read stale values.
     setSectionData({});
@@ -152,6 +155,7 @@ export default function SiteSearch() {
     setPerchTargets([null, null, null]);
     setLanesOpen({ B: false, C: false });
     setMapsComplete(false);
+    setPropagationComplete(false);
     setSectionData({});
     setSearchCenter(null);
     setGeneratedLabels([]);
@@ -173,15 +177,15 @@ export default function SiteSearch() {
     setCompletedSteps(done);
   }, [sarfReady, zoningReady, targetA, mapsComplete, setCompletedSteps]);
 
-  // Once the initial A/B/C target set is complete, reveal the next-step AI
-  // solver automatically so users cannot miss TalonFit.
+  // Reveal TalonFit only after the Hawk RF propagation map has finished so it
+  // cannot mount or pull focus while the earlier map pipeline is still running.
   useEffect(() => {
-    if (!zoningReady || allTargets.filter(Boolean).length < 3) return;
+    if (!propagationComplete || allTargets.filter(Boolean).length < 3) return;
     const timer = window.setTimeout(() => {
       document.getElementById("talonfit-ai")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 500);
     return () => window.clearTimeout(timer);
-  }, [zoningReady, allTargets]);
+  }, [propagationComplete, allTargets]);
 
   // Clear the sidebar pipeline when leaving Site Search.
   useEffect(() => {
@@ -250,6 +254,7 @@ export default function SiteSearch() {
     setPerchTargets([null, null, null]);
     setLanesOpen({ B: false, C: false });
     setMapsComplete(false);
+    setPropagationComplete(false);
     setSectionData({});
     // Normalize the SARF center to 4 decimals (~11 m) at the single entry point.
     // Every downstream fetch / cache key / emit reads off this rounded center.
@@ -283,6 +288,7 @@ export default function SiteSearch() {
     setAllTargets([null, null, null]);
     setLanesOpen({ B: false, C: false });
     setMapsComplete(false);
+    setPropagationComplete(false);
     setSectionData({});
     setSearchParams((prev) => ({ ...prev, ring_name: `${prev.ring_name || "Search Ring"} — ${label}` }));
     setSearchCenter({ lat: round4(point.lat), lon: round4(point.lng) });
@@ -351,7 +357,7 @@ export default function SiteSearch() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {targetA && (
+          {targetA && propagationComplete && (
             <button
               type="button"
               onClick={() => document.getElementById("talonfit-ai")?.scrollIntoView({ behavior: "smooth", block: "start" })}
@@ -525,8 +531,10 @@ export default function SiteSearch() {
           targetA={targetA}
           towerHeightFt={searchParams.tower_height_ft || 150}
           onData={mergeSectionData}
+          onComplete={() => setPropagationComplete(true)}
           onClear={() => {
             bumpKeys(["propagation"]);
+            setPropagationComplete(false);
             setPipelineStep("propagation");
           }}
         />
@@ -536,7 +544,7 @@ export default function SiteSearch() {
           Preliminary Tower Siting Exhibit. Consumes the SAME active Target A
           (ScipRecord.parcel_targets → SearchResult → TowerSitingRun →
           TowerVisualization → Tower3DRender) and refreshes when it changes. */}
-      {coordsReady && sarfReady && zoningReady && (
+      {coordsReady && sarfReady && zoningReady && propagationComplete && (
         <HawkFitPipelineSection
           unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
           targetA={targetA}
