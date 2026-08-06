@@ -10,12 +10,24 @@ const MI_TO_M = 1609.34;
 // TalonFit-AI-1.0: the search ring maximum radius is 2 miles / 10560 ft. Clicks
 // beyond it are not gradeable — the solver rejects them by contract.
 const SCAN_MI = 2;
+// The 1-mile ring is the emphasized sweet spot: solid, heavier, with a halo and
+// an on-map label. The other radii stay as thin reference rings.
 const RINGS = [
   { mi: 0.25, color: "#22d3ee" },
   { mi: 0.5, color: "#a855f7" },
-  { mi: 1, color: "#f59e0b" },
+  { mi: 1, color: "#f59e0b", emphasis: true },
   { mi: SCAN_MI, color: "#f43f5e" },
 ];
+
+// "1 MI" chip pinned to the top of the emphasized ring.
+function ringLabelIcon(text, color) {
+  return L.divIcon({
+    className: "",
+    html: `<span style="background:${color};color:#0b1220;font:800 10px/1 system-ui;letter-spacing:.08em;padding:3px 6px;border-radius:4px;border:1.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5);white-space:nowrap">${text}</span>`,
+    iconSize: [40, 16],
+    iconAnchor: [20, 8],
+  });
+}
 
 const VERDICT_COLOR = { fit: "#16a34a", ejected: "#dc2626", verify: "#d97706", pending: "#64748b" };
 
@@ -185,14 +197,36 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
           />
         )}
         {fiberOn && <FiberRoutesLayer center={center} radiusMiles={SCAN_MI} onLoaded={setFiberSets} />}
-        {RINGS.map((r) => (
-          <Circle
-            key={r.mi}
-            center={[center.lat, center.lon]}
-            radius={r.mi * MI_TO_M}
-            pathOptions={{ color: r.color, weight: 2, fill: false, dashArray: r.mi >= 1 ? "6 6" : null }}
-          />
-        ))}
+        {RINGS.map((r) =>
+          r.emphasis ? (
+            <Circle
+              key={r.mi}
+              center={[center.lat, center.lon]}
+              radius={r.mi * MI_TO_M}
+              pathOptions={{
+                color: r.color,
+                weight: 4,
+                opacity: 1,
+                fill: true,
+                fillColor: r.color,
+                fillOpacity: 0.06,
+                dashArray: null,
+              }}
+            />
+          ) : (
+            <Circle
+              key={r.mi}
+              center={[center.lat, center.lon]}
+              radius={r.mi * MI_TO_M}
+              pathOptions={{ color: r.color, weight: 1.5, opacity: 0.75, fill: false, dashArray: "6 6" }}
+            />
+          )
+        )}
+        <Marker
+          position={[center.lat + (1 * MI_TO_M) / 111320, center.lon]}
+          icon={ringLabelIcon("1 MI", "#f59e0b")}
+          interactive={false}
+        />
         <Marker position={[center.lat, center.lon]} icon={srcIcon()} />
         {targets.map((t) => (
           <Marker
