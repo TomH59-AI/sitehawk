@@ -42,7 +42,14 @@ async function fetchRoads(lat: number, lon: number) {
   const q = `[out:json][timeout:20];way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street)$"](${lat - d},${lon - dLon},${lat + d},${lon + dLon});out geom;`;
   const res = await fetch('https://overpass-api.de/api/interpreter', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+    // Overpass 406s without a User-Agent on several mirrors. The shipped
+    // functions (talonfitSolve, parcelFrontage) set it; this probe did not,
+    // which is how the 406 showed up here first.
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+      'User-Agent': 'SiteHawk/1.0 (TalonFit probe)',
+    },
     body: new URLSearchParams({ data: q }),
   });
   if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
