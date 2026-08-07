@@ -2,7 +2,7 @@
  * CodeHawk ordinance record -> TalonFit solver: adapter tests.
  * Uses the REAL Brevard County registry record as the primary fixture.
  */
-import { buildSolverInputs, parseHeightMultiple, detectPEBreakpoint, explainBinding } from './ordinanceToSolver';
+import { buildSolverInputs, parseHeightMultiple, parseHeightMultipleFor, detectPEBreakpoint, explainBinding } from './ordinanceToSolver';
 import { HawkPerchSolver, Point } from './HawkPerchSolver';
 
 let pass = 0, fail = 0;
@@ -69,6 +69,19 @@ console.log('\n[A3] Brevard record -> solver inputs.');
   check('a PE note is surfaced, no radius invented',
     inputs.notes.some((n) => /will not assume one/i.test(n)) && inputs.config.fallZone.mode === 'percent',
     `fallZone=${JSON.stringify(inputs.config.fallZone)}`);
+
+  // THE REGRESSION THAT MATTERS. Brevard's rule text contains BOTH "2x proposed
+  // tower height from residential" AND a separate breakpoint fall-zone clause.
+  // A whole-string parse leaked the residential 2x into the fall zone, which
+  // halved the achievable height and turned a viable site into a FAIL.
+  check('residential 2x does NOT leak into the fall zone',
+    !(inputs.config.fallZone.mode === 'percent' && inputs.config.fallZone.value === 2),
+    `fallZone=${JSON.stringify(inputs.config.fallZone)}`);
+  check('fall zone falls back to the conservative 100% default',
+    inputs.config.fallZone.mode === 'percent' && inputs.config.fallZone.value === 1.0,
+    `fallZone=${JSON.stringify(inputs.config.fallZone)}`);
+  check('"110% of top-to-breakpoint distance" is not read as 110% of HEIGHT',
+    parseHeightMultipleFor(BREVARD.setback_rule, 'fall_zone') === null);
   check('every provenance entry has a basis', inputs.provenance.every((p) => Boolean(p.basis)));
 }
 
@@ -94,6 +107,22 @@ console.log('\n[A4] Provenance separates cited from assumed.');
     explainBinding('setback', inputs, 0));
 }
 
+console.log('\n[A1b] Clause scoping — a multiple only counts for its own rule.');
+{
+  const mixed = 'Setbacks: 2x tower height from residential structures. Fall zone shall equal 50% of tower height.';
+  check('residential picks 2x', parseHeightMultipleFor(mixed, 'residential') === 2);
+  check('fall zone picks 0.5, not 2', parseHeightMultipleFor(mixed, 'fall_zone') === 0.5,
+    `got=${parseHeightMultipleFor(mixed, 'fall_zone')}`);
+
+  const residentialOnly = 'Towers shall be set back 3x tower height from any residential dwelling.';
+  check('no fall-zone clause -> null (no leak)', parseHeightMultipleFor(residentialOnly, 'fall_zone') === null);
+  check('residential still parses', parseHeightMultipleFor(residentialOnly, 'residential') === 3);
+
+  const fallOnly = 'The fall zone shall be 100% of the tower height.';
+  check('no residential clause -> null (no leak)', parseHeightMultipleFor(fallOnly, 'residential') === null);
+  check('fall zone parses', parseHeightMultipleFor(fallOnly, 'fall_zone') === 1);
+}
+
 console.log('\n[A5] End to end: Brevard rules solved across a real lot.');
 {
   const inputs = buildSolverInputs(BREVARD, { coords: lot, edgeSpecs: edges });
@@ -101,6 +130,9 @@ console.log('\n[A5] End to end: Brevard rules solved across a real lot.');
   const r = solver.findBestSite();
   check('produces a real max height', r.best.maxAchievableHeight > 0 && r.best.maxAchievableHeight <= 199,
     `hMax=${r.best.maxAchievableHeight.toFixed(1)} rung=${r.best.rung}`);
+  // Analytic: at x=105, nearest = min(y, 260-y, 105); binding y = (260-y)/2 -> y = 86.67, H = 86.67.
+  check('matches the hand-derived optimum (~86.7 ft)', Math.abs(r.best.maxAchievableHeight - 86.67) < 1.5,
+    `hMax=${r.best.maxAchievableHeight.toFixed(2)} (analytic 86.67)`);
   check('residential drag is doing work (below the 199 cap)', r.best.maxAchievableHeight < 199);
   check('binding constraint is explained', explainBinding(r.best.bindingConstraint, inputs, r.best.maxAchievableHeight).length > 20,
     explainBinding(r.best.bindingConstraint, inputs, r.best.maxAchievableHeight));
