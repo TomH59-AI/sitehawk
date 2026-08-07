@@ -65,6 +65,11 @@
       "default": 0,
       "description": "New TelecomOrdinance records written."
     },
+    "reverified": {
+      "type": "number",
+      "default": 0,
+      "description": "Records re-confirmed against the source with no value changes \u2014 citations refreshed only."
+    },
     "queued_for_review": {
       "type": "number",
       "default": 0
