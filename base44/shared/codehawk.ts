@@ -72,6 +72,56 @@ export const FIELD_LABELS = {
 };
 
 /* ------------------------------------------------------------------ *
+ * Nationwide governing-body rules
+ *
+ * "The county" is not a safe universal fallback. The United States does not
+ * name or empower its county-equivalents consistently, and getting this wrong
+ * means citing a body that has no land-use authority over the site:
+ *   - Louisiana calls them Parishes.
+ *   - Alaska calls them Boroughs and Census Areas — and roughly half the state
+ *     sits in the Unorganized Borough, which has NO local government and no
+ *     zoning at all.
+ *   - Pennsylvania and New Jersey use "Borough" for MUNICIPALITIES, so the word
+ *     means the opposite thing there.
+ *   - Connecticut and Rhode Island have no county governments; the town governs
+ *     land use.
+ *   - Virginia has 38 independent cities that belong to no county.
+ * ------------------------------------------------------------------ */
+
+// State → what its county-equivalent is actually called.
+const COUNTY_EQUIVALENT_SUFFIX = { LA: 'Parish', AK: 'Borough' };
+
+// Counties exist here as geography but not as a land-use government.
+export const NO_COUNTY_GOVERNMENT = new Set(['CT', 'RI']);
+
+// Words that mark a county-equivalent. Borough only counts in Alaska — in PA/NJ
+// a borough is a municipality, and treating it as a county would match the
+// wrong record entirely.
+export function countyWordPattern(stateCode) {
+  const st = String(stateCode || '').toUpperCase();
+  return st === 'AK' ? /\b(COUNTY|PARISH|BOROUGH|CENSUS AREA|MUNICIPALITY)\b/i : /\b(COUNTY|PARISH)\b/i;
+}
+
+export function isCountyEquivalentName(stateCode, name) {
+  return countyWordPattern(stateCode).test(String(name || ''));
+}
+
+/**
+ * Build the name the registry would actually store for a county-equivalent,
+ * e.g. "Brevard" + FL -> "Brevard County", "Orleans" + LA -> "Orleans Parish",
+ * "Matanuska-Susitna" + AK -> "Matanuska-Susitna Borough". Returns null where
+ * the county is not a governing body, so callers do not fall back to it.
+ */
+export function countyEquivalentLabel(stateCode, countyName) {
+  const st = String(stateCode || '').toUpperCase();
+  const name = String(countyName || '').trim();
+  if (!name) return null;
+  if (NO_COUNTY_GOVERNMENT.has(st)) return null;
+  if (isCountyEquivalentName(st, name)) return name;
+  return `${name} ${COUNTY_EQUIVALENT_SUFFIX[st] || 'County'}`;
+}
+
+/* ------------------------------------------------------------------ *
  * Small helpers
  * ------------------------------------------------------------------ */
 
