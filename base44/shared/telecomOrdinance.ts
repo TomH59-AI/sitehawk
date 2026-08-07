@@ -2,6 +2,8 @@
 // (migrated from the legacy Supabase telecom_ordinances table). Used by
 // towerSiterOrdinance and zoneResolve so the matching logic never drifts.
 
+import { countyWordPattern } from "./codehawk.ts";
+
 export function normalizeJurisdiction(j) {
   return (j || "")
     .toUpperCase()
@@ -63,8 +65,14 @@ export async function findOrdinance(base44, state, jurisdiction) {
       // citation. Require the county/parish-ness of the row to match the query;
       // if nothing matches, return a MISS so the report falls back to gap-fill
       // rather than citing the wrong jurisdiction's ordinance.
-      const wantCounty = /\b(COUNTY|PARISH)\b/i.test(jurisdiction);
-      const isCountyRow = (r) => /\b(COUNTY|PARISH)\b/i.test(r.jurisdiction || "");
+      //
+      // The test is state-aware: Alaska's county-equivalents are Boroughs,
+      // Census Areas and Municipalities, while in Pennsylvania and New Jersey a
+      // Borough is a MUNICIPALITY. A fixed COUNTY|PARISH pattern silently
+      // mismatched every Alaskan borough against city records.
+      const countyWord = countyWordPattern(st);
+      const wantCounty = countyWord.test(jurisdiction);
+      const isCountyRow = (r) => countyWord.test(r.jurisdiction || "");
       row = (candidates || []).find((r) => isCountyRow(r) === wantCounty) || null;
     }
   }
