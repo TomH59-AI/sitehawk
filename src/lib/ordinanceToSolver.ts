@@ -80,6 +80,9 @@ export const DEFAULTS = {
  * height" out of ordinance prose. Deliberately narrow — a wrong multiple is
  * worse than no multiple, so anything ambiguous returns null and the caller
  * falls back to the fixed-feet value.
+ *
+ * Note the tight anchor on "height": Brevard's "110% of top-to-breakpoint
+ * distance" is NOT 110% of tower height, and must not be read as one.
  */
 export function parseHeightMultiple(text?: string | null): number | null {
   const s = String(text || '').toLowerCase();
@@ -95,6 +98,44 @@ export function parseHeightMultiple(text?: string | null): number | null {
   if (pct) {
     const n = Number(pct[1]);
     if (Number.isFinite(n) && n > 0 && n <= 1000) return n / 100;
+  }
+  return null;
+}
+
+/**
+ * Split ordinance prose into clauses so a multiple can be attributed to the rule
+ * it actually belongs to.
+ *
+ * This exists because of a real defect: Brevard's setback_rule contains BOTH
+ * "2x proposed tower height from residential" and a separate breakpoint fall-zone
+ * provision. A whole-string parse returned 2 for whichever rule asked first, so
+ * the residential multiple silently became the fall-zone multiple — halving the
+ * achievable height and killing a viable site. A multiple now only counts if it
+ * appears in a clause about the rule being asked for.
+ */
+function clausesOf(text?: string | null): string[] {
+  return String(text || '')
+    .split(/(?<=\))\s*(?=[A-Z])|[.;\n]+/)
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
+
+const CLAUSE_TOPIC = {
+  residential: /residential|dwelling|school|child\s*care|habitable/i,
+  fall_zone: /fall\s*zone|fall\s*radius|collapse|breakpoint|break\s*point|topple/i,
+};
+
+/**
+ * Parse a height multiple ONLY from clauses that concern the given rule.
+ * Returns null when no clause on that topic states one — which is a correct and
+ * useful answer, not a failure.
+ */
+export function parseHeightMultipleFor(text: string | null | undefined, topic: 'residential' | 'fall_zone'): number | null {
+  const pattern = CLAUSE_TOPIC[topic];
+  for (const clause of clausesOf(text)) {
+    if (!pattern.test(clause)) continue;
+    const n = parseHeightMultiple(clause);
+    if (n !== null) return n;
   }
   return null;
 }
@@ -201,7 +242,9 @@ export function buildSolverInputs(
   let fallBasis: string;
   let fallNeedsVerify = false;
 
-  const ruleMultiple = parseHeightMultiple(rec.setback_rule);
+  // Scoped to fall-zone clauses only. A multiple that lives in the residential
+  // sentence must never end up here.
+  const ruleMultiple = parseHeightMultipleFor(rec.setback_rule, 'fall_zone');
   const peAvailable = detectPEBreakpoint(rec);
   const certified = Number.isFinite(options.certifiedRadiusFt as number) ? (options.certifiedRadiusFt as number) : null;
 
@@ -241,9 +284,9 @@ export function buildSolverInputs(
   // ── Residential separation ────────────────────────────────────────────
   let residentialSeparation: SeparationSpec | undefined;
   const resStated = Number.isFinite(rec.residential_separation_ft as number) ? (rec.residential_separation_ft as number) : null;
-  const resMultiple = parseHeightMultiple(rec.setback_rule);
+  const resMultiple = parseHeightMultipleFor(rec.setback_rule, 'residential');
 
-  if (resMultiple !== null && /residential|dwelling|school|child care/i.test(String(rec.setback_rule || ''))) {
+  if (resMultiple !== null) {
     residentialSeparation = { mode: 'height_multiple', value: resMultiple };
     record_('residential_separation_ft', residentialSeparation, 'registry',
       `Residential separation is ${resMultiple}x tower height per the ordinance's setback rule.`, true);
