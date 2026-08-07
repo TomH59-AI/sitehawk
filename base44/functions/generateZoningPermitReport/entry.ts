@@ -583,7 +583,29 @@ Deno.serve(async (req) => {
     // STEP 2 (SANCTIONED PRIMARY) — TelecomOrdinance Base44 entity, queried by
     // state + jurisdiction. This is the first zoning-text source now that the
     // Zoneomics paid API is banned.
-    const ordinance = await getTelecomOrdinance(base44, geo.state_code, city || geo.county_name).catch(() => null);
+    // A large share of tower sites sit on UNINCORPORATED land, where the named
+    // place (Mims, for example) publishes no code of its own and the COUNTY is
+    // the governing body. Looking up only the city silently skipped the registry
+    // for every one of those sites even though the county record was sitting
+    // right there. Worse, the old county fallback passed the bare county name
+    // ("Brevard"), and findOrdinance treats a name without the word COUNTY as a
+    // CITY lookup — so it could never match the county row either way.
+    const countyLabel = geo.county_name
+      ? /\b(county|parish)\b/i.test(geo.county_name)
+        ? geo.county_name
+        : `${geo.county_name} County`
+      : null;
+
+    let ordinance = null;
+    let ordinanceJurisdiction = null;
+    for (const candidateJurisdiction of [city, countyLabel].filter(Boolean)) {
+      const hit = await getTelecomOrdinance(base44, geo.state_code, candidateJurisdiction).catch(() => null);
+      if (hit) {
+        ordinance = hit;
+        ordinanceJurisdiction = candidateJurisdiction;
+        break;
+      }
+    }
 
     // STEP 4 — LLM web-grounded gap-fill (Gemini, web-grounded).
     const llmCtx = {
@@ -600,7 +622,10 @@ Deno.serve(async (req) => {
 
     // STEP 4b — CodeHawk registry upgrade, run CONCURRENTLY with the gap-fill so
     // it adds no meaningful wall clock to the subscriber's SCIP.
-    const huntJurisdiction = city || geo.county_name;
+    // Hunt whatever we would actually cite: the jurisdiction whose record we
+    // matched (to fill its gaps), else the named city, else the county. Never
+    // the bare county name — that reads as a city to the matcher.
+    const huntJurisdiction = ordinanceJurisdiction || city || countyLabel;
     const needsUpgrade = !ordinance || completenessScore(ordinance) < CRITICAL_FIELDS.length;
     const shouldHunt = needsUpgrade && Boolean(huntJurisdiction) && Boolean(geo.state_code);
 
