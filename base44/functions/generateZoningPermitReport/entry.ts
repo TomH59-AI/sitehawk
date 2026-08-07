@@ -770,6 +770,59 @@ Deno.serve(async (req) => {
       };
     }
 
+    // STEP 5c — UN-INCORPORATED JURISDICTION.
+    //
+    // Some land is governed by a body that has simply never adopted zoning: an
+    // unzoned county, or an area with no local government at all. For those
+    // sites the gap-fill's inferred height limits and setbacks describe rules
+    // that nobody enacted, which is worse than saying nothing — an agent could
+    // design to a setback that does not exist. When CodeHawk confirms there is
+    // no adopted code, the tower rows say so plainly instead.
+    //
+    // The registry note is checked too, so the answer stays stable on later runs
+    // without re-hunting the same dead end.
+    const registrySaysUnincorporated = /^Un-Incorporated Jurisdiction/i.test(registry?.extraction_notes || '');
+    const haveOrdinanceContent = Boolean(
+      registry && (completenessScore(registry) > 0 || registry.permit_type || registry.setback_rule)
+    );
+
+    if ((huntResult?.action === 'no_local_code' || registrySaysUnincorporated) && !haveOrdinanceContent) {
+      const LABEL = 'Un-Incorporated Jurisdiction';
+      const governingBody = huntResult?.governance?.governing_body || countyLabel || geo.county_name || null;
+      const where = [governingBody, geo.state_code].filter(Boolean).join(', ');
+
+      report.zoning_overview = report.zoning_overview || {};
+      report.tower_specifics = report.tower_specifics || {};
+
+      report.zoning_overview.zoning_jurisdiction = row(where ? `${LABEL} — ${where}` : LABEL, 'SiteHawk Registry', 'high');
+      report.zoning_overview.zoning_process = row(
+        `${LABEL}. ${governingBody || 'The governing body'} has adopted no zoning or land-development regulation covering wireless towers. Confirm the building-permit path and any state-level requirements directly with the county.`,
+        'SiteHawk Registry',
+        'high'
+      );
+
+      for (const field of [
+        'maximum_tower_height',
+        'residential_separation',
+        'tower_separation',
+        'fall_zone_requirements',
+        'stealth_required',
+        'required_collocations',
+        'ldc_section_references',
+        'pe_letter',
+      ]) {
+        report.tower_specifics[field] = row(LABEL, 'SiteHawk Registry', 'high');
+      }
+
+      report._unincorporated = {
+        label: LABEL,
+        governing_body: governingBody,
+        state: geo.state_code || null,
+        confirmed_by: registrySaysUnincorporated ? 'registry' : 'codehawk',
+        note: 'No local tower or antenna ordinance has been adopted for this location.',
+      };
+    }
+
     // STEP 3 — Realie cross-check of the zoning district code. If Zoneomics and
     // Realie disagree, surface BOTH inline + a flag the UI renders as a red badge.
     let zoning_district_conflict = null;
