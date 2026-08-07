@@ -154,9 +154,28 @@ console.log('\n[A6] Empty / missing ordinance must still produce a usable, hones
     `assumed=${JSON.stringify(inputs.assumedFields)}`);
   check('conservative 100% fall zone', inputs.config.fallZone.mode === 'percent' && inputs.config.fallZone.value === 1.0);
   check('no PE path claimed', inputs.peReductionAvailable === false);
-  check('default_side warning present', inputs.notes.some((n) => /default_side/.test(n)));
+  // Defaults are now UNIFORM (50/50/50): tower ordinances write one setback
+  // "from all property lines", so edge typing cannot change the answer and no
+  // default_side warning is needed.
+  check('uniform default setback on every line',
+    inputs.config.setbacks.front === 50 && inputs.config.setbacks.side === 50 && inputs.config.setbacks.rear === 50,
+    JSON.stringify(inputs.config.setbacks));
+  check('no default_side warning for uniform setbacks', !inputs.notes.some((n) => /default_side/.test(n)));
   const r = new HawkPerchSolver(inputs.config).findBestSite();
   check('still solves and grades', Number.isFinite(r.best.maxAchievableHeight), `hMax=${r.best.maxAchievableHeight.toFixed(1)}`);
+}
+
+console.log('\n[A6b] Residential rule without edge flags is called out, never silently dropped.');
+{
+  // Rule exists, but no edge is flagged abutsResidential — the solver cannot
+  // apply it. Silently dropping a known rule is the permissive failure.
+  const inputs = buildSolverInputs(BREVARD, { coords: lot });
+  check('warning note present',
+    inputs.notes.some((n) => /residential separation rule applies.*NOT applied/i.test(n)),
+    inputs.notes.join(' | '));
+  const flagged = buildSolverInputs(BREVARD, { coords: lot, edgeSpecs: edges });
+  check('no warning when an edge is flagged',
+    !flagged.notes.some((n) => /NOT applied/i.test(n)));
 }
 
 console.log('\n[A7] A fixed fall_zone_ft maps to certified_radius, not percent.');
