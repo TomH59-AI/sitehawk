@@ -9,13 +9,19 @@ import { resolveDrawnHeight } from "./maxAllowableHeight";
 import SketchHeightControl from "./SketchHeightControl";
 import { downloadLiveSketchPdf } from "./downloadLiveSketchPdf";
 import { base44 } from "@/api/base44Client";
+import { buildSketchUtilityMarkers } from "./sketchUtilityMarkers";
+import { fiberSplicePoints } from "@/functions/fiberSplicePoints";
+import { infrastructureAssets } from "@/functions/infrastructureAssets";
 
 /**
  * ScipLiveSketch — "The Reveal": the SCIP finale that freehand-draws the active
  * Target A to scale (boundary, setbacks, compound, fall zone, tower) and stamps
  * the Talon FT verdict, with a PE-letter toggle that re-draws the engineered
  * fall zone live. Geometry + verdicts come from @/lib/towerFitExhibit — the same
- * engine as the static Tower Fit Exhibit. Client-side only; no API calls.
+ * engine as the static Tower Fit Exhibit. Drawing is client-side; the only
+ * network calls are two fail-soft asset lookups (fiberSplicePoints +
+ * infrastructureAssets) that place REAL fiber/transformer markers — the sketch
+ * draws fine without them.
  */
 
 const FT_PER_DEG_LAT = 364000; // ≈ 69 mi — concept-exhibit precision
@@ -100,10 +106,41 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
   const [lit, setLit] = useState(() => new Set());
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState("");
+  const [utilityMarkers, setUtilityMarkers] = useState([]);
+  const startedRef = useRef(false);       // once drawing starts, never remount mid-draw
+  const pendingMarkersRef = useRef(null); // markers that arrived after Draw was pressed
 
   useEffect(() => {
     setHeightFt(Number(record?.sarf_height) || 199);
   }, [record?.sarf_height]);
+
+  // Fetch REAL off-site asset coordinates (nearest fiber splice / hookup point
+  // and nearest transformer-or-pole) once per site. Fail-soft: any error just
+  // means the sketch draws without asset markers. If results land after the
+  // user already hit Draw, they are parked and applied on the next Clear —
+  // never remounting a drawing in progress.
+  useEffect(() => {
+    const la = Number(record?.latitude), lo = Number(record?.longitude);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) { setUtilityMarkers([]); return undefined; }
+    let alive = true;
+    (async () => {
+      const [fiberR, assetsR] = await Promise.allSettled([
+        fiberSplicePoints({ lat: la, lon: lo }),
+        infrastructureAssets({ lat: la, lon: lo, radius_m: 1200 }),
+      ]);
+      if (!alive) return;
+      const fiberResult = fiberR.status === "fulfilled" ? (fiberR.value?.data ?? fiberR.value) : null;
+      const assetsResult = assetsR.status === "fulfilled" ? (assetsR.value?.data ?? assetsR.value) : null;
+      let markers = [];
+      try {
+        markers = buildSketchUtilityMarkers({ siteLat: la, siteLon: lo, fiberResult, assetsResult });
+      } catch { markers = []; }
+      if (!markers.length) return;
+      if (startedRef.current) pendingMarkersRef.current = markers;
+      else setUtilityMarkers(markers);
+    })();
+    return () => { alive = false; };
+  }, [record?.latitude, record?.longitude]);
 
   const built = useMemo(() => {
     const ctx = resolveScipActiveTarget(record || {});
@@ -163,10 +200,11 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
   }, [record, heightFt]);
 
   // Remount the engine only when the drawn geometry actually changes.
-  const cfgKey = useMemo(() => JSON.stringify({ cfg: built.cfg, utilities }), [built, utilities]);
+  const cfgKey = useMemo(() => JSON.stringify({ cfg: built.cfg, utilities, utilityMarkers }), [built, utilities, utilityMarkers]);
 
   useEffect(() => {
     if (!svgRef.current) return undefined;
+    startedRef.current = false;
     setStarted(false); setDone(false); setRunning(false); setPeOn(false);
     setLit(new Set());
     setCaption("SCIP compiled. Ready to draft the site concept.");
@@ -175,6 +213,7 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
       pe: built.peModel,
       peInfo: built.peInfo,
       utilities,
+      utilityMarkers,
       meta: { siteName: built.cfg.siteName, dateLabel: built.dateLabel, heightNote: built.heightNote },
       onCaption: setCaption,
       onChip: (k) => setLit((s) => { const n = new Set(s); n.add(k); return n; }),
@@ -188,9 +227,15 @@ export default function ScipLiveSketch({ record, pipelineMode = false, zoningDat
   }, [cfgKey]);
 
   const ctrl = () => ctrlRef.current;
-  const handleStart = () => { setStarted(true); ctrl()?.start(); };
-  const handleReplay = () => { setLit(new Set()); setStarted(true); ctrl()?.replay(); };
+  const handleStart = () => { startedRef.current = true; setStarted(true); ctrl()?.start(); };
+  const handleReplay = () => { startedRef.current = true; setLit(new Set()); setStarted(true); ctrl()?.replay(); };
   const handleClear = () => {
+    startedRef.current = false;
+    if (pendingMarkersRef.current) {
+      const parked = pendingMarkersRef.current;
+      pendingMarkersRef.current = null;
+      setUtilityMarkers(parked); // remounts — safe, nothing is drawn
+    }
     setLit(new Set());
     setStarted(false);
     setDone(false);
