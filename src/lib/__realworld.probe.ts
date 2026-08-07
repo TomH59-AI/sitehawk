@@ -75,7 +75,13 @@ function syntheticParcel(lat: number, lon: number): Array<[number, number]> {
   ];
 }
 
+const problemLog: string[] = [];
 let problems = 0;
+const flag = (site: string, msg: string) => {
+  problems++;
+  problemLog.push(`${site}: ${msg}`);
+  console.log(`  !! ${msg}`);
+};
 
 for (const site of SITES) {
   console.log(`\n${'='.repeat(70)}\n${site.name}  (${site.lat}, ${site.lon})`);
@@ -105,8 +111,9 @@ for (const site of SITES) {
     // Sanity: exactly one rear at most, and fronts must be nearest.
     const fronts = frontage.edgeSpecs.filter((e) => e.type === 'front').length;
     const rears = frontage.edgeSpecs.filter((e) => e.type === 'rear').length;
-    if (rears > 1) { console.log('  !! more than one rear edge'); problems++; }
-    if (frontage.method === 'road_centerline' && fronts === 0) { console.log('  !! no front assigned'); problems++; }
+    if (rears > 1) flag(site.name, `more than one rear edge (${rears})`);
+    if (frontage.method === 'road_centerline' && fronts === 0) flag(site.name, 'no front assigned');
+    if (fronts > 2) flag(site.name, `more than two frontages (${fronts})`);
 
     const inputs = buildSolverInputs(BREVARD, { coords: points, edgeSpecs: frontage.edgeSpecs });
     const solver = new HawkPerchSolver(inputs.config);
@@ -115,14 +122,14 @@ for (const site of SITES) {
       `  SOLVER: max ${best.best.maxAchievableHeight.toFixed(1)} ft · rung ${best.best.rung} · headroom ${(best.headroomRatio * 100).toFixed(0)}%`
     );
     console.log(`    ${explainBinding(best.best.bindingConstraint, inputs, best.best.maxAchievableHeight)}`);
-    if (!Number.isFinite(best.best.maxAchievableHeight)) { console.log('  !! non-finite height'); problems++; }
-    if (!best.best.inParcel) { console.log('  !! best point outside parcel'); problems++; }
+    if (!Number.isFinite(best.best.maxAchievableHeight)) flag(site.name, 'non-finite height');
+    if (!best.best.inParcel) flag(site.name, 'best point outside parcel');
   } catch (e: any) {
-    console.log(`  ERROR: ${e?.message || e}`);
-    problems++;
+    flag(site.name, `ERROR ${e?.message || e}`);
   }
 }
 
 console.log(`\n${'='.repeat(70)}`);
-console.log(problems === 0 ? 'No problems against live road data.' : `${problems} problem(s) found.`);
+console.log(problems === 0 ? 'No problems against live road data.' : `${problems} problem(s) found:`);
+for (const p of problemLog) console.log(`  - ${p}`);
 if (problems) process.exitCode = 1;
