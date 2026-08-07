@@ -18,7 +18,7 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
 import { secrets } from 'base44:runtime';
 import { findOrdinance } from '../../shared/telecomOrdinance.ts';
-import { CRITICAL_FIELDS, completenessScore } from '../../shared/codehawk.ts';
+import { CRITICAL_FIELDS, completenessScore, countyEquivalentLabel } from '../../shared/codehawk.ts';
 import { processJurisdiction } from '../../shared/codehawkRun.ts';
 
 // ─── CodeHawk inline upgrade ────────────────────────────────────────────────
@@ -590,11 +590,12 @@ Deno.serve(async (req) => {
     // right there. Worse, the old county fallback passed the bare county name
     // ("Brevard"), and findOrdinance treats a name without the word COUNTY as a
     // CITY lookup — so it could never match the county row either way.
-    const countyLabel = geo.county_name
-      ? /\b(county|parish)\b/i.test(geo.county_name)
-        ? geo.county_name
-        : `${geo.county_name} County`
-      : null;
+    // countyEquivalentLabel is state-aware: "Brevard" -> "Brevard County",
+    // "Orleans" (LA) -> "Orleans Parish", "Matanuska-Susitna" (AK) -> "...
+    // Borough", and NULL in Connecticut and Rhode Island, where counties are not
+    // land-use governments and falling back to one would cite a body with no
+    // authority over the site.
+    const countyLabel = countyEquivalentLabel(geo.state_code, geo.county_name);
 
     let ordinance = null;
     let ordinanceJurisdiction = null;
