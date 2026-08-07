@@ -66,15 +66,17 @@ export default function ScoutPanel({ onActiveTargetChange }) {
         const [record] = await base44.entities.ScipRecord.list("-created_date", 1);
         if (cancelled) return;
         if (!record) { setAnchorLoading(false); return; }
-        const t = record.parcel_targets?.[record.active_target_index ?? 0] || null;
-        const lat = Number.isFinite(t?.latitude) ? t.latitude : record.latitude;
-        const lon = Number.isFinite(t?.longitude) ? t.longitude : record.longitude;
+        // Anchor on the EXACT waypoint coordinates the user entered for the
+        // search ring (the SARF center) — not a Target parcel. TalonFit adds an
+        // extra mile of reach: the clickable radius is 2 miles around that point.
+        const lat = record.latitude;
+        const lon = record.longitude;
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-          setAnchorError("Your most recent SCIP has no target coordinates — TalonFit cannot anchor a search ring.");
+          setAnchorError("Your most recent SCIP has no search-ring coordinates — TalonFit cannot anchor a search ring.");
           setAnchorLoading(false);
           return;
         }
-        const label = [record.site_name, t?.label, t?.parcel_address].filter(Boolean).join(" · ");
+        const label = [record.site_name, `${lat.toFixed(6)}, ${lon.toFixed(6)}`].filter(Boolean).join(" · ");
         setAnchorRecord(record);
         setCenter({ lat, lon, label: label || record.site_name || "SCIP target" });
         const existing = await base44.entities.ScoutScipLock.filter({ src_key: srcKey(lat, lon) }, "-locked_at", 5);
@@ -302,7 +304,8 @@ export default function ScoutPanel({ onActiveTargetChange }) {
           </div>
           <div className="space-y-2 border-t border-border p-3">
             <p className="text-[11px] text-muted-foreground">
-              SRC (search ring center) is your SCIP target: {center.label}. A single click solves that exact
+              SRC (search ring center) is the exact waypoint you entered: {center.label} — with an extra
+              mile added for more search area. A single click solves that exact
               coordinate — APPROVED (green) showing the clicked coordinates and the maximum buildable tower
               height, REJECTED (red) with the binding failure reason, or VERIFY (amber) when an input is
               missing, assumed or unconfirmed. The search ring maximum is 2 miles / 10,560 ft and the tower
