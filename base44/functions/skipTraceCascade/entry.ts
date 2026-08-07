@@ -175,8 +175,13 @@ function pushEmail(out, raw, source) {
 }
 
 // ── Per-source scrapers ──────────────────────────────────────────────────────
+// Sources whose anti-bot only lets a residential exit node through.
+const RESIDENTIAL_SOURCES = new Set(["Spokeo", "TruthFinder"]);
+
 async function scrapeSource(sourceName, targetUrl, sourceDomain, diag, phonesOut, emailsOut) {
-  const res = await scrapfly(targetUrl, PER_SOURCE_TIMEOUT_MS);
+  const res = await scrapfly(targetUrl, PER_SOURCE_TIMEOUT_MS, {
+    residential: RESIDENTIAL_SOURCES.has(sourceName),
+  });
   if (!res.ok) { diag(sourceName, res.error || `http_${res.status}`, 0); return; }
   const phones = extractPhones(res.html);
   for (const p of phones) pushPhone(phonesOut, p, sourceName);
