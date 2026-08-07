@@ -1,0 +1,81 @@
+{
+  "name": "TalonFitSelectionCode",
+  "type": "object",
+  "description": "One-time customer-selection code for TalonFit D/E/F picks. Issued automatically when a subscriber saves their third self-selected candidate (Target F). Redeemed exactly once on the certification form, where it goes in the field a name would normally occupy \u2014 making the record permanently say the CUSTOMER selected these sites himself. SiteHawk picks A/B/C; the customer picks D/E/F; the code is the receipt.",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "The one-time code, format HAWK-XXXX-XXXX. Unambiguous charset (no 0/O/1/I)."
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Subscriber the code was issued to. Only this account can redeem it."
+    },
+    "site_key": {
+      "type": "string",
+      "description": "Search-ring identity: '{lat},{lon}' of the ring center at 5 decimals."
+    },
+    "ring_center": {
+      "type": "object",
+      "description": "{ lat, lon } of the SARF search-ring center the picks were made in.",
+      "additionalProperties": true
+    },
+    "targets": {
+      "type": "array",
+      "description": "Snapshot of the three customer picks at issue time: [{ letter: D|E|F, lat, lon, max_height_ft, parcel_address?, apn? }].",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "issued",
+        "redeemed"
+      ],
+      "default": "issued",
+      "description": "issued = live, redeemable once. redeemed = consumed forever."
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "redeemed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "certification": {
+      "type": "object",
+      "description": "Snapshot of the pre-filled certification form as redeemed \u2014 the audit record that the customer certified his own picks.",
+      "additionalProperties": true
+    }
+  },
+  "required": [
+    "code",
+    "user_email",
+    "site_key"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
