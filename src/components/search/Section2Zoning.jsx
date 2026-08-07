@@ -130,12 +130,16 @@ function reportToCells(report, prev) {
 }
 
 function countTags(cells) {
-  const c = { zoneomics: 0, realie: 0, ai: 0, manual: 0 };
+  const c = { ordinance: 0, zoneomics: 0, realie: 0, ai: 0, manual: 0 };
   for (const p of PANELS) {
     for (const [, key] of p.rows) {
       const tag = cells[p.section][key].tag;
-      if (tag === "zoneomics") c.zoneomics++;
-      else if (tag === "realie") c.realie++;
+      // normalizeSource emits "ordinance" / "verified" / "parcel" / "ai" — not the
+      // raw backend source names. Matching on "zoneomics"/"realie" here never fired,
+      // which is why the strip only ever showed AI and Manual counts.
+      if (tag === "ordinance") c.ordinance++;
+      else if (tag === "verified") c.zoneomics++;
+      else if (tag === "parcel") c.realie++;
       else if (tag === "ai") c.ai++;
       else c.manual++; // manual + manual edit both count as user-supplied gaps
     }
@@ -364,7 +368,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
               )}
             </div>
             <div className="text-xs font-mono text-muted-foreground">
-              Realie: {counts.realie ? `✓ ${counts.realie} fields` : "—"}
+              Ordinance: {counts.ordinance ? `✓ ${counts.ordinance} fields` : "—"}
+              {" | "}Realie: {counts.realie ? `✓ ${counts.realie} fields` : "—"}
               {" | "}AI: {counts.ai} fields
               {" | "}Manual: {counts.manual} fields
             </div>
