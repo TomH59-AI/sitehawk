@@ -18,7 +18,8 @@
  *   cooldown_days?: number, // default 30
  *   concurrency?: number,   // default 5
  *   time_budget_ms?: number,// default 240000
- *   dry_run?: boolean
+ *   dry_run?: boolean,
+ *   scheduled?: boolean     // set by the nightly workflow so the run is labelled honestly
  * }
  */
 
@@ -53,6 +54,9 @@ export default async function (req) {
     const concurrency = Math.max(1, Math.min(Number(body.concurrency) || 5, 8));
     const timeBudgetMs = Math.max(30000, Math.min(Number(body.time_budget_ms) || 240000, 600000));
     const dryRun = body.dry_run === true;
+    // The scheduler authenticates as a real user, so we cannot infer "nightly"
+    // from the absence of an email — the workflow says so explicitly instead.
+    const scheduled = body.scheduled === true;
 
     const records = await listAllOrdinances(base44);
 
@@ -89,13 +93,13 @@ export default async function (req) {
     }
 
     const run = await base44.asServiceRole.entities.CodeHawkRun.create({
-      run_type: dryRun ? 'dry_run' : user.email ? 'manual_batch' : 'nightly_batch',
+      run_type: dryRun ? 'dry_run' : scheduled ? 'nightly_batch' : 'manual_batch',
       status: 'running',
       mode,
       batch_size: targets.length,
       state_filter: stateFilter || undefined,
       started_at: startedAt,
-      triggered_by: user.email || 'scheduler',
+      triggered_by: scheduled ? 'scheduler' : user.email || 'unknown',
     });
     runId = run?.id || null;
 
