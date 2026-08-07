@@ -608,9 +608,81 @@ Deno.serve(async (req) => {
     const user = await base44.auth.me();
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { lat, lon, ordinance, candidates } = await req.json();
+    const { lat, lon, ordinance, candidates, ordinance_text, source_url, jurisdiction: jurisdictionHint, state: stateHint } =
+      await req.json();
+
+    // DIRECT-TEXT MODE — the OxyLabs-to-extractor handoff.
+    //
+    // Previously a caller could scrape a code page, hand us the text, and we
+    // would ignore it and kick off a fresh Municode/Zoneomics/Notion/web
+    // research cascade — re-finding a page the caller was already holding and
+    // spending credits to do it. When ordinance_text is supplied we now extract
+    // straight from that text and return. No re-research, no second scrape.
+    if (typeof ordinance_text === 'string' && ordinance_text.trim().length > 200) {
+      const text = ordinance_text.trim();
+      const jurisdictionLabel = jurisdictionHint || ordinance?.jurisdiction || 'the jurisdiction';
+      const stateLabel = String(stateHint || ordinance?.state || '').toUpperCase();
+
+      const direct = await base44.asServiceRole.integrations.Core.InvokeLLM({
+        model: 'gemini_3_flash',
+        prompt: `You are reading ordinance text that has ALREADY been retrieved for ${jurisdictionLabel}${stateLabel ? `, ${stateLabel}` : ''}. Source: ${source_url || 'caller-supplied text'}
+
+Extract the wireless telecommunications tower and antenna provisions THIS TEXT explicitly states. Do not research anything else, do not use outside knowledge, and do not fill a field the text does not address.
+
+Every clause you report must quote or closely track language actually present below, and must cite the section identifier as printed. Omit anything you cannot support from this text.
+
+ORDINANCE TEXT:\n${text.slice(0, 140000)}`,
+        response_json_schema: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['verified', 'partial', 'not_verified'] },
+            jurisdiction: { type: 'string' },
+            ordinance_title: { type: 'string' },
+            section_ref: { type: 'string' },
+            section_title: { type: 'string' },
+            telecom_sections: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  section_ref: { type: 'string' },
+                  section_title: { type: 'string' },
+                  topic: { type: 'string' },
+                  clause_summary: { type: 'string' },
+                  quote: { type: 'string' },
+                  confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+                },
+              },
+            },
+            max_tower_height_ft: { type: 'number' },
+            permit_type: { type: 'string' },
+            collocation_required: { type: 'boolean' },
+            stealth_required: { type: 'boolean' },
+            setback_summary: { type: 'string' },
+            extraction_notes: { type: 'string' },
+          },
+        },
+      });
+
+      const normalized = normalizeFallbackResult(
+        {
+          ...(direct || {}),
+          source_stage: 'supplied_text',
+          source_urls: source_url ? [source_url] : [],
+        },
+        [{ source: 'supplied_text', status: 'hit', reason: `${text.length} characters supplied by caller` }],
+        null,
+        { found: false, state_code: stateLabel || null, folder_title: null, pages: [], text: '' }
+      );
+
+      console.log(
+        `Ordinance extraction ${normalized.status}: user=${user.email} source=supplied_text jurisdiction=${normalized.jurisdiction || jurisdictionLabel} chars=${text.length}`
+      );
+      return Response.json({ ordinance_metadata: { ...normalized, selected_source: 'supplied_text', source_url: source_url || null } });
+    }
+
     if (lat === undefined || lat === null || lon === undefined || lon === null) {
-      return Response.json({ error: 'lat and lon are required' }, { status: 400 });
+      return Response.json({ error: 'lat and lon are required (or supply ordinance_text for direct extraction)' }, { status: 400 });
     }
 
     const geoContext = await getGeoContext(lat, lon);
