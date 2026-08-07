@@ -670,44 +670,78 @@ Deno.serve(async (req) => {
     // would stamp "UNVERIFIED - deep pull required" into the deliverable as a
     // high-confidence Registry value and render a citation strip pointing at a
     // URL that does not contain the standard. Treat it as a miss.
-    if (ordinance && !/^\s*UNVERIFIED/i.test(ordinance.permit_type || '')) {
-      const SRC = 'SiteHawk Registry';
+    if (registry) {
+      const ordCitations = registry.field_citations || {};
       const ft = (v) => (v === null || v === undefined || v === '' ? null : `${v} ft`);
       const yn = (v) => (v === true ? 'Yes' : v === false ? 'No' : null);
-      const put = (sec, field, value) => {
+
+      // A CITED value carries its own section number, source URL and quote into
+      // the deliverable. An uncited one is legacy registry data with nothing
+      // behind it, so it is labelled honestly and ranked a notch lower. Either
+      // way it still fills the row — the subscriber never loses a value.
+      const put = (sec, field, value, ordField) => {
         if (value === null || value === undefined || value === '') return;
+        const cite = ordField ? ordCitations[ordField] : null;
+        const cell = cite?.quote
+          ? row(value, 'SiteHawk Registry (cited)', 'high')
+          : row(value, 'SiteHawk Registry', 'medium');
+        if (cite?.section_ref) cell.section_ref = cite.section_ref;
+        if (cite?.source_url || registry.source_url) cell.source_url = cite?.source_url || registry.source_url;
+        if (cite?.quote) cell.quote = cite.quote;
         report[sec] = report[sec] || {};
-        report[sec][field] = row(value, SRC, 'high');
+        report[sec][field] = cell;
       };
 
-      put('tower_specifics', 'maximum_tower_height', ft(ordinance.height_limit_ft));
-      put('tower_specifics', 'residential_separation', ft(ordinance.residential_separation_ft));
-      put('tower_specifics', 'tower_separation', ft(ordinance.tower_separation_ft));
-      put('tower_specifics', 'fall_zone_requirements',
-        ordinance.fall_zone_ft ? ft(ordinance.fall_zone_ft) : ordinance.setback_rule);
-      put('tower_specifics', 'stealth_required', yn(ordinance.stealth_required));
-      put('tower_specifics', 'required_collocations', yn(ordinance.collocation_required));
-      put('tower_specifics', 'ldc_section_references', ordinance.section_ref);
-      put('zoning_overview', 'zoning_process', ordinance.permit_type);
+      // A permit_type flagged UNVERIFIED is a deep-pull placeholder, not a
+      // standard — writing it would stamp "UNVERIFIED" into the deliverable.
+      // Previously that single bad field caused the WHOLE record to be skipped,
+      // throwing away good height/setback/fall-zone values with it. Now only the
+      // placeholder itself is withheld.
+      const permitType = /^\s*UNVERIFIED/i.test(registry.permit_type || '') ? null : registry.permit_type;
 
-      if (/conditional use|special use|special exception/i.test(ordinance.permit_type || '')) {
-        put('zoning_overview', 'cup_or_special_exception', ordinance.permit_type);
+      put('tower_specifics', 'maximum_tower_height', ft(registry.height_limit_ft), 'height_limit_ft');
+      put('tower_specifics', 'residential_separation', ft(registry.residential_separation_ft), 'residential_separation_ft');
+      put('tower_specifics', 'tower_separation', ft(registry.tower_separation_ft), 'tower_separation_ft');
+      put(
+        'tower_specifics',
+        'fall_zone_requirements',
+        registry.fall_zone_ft
+          ? ft(registry.fall_zone_ft)
+          : registry.fall_zone_pct_of_height
+            ? `${registry.fall_zone_pct_of_height}% of tower height`
+            : registry.setback_rule,
+        registry.fall_zone_ft ? 'fall_zone_ft' : registry.fall_zone_pct_of_height ? 'fall_zone_pct_of_height' : 'setback_rule'
+      );
+      put('tower_specifics', 'stealth_required', yn(registry.stealth_required), 'stealth_required');
+      put('tower_specifics', 'required_collocations', yn(registry.collocation_required), 'collocation_required');
+      put('tower_specifics', 'ldc_section_references', registry.section_ref);
+      put('zoning_overview', 'zoning_process', permitType, 'permit_type');
+
+      if (permitType && /conditional use|special use|special exception/i.test(permitType)) {
+        put('zoning_overview', 'cup_or_special_exception', permitType, 'permit_type');
       }
 
       // PE fall-zone relief is a siting lever — only assert it when we know.
-      if (ordinance.pe_fall_zone_allowed === true) {
+      if (registry.pe_fall_zone_allowed === true) {
         put('tower_specifics', 'pe_letter',
-          'YES — PE-certified fall zone / setback reduction permitted per the local ordinance');
-      } else if (ordinance.pe_fall_zone_allowed === false) {
+          'YES — PE-certified fall zone / setback reduction permitted per the local ordinance',
+          'pe_fall_zone_allowed');
+      } else if (registry.pe_fall_zone_allowed === false) {
         put('tower_specifics', 'pe_letter',
-          'NO — fixed fall zone, no PE reduction path in the local ordinance');
+          'NO — fixed fall zone, no PE reduction path in the local ordinance',
+          'pe_fall_zone_allowed');
       }
 
       report._registry = {
-        jurisdiction: ordinance.jurisdiction || null,
-        state: ordinance.state || null,
-        section_ref: ordinance.section_ref || null,
-        source_url: ordinance.source_url || null,
+        jurisdiction: registry.jurisdiction || null,
+        state: registry.state || null,
+        section_ref: registry.section_ref || null,
+        source_url: registry.source_url || null,
+        verification_status: registry.verification_status || 'unverified',
+        completeness_score: registry.completeness_score ?? completenessScore(registry),
+        critical_total: CRITICAL_FIELDS.length,
+        last_verified_date: registry.last_verified_date || null,
+        cited_fields: Object.keys(registry.field_citations || {}).filter((f) => registry.field_citations[f]?.quote),
       };
     }
 
