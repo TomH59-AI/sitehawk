@@ -83,6 +83,9 @@ export function shadowComparePoint(args: {
   try {
     const { parcelRing, towerLngLat, proposedHeightFt, ordinance, edgeSpecs, liveResult } = args;
     if (!Array.isArray(parcelRing) || parcelRing.length < 3) return null;
+    // A non-finite tower position produces a technically-valid but meaningless
+    // diff, which would quietly pollute the shadow log with noise.
+    if (!Array.isArray(towerLngLat) || !Number.isFinite(towerLngLat[0]) || !Number.isFinite(towerLngLat[1])) return null;
 
     const { points, toFeet } = projectParcelToFeet(parcelRing);
     const inputs = buildSolverInputs(ordinance || null, { coords: points, edgeSpecs });
