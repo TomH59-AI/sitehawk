@@ -28,6 +28,7 @@
  * ============================================================================
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { sunbizEntityLookup } from '../../shared/sunbizEntityLookup.ts';
 
 const SCRAPFLY_URL = "https://api.scrapfly.io/scrape";
 const PER_SOURCE_TIMEOUT_MS = 45000;
@@ -100,7 +101,7 @@ function parseAddress(addr) {
 }
 
 // ── Scrapfly fetch — ASP (anti-bot bypass) + JS render, US proxy ─────────────
-async function scrapfly(targetUrl, timeoutMs) {
+async function scrapfly(targetUrl, timeoutMs, opts = {}) {
   const key = Deno.env.get("SCRAPFLY_API_KEY");
   if (!key) return { ok: false, error: "missing_scrapfly_key", html: "" };
   const u = new URL(SCRAPFLY_URL);
@@ -109,6 +110,8 @@ async function scrapfly(targetUrl, timeoutMs) {
   u.searchParams.set("asp", "true");
   u.searchParams.set("render_js", "true");
   u.searchParams.set("country", "us");
+  // Some directories only pass anti-bot behind a residential exit node.
+  if (opts.residential) u.searchParams.set("proxy_pool", "public_residential_pool");
 
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
@@ -142,10 +145,17 @@ function extractPhones(html) {
 function extractEmails(html, sourceDomain) {
   if (!html) return [];
   const all = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
-  // Drop the site's own support/no-reply addresses.
+  // Drop the site's own support/no-reply addresses, and any placeholder/sample
+  // address baked into page markup — those are NOT owner data and must never
+  // reach a subscriber as if they were.
+  const PLACEHOLDER_DOMAIN = /@(example|domain|yourdomain|test|email|sample|mysite|website)\.(com|net|org)$/i;
+  const PLACEHOLDER_LOCAL = /^(email|e-?mail|name|yourname|your-?email|user|username|firstname|lastname|someone|test|sample|foo|bar|john\.?doe|jane\.?doe|address)@/i;
   return all
     .filter((e) => !e.toLowerCase().includes(sourceDomain))
-    .filter((e) => !/(no-?reply|support|privacy|abuse|help|info)@/i.test(e))
+    .filter((e) => !/(no-?reply|support|privacy|abuse|help|info|legal|press|careers|sales|contact|webmaster|postmaster|optout|unsubscribe|dmca)@/i.test(e))
+    .filter((e) => !PLACEHOLDER_DOMAIN.test(e))
+    .filter((e) => !PLACEHOLDER_LOCAL.test(e))
+    .filter((e) => !/(sentry|cloudflare|googlemail\.com$|\.local$|\.invalid$)/i.test(e))
     // Drop asset filenames that look like emails (logo@2x.png, sprite@1.5x.webp…).
     .filter((e) => !/\.(png|jpe?g|gif|svg|webp|ico|css|js|woff2?)$/i.test(e))
     .filter((e) => /\.[a-z]{2,}$/i.test(e) && !/@\dx?\./i.test(e))
@@ -174,6 +184,31 @@ async function scrapeSource(sourceName, targetUrl, sourceDomain, diag, phonesOut
   diag(sourceName, "ok", phones.length);
 }
 
+/**
+ * FastPeopleSearch publishes phones + emails on the PERSON DETAIL page, not on
+ * the name-listing page, and only passes anti-bot through a residential exit.
+ * Two hops: listing → first detail record → extract contacts.
+ */
+async function scrapeFastPeopleSearch(listingUrl, diag, phonesOut, emailsOut) {
+  const NAME = "FastPeopleSearch";
+  const list = await scrapfly(listingUrl, PER_SOURCE_TIMEOUT_MS, { residential: true });
+  if (!list.ok) { diag(NAME, list.error || `http_${list.status}`, 0); return; }
+
+  const detailPath = (list.html.match(/href="(\/[a-z0-9-]+_id_[A-Za-z0-9-]+)"/i) || [])[1];
+  if (!detailPath) { diag(NAME, "no_detail_record", 0); return; }
+
+  const detail = await scrapfly(
+    `https://www.fastpeoplesearch.com${detailPath}`, PER_SOURCE_TIMEOUT_MS, { residential: true },
+  );
+  if (!detail.ok) { diag(`${NAME}/detail`, detail.error || `http_${detail.status}`, 0); return; }
+
+  const phones = extractPhones(detail.html);
+  for (const p of phones) pushPhone(phonesOut, p, NAME);
+  const emails = extractEmails(detail.html, "fastpeoplesearch.com");
+  for (const e of emails) pushEmail(emailsOut, e, NAME);
+  diag(NAME, "ok", phones.length);
+}
+
 function buildUrls({ firstName, lastName, city, state }) {
   const first = (firstName || "").toLowerCase().replace(/[^a-z]/g, "");
   const last = (lastName || "").toLowerCase().replace(/[^a-z]/g, "");
@@ -193,7 +228,45 @@ function buildUrls({ firstName, lastName, city, state }) {
   if (nameQuery) {
     urls.TruthFinder = `https://www.truthfinder.com/results/?firstName=${encodeURIComponent(firstName || "")}&lastName=${encodeURIComponent(lastName || "")}${state ? `&state=${state.toUpperCase()}` : ""}`;
   }
+  // Nationwide free-tier directories — these publish phones AND email
+  // addresses without a paywall, so they carry the whole United States rather
+  // than one state's registry.
+  if (nameSlug) {
+    urls.FastPeopleSearch = citySlug && state
+      ? `https://www.fastpeoplesearch.com/name/${nameSlug}_${citySlug}-${state.toLowerCase()}`
+      : `https://www.fastpeoplesearch.com/name/${nameSlug}`;
+    const tt = [firstName, lastName].filter(Boolean).join("-").replace(/\s+/g, "-");
+    urls.ThatsThem = citySlug && state
+      ? `https://thatsthem.com/name/${tt}/${citySlug}-${state.toUpperCase()}`
+      : `https://thatsthem.com/name/${tt}`;
+  }
   return urls;
+}
+
+const SOURCE_DOMAINS = {
+  TruthFinder: "truthfinder.com",
+  WhitePages: "whitepages.com",
+  Spokeo: "spokeo.com",
+  CyberBackgroundChecks: "cyberbackgroundchecks.com",
+  FastPeopleSearch: "fastpeoplesearch.com",
+  ThatsThem: "thatsthem.com",
+};
+
+// Run every people-search source in parallel for one human name.
+async function runPeopleSearch({ firstName, lastName, city, state }, diag, phonesOut, emailsOut) {
+  const urls = buildUrls({ firstName, lastName, city, state });
+  const guard = (pms) =>
+    Promise.race([pms, new Promise((resolve) => setTimeout(resolve, TOTAL_BUDGET_MS))]);
+  await Promise.all(
+    Object.entries(urls).map(([name, url]) =>
+      guard(
+        name === "FastPeopleSearch"
+          ? scrapeFastPeopleSearch(url, diag, phonesOut, emailsOut)
+          : scrapeSource(name, url, SOURCE_DOMAINS[name], diag, phonesOut, emailsOut)
+      ).catch((e) => diag(name, e.message, 0))
+    )
+  );
+  return Object.keys(urls);
 }
 
 // Dedupe by E.164, count sources, rank by source count.
@@ -246,9 +319,80 @@ Deno.serve(async (req) => {
     const diag = (source, result, count) =>
       console.log(`[CONTACTDATA DIAG] source=${source} target=${target_label || "?"} owner="${owner_name}" result=${result} count=${count}`);
 
-    // Entity owners (LLC/Trust/Corp) can't be matched by people-search.
+    // ── Entity owners (LLC / Trust / Corp) ──────────────────────────────────
+    // People-search cannot trace a company. For FLORIDA entities, Sunbiz
+    // publishes the registered agent + officers — real humans we can then run
+    // through the nationwide people-search pass. Outside Florida there is no
+    // registry wired up yet, so the entity stays a dead end (reported honestly,
+    // never guessed).
+    const entityPhones = [];
+    const entityEmails = [];
+    let sunbiz = null;
+    if (isEntity && (state || "").toUpperCase() === "FL") {
+      sunbiz = await sunbizEntityLookup(owner_name, async (url) => {
+        const r = await scrapfly(url, PER_SOURCE_TIMEOUT_MS);
+        return r.ok ? r.html : "";
+      });
+      diag("Sunbiz", sunbiz.found ? "ok" : (sunbiz.error || "no_match"), sunbiz.people.length);
+
+      if (sunbiz.found) {
+        // Trace the registered agent plus one officer — each name costs a full
+        // six-source pass, so the list is capped to keep the step responsive.
+        for (const person of sunbiz.people.slice(0, 2)) {
+          const p = parseOwnerName(person);
+          if (!p.firstName || !p.lastName) continue;
+          await runPeopleSearch(
+            { firstName: p.firstName, lastName: p.lastName, city, state },
+            (src, res, n) => diag(`${src}(via Sunbiz: ${person})`, res, n),
+            entityPhones,
+            entityEmails,
+          );
+        }
+        const ePhones = aggregate(entityPhones);
+        const eEmails = aggregateEmails(entityEmails);
+        const eTop = ePhones[0] || null;
+        const eTopEmail = eEmails[0] || null;
+        diag("AGGREGATE", eTop ? "hit_via_sunbiz" : "no_match", ePhones.length);
+
+        if (scip_record_id) {
+          try {
+            await base44.entities.ScipRecord.update(scip_record_id, {
+              owner_contacts: {
+                best_phone: eTop?.phone || null,
+                best_email: eTopEmail?.email || null,
+                is_entity_owner: true,
+                traced_at: new Date().toISOString(),
+                phones: ePhones.map((p) => ({ phone: p.phone, display: p.display, sources: p.sources, source_count: p.source_count, mobile: p.mobile })),
+                emails: eEmails.map((e) => ({ email: e.email, sources: e.sources, source_count: e.source_count })),
+              },
+            });
+          } catch (e) { console.log(`[CONTACTDATA] persist sunbiz owner_contacts failed: ${e.message}`); }
+        }
+
+        return Response.json({
+          is_entity_owner: true,
+          phone: eTop?.phone || null,
+          display: eTop?.display || "",
+          source: eTop ? (eTop.source_count > 1 ? `Aggregated: ${eTop.source_count} sources` : eTop.sources[0]) : null,
+          source_count: eTop?.source_count || 0,
+          phones: ePhones,
+          email: eTopEmail?.email || null,
+          email_source: eTopEmail ? (eTopEmail.source_count > 1 ? `Aggregated: ${eTopEmail.source_count} sources` : eTopEmail.sources[0]) : null,
+          emails: eEmails,
+          entity_registry: {
+            source: "Sunbiz — Florida Division of Corporations",
+            registered_agent: sunbiz.registered_agent,
+            officers: sunbiz.officers,
+            principal_address: sunbiz.principal_address,
+            detail_url: sunbiz.detail_url,
+          },
+          _meta: { owner_name, target_label, is_entity: true, traced_via: "sunbiz", duration_ms: Date.now() - t0 },
+        });
+      }
+    }
+
     if (isEntity) {
-      diag("entity_gate", "entity_owner", 0);
+      diag("entity_gate", sunbiz ? `sunbiz_${sunbiz.error || "no_person"}` : "entity_owner_no_registry", 0);
       if (scip_record_id) {
         try {
           await base44.entities.ScipRecord.update(scip_record_id, {
@@ -260,31 +404,20 @@ Deno.serve(async (req) => {
         is_entity_owner: true,
         phone: null, display: "", source: null, source_count: 0, phones: [],
         email: null, email_source: null, emails: [],
+        entity_registry: {
+          source: (state || "").toUpperCase() === "FL"
+            ? "Sunbiz — Florida Division of Corporations"
+            : `No business registry wired up for ${state || "this state"} — Sunbiz covers Florida only`,
+          registered_agent: null, officers: [], principal_address: null, detail_url: sunbiz?.detail_url || null,
+        },
         _meta: { owner_name, target_label, is_entity: true, duration_ms: Date.now() - t0 },
       });
     }
 
-    const urls = buildUrls({ firstName, lastName, city, state });
-    const domains = {
-      TruthFinder: "truthfinder.com",
-      WhitePages: "whitepages.com",
-      Spokeo: "spokeo.com",
-      CyberBackgroundChecks: "cyberbackgroundchecks.com",
-    };
-
     const phonesFound = [];
     const emailsFound = [];
-
-    // Scrape all available sources in parallel, within the total budget.
-    const guard = (pms) => Promise.race([
-      pms,
-      new Promise((resolve) => setTimeout(resolve, TOTAL_BUDGET_MS)),
-    ]);
-    await Promise.all(
-      Object.entries(urls).map(([name, url]) =>
-        guard(scrapeSource(name, url, domains[name], diag, phonesFound, emailsFound))
-          .catch((e) => diag(name, e.message, 0))
-      )
+    const sourcesTried = await runPeopleSearch(
+      { firstName, lastName, city, state }, diag, phonesFound, emailsFound,
     );
 
     const phones = aggregate(phonesFound);
@@ -324,7 +457,7 @@ Deno.serve(async (req) => {
       _meta: {
         owner_name, target_label,
         scrapfly_enabled: !!Deno.env.get("SCRAPFLY_API_KEY"),
-        sources_tried: Object.keys(urls),
+        sources_tried: sourcesTried,
         total_found: phonesFound.length,
         duration_ms: Date.now() - t0,
       },

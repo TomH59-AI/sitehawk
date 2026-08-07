@@ -14,9 +14,10 @@ import { Lock, Sparkles, RefreshCw, AlertTriangle, Phone, Mail, Copy, Crosshair 
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "../HawkFlightSpinner";
+import EntityRegistryCard from "./EntityRegistryCard";
 
 const BRAND_GREEN = "#628C83";
-const BADGE_COLORS = { CyberBackgroundChecks: "#0e7490", Spokeo: "#7c3aed", WhitePages: "#b45309", TruthFinder: "#be123c" };
+const BADGE_COLORS = { CyberBackgroundChecks: "#0e7490", Spokeo: "#7c3aed", WhitePages: "#b45309", TruthFinder: "#be123c", FastPeopleSearch: "#15803d", ThatsThem: "#4338ca" };
 const badgeStyle = (s) => (!s ? { background: "#64748b" } : s.startsWith("Aggregated") ? { background: "#628C83" } : { background: BADGE_COLORS[s] || "#475569" });
 
 const copy = (val, what) => { navigator.clipboard?.writeText(val); toast.success(`${what} copied`); };
@@ -66,7 +67,7 @@ export default function SkipTraceStep({
         )}
       </div>
 
-      {loading && <HawkFlightSpinner label="Searching TruthFinder, WhitePages, Spokeo & CyberBackgroundChecks… (this can take ~60s)" />}
+      {loading && <HawkFlightSpinner label="Searching WhitePages, ThatsThem, FastPeopleSearch, Spokeo, TruthFinder & CyberBackgroundChecks — plus the state business registry for entity owners… (this can take ~60s)" />}
 
       {!loading && !done && !error && (
         <div className="px-4 py-5 text-sm text-muted-foreground">
@@ -88,11 +89,7 @@ export default function SkipTraceStep({
 
       {done && !loading && (
         <div className="p-4 space-y-4">
-          {isEntity && (
-            <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-300/50 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-              Entity / business owner — people-search can't match an LLC/Trust/Corp. Manual lookup required.
-            </div>
-          )}
+          {isEntity && <EntityRegistryCard registry={result?.entity_registry} />}
 
           {noHits && (
             <div className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
