@@ -233,6 +233,11 @@ export default function Section4MapSuite({
       maps.current[step] = null;
       liveOrder.current = liveOrder.current.filter((s) => s !== step);
       refs[step]?.current?.querySelectorAll('img[data-snapshot]')?.forEach((el) => el.remove());
+      // Free WebGL contexts BEFORE asking for another one. Retiring only after
+      // the new map was built meant late maps (Fiber is #11) requested a canvas
+      // while the over-limit ones were still live — the browser refused it and
+      // the panel stayed black.
+      retireOldMaps();
       await new Promise((r) => requestAnimationFrame(r));
 
       let map;

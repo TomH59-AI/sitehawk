@@ -22,6 +22,44 @@ function pinEl(color, svg) {
   return el;
 }
 
+/**
+ * Resolve once the style is actually ready to take layers.
+ *
+ * MAP 11 is late in the Section 4 sequence, so by the time it runs the browser
+ * may refuse another WebGL context. Mapbox then fires `error` and NEVER fires
+ * `load` — the old code awaited `load` alone, so the step hung forever on a
+ * black panel with no message. Now a failure surfaces as a real error that
+ * MapSubStep renders with a Retry button.
+ */
+const FIBER_LOAD_TIMEOUT_MS = 20000;
+
+function whenStyleReady(map) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      err ? reject(err) : resolve();
+    };
+    const timer = setTimeout(
+      () => finish(new Error(
+        "Fiber map canvas never finished loading — the browser may have run out of live map canvases. Regenerate this map."
+      )),
+      FIBER_LOAD_TIMEOUT_MS
+    );
+
+    if (typeof map.isStyleLoaded === "function" && map.isStyleLoaded()) return finish();
+    map.on("load", () => finish());
+    map.on("error", (e) => {
+      const msg = String(e?.error?.message || e?.error || "");
+      if (/webgl|context|canvas/i.test(msg)) {
+        finish(new Error(`Fiber map could not create a map canvas: ${msg}`));
+      }
+    });
+  });
+}
+
 export async function renderFiberOptics(container, target, data, token, radiusMiles = 0.5) {
   const { latitude: lat, longitude: lon, owner } = target;
   const fiber = data?.fiber || null;
@@ -29,9 +67,9 @@ export async function renderFiberOptics(container, target, data, token, radiusMi
   const map = await makeMap(container, SAT_STYLE, [lon, lat], token, 15);
   map.on("error", (e) => console.error("[FIBER MAP] Mapbox error event:", e?.error || e));
 
-  return new Promise((resolve) => {
-    map.on("load", async () => {
-      // Search ring used for the fiber asset lookup.
+  await whenStyleReady(map);
+
+  // Search ring used for the fiber asset lookup.
       map.addSource("s4-fiber-ring", { type: "geojson", data: buildCircle(lat, lon, radiusMiles) });
       map.addLayer({
         id: "s4-fiber-ring-line", type: "line", source: "s4-fiber-ring",
@@ -99,7 +137,6 @@ export async function renderFiberOptics(container, target, data, token, radiusMi
       } else {
         fitToRing(map, lat, lon, radiusMiles);
       }
-      resolve(map);
-    });
-  });
+
+  return map;
 }
