@@ -18,7 +18,6 @@ import {
   fetchOrdinanceSource,
   gateExtraction,
   isUsableSource,
-  mapWithConcurrency,
   normalizeJurisdiction,
   qualityControlPass,
   resolveBestSource,
@@ -277,19 +276,50 @@ export async function selectDiscoveryTargets(base44, existingRecords, { batchSiz
 }
 
 /**
- * Run a batch of jurisdictions with a hard concurrency cap and a wall-clock
- * budget, so a slow night degrades into "fewer jurisdictions" rather than a
- * timed-out function that loses its whole run log.
+ * Run a batch of jurisdictions in bounded chunks with a wall-clock budget.
+ *
+ * Two deliberate choices here. Chunking (rather than one big fan-out) means the
+ * run record can be updated after every chunk, so if the function is killed
+ * mid-batch the dashboard still shows real progress instead of a run stuck at
+ * zero. And the time budget means a slow night degrades into "fewer
+ * jurisdictions tonight" — the skipped ones are still incomplete, so tomorrow's
+ * batch picks them up first.
  */
-export async function runBatch(base44, targets, { creds, runId, dryRun, concurrency = 4, deadlineMs }) {
+export async function runBatch(base44, targets, { creds, runId, dryRun, concurrency = 5, deadlineMs = 240000, onProgress }) {
   const counters = { direct_fetch_calls: 0, oxylabs_calls: 0, scrapfly_calls: 0 };
   const started = Date.now();
-  const results = await mapWithConcurrency(targets, concurrency, async (target) => {
+  const results = [];
+
+  for (let i = 0; i < targets.length; i += concurrency) {
     if (deadlineMs && Date.now() - started > deadlineMs) {
-      return { jurisdiction: target.jurisdiction, state: target.state, action: 'skipped_time_budget' };
+      for (const target of targets.slice(i)) {
+        results.push({ jurisdiction: target.jurisdiction, state: target.state, action: 'skipped_time_budget' });
+      }
+      break;
     }
-    return await processJurisdiction(base44, { ...target, creds, runId, counters, dryRun });
-  });
+
+    const chunk = targets.slice(i, i + concurrency);
+    const chunkResults = await Promise.all(
+      chunk.map((target) =>
+        processJurisdiction(base44, { ...target, creds, runId, counters, dryRun }).catch((error) => ({
+          jurisdiction: target.jurisdiction,
+          state: target.state,
+          action: 'error',
+          error: String(error?.message || error).slice(0, 300),
+        }))
+      )
+    );
+    results.push(...chunkResults);
+
+    if (onProgress) {
+      try {
+        await onProgress(results, counters);
+      } catch {
+        /* progress reporting must never fail the batch */
+      }
+    }
+  }
+
   return { results, counters };
 }
 
