@@ -159,6 +159,9 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   // SiteHawk Registry provenance for this jurisdiction (set by generateZoningPermitReport
   // as report._registry). Drives the ordinance citation line on TOWER SPECIFICS.
   const [registry, setRegistry] = useState(null); // { jurisdiction, state, section_ref, source_url }
+  // Set when the governing body has adopted no land-use regulation at all
+  // (report._unincorporated). Distinct from "we couldn't find the code".
+  const [unincorporated, setUnincorporated] = useState(null);
   const ranRef = useRef(false);
   // HawkSCIP quota gate — Run Zoning is the billing trigger. If the backend
   // returns 402 / upgrade_required, the upgrade modal appears and routes to plans.
@@ -187,6 +190,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       setJurisdiction(jur);
       setJurLabel(jur?.label || "");
       setRegistry(report?._registry || null);
+      setUnincorporated(report?._unincorporated || null);
       setZoneomics(res.data?.zoneomics || null);
       setDistrictConflict(res.data?.zoning_district_conflict || null);
       setCells((prev) => reportToCells(report, preserveEdits ? prev : null));
@@ -374,6 +378,20 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
               {" | "}Manual: {counts.manual} fields
             </div>
           </div>
+
+          {/* Governing body has adopted no zoning at all */}
+          {unincorporated && (
+            <div className="px-4 py-2.5 bg-amber-50 dark:bg-amber-950/20 border-b border-amber-300/60 text-sm text-amber-900 dark:text-amber-200">
+              <span className="font-semibold">{unincorporated.label}</span>
+              {unincorporated.governing_body
+                ? ` — ${unincorporated.governing_body}${unincorporated.state ? `, ${unincorporated.state}` : ""}`
+                : ""}
+              <div className="text-xs mt-0.5 opacity-90">
+                No local tower or antenna ordinance has been adopted here, so the tower rows below are marked rather than
+                filled. Confirm the building-permit path directly with the county.
+              </div>
+            </div>
+          )}
 
           {/* District conflict between sources */}
           {districtConflict && (
