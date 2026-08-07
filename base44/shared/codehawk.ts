@@ -1,0 +1,670 @@
+/**
+ * CodeHawk — shared ordinance-harvesting pipeline.
+ *
+ * This module is the engine behind the CodeHawk Superagent. It fixes the two
+ * structural problems the old pipeline had:
+ *
+ *   1. The scraper and the extractor were not connected. OxyLabs returned the
+ *      ordinance text and the extractor then kicked off its OWN research pass,
+ *      burning time and credits re-finding a page we were already holding.
+ *      Here, fetchOrdinanceSource() hands its actual text straight to
+ *      extractOrdinanceFields() — one fetch, one extraction.
+ *
+ *   2. Nothing was cited at the field level, so a height limit and a guess
+ *      looked identical in the registry. Every value now carries its own
+ *      verbatim quote, section number, source URL, confidence, and verified
+ *      date, and a value only lands in TelecomOrdinance if its quote is
+ *      programmatically found in the source text AND a second QC pass confirms
+ *      it. Everything else goes to OrdinanceReviewQueue instead of being
+ *      guessed at.
+ *
+ * Fetch escalation is direct-first and cost-aware:
+ *   direct HTML/PDF  →  OxyLabs (only when blocked / JS-only / empty)  →  Scrapfly
+ */
+
+// The six values that decide whether a tower can actually be sited.
+export const CRITICAL_FIELDS = [
+  'height_limit_ft',
+  'setback_ft',
+  'fall_zone_ft',
+  'residential_separation_ft',
+  'tower_separation_ft',
+  'pe_fall_zone_allowed',
+];
+
+export const NUMERIC_FIELDS = [
+  'height_limit_ft',
+  'setback_ft',
+  'fall_zone_ft',
+  'fall_zone_pct_of_height',
+  'residential_separation_ft',
+  'tower_separation_ft',
+];
+
+export const BOOLEAN_FIELDS = [
+  'pe_fall_zone_allowed',
+  'pe_letter_required',
+  'stealth_required',
+  'collocation_required',
+];
+
+export const STRING_FIELDS = ['permit_type', 'setback_rule'];
+
+export const EXTRACTED_FIELDS = [...NUMERIC_FIELDS, ...BOOLEAN_FIELDS, ...STRING_FIELDS];
+
+export const FIELD_LABELS = {
+  height_limit_ft: 'Maximum tower height (ft)',
+  setback_ft: 'Setback from property line (ft)',
+  fall_zone_ft: 'Fall zone (ft)',
+  fall_zone_pct_of_height: 'Fall zone (% of height)',
+  residential_separation_ft: 'Residential separation (ft)',
+  tower_separation_ft: 'Tower-to-tower separation (ft)',
+  pe_fall_zone_allowed: 'PE letter can reduce fall zone / setback',
+  pe_letter_required: 'PE letter required',
+  stealth_required: 'Stealth / concealment required',
+  collocation_required: 'Collocation required first',
+  permit_type: 'Approval path',
+  setback_rule: 'Setback rule (formula)',
+};
+
+/* ------------------------------------------------------------------ *
+ * Small helpers
+ * ------------------------------------------------------------------ */
+
+export function normalizeJurisdiction(value) {
+  return String(value || '')
+    .toUpperCase()
+    .replace(/\bCITY OF\b/g, '')
+    .replace(/\bTOWN OF\b/g, '')
+    .replace(/\bVILLAGE OF\b/g, '')
+    .replace(/\bBOROUGH OF\b/g, '')
+    .replace(/\bCOUNTY\b/g, '')
+    .replace(/\bPARISH\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function cleanHtml(html) {
+  return String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&#39;|&rsquo;|&lsquo;/gi, "'")
+    .replace(/&quot;|&ldquo;|&rdquo;/gi, '"')
+    .replace(/&sect;/gi, '§')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function completenessScore(record) {
+  if (!record) return 0;
+  return CRITICAL_FIELDS.filter((f) => record[f] !== null && record[f] !== undefined && record[f] !== '').length;
+}
+
+export function asText(value) {
+  if (value === null || value === undefined || value === '') return '';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return String(value);
+}
+
+const num = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+
+/**
+ * Programmatic quote verification — the real guard against a confident model
+ * inventing an ordinance sentence. The quote must actually be present in the
+ * text we scraped, allowing only for whitespace/quote-mark drift and minor
+ * elision in the middle of a long passage.
+ */
+export function quoteAppears(quote, sourceText) {
+  const norm = (s) =>
+    String(s || '')
+      .toLowerCase()
+      .replace(/[‘’“”]/g, '"')
+      .replace(/[ \s]+/g, ' ')
+      .trim();
+  const q = norm(quote);
+  const t = norm(sourceText);
+  if (!q || !t || q.length < 15) return false;
+  if (t.includes(q)) return true;
+  // Tolerate an elided middle: a distinctive 45-character run must still match.
+  const probe = 45;
+  if (q.length <= probe) return false;
+  for (let i = 0; i + probe <= q.length; i += 12) {
+    if (t.includes(q.slice(i, i + probe))) return true;
+  }
+  return false;
+}
+
+async function getSecret(name) {
+  try {
+    const runtime = await import('base44:runtime');
+    const value = runtime?.secrets?.get?.(name);
+    if (value) return String(value);
+  } catch {
+    /* runtime secrets unavailable — fall through to env */
+  }
+  try {
+    return Deno.env.get(name) || '';
+  } catch {
+    return '';
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Tier 1 — direct fetch
+ * ------------------------------------------------------------------ */
+
+const BROWSER_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/pdf,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
+const BLOCK_MARKERS =
+  /(just a moment|checking your browser|cloudflare|access denied|request unsuccessful|are you a robot|captcha|enable javascript to|please enable js)/i;
+
+/** Signals that we got an app shell instead of the ordinance text. */
+function looksJsOnly(text, rawHtml) {
+  if (text.length < 900) return true;
+  if (BLOCK_MARKERS.test(text.slice(0, 4000))) return true;
+  // Municode / eCode360 style SPAs: a big HTML payload that renders almost no prose.
+  if (rawHtml && rawHtml.length > 20000 && text.length < rawHtml.length * 0.02) return true;
+  return false;
+}
+
+/** How much this text actually looks like a wireless-tower ordinance. */
+export function towerSignal(text) {
+  const t = String(text || '').toLowerCase();
+  const terms = [
+    'fall zone',
+    'setback',
+    'telecommunication',
+    'wireless',
+    'antenna',
+    'tower height',
+    'collocation',
+    'co-location',
+    'separation',
+    'monopole',
+    'communication tower',
+    'support structure',
+  ];
+  return terms.reduce((score, term) => score + (t.includes(term) ? 1 : 0), 0);
+}
+
+async function directFetch(base44, url) {
+  try {
+    const res = await fetch(url, { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(25000) });
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
+    if (!res.ok) {
+      return { ok: false, reason: `http_${res.status}`, blocked: res.status === 403 || res.status === 429 || res.status === 503 };
+    }
+
+    // PDF codes: hand the file to the model directly rather than mangling bytes.
+    if (contentType.includes('pdf') || /\.pdf($|\?)/i.test(url)) {
+      const bytes = await res.arrayBuffer();
+      if (bytes.byteLength < 1000) return { ok: false, reason: 'empty_pdf' };
+      const file = new File([bytes], 'ordinance.pdf', { type: 'application/pdf' });
+      const uploaded = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+      if (!uploaded?.file_url) return { ok: false, reason: 'pdf_upload_failed' };
+      return { ok: true, method: 'direct_pdf', file_url: uploaded.file_url, text: '', chars: bytes.byteLength };
+    }
+
+    const rawHtml = await res.text();
+    const text = cleanHtml(rawHtml);
+    if (looksJsOnly(text, rawHtml)) {
+      return { ok: false, reason: text.length < 900 ? 'empty_or_js_only' : 'blocked_or_js_only', blocked: true };
+    }
+    return { ok: true, method: 'direct_html', text, chars: text.length };
+  } catch (error) {
+    return { ok: false, reason: `fetch_error:${String(error?.message || error).slice(0, 80)}` };
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Tier 2 / 3 — OxyLabs, then Scrapfly
+ * ------------------------------------------------------------------ */
+
+async function oxylabsFetch(url) {
+  const username = await getSecret('OXYLABS_USERNAME');
+  const password = await getSecret('OXYLABS_PASSWORD');
+  if (!username || !password) return { ok: false, reason: 'oxylabs_not_configured' };
+  try {
+    const res = await fetch('https://realtime.oxylabs.io/v1/queries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Basic ${btoa(`${username}:${password}`)}` },
+      body: JSON.stringify({
+        source: 'universal',
+        url,
+        render: 'html',
+        geo_location: 'United States',
+        user_agent_type: 'desktop',
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    if (!res.ok) return { ok: false, reason: `oxylabs_http_${res.status}` };
+    const data = await res.json();
+    const text = cleanHtml(data?.results?.[0]?.content || '');
+    if (text.length < 500) return { ok: false, reason: 'oxylabs_empty' };
+    return { ok: true, method: 'oxylabs', text, chars: text.length };
+  } catch (error) {
+    return { ok: false, reason: `oxylabs_error:${String(error?.message || error).slice(0, 80)}` };
+  }
+}
+
+async function scrapflyFetch(url) {
+  const key = await getSecret('SCRAPFLY_API_KEY');
+  if (!key) return { ok: false, reason: 'scrapfly_not_configured' };
+  try {
+    const params = new URLSearchParams({ key, url, asp: 'true', render_js: 'true', country: 'US' });
+    const res = await fetch(`https://api.scrapfly.io/scrape?${params}`, { signal: AbortSignal.timeout(90000) });
+    if (!res.ok) return { ok: false, reason: `scrapfly_http_${res.status}` };
+    const data = await res.json();
+    const text = cleanHtml(data?.result?.content || '');
+    if (text.length < 500) return { ok: false, reason: 'scrapfly_empty' };
+    return { ok: true, method: 'scrapfly', text, chars: text.length };
+  } catch (error) {
+    return { ok: false, reason: `scrapfly_error:${String(error?.message || error).slice(0, 80)}` };
+  }
+}
+
+/**
+ * Fetch one ordinance URL, escalating only as far as necessary.
+ * Returns { ok, method, text | file_url, chars, attempts, reason }.
+ */
+export async function fetchOrdinanceSource(base44, url, counters = {}) {
+  const attempts = [];
+
+  counters.direct_fetch_calls = (counters.direct_fetch_calls || 0) + 1;
+  const direct = await directFetch(base44, url);
+  attempts.push({ tier: 'direct', ok: direct.ok, reason: direct.reason || null });
+  if (direct.ok) return { ...direct, url, attempts };
+
+  counters.oxylabs_calls = (counters.oxylabs_calls || 0) + 1;
+  const oxy = await oxylabsFetch(url);
+  attempts.push({ tier: 'oxylabs', ok: oxy.ok, reason: oxy.reason || null });
+  if (oxy.ok) return { ...oxy, url, attempts };
+
+  const scrapfly = await scrapflyFetch(url);
+  attempts.push({ tier: 'scrapfly', ok: scrapfly.ok, reason: scrapfly.reason || null });
+  if (scrapfly.ok) return { ...scrapfly, url, attempts };
+
+  return { ok: false, url, attempts, reason: direct.reason || oxy.reason || scrapfly.reason || 'all_tiers_failed' };
+}
+
+/* ------------------------------------------------------------------ *
+ * Source discovery — the parallel research fan-out
+ * ------------------------------------------------------------------ */
+
+const SOURCE_SCHEMA = {
+  type: 'object',
+  properties: {
+    candidates: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          url: { type: 'string' },
+          publisher: { type: 'string' },
+          section_hint: { type: 'string' },
+          why: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
+/**
+ * Ask for the official telecom-section URLs for a jurisdiction. Returns up to
+ * `limit` candidate URLs; the caller fetches them in parallel and keeps the one
+ * whose text actually reads like a tower ordinance.
+ */
+export async function discoverSourceCandidates(base44, jurisdiction, state, limit = 4) {
+  const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
+    model: 'gemini_3_flash',
+    add_context_from_internet: true,
+    prompt: `Find the OFFICIAL published municipal/county code page that contains the wireless telecommunications TOWER AND ANTENNA regulations for ${jurisdiction}, ${state}.
+
+Search library.municode.com, ecode360.com, library.amlegal.com, codelibrary.amlegal.com, municipal.codes, and the jurisdiction's own .gov site.
+
+Return up to ${limit} candidate URLs, best first. Rules:
+- Prefer the DEEP LINK to the wireless/telecommunications/tower article or section, not the code's table of contents or home page.
+- A direct PDF of the land development code chapter is acceptable and often better.
+- Only return URLs you actually saw in search results. Never invent a URL pattern.
+- section_hint: the article/section identifier you expect to find there (e.g. "Sec. 62-2109" or "Article XII, Div. 3").
+- publisher: municode | ecode360 | amlegal | official_gov | other.
+- If you cannot find a real published code for this jurisdiction, return an empty candidates array.`,
+    response_json_schema: SOURCE_SCHEMA,
+  });
+
+  const seen = new Set();
+  return (result?.candidates || [])
+    .map((c) => ({ ...c, url: String(c?.url || '').trim() }))
+    .filter((c) => {
+      if (!/^https?:\/\//i.test(c.url) || seen.has(c.url)) return false;
+      seen.add(c.url);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+/**
+ * Fetch every candidate concurrently and keep the one that reads most like a
+ * tower ordinance. This is the parallel research step — each candidate is an
+ * independent fetch that knows nothing about the others.
+ */
+export async function resolveBestSource(base44, candidates, counters = {}) {
+  if (!candidates?.length) return { ok: false, reason: 'no_candidates', tried: [] };
+
+  const fetched = await Promise.all(
+    candidates.map(async (candidate) => {
+      const source = await fetchOrdinanceSource(base44, candidate.url, counters);
+      const signal = source.ok ? (source.file_url ? 8 : towerSignal(source.text)) : 0;
+      return { ...source, candidate, signal };
+    })
+  );
+
+  const tried = fetched.map((f) => ({
+    url: f.url,
+    ok: f.ok,
+    method: f.method || null,
+    signal: f.signal,
+    chars: f.chars || 0,
+    reason: f.reason || null,
+  }));
+
+  // A page needs at least 4 distinct tower-ordinance terms to be worth extracting.
+  const usable = fetched.filter((f) => f.ok && f.signal >= 4).sort((a, b) => b.signal - a.signal);
+  if (!usable.length) return { ok: false, reason: 'no_usable_source', tried };
+  return { ...usable[0], tried, alternates: usable.slice(1, 3).map((f) => f.url) };
+}
+
+/* ------------------------------------------------------------------ *
+ * Extraction — text in, cited fields out
+ * ------------------------------------------------------------------ */
+
+const citedField = (valueType, description) => ({
+  type: 'object',
+  description,
+  properties: {
+    value: { type: valueType },
+    quote: {
+      type: 'string',
+      description:
+        'The VERBATIM sentence or clause from the ordinance text that states this value. Copy it character-for-character from the source. Leave empty if you cannot copy an exact supporting sentence.',
+    },
+    section_ref: { type: 'string', description: 'The exact section identifier the quote came from, as printed in the code.' },
+    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+  },
+});
+
+const EXTRACTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    jurisdiction_confirmed: {
+      type: 'boolean',
+      description: 'True only if the text is clearly the code of THIS jurisdiction (not a neighbouring city or a state statute).',
+    },
+    height_limit_ft: citedField('number', 'Maximum permitted height of a freestanding tower, in feet.'),
+    setback_ft: citedField('number', 'Minimum setback of the tower from a property line, in feet, when stated as a fixed distance.'),
+    fall_zone_ft: citedField('number', 'Required fall zone / collapse radius in feet, when stated as a fixed distance.'),
+    fall_zone_pct_of_height: citedField('number', 'Fall zone expressed as a percentage of tower height (e.g. 100 for "100% of tower height").'),
+    residential_separation_ft: citedField('number', 'Required separation from residential structures or residentially zoned land, in feet.'),
+    tower_separation_ft: citedField('number', 'Required separation from other existing towers, in feet.'),
+    pe_fall_zone_allowed: citedField(
+      'boolean',
+      'TRUE only if the code lets a licensed Professional Engineer\'s sealed letter/certification REDUCE the fall zone, setback, or separation. FALSE only if the code sets a fixed requirement with no engineer-reduction path.'
+    ),
+    pe_letter_required: citedField('boolean', 'TRUE if a sealed PE letter or certification is mandatory as part of the application.'),
+    stealth_required: citedField('boolean', 'TRUE if stealth/concealment/camouflage design is required.'),
+    collocation_required: citedField('boolean', 'TRUE if collocation on existing structures must be pursued or proven infeasible before a new tower.'),
+    permit_type: citedField('string', 'The approval path — conditional use permit, special exception, special use permit, administrative review, by right, etc.'),
+    setback_rule: citedField('string', 'The setback/fall-zone rule verbatim when it is a formula rather than a fixed number (e.g. "1.5x tower height from all property lines").'),
+    section_ref: { type: 'string', description: 'The primary telecom article/section identifier for this jurisdiction.' },
+    extraction_notes: { type: 'string', description: 'One or two sentences: what the code covers, and which of the six critical values it simply does not address.' },
+  },
+};
+
+/**
+ * Extract cited ordinance fields from text we ALREADY HAVE. No re-research, no
+ * second scrape — this is the handoff the old pipeline was missing.
+ */
+export async function extractOrdinanceFields(base44, { jurisdiction, state, url, text, file_url }) {
+  const rules = `You are reading the published municipal code for ${jurisdiction}, ${state}. Source URL: ${url}
+
+Extract ONLY the wireless telecommunications TOWER AND ANTENNA rules that this text explicitly states.
+
+ABSOLUTE RULES:
+- Every field you fill MUST come with a verbatim quote copied exactly from the text. If you cannot copy an exact supporting sentence, OMIT the field entirely.
+- Never convert, average, round, infer, or combine numbers. If the code says 1.5 times the tower height, that belongs in setback_rule, not setback_ft.
+- Never carry a value over from a different jurisdiction, a state statute, or your own prior knowledge.
+- Distinguish carefully: setback (distance to property line), fall zone (collapse radius), residential separation (distance to homes or residential zoning), tower separation (distance to other towers). Do not use one to fill another.
+- pe_fall_zone_allowed is about RELIEF: can a PE's sealed letter shrink the required fall zone or setback? Only mark TRUE when the code says so.
+- Omit any field the code does not address. An omitted field is a correct answer; a guessed field is a defect.`;
+
+  const payload = {
+    model: 'gemini_3_flash',
+    response_json_schema: EXTRACTION_SCHEMA,
+  };
+
+  if (file_url) {
+    return await base44.asServiceRole.integrations.Core.InvokeLLM({
+      ...payload,
+      prompt: `${rules}\n\nThe ordinance is the attached PDF. Read it and extract the fields.`,
+      file_urls: [file_url],
+    });
+  }
+
+  return await base44.asServiceRole.integrations.Core.InvokeLLM({
+    ...payload,
+    prompt: `${rules}\n\nORDINANCE TEXT:\n${String(text || '').slice(0, 140000)}`,
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * Quality control — an independent second pass
+ * ------------------------------------------------------------------ */
+
+const QC_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          field: { type: 'string' },
+          verdict: { type: 'string', enum: ['confirmed', 'rejected', 'uncertain'] },
+          reason: { type: 'string' },
+        },
+      },
+    },
+    overall_note: { type: 'string' },
+  },
+};
+
+/**
+ * Re-read the same source against the draft and try to knock values down.
+ * Deliberately adversarial: the default answer is 'rejected'.
+ */
+export async function qualityControlPass(base44, { jurisdiction, state, url, text, file_url, draft }) {
+  const claims = EXTRACTED_FIELDS.filter((f) => draft?.[f]?.value !== undefined && draft?.[f]?.value !== null).map((f) => ({
+    field: f,
+    label: FIELD_LABELS[f],
+    value: draft[f].value,
+    quote: draft[f].quote || '',
+    section_ref: draft[f].section_ref || '',
+  }));
+
+  if (!claims.length) return { verdicts: [], overall_note: 'Nothing extracted to verify.' };
+
+  const rules = `You are the quality-control check on an ordinance extraction for ${jurisdiction}, ${state} (${url}).
+
+For each claim below, decide whether the SOURCE genuinely supports it.
+
+Mark 'confirmed' ONLY when all of these hold:
+- The quote appears in the source essentially word-for-word.
+- The quote actually states that value for that specific rule (not a neighbouring rule, not a different facility type, not a different jurisdiction).
+- The section_ref matches where the quote lives.
+- The value was not converted, rounded, or inferred from the quote.
+
+Mark 'rejected' when the quote is absent, paraphrased, about a different rule, or does not state the number/answer claimed.
+Mark 'uncertain' only when the source is genuinely ambiguous.
+Default to 'rejected' when you are unsure. Being wrong in the registry is far worse than leaving a field empty.
+
+CLAIMS:
+${JSON.stringify(claims, null, 1)}`;
+
+  if (file_url) {
+    return await base44.asServiceRole.integrations.Core.InvokeLLM({
+      model: 'gemini_3_flash',
+      response_json_schema: QC_SCHEMA,
+      prompt: `${rules}\n\nThe source is the attached PDF.`,
+      file_urls: [file_url],
+    });
+  }
+
+  return await base44.asServiceRole.integrations.Core.InvokeLLM({
+    model: 'gemini_3_flash',
+    response_json_schema: QC_SCHEMA,
+    prompt: `${rules}\n\nSOURCE TEXT:\n${String(text || '').slice(0, 140000)}`,
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * The strict gate — write, or queue for a human
+ * ------------------------------------------------------------------ */
+
+function coerce(field, raw) {
+  if (NUMERIC_FIELDS.includes(field)) return num(raw);
+  if (BOOLEAN_FIELDS.includes(field)) return typeof raw === 'boolean' ? raw : null;
+  const s = raw === null || raw === undefined ? '' : String(raw).trim();
+  return s || null;
+}
+
+/**
+ * Decide, field by field, what may be written and what a human has to look at.
+ *
+ * A field is auto-written only when it has a value, a verbatim quote that is
+ * actually present in the source, a section reference, a confirmed QC verdict,
+ * confidence above 'low', and no disagreement with what the registry already
+ * holds. Everything else becomes a review-queue item and nothing is overwritten.
+ */
+export function gateExtraction({ existing, draft, qc, source, runId }) {
+  const patch = {};
+  const citations = { ...(existing?.field_citations || {}) };
+  const queue = [];
+  const verifiedAt = new Date().toISOString();
+  const verdictOf = Object.fromEntries((qc?.verdicts || []).map((v) => [v.field, v]));
+  const haveText = Boolean(source?.text);
+
+  for (const field of EXTRACTED_FIELDS) {
+    const claim = draft?.[field];
+    if (!claim) continue;
+    const value = coerce(field, claim.value);
+    if (value === null) continue;
+
+    const quote = String(claim.quote || '').trim();
+    const sectionRef = String(claim.section_ref || draft?.section_ref || '').trim();
+    const confidence = String(claim.confidence || 'low').toLowerCase();
+    const verdict = verdictOf[field] || { verdict: 'uncertain', reason: 'No QC verdict returned for this field.' };
+    const currentValue = existing?.[field] ?? null;
+
+    const base = {
+      jurisdiction: existing?.jurisdiction || source?.jurisdiction || '',
+      state: String(existing?.state || source?.state || '').toUpperCase(),
+      ordinance_id: existing?.id || undefined,
+      field_name: field,
+      proposed_value: asText(value),
+      current_value: asText(currentValue),
+      quote: quote.slice(0, 1500),
+      section_ref: sectionRef,
+      source_url: source?.url || '',
+      confidence: ['high', 'medium', 'low'].includes(confidence) ? confidence : 'low',
+      qc_verdict: `${verdict.verdict}: ${String(verdict.reason || '').slice(0, 400)}`,
+      status: 'pending',
+      run_id: runId || undefined,
+    };
+
+    // Ordered so the queue reason names the FIRST thing that actually blocked it.
+    let blocked = null;
+    if (!quote) blocked = 'no_quote';
+    else if (haveText && !quoteAppears(quote, source.text)) blocked = 'no_quote';
+    else if (!sectionRef) blocked = 'no_section_ref';
+    else if (verdict.verdict === 'rejected' || verdict.verdict === 'uncertain') blocked = 'qc_failed';
+    else if (confidence === 'low') blocked = 'low_confidence';
+    // PDF sources can't be quote-checked locally, so they must clear a higher bar.
+    else if (!haveText && confidence !== 'high') blocked = 'low_confidence';
+    else if (currentValue !== null && currentValue !== undefined && currentValue !== '' && String(currentValue) !== String(value))
+      blocked = 'conflict_with_existing';
+
+    if (blocked) {
+      queue.push({ ...base, reason: blocked });
+      continue;
+    }
+
+    if (currentValue !== null && currentValue !== undefined && currentValue !== '' && String(currentValue) === String(value)) {
+      // Same value, freshly re-verified — keep the citation current, skip the write.
+      citations[field] = {
+        value,
+        quote: quote.slice(0, 1500),
+        section_ref: sectionRef,
+        source_url: source?.url || '',
+        confidence: base.confidence,
+        verified_date: verifiedAt,
+        method: source?.method || null,
+        qc_verdict: verdict.verdict,
+      };
+      continue;
+    }
+
+    patch[field] = value;
+    citations[field] = {
+      value,
+      quote: quote.slice(0, 1500),
+      section_ref: sectionRef,
+      source_url: source?.url || '',
+      confidence: base.confidence,
+      verified_date: verifiedAt,
+      method: source?.method || null,
+      qc_verdict: verdict.verdict,
+    };
+  }
+
+  return { patch, citations, queue, verifiedAt };
+}
+
+/**
+ * Roll the gated result up into the registry-level status fields.
+ */
+export function buildRecordPatch({ existing, patch, citations, queue, source, runId, notes }) {
+  const merged = { ...(existing || {}), ...patch };
+  const score = completenessScore(merged);
+  const citedCritical = CRITICAL_FIELDS.filter((f) => merged[f] !== null && merged[f] !== undefined && citations?.[f]?.quote).length;
+
+  let status = 'unverified';
+  if (queue.length) status = queue.some((q) => q.reason === 'conflict_with_existing') ? 'conflict' : 'needs_review';
+  else if (score > 0 && citedCritical === score) status = score >= CRITICAL_FIELDS.length ? 'verified' : 'partial';
+  else if (score > 0) status = 'partial';
+
+  return {
+    ...patch,
+    field_citations: citations,
+    completeness_score: score,
+    verification_status: status,
+    last_verified_date: new Date().toISOString(),
+    last_source_method: source?.method || 'registry_only',
+    review_required: queue.length > 0,
+    codehawk_run_id: runId || undefined,
+    ...(source?.url ? { source_url: source.url } : {}),
+    ...(notes ? { extraction_notes: String(notes).slice(0, 1200) } : {}),
+  };
+}

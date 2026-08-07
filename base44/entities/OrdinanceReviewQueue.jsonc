@@ -1,0 +1,117 @@
+{
+  "name": "OrdinanceReviewQueue",
+  "type": "object",
+  "description": "Admin review queue for ordinance values CodeHawk would not write automatically \u2014 conflicts with an existing registry value, missing verbatim quote or section reference, low confidence, or a failed QC pass. Nothing here has been written to TelecomOrdinance.",
+  "properties": {
+    "jurisdiction": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "description": "Two-letter uppercase state code."
+    },
+    "ordinance_id": {
+      "type": "string",
+      "description": "ID of the TelecomOrdinance record this proposal belongs to, when one exists."
+    },
+    "field_name": {
+      "type": "string",
+      "description": "The ordinance field in question (e.g. fall_zone_ft)."
+    },
+    "proposed_value": {
+      "type": "string",
+      "description": "The value CodeHawk extracted, rendered as text so numbers, booleans, and rule strings share one column."
+    },
+    "current_value": {
+      "type": "string",
+      "description": "What the registry holds today, rendered as text. Empty when the field was blank."
+    },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "conflict_with_existing",
+        "no_quote",
+        "no_section_ref",
+        "low_confidence",
+        "qc_failed",
+        "ambiguous_source",
+        "multiple_candidates"
+      ],
+      "description": "Why this could not be auto-written."
+    },
+    "quote": {
+      "type": "string",
+      "description": "Verbatim ordinance text CodeHawk relied on, when it captured one."
+    },
+    "section_ref": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "qc_verdict": {
+      "type": "string",
+      "description": "What the quality-control pass concluded about this value."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "resolved_by": {
+      "type": "string",
+      "description": "Email of the admin who approved or rejected it."
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolution_note": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "The CodeHawkRun that produced this item."
+    }
+  },
+  "required": [
+    "jurisdiction",
+    "state",
+    "field_name",
+    "reason"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

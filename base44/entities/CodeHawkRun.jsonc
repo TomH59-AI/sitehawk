@@ -1,0 +1,135 @@
+{
+  "name": "CodeHawkRun",
+  "type": "object",
+  "description": "One CodeHawk Superagent processing run \u2014 either a nightly batch or a single on-demand jurisdiction hunt. Powers the CodeHawk processing dashboard.",
+  "properties": {
+    "run_type": {
+      "type": "string",
+      "enum": [
+        "nightly_batch",
+        "on_demand",
+        "manual_batch",
+        "dry_run"
+      ],
+      "description": "What kicked the run off."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed"
+      ],
+      "default": "running"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "duration_ms": {
+      "type": "number"
+    },
+    "batch_size": {
+      "type": "number",
+      "description": "How many jurisdictions this run was asked to process."
+    },
+    "state_filter": {
+      "type": "string",
+      "description": "Two-letter state code when the run was scoped to one state."
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "backfill",
+        "discovery",
+        "mixed",
+        "single"
+      ],
+      "description": "backfill = repair incomplete existing records; discovery = add new jurisdictions from JurisdictionRegistry."
+    },
+    "processed": {
+      "type": "number",
+      "default": 0
+    },
+    "improved": {
+      "type": "number",
+      "default": 0,
+      "description": "Records where at least one critical field was newly verified."
+    },
+    "created": {
+      "type": "number",
+      "default": 0,
+      "description": "New TelecomOrdinance records written."
+    },
+    "queued_for_review": {
+      "type": "number",
+      "default": 0
+    },
+    "unchanged": {
+      "type": "number",
+      "default": 0
+    },
+    "failed": {
+      "type": "number",
+      "default": 0
+    },
+    "fields_verified": {
+      "type": "number",
+      "default": 0,
+      "description": "Total count of individual fields written with a QC-passed citation."
+    },
+    "oxylabs_calls": {
+      "type": "number",
+      "default": 0,
+      "description": "How many times the direct fetch failed and CodeHawk had to escalate to Oxylabs."
+    },
+    "direct_fetch_calls": {
+      "type": "number",
+      "default": 0
+    },
+    "results": {
+      "type": "array",
+      "description": "Per-jurisdiction outcome for this run.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "error": {
+      "type": "string"
+    },
+    "triggered_by": {
+      "type": "string",
+      "description": "Email of the user who started the run, or 'scheduler'."
+    }
+  },
+  "required": [
+    "run_type"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
