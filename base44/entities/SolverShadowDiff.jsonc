@@ -1,0 +1,88 @@
+{
+  "name": "SolverShadowDiff",
+  "type": "object",
+  "description": "One recorded disagreement between the live hawkfitGeometry engine and HawkPerchSolver v2, captured while the live engine is still authoritative. Collected during normal app use so the cutover decision rests on real sites rather than argument. Deduped per site+outcome by the client.",
+  "properties": {
+    "surface": {
+      "type": "string",
+      "description": "Where the comparison ran: HawkFit, HawkFitPipeline, or CustomizeProbe."
+    },
+    "jurisdiction": {
+      "type": "string"
+    },
+    "lat": {
+      "type": "number"
+    },
+    "lon": {
+      "type": "number"
+    },
+    "live_code": {
+      "type": "string",
+      "description": "Error code from the live engine, or empty when it allowed the point."
+    },
+    "live_max_ft": {
+      "type": "number"
+    },
+    "live_setback_ft": {
+      "type": "number",
+      "description": "The single setback the live engine applied \u2014 max(front, side, rear)."
+    },
+    "v2_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Every code v2 returned. v2 reports all failures, not just the first."
+    },
+    "v2_max_ft": {
+      "type": "number"
+    },
+    "v2_rung": {
+      "type": "string",
+      "description": "Height rung, or FAIL."
+    },
+    "binding_constraint": {
+      "type": "string",
+      "description": "Which rule capped the height at this point."
+    },
+    "edge_classification": {
+      "type": "string",
+      "enum": [
+        "explicit",
+        "default_side"
+      ],
+      "description": "default_side means frontage was unknown, so the front setback was not applied."
+    },
+    "delta_ft": {
+      "type": "number",
+      "description": "v2 max height minus live max height. Positive means v2 found more buildable height."
+    },
+    "explanation": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "surface"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
