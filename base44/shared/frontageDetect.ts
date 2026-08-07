@@ -49,12 +49,18 @@ export interface FrontageOptions {
   cornerToleranceFt?: number;
   /** Edge indices known to abut residential zoning, merged into the result. */
   residentialEdgeIndices?: number[];
+  /** Maximum street frontages to assign. Genuine corner lots have two. */
+  maxFrontages?: number;
 }
 
 const DEFAULTS = {
   maxFrontageDistFt: 250,
   cornerToleranceFt: 40,
+  maxFrontages: 2,
 };
+
+/** A road this close is running through or along the parcel, not fronting it. */
+const ROAD_INSIDE_FT = 3;
 
 function distanceToSegment(p: Point, a: Point, b: Point): number {
   const dx = b.x - a.x;
@@ -166,7 +172,26 @@ export function typeParcelEdges(
 
   // Front: the nearest edge, plus any other edge within the corner tolerance —
   // a genuine second street frontage, which carries its own front setback.
-  const frontIdx = measured.filter((m) => m.dist <= nearest + cornerTol).map((m) => m.index);
+  //
+  // Two guards, both found by running this against live OSM data:
+  //
+  // 1. The tolerance must SCALE. A fixed 40 ft window on a 300 ft lot whose
+  //    nearest road is touching it captured three of four edges, applying the
+  //    strictest setback to three sides and needlessly killing the site.
+  // 2. The count is CAPPED. A real corner lot has two street frontages. Three or
+  //    more means the parcel sits on an intersection, a road crosses it, or the
+  //    boundary is wrong — so we take the two nearest and drop confidence rather
+  //    than over-restricting on a guess.
+  const shortestEdge = Math.min(...measured.map((m) => m.lengthFt).filter((l) => l > 0));
+  const scaledTol = Math.min(cornerTol, Number.isFinite(shortestEdge) ? shortestEdge * 0.15 : cornerTol);
+  const maxFronts = Math.max(1, options.maxFrontages ?? DEFAULTS.maxFrontages);
+
+  const withinTol = measured
+    .filter((m) => m.dist <= nearest + scaledTol)
+    .sort((a, b) => a.dist - b.dist);
+  const overFronted = withinTol.length > maxFronts;
+  const frontIdx = withinTol.slice(0, maxFronts).map((m) => m.index);
+  const roadInsideParcel = nearest <= ROAD_INSIDE_FT;
 
   // Rear: the edge farthest from a road that runs roughly parallel to a front
   // edge. The parallelism test keeps a long flanking side line from being
@@ -194,14 +219,22 @@ export function typeParcelEdges(
   // farther from every other edge.
   const otherDists = notFront.map((m) => m.dist);
   const gap = otherDists.length ? Math.min(...otherDists) - nearest : Infinity;
-  const confidence: FrontageResult['confidence'] =
+  let confidence: FrontageResult['confidence'] =
     nearest <= 120 && gap >= 60 ? 'high' : gap >= 20 ? 'medium' : 'low';
+  // More candidate frontages than a corner lot can have, or a road sitting on
+  // top of the boundary, both mean a human should look at this.
+  if (overFronted || roadInsideParcel) confidence = 'low';
 
   const frontName = measured.find((m) => m.index === frontIdx[0])?.name;
-  const base =
+  let base =
     frontIdx.length > 1
       ? `Corner lot — ${frontIdx.length} street frontages detected, each carrying the front setback.`
       : `Frontage detected ${Math.round(nearest)} ft from ${frontName || 'the nearest mapped road'}.`;
+  if (roadInsideParcel) {
+    base = `A mapped road runs along or through this boundary (${Math.round(nearest)} ft). ${base} Check the parcel boundary and any right-of-way before relying on this.`;
+  } else if (overFronted) {
+    base = `${withinTol.length} edges are equally close to a road — the parcel may sit on an intersection. Took the ${maxFronts} nearest as frontage. ${base}`;
+  }
 
   return {
     edgeSpecs,
