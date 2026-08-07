@@ -8,7 +8,11 @@
  *
  * Pipeline:
  *   1. Ordinance rules for the governing jurisdiction (registry first).
- *   2. Road centerlines -> per-edge frontage typing.
+ *   2. Edge typing ONLY IF the effective setbacks differ per edge. Registry
+ *      records store one setback applied to every line — the way tower
+ *      ordinances are actually written — so the common case needs no road data
+ *      at all, and Overpass (observed 504ing under load) stays off the
+ *      critical path.
  *   3. Solve the parcel: best site, max height, rung, binding constraint.
  *   4. Grade any supplied candidate points as Targets A / B / C.
  *   5. If the ordinance offers a PE fall-zone reduction, solve that scenario too.
@@ -20,7 +24,9 @@
  *   targets?: [[lon,lat], ...],            // candidate points to rank
  *   certified_radius_ft?: number,          // engineer-supplied breakpoint radius
  *   proposed_height_ft?: number,           // defaults to the district cap
- *   existing_towers?: [[lon,lat], ...]
+ *   existing_towers?: [[lon,lat], ...],
+ *   residential_edge_indices?: number[]    // which ring edges abut residential
+ *                                          // (from adjacent-parcel zoning — Realie)
  * }
  */
 
@@ -118,12 +124,53 @@ export default async function (req) {
       [0, 0]
     );
 
-    // 2. Frontage. A fetch failure must degrade to default_side, never to a
-    //    guessed frontage — the front setback is usually the strictest rule.
-    const rawRoads = await fetchRoads(centroid[1], centroid[0]);
-    const frontage = typeParcelEdges(points, rawRoads ? projectRoads(rawRoads, toFeet) : [], {});
-    if (rawRoads === null) {
-      frontage.note = 'Road data was unavailable, so every property line is treated as a side line. The front setback has NOT been applied — re-run before relying on this.';
+    // 2. Edge typing — only when it can change the answer.
+    //    With a uniform setback (every registry record today, and the SiteHawk
+    //    default) front/side/rear typing is a no-op, so no road fetch happens.
+    //    Residential adjacency comes from the caller (adjacent-parcel zoning),
+    //    not from roads — roads cannot tell you what the neighbour is zoned.
+    const residentialIdx: number[] = Array.isArray(body.residential_edge_indices)
+      ? body.residential_edge_indices.filter((i: any) => Number.isInteger(i) && i >= 0)
+      : [];
+
+    const prelim = buildSolverInputs(ordinance, { coords: points });
+    const sb = prelim.config.setbacks;
+    const uniformSetbacks = sb.front === sb.side && sb.side === sb.rear;
+
+    let edgeSpecs: any = undefined;
+    let frontage: any;
+    if (uniformSetbacks) {
+      if (residentialIdx.length) {
+        edgeSpecs = points.map((_: any, i: number) => ({
+          type: 'side',
+          abutsResidential: residentialIdx.includes(i),
+        }));
+      }
+      frontage = {
+        method: 'not_required',
+        confidence: 'high',
+        note: `A single ${sb.front} ft setback applies to every property line, so frontage typing cannot change the answer. Road data was not fetched.`,
+        edges: [],
+        road_data_available: null,
+      };
+    } else {
+      // Per-edge rules are in play — fetch roads. A fetch failure must degrade
+      // to default_side, never to a guessed frontage.
+      const rawRoads = await fetchRoads(centroid[1], centroid[0]);
+      const typed = typeParcelEdges(points, rawRoads ? projectRoads(rawRoads, toFeet) : [], {
+        residentialEdgeIndices: residentialIdx,
+      });
+      if (rawRoads === null) {
+        typed.note = 'Road data was unavailable, so every property line is treated as a side line. The front setback has NOT been applied — re-run before relying on this.';
+      }
+      edgeSpecs = typed.edgeSpecs;
+      frontage = {
+        method: typed.method,
+        confidence: typed.confidence,
+        note: typed.note,
+        edges: typed.diagnostics,
+        road_data_available: rawRoads !== null,
+      };
     }
 
     // 3. Solve.
@@ -133,7 +180,7 @@ export default async function (req) {
 
     const inputs = buildSolverInputs(
       ordinance,
-      { coords: points, edgeSpecs: frontage.edgeSpecs },
+      { coords: points, edgeSpecs },
       { certifiedRadiusFt: body.certified_radius_ft ?? null, existingTowers }
     );
     const solver = new HawkPerchSolver(inputs.config);
@@ -152,7 +199,7 @@ export default async function (req) {
       const probe = Math.max(40, Math.round((bestResult.best.nearestEdgeFt || 60) * 0.6));
       const peInputs = buildSolverInputs(
         ordinance,
-        { coords: points, edgeSpecs: frontage.edgeSpecs },
+        { coords: points, edgeSpecs },
         { certifiedRadiusFt: probe, existingTowers }
       );
       const peBest = new HawkPerchSolver(peInputs.config).findBestSite();
@@ -186,13 +233,7 @@ export default async function (req) {
         provenance: inputs.provenance,
         notes: inputs.notes,
       },
-      frontage: {
-        method: frontage.method,
-        confidence: frontage.confidence,
-        note: frontage.note,
-        edges: frontage.diagnostics,
-        road_data_available: rawRoads !== null,
-      },
+      frontage,
       best_site: describe(bestResult.best, inputs, toLngLat),
       headroom_ratio: Math.round(bestResult.headroomRatio * 1000) / 1000,
       proposed_height_ft: proposed,
