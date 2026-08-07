@@ -1,10 +1,18 @@
 /**
  * SourceBadge — tiny inline provenance tag shown next to each Section 2 zoning
  * field value. Muted, small-caps. Canonical tags:
- *   [Verified] · [Parcel Data] · [AI Research] · [Manual] · [Manual edit]
+ *   [Ordinance] · [Verified] · [Parcel Data] · [AI Research] · [Manual] · [Manual edit]
+ *
+ * "Ordinance" is the strongest tag we can show: the value came out of the
+ * SiteHawk ordinance registry, quoted from the jurisdiction's published code and
+ * carrying its section number. Before this existed, registry-sourced values fell
+ * through normalizeSource's final `return "manual"` and were badged MANUAL —
+ * our best-sourced data was being presented to subscribers as if a human had
+ * typed it in, and it was counted in the "Manual" tally on the header strip.
  */
 
 const STYLES = {
+  ordinance:     { label: "Ordinance",    cls: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" },
   verified:      { label: "Verified",     cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300" },
   parcel:        { label: "Parcel Data",  cls: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300" },
   ai:            { label: "AI Research",  cls: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300" },
@@ -17,6 +25,8 @@ export function normalizeSource(source, hasValue) {
   const s = String(source || "").toLowerCase();
   if (s === "manual edit") return "manual edit";
   if (!hasValue) return "manual";
+  // "SiteHawk Registry" and "SiteHawk Registry (cited)" — our own ordinance library.
+  if (s.includes("registry") || s.includes("sitehawk")) return "ordinance";
   if (s.includes("zoneomics")) return "verified";
   if (s.includes("realie")) return "parcel";
   if (s === "ai" || s.includes("web") || s.includes("research") || s.includes("notion")) return "ai";
