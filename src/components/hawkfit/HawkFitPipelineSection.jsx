@@ -5,6 +5,8 @@ import { Sparkles, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { computeFit, autoPlaceTower } from "@/lib/hawkfitGeometry";
 import { buildOrdinanceRules, evaluatePoint, COLOR_HEX } from "@/lib/aiEquation";
+import { recordShadow, ringFromGeometry } from "@/lib/solverShadow";
+import "@/lib/shadowPersist";
 import { resolveActiveTargetA, resolve3DContext } from "@/lib/hawkfitTargetResolver";
 import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
 import { saveTowerScenario } from "@/functions/saveTowerScenario";
@@ -152,6 +154,30 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       hasPELetter: solverRules.hasPELetter,
       fallZoneMultiplier: solverRules.fallZoneMultiplier,
     });
+    // SHADOW MODE — v2 alongside the live engine, identical rule values, live
+    // result untouched. See src/lib/solverShadow.ts.
+    recordShadow({
+      surface: "HawkFitPipeline",
+      parcelRing: ringFromGeometry(siteTarget?.parcel_geometry),
+      towerLngLat: lngLat,
+      proposedHeightFt: controls.heightFt,
+      liveResult: physical,
+      jurisdiction: zoningResult?._registry?.jurisdiction || siteTarget?.county || null,
+      ordinance: zoningResult?._registry || null,
+      setbacks: {
+        front: solverRules.fixedSetbackFt,
+        side: solverRules.fixedSetbackFt,
+        rear: solverRules.fixedSetbackFt,
+      },
+      maxHeightFt: solverRules.maxHeightFt,
+      fallZone: {
+        mode: "percent",
+        value: solverRules.hasPELetter
+          ? Math.min(0.9, Math.max(0.1, solverRules.fallZoneMultiplier))
+          : 1,
+      },
+    });
+
     const ordinance = evaluatePoint({
       parcelGeometry: siteTarget?.parcel_geometry || null,
       towerLngLat: lngLat,
