@@ -176,6 +176,14 @@ console.log('\n[A6b] Residential rule without edge flags is called out, never si
   const flagged = buildSolverInputs(BREVARD, { coords: lot, edgeSpecs: edges });
   check('no warning when an edge is flagged',
     !flagged.notes.some((n) => /NOT applied/i.test(n)));
+
+  // Adjacency WAS checked and found nothing residential: that is a finding,
+  // not a blind spot — the note flips from warning to all-clear.
+  const checked = buildSolverInputs(BREVARD, { coords: lot }, { residentialAdjacencyChecked: true });
+  check('checked-and-clear replaces the warning',
+    !checked.notes.some((n) => /NOT applied\. Heights may be overstated/i.test(n)) &&
+    checked.notes.some((n) => /does not bind any property line/i.test(n)),
+    checked.notes.join(' | '));
 }
 
 console.log('\n[A7] A fixed fall_zone_ft maps to certified_radius, not percent.');
