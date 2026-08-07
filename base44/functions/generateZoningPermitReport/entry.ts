@@ -16,7 +16,33 @@
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { secrets } from 'base44:runtime';
 import { findOrdinance } from '../../shared/telecomOrdinance.ts';
+import { CRITICAL_FIELDS, completenessScore } from '../../shared/codehawk.ts';
+import { processJurisdiction } from '../../shared/codehawkRun.ts';
+
+// ─── CodeHawk inline upgrade ────────────────────────────────────────────────
+// The subscriber's SCIP must come back with the zoning section filled, every
+// time. That already happens — the LLM gap-fill at STEP 4 fills whatever the
+// sanctioned sources leave empty, and it still does.
+//
+// What this adds is QUALITY, invisibly. When the registry has no record for the
+// SARF's jurisdiction (or is missing critical siting values), CodeHawk hunts the
+// official code IN PARALLEL with the gap-fill, so it costs almost no extra wall
+// clock. If it lands in time, the deliverable is filled from the actual
+// ordinance with a code citation instead of an inference. If it does not land,
+// times out, or fails, the report is assembled exactly as it is today.
+//
+// This path can only ADD to the report. It never blocks, never empties a field,
+// and never fails the SCIP.
+const CODEHAWK_BUDGET_MS = 45000;
+
+function withBudget(promise, ms) {
+  return Promise.race([
+    Promise.resolve(promise).catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
 
 // ─── HawkSCIP quota gate ─────────────────────────────────────────────────────
 // A HawkSCIP is spent when a user runs Zoning on a site for the FIRST time.
@@ -571,7 +597,38 @@ Deno.serve(async (req) => {
       ordinance,
     };
     const llmEngine = 'gemini';
-    const llmReport = await llmExtractReport(base44, llmCtx);
+
+    // STEP 4b — CodeHawk registry upgrade, run CONCURRENTLY with the gap-fill so
+    // it adds no meaningful wall clock to the subscriber's SCIP.
+    const huntJurisdiction = city || geo.county_name;
+    const needsUpgrade = !ordinance || completenessScore(ordinance) < CRITICAL_FIELDS.length;
+    const shouldHunt = needsUpgrade && Boolean(huntJurisdiction) && Boolean(geo.state_code);
+
+    const [llmReport, huntResult] = await Promise.all([
+      llmExtractReport(base44, llmCtx),
+      shouldHunt
+        ? withBudget(
+            processJurisdiction(base44, {
+              jurisdiction: huntJurisdiction,
+              state: geo.state_code,
+              existing: ordinance,
+              creds: {
+                oxylabs_username: secrets.get('OXYLABS_USERNAME'),
+                oxylabs_password: secrets.get('OXYLABS_PASSWORD'),
+                scrapfly_key: secrets.get('SCRAPFLY_API_KEY'),
+              },
+            }),
+            CODEHAWK_BUDGET_MS
+          )
+        : Promise.resolve(null),
+    ]);
+
+    // Re-read the registry only if CodeHawk actually wrote something.
+    let registry = ordinance;
+    if (huntResult && ['improved', 'created', 'reverified'].includes(huntResult.action)) {
+      const refreshed = await getTelecomOrdinance(base44, geo.state_code, huntJurisdiction).catch(() => null);
+      if (refreshed) registry = refreshed;
+    }
 
     const report = llmReport || {};
     report.zoning_overview = report.zoning_overview || {};
