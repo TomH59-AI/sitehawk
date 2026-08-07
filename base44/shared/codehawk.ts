@@ -412,6 +412,23 @@ export async function fetchOrdinanceSource(base44, url, counters = {}, creds = {
 const SOURCE_SCHEMA = {
   type: 'object',
   properties: {
+    governing_body: {
+      type: 'string',
+      description: 'The body that actually adopts land-use regulation here — the municipality if the place is incorporated, otherwise the county-equivalent.',
+    },
+    place_incorporated: {
+      type: 'boolean',
+      description: 'True if the named place is an incorporated municipality. False for a census-designated place, unincorporated community, or other unincorporated area.',
+    },
+    code_type: {
+      type: 'string',
+      enum: ['udo', 'land_development_code', 'zoning_ordinance', 'municipal_code', 'none'],
+      description: 'What instrument carries the tower rules. Unincorporated county land is usually governed by a UDO or a Land Development Code rather than a municipal code.',
+    },
+    no_local_code: {
+      type: 'boolean',
+      description: 'True ONLY when the governing body has adopted no zoning or land-development regulation at all — an unzoned county, or land with no local government. This is a real and correct answer in parts of the country.',
+    },
     candidates: {
       type: 'array',
       items: {
