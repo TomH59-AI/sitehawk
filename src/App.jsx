@@ -95,6 +95,7 @@ import HawkLawHistory from './pages/hawklaw/HawkLawHistory';
 import FiberLayersAdmin from './pages/FiberLayersAdmin';
 import RfiEngine from './pages/RfiEngine';
 import ZoningVerifier from './pages/ZoningVerifier';
+import CodeHawk from './pages/CodeHawk';
 import AnthemNetScip from './pages/AnthemNetScip';
 import SkipTrace from './pages/SkipTrace';
 import FiberOperators from './pages/FiberOperators';
@@ -196,8 +197,12 @@ const AuthenticatedApp = () => {
         <Route path="/rfi-engine" element={<RfiEngine />} />
         {/* Hawk Zoning Verifier — AI agent for zoning accuracy checks */}
         <Route path="/zoning-verifier" element={<ZoningVerifier />} />
-        {/* Ordinance Hunter retired — slot 12 is now the Permitting Applications Fetcher (/hawk-docs) */}
-        <Route path="/ordinance-hunter" element={<Navigate to="/hawk-docs" replace />} />
+        {/* CodeHawk — the Ordinance Hunter, reconnected. Registry-first recall,
+            coordinated hunt on a miss, processing dashboard and admin review queue.
+            The old /ordinance-hunter link now lands here instead of HawkDocs, which
+            keeps its own slot as the Permitting Applications Fetcher. */}
+        <Route path="/codehawk" element={<CodeHawk />} />
+        <Route path="/ordinance-hunter" element={<Navigate to="/codehawk" replace />} />
         <Route path="/scip/new" element={<ScipNew />} />
         <Route path="/scip/:id" element={<ScipDetail />} />
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}
