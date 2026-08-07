@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { MapContainer, TileLayer, Circle, Marker, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Circle, Marker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import TribalLandLayer from "./TribalLandLayer";
@@ -63,13 +63,22 @@ function targetIcon(letter, verdict) {
 function probeIcon(probe) {
   const v = probe.verdict;
   const bg = VERDICT_COLOR[v] || VERDICT_COLOR.pending;
+  // Every clicked point answers the same question: how tall can this spot go?
+  // A rejected point still reports its graded maximum when the solver produced
+  // one — only a true zero means nothing can be built here.
+  const maxFt = Number(probe.max_height_ft);
+  const hasMax = Number.isFinite(maxFt) && maxFt > 0;
   const head =
     v === "pending"
       ? "CHECKING…"
       : v === "fit"
-      ? `APPROVED — ${probe.max_height_ft} FT`
+      ? `APPROVED — ${maxFt} FT MAX`
       : v === "ejected"
-      ? "REJECTED"
+      ? hasMax
+        ? `REJECTED AT THIS HEIGHT — ${maxFt} FT MAX`
+        : "CANNOT BUILD HERE"
+      : hasMax
+      ? `VERIFY — ${maxFt} FT MAX`
       : "VERIFY";
   const body = v !== "pending" && v !== "fit" && probe.reason ? `<div style="font-weight:500;margin-top:3px">${probe.reason}</div>` : "";
   const coords = `<div style="font:600 10px/1.3 ui-monospace,monospace;opacity:.9;margin-top:3px">${probe.lat.toFixed(6)}, ${probe.lon.toFixed(6)}</div>`;
@@ -78,7 +87,7 @@ function probeIcon(probe) {
     html: `<div style="position:relative;width:240px">
       <div style="position:absolute;left:0;bottom:14px;width:240px;box-sizing:border-box;background:${bg};color:#fff;font:700 11px/1.35 system-ui;padding:6px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.45)">${head}${body}${coords}
         <div style="font-weight:500;opacity:.85;margin-top:3px">${
-          v === "fit" ? "Double-click to save this spot" : v === "pending" ? "" : "Not saveable — fails TalonFit®"
+          v === "fit" ? "Double-click to save this spot" : v === "pending" ? "" : "Not saveable — fails TalonFit™"
         }</div>
       </div>
       <div style="position:absolute;left:115px;bottom:0;width:10px;height:10px;border-radius:50%;background:${bg};border:2px solid #fff"></div>
@@ -108,7 +117,29 @@ function ClickCatcher({ center, onProbe, onSave, enabled }) {
   return null;
 }
 
-// TalonFit® ring map — SRC waypoint + 0.25 / 0.50 / 1 / 2-mile radii (2 miles is
+// Large, obvious zoom controls. Leaflet's default pair is tiny and sits under
+// the layer panel, so the scout gets its own set placed clear of everything.
+function ZoomButtons() {
+  const map = useMap();
+  const btn =
+    "flex h-9 w-9 items-center justify-center rounded-md bg-black/70 text-lg font-bold text-white shadow backdrop-blur hover:bg-black/90";
+  return (
+    <div className="absolute bottom-3 right-3 z-[500] flex flex-col gap-1.5">
+      <button type="button" title="Zoom in" className={btn} onClick={() => map.zoomIn()}>+</button>
+      <button type="button" title="Zoom out" className={btn} onClick={() => map.zoomOut()}>−</button>
+      <button
+        type="button"
+        title="Re-center on the search ring"
+        className="flex h-9 w-9 items-center justify-center rounded-md bg-black/70 text-[10px] font-bold text-white shadow backdrop-blur hover:bg-black/90"
+        onClick={() => map.setView(map.options.center, 12)}
+      >
+        SRC
+      </button>
+    </div>
+  );
+}
+
+// TalonFit™ ring map — SRC waypoint + 0.25 / 0.50 / 1 / 2-mile radii (2 miles is
 // the contract maximum). Click to grade a point, double-click to save it as D/E/F.
 export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, onSelect, canPick }) {
   const [tribalOn, setTribalOn] = useState(false);
@@ -238,6 +269,7 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
         ))}
         {probe && <Marker position={[probe.lat, probe.lon]} icon={probeIcon(probe)} interactive={false} />}
         <ClickCatcher center={[center.lat, center.lon]} onProbe={onProbe} onSave={onSave} enabled={canPick} />
+        <ZoomButtons />
       </MapContainer>
     </div>
   );

@@ -90,6 +90,33 @@ export default function ScoutPanel({ onActiveTargetChange }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Changing the requested height, the compound footprint, or the PE-letter
+  // switch changes the ANSWER. A readout still showing a number solved against
+  // the old inputs is wrong data, so every point already on the map — the
+  // clicked probe and each saved D/E/F target — is re-graded here. Debounced so
+  // typing a height doesn't fire a solve per keystroke.
+  useEffect(() => {
+    if (!center) return;
+    const t = setTimeout(async () => {
+      if (probe) handleProbe({ lat: probe.lat, lon: probe.lon });
+      for (const tg of targets) {
+        const { data } = await solvePoint(tg.lat, tg.lon, targets.length);
+        const r = data?.calculated_result || {};
+        patch(tg.id, {
+          verdict: VERDICT[r.decision] || "verify",
+          decision: r.decision,
+          reason: r.reasons?.[0] || null,
+          max_height_ft: r.maximum_buildable_height_ft,
+          binding_constraint: r.binding_constraint || null,
+          effective_multiplier: r.effective_fall_zone_multiplier ?? null,
+          pe_letter_required: !!r.pe_letter_required,
+        });
+      }
+    }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposal.requested_height_ft, proposal.compound_width_ft, proposal.compound_depth_ft, peLetter]);
+
   const selectTarget = (id) => {
     setActiveId(id);
     onActiveTargetChange?.(targets.find((t) => t.id === id) || null);
@@ -265,10 +292,13 @@ export default function ScoutPanel({ onActiveTargetChange }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Crosshair className="h-4 w-4 text-primary" />
-          TalonFit-AI-1.0 Scout
+          TalonFit™ Scout
+          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+            Patent Pending
+          </span>
         </div>
         <span className="text-xs text-muted-foreground">
-          Patent-pending, all-the-data-in-one-click · click inside the 2-mile search ring to solve a point ·
+          All-the-data-in-one-click · click inside the 2-mile search ring to solve a point ·
           double-click saves only an APPROVED result
         </span>
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">

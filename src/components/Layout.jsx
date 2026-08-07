@@ -38,7 +38,7 @@ const BASE_NAV = [
   { path: "/hawk-lease", icon: FileSignature, label: "15 · HawkLease" },
   { path: "/government-forms", icon: Landmark, label: "16 · Government Forms" },
   { header: "MORE TOOLS" },
-  { path: "/talonfit", icon: Zap, label: "⚡ TalonFit®" },
+  { path: "/talonfit", icon: Zap, label: "⚡ TalonFit™" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/crm", icon: Briefcase, label: "SiteHawk CRM" },
   { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
