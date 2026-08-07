@@ -116,8 +116,12 @@ export default async function (req) {
       if (body.state) query.state = String(body.state).toUpperCase();
       if (body.jurisdiction) query.jurisdiction = String(body.jurisdiction);
 
-      const items = await base44.asServiceRole.entities.OrdinanceReviewQueue.filter(query, '-created_date', limit, skip);
-      return Response.json({ ok: true, status, count: (items || []).length, items: items || [] });
+      // filter(query, sort, limit) is the form used everywhere else in this app.
+      // Paging is done here rather than with a 4th skip argument, which has no
+      // precedent in this codebase and is not worth betting the queue UI on.
+      const fetched = await base44.asServiceRole.entities.OrdinanceReviewQueue.filter(query, '-created_date', limit + skip);
+      const items = (fetched || []).slice(skip);
+      return Response.json({ ok: true, status, count: items.length, items });
     }
 
     if (action === 'approve' || action === 'reject') {
