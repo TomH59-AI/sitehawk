@@ -67,10 +67,20 @@ export interface SolverInputs {
   notes: string[];
 }
 
-/** SiteHawk defaults, used only where the ordinance is silent. */
+/**
+ * SiteHawk defaults, used only where the ordinance is silent.
+ *
+ * The default setback is deliberately UNIFORM. Tower ordinances almost always
+ * write setbacks as one distance "from all property lines", and the registry
+ * stores one setback figure — so front/side/rear differentiation is not part of
+ * the core equation. A uniform default also means edge typing (which line is
+ * the road frontage) is not required for the common case, keeping road-data
+ * lookups off the critical path. 50 ft is the conservative end of the old
+ * 50/25/25 split.
+ */
 export const DEFAULTS = {
   maxHeightLimit: 199,
-  setbacks: { front: 50, side: 25, rear: 25 } as Setbacks,
+  setbacks: { front: 50, side: 50, rear: 50 } as Setbacks,
   fallZonePercent: 1.0,
   minViableHeight: 100,
 };
@@ -227,7 +237,7 @@ export function buildSolverInputs(
     provenanceOf(rec, 'setback_ft', setbackStated),
     setbackStated !== null
       ? `${setbackStated} ft applied to every property line — the ordinance states a single setback.`
-      : 'No numeric setback found — using SiteHawk defaults (front 50 / side 25 / rear 25). Verify against the code.',
+      : 'No numeric setback found — using the uniform 50 ft SiteHawk default on every line. Verify against the code.',
     setbackStated === null
   );
   if (setbackStated === null && rec.setback_rule) {
@@ -319,8 +329,22 @@ export function buildSolverInputs(
     minViableHeight: DEFAULTS.minViableHeight,
   };
 
-  if (!parcel.edgeSpecs?.length) {
+  // Edge typing only matters when the setbacks actually differ per edge. With a
+  // uniform setback (the registry case, and now the default case) every line
+  // carries the same rule, so an untyped ring loses nothing.
+  const uniformSetbacks = setbacks.front === setbacks.side && setbacks.side === setbacks.rear;
+  if (!parcel.edgeSpecs?.length && !uniformSetbacks) {
     notes.push('No frontage typing supplied — every property line is treated as a side line and the result is flagged default_side.');
+  }
+
+  // The rule that genuinely needs edge identity is residential separation — and
+  // that comes from ADJACENT-PARCEL ZONING, not road geometry. If the rule
+  // exists but no edge is flagged, the solver cannot apply it, and silently
+  // dropping a known rule is the permissive failure. Say so.
+  if (residentialSeparation && !parcel.edgeSpecs?.some((e) => e.abutsResidential)) {
+    notes.push(
+      'A residential separation rule applies here, but which property lines abut residential is unknown (needs adjacent-parcel zoning) — the rule was NOT applied. Heights may be overstated near residential; verify before relying on them.'
+    );
   }
 
   return {
