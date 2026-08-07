@@ -76,16 +76,23 @@ async function resolveSource(base44, { jurisdiction, state, existing, counters, 
   if (existing?.source_url && !forceDiscovery) {
     const known = await fetchOrdinanceSource(base44, existing.source_url, counters, creds, false);
     if (isUsableSource(known)) {
-      return { ...known, signal: known.file_url ? 8 : towerSignal(known.text), tried: [{ url: existing.source_url, ok: true, method: known.method }] };
+      return {
+        ...known,
+        signal: known.file_url ? 8 : towerSignal(known.text),
+        tried: [{ url: existing.source_url, ok: true, method: known.method }],
+        governance: null,
+      };
     }
   }
 
-  const candidates = await discoverSourceCandidates(base44, jurisdiction, state, 4);
+  const discovery = await discoverSourceCandidates(base44, jurisdiction, state, 4);
+  const candidates = discovery.candidates;
   // Keep the known-good URL in the running as a fallback the renderer can retry.
   if (existing?.source_url && !candidates.some((c) => c.url === existing.source_url)) {
     candidates.push({ url: existing.source_url, publisher: 'registry', section_hint: existing.section_ref || '' });
   }
-  return await resolveBestSource(base44, candidates, counters, creds);
+  const resolved = await resolveBestSource(base44, candidates, counters, creds);
+  return { ...resolved, governance: discovery.governance };
 }
 
 /**
@@ -124,10 +131,19 @@ export async function processJurisdiction(base44, options) {
 
     const source = await resolveSource(base44, { jurisdiction, state: stateCode, existing, counters, creds, forceDiscovery });
     result.sources_tried = source?.tried || [];
+    result.governance = source?.governance || null;
 
     if (!isUsableSource(source)) {
-      result.action = 'no_source';
-      result.reason = source?.reason || 'no_usable_source';
+      // Distinguish "no local code exists" from "we could not find the code".
+      // An unzoned county, or land with no local government, genuinely has no
+      // tower ordinance — that is the correct answer, not a failed lookup, and
+      // the deliverable should say so rather than inferring rules that no body
+      // has actually adopted.
+      const gov = source?.governance;
+      const noLocalCode = gov?.no_local_code === true;
+      result.action = noLocalCode ? 'no_local_code' : 'no_source';
+      result.reason = noLocalCode ? 'governing_body_has_adopted_no_land_use_regulation' : source?.reason || 'no_usable_source';
+      result.unincorporated = gov?.place_incorporated === false;
 
       // Stamp the attempt so the cooldown applies. Without this, a jurisdiction
       // whose code we cannot find would be re-hunted every single night forever,
@@ -135,10 +151,12 @@ export async function processJurisdiction(base44, options) {
       // first N gaps. Recording "we looked and found nothing" is both honest and
       // what lets tomorrow's batch move on to new ground.
       if (!dryRun) {
-        const note = `CodeHawk found no usable published code source (${result.reason}). Tried: ${(source?.tried || [])
-          .map((t) => t.url)
-          .slice(0, 4)
-          .join(', ') || 'no candidates returned'}.`;
+        const note = noLocalCode
+          ? `Un-Incorporated Jurisdiction. ${gov?.governing_body || 'The governing body'} has adopted no zoning or land-development regulation covering wireless towers. Confirmed ${new Date().toISOString().slice(0, 10)}.`
+          : `CodeHawk found no usable published code source (${result.reason}). Tried: ${(source?.tried || [])
+              .map((t) => t.url)
+              .slice(0, 4)
+              .join(', ') || 'no candidates returned'}.`;
         try {
           if (existing?.id) {
             await base44.asServiceRole.entities.TelecomOrdinance.update(existing.id, {
