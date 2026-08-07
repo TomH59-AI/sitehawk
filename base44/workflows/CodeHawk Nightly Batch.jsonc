@@ -1,0 +1,51 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 3 * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "CodeHawk Nightly Batch",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "codehawk_nightly_batch",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "codehawk_batch": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "codehawkBatch",
+            "args": {
+              "batch_size": 25,
+              "mode": "backfill",
+              "cooldown_days": 30,
+              "concurrency": 5,
+              "time_budget_ms": 240000
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Run the CodeHawk backfill batch",
+            "description": "25 jurisdictions, weakest and stalest first"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Runs the CodeHawk Superagent pipeline against 25 jurisdictions a night, prioritising registry records that are missing one or more of the six critical tower-siting values. Each jurisdiction gets parallel source discovery, a direct fetch that escalates to OxyLabs only when blocked, extraction from the retrieved text, an adversarial quality-control pass, and a cited write. Anything unproven goes to the admin review queue instead of the registry. A 30-day cooldown prevents re-grinding jurisdictions whose codes simply do not state a rule."
+}
