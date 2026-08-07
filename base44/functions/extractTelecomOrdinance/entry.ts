@@ -678,7 +678,19 @@ ORDINANCE TEXT:\n${text.slice(0, 140000)}`,
       console.log(
         `Ordinance extraction ${normalized.status}: user=${user.email} source=supplied_text jurisdiction=${normalized.jurisdiction || jurisdictionLabel} chars=${text.length}`
       );
-      return Response.json({ ordinance_metadata: { ...normalized, selected_source: 'supplied_text', source_url: source_url || null } });
+      // normalizeFallbackResult only knows the research-cascade sources, so the
+      // attribution is corrected here: this came from text the caller handed us.
+      return Response.json({
+        ordinance_metadata: {
+          ...normalized,
+          selected_source: 'supplied_text',
+          data_source: 'supplied_text',
+          source_attribution: source_url
+            ? `Ordinance text retrieved from ${source_url} and extracted directly (no re-research)`
+            : 'Caller-supplied ordinance text extracted directly (no re-research)',
+          source_url: source_url || null,
+        },
+      });
     }
 
     if (lat === undefined || lat === null || lon === undefined || lon === null) {
