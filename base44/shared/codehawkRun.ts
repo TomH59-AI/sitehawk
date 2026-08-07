@@ -128,6 +128,45 @@ export async function processJurisdiction(base44, options) {
     if (!isUsableSource(source)) {
       result.action = 'no_source';
       result.reason = source?.reason || 'no_usable_source';
+
+      // Stamp the attempt so the cooldown applies. Without this, a jurisdiction
+      // whose code we cannot find would be re-hunted every single night forever,
+      // and in discovery mode the batch would never advance past the same failing
+      // first N gaps. Recording "we looked and found nothing" is both honest and
+      // what lets tomorrow's batch move on to new ground.
+      if (!dryRun) {
+        const note = `CodeHawk found no usable published code source (${result.reason}). Tried: ${(source?.tried || [])
+          .map((t) => t.url)
+          .slice(0, 4)
+          .join(', ') || 'no candidates returned'}.`;
+        try {
+          if (existing?.id) {
+            await base44.asServiceRole.entities.TelecomOrdinance.update(existing.id, {
+              last_verified_date: new Date().toISOString(),
+              last_source_method: 'registry_only',
+              extraction_notes: note.slice(0, 1200),
+            });
+          } else {
+            const stub = await base44.asServiceRole.entities.TelecomOrdinance.create({
+              jurisdiction,
+              jurisdiction_normalized: normalizeJurisdiction(jurisdiction),
+              state: stateCode,
+              verification_status: 'unverified',
+              completeness_score: 0,
+              review_required: false,
+              last_verified_date: new Date().toISOString(),
+              last_source_method: 'registry_only',
+              codehawk_run_id: runId || undefined,
+              extraction_notes: note.slice(0, 1200),
+            });
+            result.ordinance_id = stub?.id || null;
+            result.stub_created = true;
+          }
+        } catch (stampError) {
+          result.stamp_error = String(stampError?.message || stampError).slice(0, 200);
+        }
+      }
+
       return result;
     }
 
