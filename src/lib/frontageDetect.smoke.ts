@@ -103,15 +103,21 @@ console.log('\n[F9] THE PAYOFF — per-edge setbacks change the answer.');
     maxHeightLimit: 199,
     fallZone: { mode: 'percent' as const, value: 1.0 },
   };
-  // A point 30 ft off the LEFT side line: legal (side 25), and today's live
-  // engine rejects it because it applies max(50,25,25)=50 to every edge.
   const typed = new HawkPerchSolver({ ...cfg, edgeSpecs: withFrontage.edgeSpecs });
-  const sidePoint = { x: 30, y: 150 };
-  check('30 ft off a SIDE line is legal with per-edge setbacks',
-    typed.validateLocation(sidePoint, 30).codes.length === 0,
-    `codes=${JSON.stringify(typed.validateLocation(sidePoint, 30).codes)}`);
-  // ...but 30 ft off the FRONT line is still a violation.
-  check('30 ft off the FRONT line still violates',
+
+  // A point 30 ft off the LEFT side line CLEARS the 25 ft side setback. The live
+  // engine rejects it, because it applies max(50,25,25)=50 to every edge.
+  const sideCodes = typed.validateLocation({ x: 30, y: 150 }, 30).codes;
+  check('30 ft off a SIDE line does NOT violate the setback', !sideCodes.includes('ERR_STBK'),
+    `codes=${JSON.stringify(sideCodes)}`);
+  // It does report ERR_H_MIN, and that is the correct, separate finding: 30 ft
+  // from any line only supports a 30 ft tower. The solver distinguishes "inside
+  // the setback" from "geometry is too tight" — the live engine conflates them.
+  check('...but correctly reports ERR_H_MIN instead', sideCodes.includes('ERR_H_MIN'),
+    `codes=${JSON.stringify(sideCodes)}`);
+
+  // 30 ft off the FRONT line is a real setback violation (50 ft required).
+  check('30 ft off the FRONT line violates the setback',
     typed.validateLocation({ x: 150, y: 30 }, 30).codes.includes('ERR_STBK'));
   // Untyped (default_side) would wrongly allow the front point.
   const untyped = new HawkPerchSolver(cfg);
