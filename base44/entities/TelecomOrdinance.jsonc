@@ -1,7 +1,7 @@
 {
   "name": "TelecomOrdinance",
   "type": "object",
-  "description": "Telecom (cell tower) ordinance rules per jurisdiction \u2014 migrated from the legacy Supabase telecom_ordinances table. App-wide shared reference data used by HawkPerch / Tower Siter ordinance lookups.",
+  "description": "Telecom (cell tower) ordinance rules per jurisdiction \u2014 the SiteHawk registry. Read first by HawkPerch / Tower Siter / the SCIP zoning report. Maintained by the CodeHawk pipeline, which writes field-level citations into field_citations and routes anything it cannot prove to OrdinanceReviewQueue.",
   "properties": {
     "jurisdiction": {
       "type": "string",
@@ -50,6 +50,55 @@
     },
     "section_ref": {
       "type": "string"
+    },
+    "fall_zone_pct_of_height": {
+      "type": "number",
+      "description": "Fall zone expressed as a percentage of tower height when the code uses a formula instead of a fixed distance."
+    },
+    "pe_letter_required": {
+      "type": "boolean",
+      "description": "True when the code REQUIRES a sealed PE letter (distinct from pe_fall_zone_allowed, which is whether a PE letter can REDUCE the fall zone/setback)."
+    },
+    "field_citations": {
+      "type": "object",
+      "description": "Per-field provenance written by CodeHawk. Keys are ordinance field names (height_limit_ft, setback_ft, fall_zone_ft, residential_separation_ft, tower_separation_ft, pe_fall_zone_allowed, ...). Each value is { value, quote, section_ref, source_url, confidence, verified_date, method, qc_verdict }.",
+      "additionalProperties": true
+    },
+    "verification_status": {
+      "type": "string",
+      "enum": [
+        "unverified",
+        "partial",
+        "verified",
+        "needs_review",
+        "conflict"
+      ],
+      "description": "Registry trust level. 'verified' means every populated critical field carries a QC-passed verbatim quote and section reference."
+    },
+    "completeness_score": {
+      "type": "number",
+      "description": "How many of the six critical tower-siting values are populated (0-6): height, setback, fall zone, residential separation, tower separation, PE-letter allowance."
+    },
+    "last_verified_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When CodeHawk last confirmed this record against the official code source. Also stamped on a failed hunt so the batch cooldown applies."
+    },
+    "last_source_method": {
+      "type": "string",
+      "description": "How the source text was obtained on the last run: direct_html, direct_pdf, oxylabs, scrapfly, or registry_only."
+    },
+    "review_required": {
+      "type": "boolean",
+      "description": "True when one or more extracted values are queued in OrdinanceReviewQueue awaiting an admin decision."
+    },
+    "codehawk_run_id": {
+      "type": "string",
+      "description": "ID of the CodeHawkRun that last touched this record."
+    },
+    "extraction_notes": {
+      "type": "string",
+      "description": "Short human-readable note from the last extraction/QC pass \u2014 what was found, what was missing, and why."
     }
   },
   "required": [
