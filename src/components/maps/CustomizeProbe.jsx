@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { computePhysicalFit } from "@/lib/hawkfitGeometry";
+import { recordShadow, ringFromGeometry } from "@/lib/solverShadow";
+import "@/lib/shadowPersist";
 
 const EMPTY = { type: "FeatureCollection", features: [] };
 
@@ -35,6 +37,9 @@ const STATUS = {
 export default function CustomizeProbe({
   mapRef, ready, parcelGeometry, zoning,
   heightFt = 199, widthFt = 100, depthFt = 100,
+  // Optional: when the host page holds an ordinance record and setbacks, pass
+  // them so shadow mode compares engines rather than rule sources.
+  ordinance = null, setbacks = null, maxHeightFt = null, jurisdiction = null,
 }) {
   const [on, setOn] = useState(false);
   const [pt, setPt] = useState(null); // [lng, lat]
@@ -82,8 +87,25 @@ export default function CustomizeProbe({
   // Recompute fit whenever the probe point / dims / parcel change.
   useEffect(() => {
     if (!pt) { setFit(null); return; }
-    setFit(computePhysicalFit({ parcelGeometry, towerLngLat: pt, heightFt, widthFt, depthFt }));
-  }, [pt, parcelGeometry, heightFt, widthFt, depthFt]);
+    const live = computePhysicalFit({ parcelGeometry, towerLngLat: pt, heightFt, widthFt, depthFt });
+    setFit(live);
+
+    // SHADOW MODE — records where v2 disagrees with the live probe. The verdict
+    // shown above is unchanged. computePhysicalFit is a pure containment check
+    // with no setback concept at all, so this surface is where v2's per-edge
+    // setbacks and separation rules should diverge most.
+    recordShadow({
+      surface: "CustomizeProbe",
+      parcelRing: ringFromGeometry(parcelGeometry),
+      towerLngLat: pt,
+      proposedHeightFt: heightFt,
+      liveResult: { errorCode: live?.status === "fails" ? "ERR_FIT" : null },
+      ordinance,
+      jurisdiction,
+      ...(setbacks ? { setbacks } : {}),
+      ...(Number.isFinite(maxHeightFt) ? { maxHeightFt } : {}),
+    });
+  }, [pt, parcelGeometry, heightFt, widthFt, depthFt, ordinance, setbacks, maxHeightFt, jurisdiction]);
 
   // Paint the fall zone + compound in the verdict color.
   useEffect(() => {
