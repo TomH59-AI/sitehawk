@@ -14,9 +14,36 @@
  */
 
 import { HawkPerchSolver, projectParcelToFeet } from './HawkPerchSolver';
-import type { EdgeSpec, GradeResult, Point } from './HawkPerchSolver';
+import type { EdgeSpec, FallZoneSpec, GradeResult, Point, Setbacks } from './HawkPerchSolver';
 import { buildSolverInputs } from './ordinanceToSolver';
 import type { OrdinanceRecord } from './ordinanceToSolver';
+
+/**
+ * Pull the outer ring out of a GeoJSON Polygon / MultiPolygon as [[lon,lat],...].
+ * For a MultiPolygon the largest ring by vertex count is used — parcels are
+ * occasionally stored as a multipolygon with slivers attached.
+ */
+export function ringFromGeometry(geometry: any): Array<[number, number]> | null {
+  try {
+    if (!geometry) return null;
+    if (geometry.type === 'Polygon') {
+      const ring = geometry.coordinates?.[0];
+      return Array.isArray(ring) && ring.length >= 3 ? ring : null;
+    }
+    if (geometry.type === 'MultiPolygon') {
+      let best: any = null;
+      for (const poly of geometry.coordinates || []) {
+        const ring = poly?.[0];
+        if (Array.isArray(ring) && (!best || ring.length > best.length)) best = ring;
+      }
+      return best && best.length >= 3 ? best : null;
+    }
+    if (geometry.type === 'Feature') return ringFromGeometry(geometry.geometry);
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export interface LiveFitResult {
   status?: string;
@@ -79,6 +106,15 @@ export function shadowComparePoint(args: {
   edgeSpecs?: EdgeSpec[];
   liveResult: LiveFitResult;
   jurisdiction?: string | null;
+  /**
+   * Rule overrides. Shadow mode should isolate the ENGINE difference, not the
+   * rule-sourcing difference — so when the live call site already has setbacks,
+   * a height cap and a fall-zone multiplier, we feed the solver the identical
+   * values. Any disagreement that remains is the engines, not the inputs.
+   */
+  setbacks?: Setbacks;
+  maxHeightFt?: number;
+  fallZone?: FallZoneSpec;
 }): ShadowDiff | null {
   try {
     const { parcelRing, towerLngLat, proposedHeightFt, ordinance, edgeSpecs, liveResult } = args;
@@ -89,7 +125,13 @@ export function shadowComparePoint(args: {
 
     const { points, toFeet } = projectParcelToFeet(parcelRing);
     const inputs = buildSolverInputs(ordinance || null, { coords: points, edgeSpecs });
-    const solver = new HawkPerchSolver(inputs.config);
+
+    const config = { ...inputs.config };
+    if (args.setbacks) config.setbacks = args.setbacks;
+    if (Number.isFinite(args.maxHeightFt as number)) config.maxHeightLimit = args.maxHeightFt as number;
+    if (args.fallZone) config.fallZone = args.fallZone;
+
+    const solver = new HawkPerchSolver(config);
 
     const at: Point = toFeet(towerLngLat[0], towerLngLat[1]);
     const grade = solver.gradePoint(at);
@@ -156,6 +198,61 @@ export function logShadowDiff(diff: ShadowDiff | null, label = 'TalonFit'): void
 /** Reset the dedupe cache — used by tests. */
 export function __resetShadowCache(): void {
   SEEN.clear();
+  BUFFER.length = 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Collection
+ *
+ * A console line only helps someone with devtools open. Disagreements are
+ * buffered in memory and persisted (deduped, fire-and-forget) so the cutover
+ * decision can be made from real usage rather than from argument.
+ * ------------------------------------------------------------------ */
+
+const BUFFER: ShadowDiff[] = [];
+const BUFFER_CAP = 300;
+let persistFn: ((diff: ShadowDiff, surface: string) => void) | null = null;
+
+/** Install the persistence sink once, at app start. Optional by design. */
+export function setShadowPersister(fn: ((diff: ShadowDiff, surface: string) => void) | null): void {
+  persistFn = fn;
+}
+
+export function getShadowBuffer(): ShadowDiff[] {
+  return BUFFER.slice();
+}
+
+/**
+ * The one call site helper: compare, log, buffer, persist. Returns the diff so
+ * a caller can use it, but callers are expected to ignore it — this must never
+ * influence what the user sees while the live engine is still authoritative.
+ */
+export function recordShadow(
+  args: Parameters<typeof shadowComparePoint>[0] & { surface?: string }
+): ShadowDiff | null {
+  try {
+    const surface = args.surface || 'TalonFit';
+    const diff = shadowComparePoint(args);
+    if (!diff || diff.agree) return diff;
+
+    const key = `${surface}|${diff.at?.lat?.toFixed(5)},${diff.at?.lon?.toFixed(5)}|${diff.live.errorCode}|${diff.v2.codes.join(',')}`;
+    const isNew = !SEEN.has(key);
+
+    logShadowDiff(diff, surface);
+
+    if (isNew) {
+      BUFFER.push(diff);
+      if (BUFFER.length > BUFFER_CAP) BUFFER.shift();
+      try {
+        persistFn?.(diff, surface);
+      } catch {
+        /* persistence must never break the live path */
+      }
+    }
+    return diff;
+  } catch {
+    return null;
+  }
 }
 
 export interface ShadowSummary {
