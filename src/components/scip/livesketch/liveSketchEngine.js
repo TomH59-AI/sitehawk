@@ -11,6 +11,8 @@
  *   opts: {
  *     base,          // computeExhibit model at the full (100%/110%/custom) fall zone
  *     pe,            // computeExhibit model at the engineered (PE) radius, or null
+ *     utilityMarkers,// [{kind:'fiber'|'power', dEastFt, dNorthFt, distFt, bearing, compass, label, sub, chip, assumed}]
+ *                    //   from sketchUtilityMarkers — REAL mapped coordinates only
  *     peInfo,        // { available, ruleLabel, accepted, radiusFt } or null
  *     meta,          // { siteName, dateLabel }
  *     onCaption(text), onChip(key), onState({running,done,peOn}), onDone()
@@ -364,6 +366,63 @@ export function mountLiveSketch(svg, opts) {
     });
   }
 
+  /* off-site utility asset markers — REAL mapped coordinates only (or an
+     explicitly-ASSUMED fiber hookup at the road ROW). Drawn at true position
+     when the asset falls inside the sketch extent; otherwise as an edge
+     leader arrow along the true compass bearing. The written distance is the
+     MEASURED distance, never scaled off this drawing. */
+  const uMarkers = Array.isArray(opts.utilityMarkers) ? opts.utilityMarkers.filter(Boolean) : [];
+  const markerParts = [];
+  for (const mk of uMarkers) {
+    const col = mk.kind === "power" ? C.amber : C.cyanDk;
+    const wx = T.x + mk.dEastFt, wy = T.y + mk.dNorthFt;
+    const inb = wx >= minx && wx <= maxx && wy >= miny && wy <= maxy;
+    let gx, gy2, leaderD;
+    if (inb) {
+      gx = X(wx); gy2 = Y(wy);
+      leaderD = roughLineD(txp, typ, gx, gy2, { amp: 0.7, over: 0 });
+    } else {
+      const br = (mk.bearing * Math.PI) / 180;
+      const dirX = Math.sin(br), dirY = -Math.cos(br); // bearing 0 = N = up
+      const ML = 64, MR = 64, MT = 112, MB = 96;
+      let tMax = Infinity;
+      if (dirX > 1e-6) tMax = Math.min(tMax, (VW - MR - txp) / dirX);
+      if (dirX < -1e-6) tMax = Math.min(tMax, (ML - txp) / dirX);
+      if (dirY > 1e-6) tMax = Math.min(tMax, (VH - MB - typ) / dirY);
+      if (dirY < -1e-6) tMax = Math.min(tMax, (MT - typ) / dirY);
+      if (!isFinite(tMax) || tMax < 46) tMax = 46;
+      gx = txp + dirX * tMax; gy2 = typ + dirY * tMax;
+      const t0 = Math.max(24, Math.min(Math.max(FZ.radius * S + 10, tMax * 0.45), tMax - 26));
+      const sx0 = txp + dirX * t0, sy0 = typ + dirY * t0;
+      const hx1 = gx - dirX * 11 - dirY * 6, hy1 = gy2 - dirY * 11 + dirX * 6;
+      const hx2 = gx - dirX * 11 + dirY * 6, hy2 = gy2 - dirY * 11 - dirX * 6;
+      leaderD = roughLineD(sx0, sy0, gx, gy2, { amp: 0.8, over: 0 }) + " " +
+        roughLineD(hx1, hy1, gx, gy2, { amp: 0.3, over: 0, slop: 0.5 }) + " " +
+        roughLineD(hx2, hy2, gx, gy2, { amp: 0.3, over: 0, slop: 0.5 });
+    }
+    const leader = stroke(leaderD, col, 1.4, { op: 0.72, parent: G });
+    let glyphD;
+    if (mk.kind === "power") {
+      glyphD = segsD([
+        [gx - 8, gy2 - 6, gx + 8, gy2 - 6], [gx + 8, gy2 - 6, gx + 8, gy2 + 6],
+        [gx + 8, gy2 + 6, gx - 8, gy2 + 6], [gx - 8, gy2 + 6, gx - 8, gy2 - 6],
+        [gx + 2.5, gy2 - 4.5, gx - 1.5, gy2 + 0.5], [gx - 1.5, gy2 + 0.5, gx + 1.5, gy2 + 0.5],
+        [gx + 1.5, gy2 + 0.5, gx - 2.5, gy2 + 4.5],
+      ], 0.4);
+    } else {
+      glyphD = roughCircleD(gx, gy2, 7) + " " +
+        segsD([[gx - 4, gy2 - 4, gx + 4, gy2 + 4], [gx - 4, gy2 + 4, gx + 4, gy2 - 4]], 0.4);
+    }
+    const glyph = stroke(glyphD, col, 1.8, { parent: G });
+    const anchorEnd = gx > VW / 2;
+    const lx2 = anchorEnd ? gx - 14 : gx + 14;
+    const anch = anchorEnd ? "end" : "start";
+    const lyBase = Math.min(VH - 44, Math.max(48, gy2));
+    const lbl1 = handLabel(lx2, lyBase - 2, mk.label, { size: 11.5, fill: col, weight: 700, anchor: anch });
+    const lbl2 = mk.sub ? handLabel(lx2, lyBase + 12, mk.sub, { size: 9.5, fill: mk.assumed ? C.red : C.dim, anchor: anch }) : null;
+    markerParts.push({ leader, glyph, lbl1, lbl2 });
+  }
+
   /* labels */
   const title = handLabel(40, 52, "CONCEPT SITE SKETCH", { size: 17, weight: 700 });
   const titleUL = stroke(roughLineD(40, 60, 248, 60, { amp: 1 }), C.ink, 1.4, { op: 0.6 });
@@ -477,6 +536,11 @@ export function mountLiveSketch(svg, opts) {
   if (utilLines.length) {
     cap("Noting off-site utilities — fiber and power, with distance to the site");
     st(utilBox, SPD.tick); utilLabels.forEach(on); chip("utilities"); wait(260);
+  }
+  if (markerParts.length) {
+    cap("Locating off-site utility assets — true bearing and measured distance from the tower");
+    for (const mk of markerParts) { st(mk.leader, SPD.fast); st(mk.glyph, SPD.med); on(mk.lbl1); on(mk.lbl2); }
+    chip("utilassets"); wait(280);
   }
   cap("True north and graphic scale");
   st(naCirc, SPD.med); st(naArrow, SPD.med); on(lblNA);
@@ -651,6 +715,7 @@ export function mountLiveSketch(svg, opts) {
     { key: "fallzone", label: `Fall zone R${Math.round(FZ.radius)}'` },
     { key: "tower", label: `Tower ${Math.round(T.heightFt)}' ${T.type || "Monopole"}` },
     ...(utilLines.length ? [{ key: "utilities", label: utilLines.map((u) => u.text).join(" · ") }] : []),
+    ...(markerParts.length ? [{ key: "utilassets", label: uMarkers.map((m) => m.chip).join(" · ") }] : []),
     ...(peInfo ? [{ key: "pe", label: peInfo.accepted ? `PE letter accepted (${peInfo.ruleLabel})` : "PE letter — verify ordinance" }] : []),
   ];
 
