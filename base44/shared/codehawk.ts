@@ -15,11 +15,15 @@
  *      verbatim quote, section number, source URL, confidence, and verified
  *      date, and a value only lands in TelecomOrdinance if its quote is
  *      programmatically found in the source text AND a second QC pass confirms
- *      it. Everything else goes to OrdinanceReviewQueue instead of being
- *      guessed at.
+ *      it. Everything else goes to OrdinanceReviewQueue instead of being guessed.
  *
- * Fetch escalation is direct-first and cost-aware:
- *   direct HTML/PDF  →  OxyLabs (only when blocked / JS-only / empty)  →  Scrapfly
+ * Fetch escalation is direct-first and deliberately cost-aware:
+ *   every candidate is tried directly, in parallel, and only if ALL of them
+ *   fail does one single candidate get escalated to OxyLabs, then Scrapfly.
+ *   Paid scraping is a fallback, never the default path.
+ *
+ * Secrets are passed IN by the calling function (which imports base44:runtime
+ * statically) rather than read here, so this module stays bundler-safe.
  */
 
 // The six values that decide whether a tower can actually be sited.
@@ -115,6 +119,24 @@ const num = (v) => {
   return Number.isFinite(n) && n >= 0 ? n : null;
 };
 
+/** Run async work with a hard concurrency cap so a 50-item batch can't stampede. */
+export async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      try {
+        results[index] = await worker(items[index], index);
+      } catch (error) {
+        results[index] = { ok: false, error: String(error?.message || error).slice(0, 300) };
+      }
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
 /**
  * Programmatic quote verification — the real guard against a confident model
  * inventing an ordinance sentence. The quote must actually be present in the
@@ -126,7 +148,7 @@ export function quoteAppears(quote, sourceText) {
     String(s || '')
       .toLowerCase()
       .replace(/[‘’“”]/g, '"')
-      .replace(/[ \s]+/g, ' ')
+      .replace(/[ \s]+/g, ' ')
       .trim();
   const q = norm(quote);
   const t = norm(sourceText);
@@ -141,19 +163,39 @@ export function quoteAppears(quote, sourceText) {
   return false;
 }
 
-async function getSecret(name) {
-  try {
-    const runtime = await import('base44:runtime');
-    const value = runtime?.secrets?.get?.(name);
-    if (value) return String(value);
-  } catch {
-    /* runtime secrets unavailable — fall through to env */
+/**
+ * Land development codes routinely run past any model's context window, and the
+ * tower article is rarely in the first 140k characters. Rather than truncating
+ * blindly, keep the windows where the wireless-tower language actually lives.
+ * Quote verification still runs against the FULL text, so windowing can only
+ * cost us a field, never fabricate one.
+ */
+export function focusOrdinanceText(text, limit = 120000) {
+  const source = String(text || '');
+  if (source.length <= limit) return source;
+
+  const marker = /(wireless|telecommunicat|communication tower|antenna|monopole|fall zone|tower height|collocat|co-locat)/gi;
+  const hits = [];
+  let match;
+  while ((match = marker.exec(source)) !== null) hits.push(match.index);
+  if (!hits.length) return source.slice(0, limit);
+
+  const WINDOW = 20000;
+  const density = new Map();
+  for (const index of hits) {
+    const bucket = Math.floor(index / WINDOW);
+    density.set(bucket, (density.get(bucket) || 0) + 1);
   }
-  try {
-    return Deno.env.get(name) || '';
-  } catch {
-    return '';
+
+  const chosen = [];
+  let budget = limit;
+  for (const [bucket] of [...density.entries()].sort((a, b) => b[1] - a[1])) {
+    if (budget < WINDOW) break;
+    chosen.push(bucket);
+    budget -= WINDOW;
   }
+  chosen.sort((a, b) => a - b);
+  return chosen.map((bucket) => source.slice(bucket * WINDOW, (bucket + 1) * WINDOW)).join('\n[…]\n');
 }
 
 /* ------------------------------------------------------------------ *
@@ -170,12 +212,15 @@ const BROWSER_HEADERS = {
 const BLOCK_MARKERS =
   /(just a moment|checking your browser|cloudflare|access denied|request unsuccessful|are you a robot|captcha|enable javascript to|please enable js)/i;
 
-/** Signals that we got an app shell instead of the ordinance text. */
+/**
+ * Signals that we got an app shell instead of the ordinance text.
+ * The markup-ratio test only fires on genuinely short output — a long, legitimate
+ * ordinance page buried in heavy markup must NOT be pushed to paid scraping.
+ */
 function looksJsOnly(text, rawHtml) {
   if (text.length < 900) return true;
   if (BLOCK_MARKERS.test(text.slice(0, 4000))) return true;
-  // Municode / eCode360 style SPAs: a big HTML payload that renders almost no prose.
-  if (rawHtml && rawHtml.length > 20000 && text.length < rawHtml.length * 0.02) return true;
+  if (text.length < 6000 && rawHtml && rawHtml.length > 20000 && text.length < rawHtml.length * 0.02) return true;
   return false;
 }
 
@@ -199,13 +244,20 @@ export function towerSignal(text) {
   return terms.reduce((score, term) => score + (t.includes(term) ? 1 : 0), 0);
 }
 
+/** A page is worth extracting from only if it is both on-topic AND substantial. */
+export function isUsableSource(source) {
+  if (!source?.ok) return false;
+  if (source.file_url) return true;
+  return towerSignal(source.text) >= 4 && (source.text?.length || 0) >= 3000;
+}
+
 async function directFetch(base44, url) {
   try {
     const res = await fetch(url, { headers: BROWSER_HEADERS, redirect: 'follow', signal: AbortSignal.timeout(25000) });
     const contentType = (res.headers.get('content-type') || '').toLowerCase();
 
     if (!res.ok) {
-      return { ok: false, reason: `http_${res.status}`, blocked: res.status === 403 || res.status === 429 || res.status === 503 };
+      return { ok: false, reason: `http_${res.status}` };
     }
 
     // PDF codes: hand the file to the model directly rather than mangling bytes.
@@ -221,7 +273,7 @@ async function directFetch(base44, url) {
     const rawHtml = await res.text();
     const text = cleanHtml(rawHtml);
     if (looksJsOnly(text, rawHtml)) {
-      return { ok: false, reason: text.length < 900 ? 'empty_or_js_only' : 'blocked_or_js_only', blocked: true };
+      return { ok: false, reason: text.length < 900 ? 'empty_or_js_only' : 'blocked_or_js_only' };
     }
     return { ok: true, method: 'direct_html', text, chars: text.length };
   } catch (error) {
@@ -230,12 +282,12 @@ async function directFetch(base44, url) {
 }
 
 /* ------------------------------------------------------------------ *
- * Tier 2 / 3 — OxyLabs, then Scrapfly
+ * Tier 2 / 3 — OxyLabs, then Scrapfly. Creds come from the caller.
  * ------------------------------------------------------------------ */
 
-async function oxylabsFetch(url) {
-  const username = await getSecret('OXYLABS_USERNAME');
-  const password = await getSecret('OXYLABS_PASSWORD');
+async function oxylabsFetch(url, creds) {
+  const username = creds?.oxylabs_username;
+  const password = creds?.oxylabs_password;
   if (!username || !password) return { ok: false, reason: 'oxylabs_not_configured' };
   try {
     const res = await fetch('https://realtime.oxylabs.io/v1/queries', {
@@ -260,8 +312,8 @@ async function oxylabsFetch(url) {
   }
 }
 
-async function scrapflyFetch(url) {
-  const key = await getSecret('SCRAPFLY_API_KEY');
+async function scrapflyFetch(url, creds) {
+  const key = creds?.scrapfly_key;
   if (!key) return { ok: false, reason: 'scrapfly_not_configured' };
   try {
     const params = new URLSearchParams({ key, url, asp: 'true', render_js: 'true', country: 'US' });
@@ -280,7 +332,7 @@ async function scrapflyFetch(url) {
  * Fetch one ordinance URL, escalating only as far as necessary.
  * Returns { ok, method, text | file_url, chars, attempts, reason }.
  */
-export async function fetchOrdinanceSource(base44, url, counters = {}) {
+export async function fetchOrdinanceSource(base44, url, counters = {}, creds = {}, allowPaid = true) {
   const attempts = [];
 
   counters.direct_fetch_calls = (counters.direct_fetch_calls || 0) + 1;
@@ -288,12 +340,15 @@ export async function fetchOrdinanceSource(base44, url, counters = {}) {
   attempts.push({ tier: 'direct', ok: direct.ok, reason: direct.reason || null });
   if (direct.ok) return { ...direct, url, attempts };
 
+  if (!allowPaid) return { ok: false, url, attempts, reason: direct.reason || 'direct_failed' };
+
   counters.oxylabs_calls = (counters.oxylabs_calls || 0) + 1;
-  const oxy = await oxylabsFetch(url);
+  const oxy = await oxylabsFetch(url, creds);
   attempts.push({ tier: 'oxylabs', ok: oxy.ok, reason: oxy.reason || null });
   if (oxy.ok) return { ...oxy, url, attempts };
 
-  const scrapfly = await scrapflyFetch(url);
+  counters.scrapfly_calls = (counters.scrapfly_calls || 0) + 1;
+  const scrapfly = await scrapflyFetch(url, creds);
   attempts.push({ tier: 'scrapfly', ok: scrapfly.ok, reason: scrapfly.reason || null });
   if (scrapfly.ok) return { ...scrapfly, url, attempts };
 
@@ -357,34 +412,50 @@ Return up to ${limit} candidate URLs, best first. Rules:
 }
 
 /**
- * Fetch every candidate concurrently and keep the one that reads most like a
- * tower ordinance. This is the parallel research step — each candidate is an
- * independent fetch that knows nothing about the others.
+ * Try every candidate DIRECTLY and in parallel first — that is the cheap path,
+ * and for most jurisdictions it is the only path needed. Paid scraping is only
+ * reached if every direct attempt failed, and even then only ONE candidate is
+ * escalated rather than all of them. This is what stops a 25-jurisdiction night
+ * from turning into 100 OxyLabs calls.
  */
-export async function resolveBestSource(base44, candidates, counters = {}) {
+export async function resolveBestSource(base44, candidates, counters = {}, creds = {}) {
   if (!candidates?.length) return { ok: false, reason: 'no_candidates', tried: [] };
 
-  const fetched = await Promise.all(
-    candidates.map(async (candidate) => {
-      const source = await fetchOrdinanceSource(base44, candidate.url, counters);
-      const signal = source.ok ? (source.file_url ? 8 : towerSignal(source.text)) : 0;
-      return { ...source, candidate, signal };
-    })
-  );
-
-  const tried = fetched.map((f) => ({
+  const describe = (f) => ({
     url: f.url,
     ok: f.ok,
     method: f.method || null,
-    signal: f.signal,
+    signal: f.signal ?? 0,
     chars: f.chars || 0,
     reason: f.reason || null,
-  }));
+  });
 
-  // A page needs at least 4 distinct tower-ordinance terms to be worth extracting.
-  const usable = fetched.filter((f) => f.ok && f.signal >= 4).sort((a, b) => b.signal - a.signal);
-  if (!usable.length) return { ok: false, reason: 'no_usable_source', tried };
-  return { ...usable[0], tried, alternates: usable.slice(1, 3).map((f) => f.url) };
+  // Phase 1 — free, parallel, no paid scraping.
+  const directPass = await Promise.all(
+    candidates.map(async (candidate) => {
+      const source = await fetchOrdinanceSource(base44, candidate.url, counters, creds, false);
+      return { ...source, candidate, signal: source.ok ? (source.file_url ? 8 : towerSignal(source.text)) : 0 };
+    })
+  );
+
+  const tried = directPass.map(describe);
+  const usable = directPass.filter(isUsableSource).sort((a, b) => b.signal - a.signal);
+  if (usable.length) {
+    return { ...usable[0], tried, alternates: usable.slice(1, 3).map((f) => f.url) };
+  }
+
+  // Phase 2 — escalate exactly one candidate: the best-ranked URL that was
+  // blocked or JS-only, since those are the ones a renderer can actually fix.
+  const blocked = directPass.find((f) => /js_only|http_40|http_429|http_503|fetch_error/.test(f.reason || ''));
+  const escalate = blocked || directPass[0];
+  if (!escalate) return { ok: false, reason: 'no_usable_source', tried };
+
+  const rendered = await fetchOrdinanceSource(base44, escalate.url, counters, creds, true);
+  const withSignal = { ...rendered, candidate: escalate.candidate, signal: rendered.ok ? (rendered.file_url ? 8 : towerSignal(rendered.text)) : 0 };
+  tried.push(describe(withSignal));
+
+  if (!isUsableSource(withSignal)) return { ok: false, reason: 'no_usable_source', tried };
+  return { ...withSignal, tried, alternates: [] };
 }
 
 /* ------------------------------------------------------------------ *
@@ -411,7 +482,7 @@ const EXTRACTION_SCHEMA = {
   properties: {
     jurisdiction_confirmed: {
       type: 'boolean',
-      description: 'True only if the text is clearly the code of THIS jurisdiction (not a neighbouring city or a state statute).',
+      description: 'True only if the text is clearly the code of THIS jurisdiction (not a neighbouring city, a county code for a city, or a state statute).',
     },
     height_limit_ft: citedField('number', 'Maximum permitted height of a freestanding tower, in feet.'),
     setback_ft: citedField('number', 'Minimum setback of the tower from a property line, in feet, when stated as a fixed distance.'),
@@ -448,24 +519,22 @@ ABSOLUTE RULES:
 - Never carry a value over from a different jurisdiction, a state statute, or your own prior knowledge.
 - Distinguish carefully: setback (distance to property line), fall zone (collapse radius), residential separation (distance to homes or residential zoning), tower separation (distance to other towers). Do not use one to fill another.
 - pe_fall_zone_allowed is about RELIEF: can a PE's sealed letter shrink the required fall zone or setback? Only mark TRUE when the code says so.
+- Set jurisdiction_confirmed FALSE if this text is actually some other jurisdiction's code or a state statute.
 - Omit any field the code does not address. An omitted field is a correct answer; a guessed field is a defect.`;
-
-  const payload = {
-    model: 'gemini_3_flash',
-    response_json_schema: EXTRACTION_SCHEMA,
-  };
 
   if (file_url) {
     return await base44.asServiceRole.integrations.Core.InvokeLLM({
-      ...payload,
+      model: 'gemini_3_flash',
+      response_json_schema: EXTRACTION_SCHEMA,
       prompt: `${rules}\n\nThe ordinance is the attached PDF. Read it and extract the fields.`,
       file_urls: [file_url],
     });
   }
 
   return await base44.asServiceRole.integrations.Core.InvokeLLM({
-    ...payload,
-    prompt: `${rules}\n\nORDINANCE TEXT:\n${String(text || '').slice(0, 140000)}`,
+    model: 'gemini_3_flash',
+    response_json_schema: EXTRACTION_SCHEMA,
+    prompt: `${rules}\n\nORDINANCE TEXT:\n${focusOrdinanceText(text)}`,
   });
 }
 
@@ -518,7 +587,7 @@ Mark 'confirmed' ONLY when all of these hold:
 
 Mark 'rejected' when the quote is absent, paraphrased, about a different rule, or does not state the number/answer claimed.
 Mark 'uncertain' only when the source is genuinely ambiguous.
-Default to 'rejected' when you are unsure. Being wrong in the registry is far worse than leaving a field empty.
+Default to 'rejected' when you are unsure. A wrong value in the registry is far worse than an empty field.
 
 CLAIMS:
 ${JSON.stringify(claims, null, 1)}`;
@@ -535,7 +604,7 @@ ${JSON.stringify(claims, null, 1)}`;
   return await base44.asServiceRole.integrations.Core.InvokeLLM({
     model: 'gemini_3_flash',
     response_json_schema: QC_SCHEMA,
-    prompt: `${rules}\n\nSOURCE TEXT:\n${String(text || '').slice(0, 140000)}`,
+    prompt: `${rules}\n\nSOURCE TEXT:\n${focusOrdinanceText(text)}`,
   });
 }
 
@@ -550,21 +619,25 @@ function coerce(field, raw) {
   return s || null;
 }
 
+const isPopulated = (v) => v !== null && v !== undefined && v !== '';
+
 /**
  * Decide, field by field, what may be written and what a human has to look at.
  *
  * A field is auto-written only when it has a value, a verbatim quote that is
  * actually present in the source, a section reference, a confirmed QC verdict,
  * confidence above 'low', and no disagreement with what the registry already
- * holds. Everything else becomes a review-queue item and nothing is overwritten.
+ * holds. Everything else becomes a review-queue item; nothing is overwritten.
  */
-export function gateExtraction({ existing, draft, qc, source, runId }) {
+export function gateExtraction({ jurisdiction, state, existing, draft, qc, source, runId }) {
   const patch = {};
   const citations = { ...(existing?.field_citations || {}) };
   const queue = [];
   const verifiedAt = new Date().toISOString();
   const verdictOf = Object.fromEntries((qc?.verdicts || []).map((v) => [v.field, v]));
   const haveText = Boolean(source?.text);
+  // An explicit false means the scraped page belongs to some other jurisdiction.
+  const wrongJurisdiction = draft?.jurisdiction_confirmed === false;
 
   for (const field of EXTRACTED_FIELDS) {
     const claim = draft?.[field];
@@ -574,13 +647,14 @@ export function gateExtraction({ existing, draft, qc, source, runId }) {
 
     const quote = String(claim.quote || '').trim();
     const sectionRef = String(claim.section_ref || draft?.section_ref || '').trim();
-    const confidence = String(claim.confidence || 'low').toLowerCase();
+    const rawConfidence = String(claim.confidence || 'low').toLowerCase();
+    const confidence = ['high', 'medium', 'low'].includes(rawConfidence) ? rawConfidence : 'low';
     const verdict = verdictOf[field] || { verdict: 'uncertain', reason: 'No QC verdict returned for this field.' };
     const currentValue = existing?.[field] ?? null;
 
-    const base = {
-      jurisdiction: existing?.jurisdiction || source?.jurisdiction || '',
-      state: String(existing?.state || source?.state || '').toUpperCase(),
+    const item = {
+      jurisdiction: existing?.jurisdiction || jurisdiction || '',
+      state: String(existing?.state || state || '').toUpperCase(),
       ordinance_id: existing?.id || undefined,
       field_name: field,
       proposed_value: asText(value),
@@ -588,7 +662,7 @@ export function gateExtraction({ existing, draft, qc, source, runId }) {
       quote: quote.slice(0, 1500),
       section_ref: sectionRef,
       source_url: source?.url || '',
-      confidence: ['high', 'medium', 'low'].includes(confidence) ? confidence : 'low',
+      confidence,
       qc_verdict: `${verdict.verdict}: ${String(verdict.reason || '').slice(0, 400)}`,
       status: 'pending',
       run_id: runId || undefined,
@@ -596,50 +670,43 @@ export function gateExtraction({ existing, draft, qc, source, runId }) {
 
     // Ordered so the queue reason names the FIRST thing that actually blocked it.
     let blocked = null;
-    if (!quote) blocked = 'no_quote';
+    if (wrongJurisdiction) blocked = 'ambiguous_source';
+    else if (!quote) blocked = 'no_quote';
     else if (haveText && !quoteAppears(quote, source.text)) blocked = 'no_quote';
     else if (!sectionRef) blocked = 'no_section_ref';
-    else if (verdict.verdict === 'rejected' || verdict.verdict === 'uncertain') blocked = 'qc_failed';
+    else if (verdict.verdict !== 'confirmed') blocked = 'qc_failed';
     else if (confidence === 'low') blocked = 'low_confidence';
     // PDF sources can't be quote-checked locally, so they must clear a higher bar.
     else if (!haveText && confidence !== 'high') blocked = 'low_confidence';
-    else if (currentValue !== null && currentValue !== undefined && currentValue !== '' && String(currentValue) !== String(value))
-      blocked = 'conflict_with_existing';
+    else if (isPopulated(currentValue) && String(currentValue) !== String(value)) blocked = 'conflict_with_existing';
 
     if (blocked) {
-      queue.push({ ...base, reason: blocked });
+      queue.push({ ...item, reason: blocked });
       continue;
     }
 
-    if (currentValue !== null && currentValue !== undefined && currentValue !== '' && String(currentValue) === String(value)) {
-      // Same value, freshly re-verified — keep the citation current, skip the write.
-      citations[field] = {
-        value,
-        quote: quote.slice(0, 1500),
-        section_ref: sectionRef,
-        source_url: source?.url || '',
-        confidence: base.confidence,
-        verified_date: verifiedAt,
-        method: source?.method || null,
-        qc_verdict: verdict.verdict,
-      };
-      continue;
-    }
-
-    patch[field] = value;
-    citations[field] = {
+    const citation = {
       value,
       quote: quote.slice(0, 1500),
       section_ref: sectionRef,
       source_url: source?.url || '',
-      confidence: base.confidence,
+      confidence,
       verified_date: verifiedAt,
       method: source?.method || null,
       qc_verdict: verdict.verdict,
     };
+
+    // Same value, freshly re-verified — refresh the citation, skip the write.
+    if (isPopulated(currentValue) && String(currentValue) === String(value)) {
+      citations[field] = citation;
+      continue;
+    }
+
+    patch[field] = value;
+    citations[field] = citation;
   }
 
-  return { patch, citations, queue, verifiedAt };
+  return { patch, citations, queue, verifiedAt, wrongJurisdiction };
 }
 
 /**
@@ -648,7 +715,7 @@ export function gateExtraction({ existing, draft, qc, source, runId }) {
 export function buildRecordPatch({ existing, patch, citations, queue, source, runId, notes }) {
   const merged = { ...(existing || {}), ...patch };
   const score = completenessScore(merged);
-  const citedCritical = CRITICAL_FIELDS.filter((f) => merged[f] !== null && merged[f] !== undefined && citations?.[f]?.quote).length;
+  const citedCritical = CRITICAL_FIELDS.filter((f) => isPopulated(merged[f]) && citations?.[f]?.quote).length;
 
   let status = 'unverified';
   if (queue.length) status = queue.some((q) => q.reason === 'conflict_with_existing') ? 'conflict' : 'needs_review';
