@@ -87,6 +87,7 @@ console.log('\n[S4] Never throws on garbage input — returns null instead.');
     ['null ring', { parcelRing: null, towerLngLat: centre, proposedHeightFt: 199, liveResult: {} }],
     ['2-point ring', { parcelRing: [[0, 0], [1, 1]], towerLngLat: centre, proposedHeightFt: 199, liveResult: {} }],
     ['NaN point', { parcelRing: ring, towerLngLat: [NaN, NaN], proposedHeightFt: 199, liveResult: {} }],
+    ['undefined point', { parcelRing: ring, towerLngLat: undefined, proposedHeightFt: 199, liveResult: {} }],
     ['no live result', { parcelRing: ring, towerLngLat: centre, proposedHeightFt: 199, liveResult: null }],
     ['no ordinance', { parcelRing: ring, towerLngLat: centre, proposedHeightFt: 199, liveResult: {} }],
   ];
@@ -96,6 +97,9 @@ console.log('\n[S4] Never throws on garbage input — returns null instead.');
     try { out = shadowComparePoint(args); } catch { threw = true; }
     check(`${label}: no throw`, !threw, threw ? 'THREW' : `returned ${out === null ? 'null' : 'a diff'}`);
   }
+  // A meaningless point must return null, not a diff full of NaN that pollutes the log.
+  check('NaN point returns null, not a junk diff',
+    shadowComparePoint({ parcelRing: ring, towerLngLat: [NaN, NaN], proposedHeightFt: 199, liveResult: {} } as any) === null);
 }
 
 console.log('\n[S5] logShadowDiff is safe and dedupes.');
