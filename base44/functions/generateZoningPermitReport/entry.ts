@@ -665,11 +665,10 @@ Deno.serve(async (req) => {
     // The TelecomOrdinance record is OUR verified data with a code citation, so
     // it outranks both the LLM's inference and Zoneomics. Only fields we actually
     // hold are written; everything else keeps the LLM gap-fill.
-    // A row whose permit_type is flagged UNVERIFIED is a deep-pull placeholder
-    // (we hold the jurisdiction but no confirmed siting standard). Writing it
-    // would stamp "UNVERIFIED - deep pull required" into the deliverable as a
-    // high-confidence Registry value and render a citation strip pointing at a
-    // URL that does not contain the standard. Treat it as a miss.
+    // Values CodeHawk verified this run carry their own section reference and
+    // quote; legacy uncited values still fill their row, just labelled honestly.
+    // The UNVERIFIED placeholder is withheld per-field rather than voiding the
+    // whole record (see below).
     if (registry) {
       const ordCitations = registry.field_citations || {};
       const ft = (v) => (v === null || v === undefined || v === '' ? null : `${v} ft`);
@@ -788,7 +787,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} ordinance=${!!ordinance} realie=${!!realie}`);
+    console.log(
+      `Zoning report: user=${user.email} state=${geo.state_code} city=${city || '—'} county=${geo.county_name || '—'} ` +
+        `registry=${!!registry} codehawk=${huntResult?.action || (shouldHunt ? 'no_result_in_budget' : 'not_needed')} realie=${!!realie}`
+    );
 
     const responsePayload = {
       status: 'ok',
