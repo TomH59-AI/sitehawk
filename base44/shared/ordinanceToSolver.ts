@@ -183,7 +183,13 @@ function provenanceOf(record: OrdinanceRecord, field: string, value: unknown): P
 export function buildSolverInputs(
   record: OrdinanceRecord | null | undefined,
   parcel: { coords: Point[]; edgeSpecs?: EdgeSpec[] },
-  options: { certifiedRadiusFt?: number | null; existingTowers?: Array<{ point: Point }> } = {}
+  options: {
+    certifiedRadiusFt?: number | null;
+    existingTowers?: Array<{ point: Point }>;
+    /** True when adjacent-parcel zoning WAS checked (e.g. via Realie), so an
+     *  absence of flagged residential edges is a finding, not a blind spot. */
+    residentialAdjacencyChecked?: boolean;
+  } = {}
 ): SolverInputs {
   const rec = record || {};
   const provenance: InputProvenance[] = [];
@@ -342,9 +348,15 @@ export function buildSolverInputs(
   // exists but no edge is flagged, the solver cannot apply it, and silently
   // dropping a known rule is the permissive failure. Say so.
   if (residentialSeparation && !parcel.edgeSpecs?.some((e) => e.abutsResidential)) {
-    notes.push(
-      'A residential separation rule applies here, but which property lines abut residential is unknown (needs adjacent-parcel zoning) — the rule was NOT applied. Heights may be overstated near residential; verify before relying on them.'
-    );
+    if (options.residentialAdjacencyChecked) {
+      notes.push(
+        'A residential separation rule exists, and adjacent-parcel zoning was checked: no abutting parcel is residential, so the rule does not bind any property line here.'
+      );
+    } else {
+      notes.push(
+        'A residential separation rule applies here, but which property lines abut residential is unknown (needs adjacent-parcel zoning) — the rule was NOT applied. Heights may be overstated near residential; verify before relying on them.'
+      );
+    }
   }
 
   return {
