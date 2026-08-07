@@ -34,9 +34,38 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { HawkPerchSolver, projectParcelToFeet } from '../../shared/hawkPerchSolver.ts';
 import { buildSolverInputs, explainBinding } from '../../shared/ordinanceToSolver.ts';
 import { typeParcelEdges, projectRoads } from '../../shared/frontageDetect.ts';
+import { computeResidentialAdjacency } from '../../shared/residentialAdjacency.ts';
 import { findOrdinance } from '../../shared/telecomOrdinance.ts';
 
 const TARGET_LABELS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+/**
+ * Neighbouring parcels from Realie, for residential adjacency. The radius
+ * scales with the subject parcel so a large rural lot still captures its
+ * neighbours. Returns null on any failure — which the caller must treat as
+ * "could not check", never as "no residential neighbours".
+ */
+async function fetchNeighbors(lat: number, lon: number, extentFt: number) {
+  const apiKey = Deno.env.get('REALIE_API_KEY');
+  if (!apiKey) return null;
+  const radiusMiles = Math.min(0.5, Math.max(0.05, (extentFt / 2 + 300) / 5280));
+  try {
+    const url = `https://app.realie.ai/api/public/property/location/?${new URLSearchParams({
+      latitude: String(lat),
+      longitude: String(lon),
+      radius: String(radiusMiles),
+      limit: '80',
+      offset: '0',
+      includeUnassignedAddress: 'true',
+    })}`;
+    const r = await fetch(url, { headers: { Authorization: apiKey }, signal: AbortSignal.timeout(20000) });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return data?.properties || [];
+  } catch {
+    return null;
+  }
+}
 
 async function fetchRoads(lat: number, lon: number) {
   const radiusFt = 800;
@@ -129,11 +158,41 @@ export default async function (req) {
     //    default) front/side/rear typing is a no-op, so no road fetch happens.
     //    Residential adjacency comes from the caller (adjacent-parcel zoning),
     //    not from roads — roads cannot tell you what the neighbour is zoned.
-    const residentialIdx: number[] = Array.isArray(body.residential_edge_indices)
+    let residentialIdx: number[] = Array.isArray(body.residential_edge_indices)
       ? body.residential_edge_indices.filter((i: any) => Number.isInteger(i) && i >= 0)
       : [];
 
     const prelim = buildSolverInputs(ordinance, { coords: points });
+
+    // 2a. Residential adjacency — automatic, like the zoning lookup.
+    //     Runs only when the ordinance actually has a residential separation
+    //     rule and the caller has not supplied the indices. Registry-first
+    //     philosophy applied to parcel data: check the source that can answer,
+    //     spend nothing when the rule does not exist.
+    let residentialAdjacency: any = { checked: false, source: residentialIdx.length ? 'caller' : 'not_needed' };
+    let adjacencyChecked = residentialIdx.length > 0;
+    if (prelim.config.residentialSeparation && !residentialIdx.length) {
+      const xs = points.map((p: any) => p.x);
+      const ys = points.map((p: any) => p.y);
+      const extentFt = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+      const neighbors = await fetchNeighbors(centroid[1], centroid[0], extentFt);
+      if (neighbors === null) {
+        // Could not check. The buildSolverInputs warning path stays active and
+        // the report keeps saying the rule was NOT applied.
+        residentialAdjacency = { checked: false, source: 'realie_unavailable' };
+      } else {
+        const adj = computeResidentialAdjacency({ subjectRing: points, neighbors, toFeet });
+        residentialIdx = adj.indices;
+        adjacencyChecked = true;
+        residentialAdjacency = {
+          checked: true,
+          source: 'realie',
+          neighbors_checked: adj.neighborsChecked,
+          residential_neighbors: adj.residentialNeighbors,
+          edges_flagged: adj.indices,
+        };
+      }
+    }
     const sb = prelim.config.setbacks;
     const uniformSetbacks = sb.front === sb.side && sb.side === sb.rear;
 
@@ -181,7 +240,7 @@ export default async function (req) {
     const inputs = buildSolverInputs(
       ordinance,
       { coords: points, edgeSpecs },
-      { certifiedRadiusFt: body.certified_radius_ft ?? null, existingTowers }
+      { certifiedRadiusFt: body.certified_radius_ft ?? null, existingTowers, residentialAdjacencyChecked: adjacencyChecked }
     );
     const solver = new HawkPerchSolver(inputs.config);
     const bestResult = solver.findBestSite();
@@ -200,7 +259,7 @@ export default async function (req) {
       const peInputs = buildSolverInputs(
         ordinance,
         { coords: points, edgeSpecs },
-        { certifiedRadiusFt: probe, existingTowers }
+        { certifiedRadiusFt: probe, existingTowers, residentialAdjacencyChecked: adjacencyChecked }
       );
       const peBest = new HawkPerchSolver(peInputs.config).findBestSite();
       peScenario = {
@@ -234,6 +293,7 @@ export default async function (req) {
         notes: inputs.notes,
       },
       frontage,
+      residential_adjacency: residentialAdjacency,
       best_site: describe(bestResult.best, inputs, toLngLat),
       headroom_ratio: Math.round(bestResult.headroomRatio * 1000) / 1000,
       proposed_height_ft: proposed,
