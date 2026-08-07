@@ -125,6 +125,33 @@ console.log('\n[F9] THE PAYOFF — per-edge setbacks change the answer.');
     !untyped.validateLocation({ x: 150, y: 30 }, 30).codes.includes('ERR_STBK'));
 }
 
+console.log('\n[F9b] Regressions found by running against LIVE OSM data.');
+{
+  // Roads on three sides. Before the cap, all three typed as front, applying the
+  // strictest setback to three of four lines and needlessly killing the site.
+  const threeSided = typeParcelEdges(lot, [
+    road([[-200, -20], [500, -20]], 'A St'),
+    road([[-20, -200], [-20, 500]], 'B St'),
+    road([[320, -200], [320, 500]], 'C St'),
+  ]);
+  check('frontages capped at 2', threeSided.frontEdgeIndices.length === 2,
+    `fronts=${JSON.stringify(threeSided.frontEdgeIndices)}`);
+  check('over-fronting drops confidence to low', threeSided.confidence === 'low', `conf=${threeSided.confidence}`);
+  check('note explains the intersection', /intersection/i.test(threeSided.note), threeSided.note);
+  check('still exactly one rear', threeSided.edgeSpecs.filter((e) => e.type === 'rear').length <= 1);
+
+  // A road AT the boundary (0 ft) means it runs along or through the parcel.
+  const onBoundary = typeParcelEdges(lot, [road([[-200, 0], [500, 0]], 'Through Rd')]);
+  check('road on the boundary flagged low confidence', onBoundary.confidence === 'low', `conf=${onBoundary.confidence}`);
+  check('note warns about right-of-way', /right-of-way|runs along or through/i.test(onBoundary.note), onBoundary.note);
+
+  // The corner tolerance must scale with parcel size, not be a fixed 40 ft.
+  const smallLot: Point[] = [{ x: 0, y: 0 }, { x: 80, y: 0 }, { x: 80, y: 80 }, { x: 0, y: 80 }];
+  const small = typeParcelEdges(smallLot, [road([[-200, -30], [500, -30]], 'Main St')]);
+  check('small lot: one frontage, not three', small.frontEdgeIndices.length === 1,
+    `fronts=${JSON.stringify(small.frontEdgeIndices)} dists=${small.diagnostics.map((d) => Math.round(d.roadDistFt)).join(',')}`);
+}
+
 console.log('\n[F10] lat/lon roads project into the parcel frame correctly.');
 {
   const ring: Array<[number, number]> = [
