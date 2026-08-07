@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { distance as turfDistance } from "@turf/turf";
+import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ChevronDown, ChevronUp, Save, Loader2 } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, Save, Loader2, Copy, KeyRound, Eraser, BadgeCheck, X } from "lucide-react";
+import { talonfitSelectionCode } from "@/functions/talonfitSelectionCode";
 import { useToast } from "@/components/ui/use-toast";
 import { computeFit, autoPlaceTower } from "@/lib/hawkfitGeometry";
 import { buildOrdinanceRules, evaluatePoint, COLOR_HEX } from "@/lib/aiEquation";
@@ -25,6 +27,12 @@ import HawkPerchTargetPicker from "@/components/hawkfit/HawkPerchTargetPicker";
 import AIEquationPanel from "@/components/hawkfit/AIEquationPanel";
 
 const stripEmpty = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v != null && v !== ""));
+
+// The customer-pick exploration ring. SiteHawk selects A/B/C; inside this ring
+// the subscriber grades and selects D/E/F himself — unlimited looks, three
+// saves. The backend solver enforces the same 2-mile cap (MAX_RING_RADIUS_MILES).
+const RING_MILES = 2;
+const SLOT_LETTERS = ["D", "E", "F"];
 
 async function loadConstraintData(target) {
   const [waterResult, structuresResult, towersResult] = await Promise.allSettled([
@@ -58,6 +66,15 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   const [savedScenario, setSavedScenario] = useState(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [threeD, setThreeD] = useState(null);
+  // Exploration probes — every spot the subscriber has graded this session.
+  const [probes, setProbes] = useState([]);
+  // One-time selection code, minted when Target F lands.
+  const [selectionCode, setSelectionCode] = useState(null);
+  const [certifyOpen, setCertifyOpen] = useState(false);
+  const [certifyBusy, setCertifyBusy] = useState(false);
+  const [certifyDone, setCertifyDone] = useState(false);
+  const [certifyError, setCertifyError] = useState("");
+  const [codeInput, setCodeInput] = useState("");
   const [manualBusy, setManualBusy] = useState(false);
   const [water, setWater] = useState(null); // water-body FeatureCollection near the target
   const [structures, setStructures] = useState([]);
@@ -221,60 +238,178 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
   const aiEval = fit?.aiEvaluation || null;
   const handleTowerMove = useCallback((lngLat) => setTowerLngLat(lngLat), []);
 
-  const handleMapSelect = useCallback((point) => {
+  const getRingCenter = useCallback(() => {
+    const src = searchRing || searchCenter;
+    const lat = Number(src?.lat);
+    const lon = Number(src?.lon);
+    return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+  }, [searchRing, searchCenter]);
+
+  // Grade any coordinate in the ring with the backend solver — it resolves the
+  // parcel at that point via Realie and applies the jurisdiction rules, so the
+  // subscriber can explore parcels far beyond Target A.
+  const solvePoint = useCallback(async (point) => {
+    const center = getRingCenter();
+    const { data } = await base44.functions.invoke("talonfitAiSolve", {
+      lat: point.lat,
+      lon: point.lng,
+      center_lat: center?.lat,
+      center_lon: center?.lon,
+      requested_height_ft: controls.heightFt,
+      compound_width_ft: controls.widthFt,
+      compound_depth_ft: controls.depthFt,
+      saved_count: savedTargets.filter(Boolean).length,
+    });
+    const r = data?.calculated_result || {};
+    const p = data?.parcel || null;
+    const d = data?.parcel_details || null;
+    return {
+      status: r.decision === "APPROVED" ? "works" : r.decision === "VERIFY" ? "verify" : "fails",
+      maxHeight: Number.isFinite(Number(r.maximum_buildable_height_ft)) ? Number(r.maximum_buildable_height_ft) : null,
+      reason: r.reasons?.[0] || null,
+      parcel_address: p?.address || "",
+      apn: p?.parcel_id || "",
+      owner_name: d?.owner || "",
+    };
+  }, [getRingCenter, controls.heightFt, controls.widthFt, controls.depthFt, savedTargets]);
+
+  // SINGLE CLICK — grade the spot. Green tower = works (max height + coords),
+  // red = why it won't. Never consumes a save slot; unlimited looks.
+  const handleMapProbe = useCallback(async (point) => {
+    const center = getRingCenter();
+    if (!center) {
+      toast({ title: "No search ring", description: "The search-ring center is unavailable, so the two-mile limit cannot be verified.", variant: "destructive" });
+      return;
+    }
+    const miles = turfDistance([point.lng, point.lat], [center.lon, center.lat], { units: "miles" });
+    if (miles > RING_MILES) {
+      toast({ title: "Outside the ring", description: `That spot is ${miles.toFixed(2)} miles out — your picks are limited to the two-mile TalonFit ring.`, variant: "destructive" });
+      return;
+    }
+    const id = `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`;
+    setProbes((prev) => [...prev.filter((x) => x.id !== id).map((x) => ({ ...x, openPopup: false })), { id, ...point, status: "pending" }]);
+    try {
+      const graded = await solvePoint(point);
+      setProbes((prev) => prev.map((x) => (x.id === id ? { ...x, ...graded, openPopup: true } : x)));
+    } catch (e) {
+      setProbes((prev) => prev.map((x) => (x.id === id ? { ...x, status: "verify", reason: e?.response?.data?.error || e.message || "Solver failed — try that spot again.", openPopup: true } : x)));
+    }
+  }, [getRingCenter, solvePoint, toast]);
+
+  // DOUBLE CLICK — save a green spot as Target D, E or F. Three maximum.
+  // The third save mints the one-time selection code.
+  const handleMapSelect = useCallback(async (point) => {
     const slot = savedTargets.findIndex((target) => !target);
-    if (slot === -1 || !siteTarget) return;
-    const pointLngLat = [point.lng, point.lat];
-    setTowerLngLat(pointLngLat);
-
-    const ringSource = searchRing || searchCenter;
-    const centerLat = Number(ringSource?.lat);
-    const centerLon = Number(ringSource?.lon);
-    if (!Number.isFinite(centerLat) || !Number.isFinite(centerLon)) {
-      const reason = "Search-ring center is unavailable, so the required one-mile limit cannot be verified.";
+    if (slot === -1) {
+      toast({ title: "All three saved", description: "Targets D, E and F are full. Keep exploring with single clicks, or hit Clear to start a fresh set." });
+      return;
+    }
+    const center = getRingCenter();
+    if (!center) {
+      const reason = "Search-ring center is unavailable, so the two-mile limit cannot be verified.";
       setRejectedPoint({ ...point, reason });
       toast({ title: "REJECTED", description: reason, variant: "destructive" });
       return;
     }
-    const milesFromCenter = turfDistance(pointLngLat, [centerLon, centerLat], { units: "miles" });
-    if (milesFromCenter > 1) {
-      const reason = `Outside the one-mile TalonFit search ring (${milesFromCenter.toFixed(2)} miles from center).`;
-      setRejectedPoint({ ...point, reason });
-      toast({ title: "REJECTED", description: reason, variant: "destructive" });
-      return;
-    }
-
-    const pointFit = evaluateFitAt(pointLngLat);
-    if (pointFit?.status !== "works") {
-      const reason = pointFit?.aiEvaluation?.failing?.[0]
-        || pointFit?.aiEvaluation?.conditional?.[0]
-        || pointFit?.aiEvaluation?.missing?.[0]
-        || pointFit?.reasons?.[0]
-        || "The selected point does not meet the active TalonFit requirements.";
+    const miles = turfDistance([point.lng, point.lat], [center.lon, center.lat], { units: "miles" });
+    if (miles > RING_MILES) {
+      const reason = `Outside the two-mile TalonFit ring (${miles.toFixed(2)} miles from center).`;
       setRejectedPoint({ ...point, reason });
       toast({ title: "REJECTED", description: reason, variant: "destructive" });
       return;
     }
 
-    const maxHeightFt = Math.floor(pointFit.maxAvailableHeight);
+    // Reuse a green probe already graded at (essentially) this spot; otherwise
+    // grade it now — a save must never bypass the solver.
+    let graded = probes.find((x) => x.status === "works" && turfDistance([x.lng, x.lat], [point.lng, point.lat], { units: "miles" }) < 0.023);
+    if (!graded) {
+      try {
+        graded = { ...point, ...(await solvePoint(point)) };
+      } catch (e) {
+        const reason = e?.response?.data?.error || e.message || "Solver failed — try again.";
+        setRejectedPoint({ ...point, reason });
+        toast({ title: "REJECTED", description: reason, variant: "destructive" });
+        return;
+      }
+    }
+    if (graded.status !== "works") {
+      const reason = graded.reason || "The selected point does not meet the TalonFit requirements.";
+      setRejectedPoint({ ...point, reason });
+      toast({ title: "REJECTED", description: reason, variant: "destructive" });
+      return;
+    }
+
+    const maxHeightFt = Math.floor(graded.maxHeight ?? 0);
     const savedPoint = {
-      ...point,
+      lat: graded.lat ?? point.lat,
+      lng: graded.lng ?? point.lng,
       max_height_ft: maxHeightFt,
-      tower_height_ft: Math.min(controls.heightFt, maxHeightFt),
+      tower_height_ft: maxHeightFt ? Math.min(controls.heightFt, maxHeightFt) : controls.heightFt,
       pe_letter_required: solverRules.hasPELetter,
-      distance_from_ring_center_miles: milesFromCenter,
+      distance_from_ring_center_miles: miles,
       decision_status: "approved",
-      binding_constraint: pointFit.aiEvaluation?.passing?.find((reason) => /height|setback|fall zone/i.test(reason))
-        || pointFit.reasons?.[0]
-        || null,
+      parcel_address: graded.parcel_address || "",
+      apn: graded.apn || "",
+      owner_name: graded.owner_name || "",
+      binding_constraint: graded.reason || null,
     };
     setRejectedPoint(null);
     onSaveTarget?.(slot, savedPoint);
     toast({
-      title: `Target ${["D", "E", "F"][slot]} approved and saved`,
-      description: `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)} · maximum ${maxHeightFt} ft`,
+      title: `Target ${SLOT_LETTERS[slot]} approved and saved`,
+      description: `${savedPoint.lat.toFixed(6)}, ${savedPoint.lng.toFixed(6)} · maximum ${maxHeightFt} ft`,
     });
-  }, [savedTargets, siteTarget, searchRing, searchCenter, evaluateFitAt, controls.heightFt, solverRules.hasPELetter, onSaveTarget, toast]);
+
+    // Target F just landed — mint the one-time code. The customer picked all
+    // three himself; the code is the receipt that goes where his name would.
+    const nextSaved = [...savedTargets];
+    nextSaved[slot] = savedPoint;
+    if (nextSaved.every(Boolean)) {
+      try {
+        const { data } = await talonfitSelectionCode({
+          action: "issue",
+          site_key: `${center.lat.toFixed(5)},${center.lon.toFixed(5)}`,
+          ring_center: center,
+          targets: nextSaved.map((t) => ({ lat: t.lat, lng: t.lng, max_height_ft: t.max_height_ft, parcel_address: t.parcel_address, apn: t.apn })),
+        });
+        if (data?.code) setSelectionCode({ code: data.code, status: "issued", targets: nextSaved });
+      } catch (e) {
+        toast({ title: "Code could not be issued", description: e?.response?.data?.error || e.message, variant: "destructive" });
+      }
+    }
+  }, [savedTargets, probes, getRingCenter, solvePoint, controls.heightFt, solverRules.hasPELetter, onSaveTarget, toast]);
+
+  const handleClearAll = useCallback(() => {
+    setProbes([]);
+    setRejectedPoint(null);
+    savedTargets.forEach((target, index) => target && onClearTarget?.(index));
+  }, [savedTargets, onClearTarget]);
+
+  const handleRedeem = useCallback(async () => {
+    setCertifyBusy(true);
+    setCertifyError("");
+    try {
+      const center = getRingCenter();
+      const picks = (selectionCode?.targets || savedTargets).filter(Boolean);
+      const { data } = await talonfitSelectionCode({
+        action: "redeem",
+        code: codeInput,
+        certification: {
+          ring_center: center,
+          jurisdiction: zoningResult?._registry?.jurisdiction || null,
+          targets: picks.map((t, i) => ({ letter: SLOT_LETTERS[i], lat: t.lat, lon: t.lng, max_height_ft: t.max_height_ft, parcel_address: t.parcel_address || null })),
+          certified_at: new Date().toISOString(),
+        },
+      });
+      if (data?.error) throw new Error(data.error);
+      setCertifyDone(true);
+      setSelectionCode((s) => (s ? { ...s, status: "redeemed" } : s));
+    } catch (e) {
+      setCertifyError(e?.response?.data?.error || e.message || "Redemption failed.");
+    } finally {
+      setCertifyBusy(false);
+    }
+  }, [getRingCenter, selectionCode, savedTargets, codeInput, zoningResult]);
 
   // Manual lookup stays available but never replaces the pipeline order —
   // the section re-resolves from the pipeline whenever Target A changes.
