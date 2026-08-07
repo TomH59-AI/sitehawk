@@ -525,10 +525,51 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
         <div className="border-t border-cyan-400/30 bg-background/55 p-4 space-y-4">
           <div className="flex items-start gap-3 rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-4 py-3">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-600" />
-            <p className="text-xs font-semibold leading-relaxed text-foreground">
-              TalonFit AI reads the jurisdiction rules, applies setbacks, height limits, fall-zone and PE-letter allowances, checks tower and off-parcel structure separation, and explains every approval or rejection.
+            <p className="flex-1 text-xs font-semibold leading-relaxed text-foreground">
+              SiteHawk picked Targets A, B and C. Inside the green two-mile ring, the next three are yours: single-click any spot to grade it — a green tower means it works and shows the maximum height, a red tower tells you exactly why not. Double-click a green tower to save it as Target D, E or F. Unlimited looks, three saves.
             </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleClearAll}
+              disabled={!probes.length && !savedTargets.some(Boolean)}
+              className="shrink-0 border-destructive/50 font-bold text-destructive hover:bg-destructive/10"
+            >
+              <Eraser className="h-3.5 w-3.5" /> Clear
+            </Button>
           </div>
+
+          {selectionCode && (
+            <div className="rounded-xl border-2 border-emerald-400/60 bg-emerald-500/10 p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <KeyRound className="h-5 w-5 shrink-0 text-emerald-600" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Your one-time selection code</div>
+                  <div className="font-mono text-xl font-extrabold tracking-wider text-foreground">{selectionCode.code}</div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    All three of your picks are saved. On the certification form this code goes <b>where your name would go</b> — it is the record that you selected these sites yourself. It works exactly once and can never be used again, so copy it now.
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { navigator.clipboard?.writeText(selectionCode.code); toast({ title: "Code copied" }); }}
+                  >
+                    <Copy className="h-3.5 w-3.5" /> Copy
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={selectionCode.status === "redeemed"}
+                    onClick={() => { setCertifyDone(false); setCertifyError(""); setCodeInput(""); setCertifyOpen(true); }}
+                    className="bg-emerald-600 font-bold text-white hover:bg-emerald-500"
+                  >
+                    {selectionCode.status === "redeemed" ? (<><BadgeCheck className="h-3.5 w-3.5" /> Certified</>) : "Certification form"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
           {resolving && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="w-4 h-4 animate-spin" /> Resolving active Target A…
@@ -604,12 +645,15 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                     layers={layers}
                     controls={controls}
                     savedTargets={savedTargets}
-                    selectionEnabled={savedTargets.some((target) => !target)}
+                    selectionEnabled={true}
                     onMapSelect={handleMapSelect}
-                    onClearSavedTargets={() => savedTargets.forEach((target, index) => target && onClearTarget?.(index))}
+                    onMapProbe={handleMapProbe}
+                    probes={probes}
+                    explorationRadiusMiles={RING_MILES}
+                    onClearSavedTargets={handleClearAll}
                     overlay={aiOverlay}
                     cursorColor={aiEval ? COLOR_HEX[aiEval.color] : null}
-                    searchRing={(searchRing || searchCenter) ? { ...(searchRing || searchCenter), radius_miles: 1 } : null}
+                    searchRing={(searchRing || searchCenter) ? { ...(searchRing || searchCenter), radius_miles: Number(searchRing?.radius_miles) || 1 } : null}
                   />
                 </div>
               ) : (
@@ -643,6 +687,77 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
           <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
             Preliminary screen — NOT final engineering, NOT a stamped survey, and NOT a final zoning determination.
           </p>
+        </div>
+      )}
+
+      {certifyOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => !certifyBusy && setCertifyOpen(false)}
+        >
+          <div
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
+              <div className="flex items-center gap-2 font-heading text-sm font-bold text-foreground">
+                <BadgeCheck className="h-4 w-4 text-emerald-600" /> Customer Site-Selection Certification
+              </div>
+              <button type="button" onClick={() => !certifyBusy && setCertifyOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] space-y-3 overflow-y-auto p-5">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Everything below is already filled out. The only field you complete is the last one — your one-time
+                selection code stands in for your name and certifies that <b>you</b> selected these candidates.
+              </p>
+
+              <div className="space-y-1.5 rounded-lg border border-border bg-muted/30 p-3 text-xs">
+                <div className="flex justify-between"><span className="text-muted-foreground">Date</span><span className="font-medium text-foreground">{new Date().toLocaleDateString()}</span></div>
+                {(() => { const c = getRingCenter(); return c ? (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Search ring center</span><span className="font-mono text-foreground">{c.lat.toFixed(6)}, {c.lon.toFixed(6)}</span></div>
+                ) : null; })()}
+                {zoningResult?._registry?.jurisdiction && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Jurisdiction</span><span className="font-medium text-foreground">{zoningResult._registry.jurisdiction}{zoningResult._registry.state ? `, ${zoningResult._registry.state}` : ""}</span></div>
+                )}
+                {(selectionCode?.targets || savedTargets).filter(Boolean).map((t, i) => (
+                  <div key={SLOT_LETTERS[i]} className="flex justify-between">
+                    <span className="text-muted-foreground">Target {SLOT_LETTERS[i]}</span>
+                    <span className="font-mono text-foreground">{Number(t.lat).toFixed(6)}, {Number(t.lng).toFixed(6)} · max {t.max_height_ft} ft</span>
+                  </div>
+                ))}
+                <div className="flex justify-between"><span className="text-muted-foreground">Selection source</span><span className="font-bold text-emerald-700">Customer-selected (D/E/F)</span></div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-foreground">
+                  Selected by — enter your one-time code (this replaces your name)
+                </label>
+                <input
+                  value={codeInput}
+                  onChange={(event) => setCodeInput(event.target.value.toUpperCase())}
+                  placeholder="HAWK-XXXX-XXXX"
+                  disabled={certifyBusy || certifyDone}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-sm tracking-wider text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              {certifyError && <p className="text-xs font-semibold text-destructive">{certifyError}</p>}
+
+              {certifyDone ? (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-400/60 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-700">
+                  <BadgeCheck className="h-4 w-4" /> Certified. Your code is now consumed and can never be used again.
+                </div>
+              ) : (
+                <Button onClick={handleRedeem} disabled={certifyBusy || !codeInput.trim()} className="w-full bg-emerald-600 font-bold text-white hover:bg-emerald-500">
+                  {certifyBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}
+                  Certify my picks
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
