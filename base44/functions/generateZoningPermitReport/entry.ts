@@ -821,7 +821,10 @@ Deno.serve(async (req) => {
         geometry: realie.geometry,
       } : null,
       sources_used: {
-        telecom_ordinance: !!ordinance,
+        telecom_ordinance: !!registry,
+        codehawk: shouldHunt
+          ? { ran: true, action: huntResult?.action || 'no_result_in_budget', fields_written: huntResult?.fields_written || [] }
+          : { ran: false, reason: ordinance ? 'registry_already_complete' : 'no_jurisdiction_resolved' },
         realie: !!realie,
         realie_zoning: realie?.zoning || null,
       },
