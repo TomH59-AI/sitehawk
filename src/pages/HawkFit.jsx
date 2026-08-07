@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Save, Loader2, Crosshair } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { computeFit, autoPlaceTower } from "@/lib/hawkfitGeometry";
+import { recordShadow, ringFromGeometry } from "@/lib/solverShadow";
+import "@/lib/shadowPersist";
 import { lookupRealieProperty } from "@/functions/lookupRealieProperty";
 import { saveTowerScenario } from "@/functions/saveTowerScenario";
 import HawkFitMap from "@/components/hawkfit/HawkFitMap";
@@ -39,7 +41,7 @@ export default function HawkFit() {
 
   const fit = useMemo(() => {
     if (!towerLngLat) return null;
-    return computeFit({
+    const live = computeFit({
       parcelGeometry: siteTarget?.parcel_geometry || null,
       towerLngLat,
       heightFt: controls.heightFt,
@@ -48,6 +50,31 @@ export default function HawkFit() {
       zoning: siteTarget?.zoning || null,
       ...controls,
     });
+
+    // SHADOW MODE — HawkPerchSolver v2 runs alongside and records where it
+    // disagrees. The live result above is returned unchanged; nothing here
+    // reaches the user. The solver is fed the IDENTICAL setbacks, cap and
+    // fall-zone multiplier, so any disagreement is the engine, not the inputs.
+    recordShadow({
+      surface: "HawkFit",
+      parcelRing: ringFromGeometry(siteTarget?.parcel_geometry),
+      towerLngLat,
+      proposedHeightFt: controls.heightFt,
+      liveResult: live,
+      jurisdiction: siteTarget?.county || siteTarget?.city || null,
+      setbacks: {
+        front: controls.frontSetbackFt,
+        side: controls.sideSetbackFt,
+        rear: controls.rearSetbackFt,
+      },
+      maxHeightFt: controls.maxHeightFt,
+      fallZone: {
+        mode: "percent",
+        value: controls.hasPELetter ? Math.min(0.9, Math.max(0.1, controls.fallZoneMultiplier)) : 1,
+      },
+    });
+
+    return live;
   }, [siteTarget, towerLngLat, controls]);
 
   const handleLookup = async (query) => {
