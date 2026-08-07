@@ -151,3 +151,28 @@ probe, not a unit test, and needs network.
 **Run all six before merging anything in this area.** Several of the tests above
 encode a specific bug that already shipped once; a green suite is the only cheap
 proof they have not come back.
+
+## HawkSketcher (Live Site Sketch) — off-site asset markers
+
+`src/components/scip/livesketch/` freehand-draws the Talon FT exhibit model. It
+NEVER invents geometry: parcels come from saved Target geometry, verdicts from
+`computeExhibit` (the same engine as the static Tower Fit Exhibit).
+
+Fiber-splice and transformer markers (`sketchUtilityMarkers.js`) follow the same
+doctrine — REAL coordinates only:
+
+- **Fiber** comes from the `fiberSplicePoints` function (nearest OSM-mapped
+  telecom asset, or its explicit "ASSUMED @ ROAD ROW" fallback). An assumed
+  hookup is drawn labeled ASSUMED in red — never dressed up as a mapped splice.
+- **Power** comes from `infrastructureAssets` (OSM) via an honesty ladder:
+  transformer → power pole ("NO TRANSFORMER MAPPED") → substation → nothing.
+  A pole is NEVER promoted to a transformer.
+- Markers draw at true position when inside the sketch extent, else as an edge
+  leader arrow on the true compass bearing. The written distance is the
+  MEASURED distance — never scaled off the drawing.
+- Fetches are fail-soft (`Promise.allSettled`) and guarded by `startedRef`:
+  late-arriving data is parked and applied on the next Clear, never remounting
+  a drawing in progress.
+
+Tests: `src/lib/sketchUtilityMarkers.smoke.ts` (25) — run with the same esbuild
+harness as the solver suites.
