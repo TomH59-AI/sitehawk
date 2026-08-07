@@ -453,22 +453,28 @@ export async function discoverSourceCandidates(base44, jurisdiction, state, limi
   const result = await base44.asServiceRole.integrations.Core.InvokeLLM({
     model: 'gemini_3_flash',
     add_context_from_internet: true,
-    prompt: `Find the OFFICIAL published municipal/county code page that contains the wireless telecommunications TOWER AND ANTENNA regulations for ${jurisdiction}, ${state}.
+    prompt: `Find the OFFICIAL published code that contains the wireless telecommunications TOWER AND ANTENNA regulations governing ${jurisdiction}, ${state}.
 
-Search library.municode.com, ecode360.com, library.amlegal.com, codelibrary.amlegal.com, municipal.codes, and the jurisdiction's own .gov site.
+FIRST, establish who actually regulates land use at this location:
+- If ${jurisdiction} is an INCORPORATED municipality, its own code governs.
+- If it is an unincorporated community or a census-designated place, it has no code of its own and the COUNTY-EQUIVALENT governs. In that case find the county's rules, which are usually in a UNIFIED DEVELOPMENT ORDINANCE (UDO), a Land Development Code (LDC), or Land Development Regulations (LDR) rather than a "municipal code".
+- Set place_incorporated and governing_body accordingly, and set code_type to whichever instrument you actually found.
+
+Search library.municode.com, ecode360.com, library.amlegal.com, codelibrary.amlegal.com, municipal.codes, and the governing body's own .gov site. Search for the UDO / land development code / land development regulations by name as well as for "zoning ordinance".
 
 Return up to ${limit} candidate URLs, best first. Rules:
 - Prefer the DEEP LINK to the wireless/telecommunications/tower article or section, not the code's table of contents or home page.
-- A direct PDF of the land development code chapter is acceptable and often better.
+- A direct PDF of the UDO or land development code chapter is acceptable and often better.
 - Only return URLs you actually saw in search results. Never invent a URL pattern.
 - section_hint: the article/section identifier you expect to find there (e.g. "Sec. 62-2109" or "Article XII, Div. 3").
 - publisher: municode | ecode360 | amlegal | official_gov | other.
-- If you cannot find a real published code for this jurisdiction, return an empty candidates array.`,
+- If the governing body has adopted NO zoning or land-development regulation at all (an unzoned county, or land with no local government such as Alaska's Unorganized Borough), set no_local_code true, set code_type to "none", and return an empty candidates array. That is a correct, useful answer — do not substitute a neighbouring jurisdiction's code or a state statute to avoid returning nothing.
+- If a code exists but you simply cannot locate it, leave no_local_code false and return an empty candidates array.`,
     response_json_schema: SOURCE_SCHEMA,
   });
 
   const seen = new Set();
-  return (result?.candidates || [])
+  const candidates = (result?.candidates || [])
     .map((c) => ({ ...c, url: String(c?.url || '').trim() }))
     .filter((c) => {
       if (!/^https?:\/\//i.test(c.url) || seen.has(c.url)) return false;
@@ -476,6 +482,16 @@ Return up to ${limit} candidate URLs, best first. Rules:
       return true;
     })
     .slice(0, limit);
+
+  return {
+    candidates,
+    governance: {
+      governing_body: result?.governing_body || null,
+      place_incorporated: typeof result?.place_incorporated === 'boolean' ? result.place_incorporated : null,
+      code_type: result?.code_type || null,
+      no_local_code: result?.no_local_code === true,
+    },
+  };
 }
 
 /**
