@@ -40,9 +40,14 @@ async function fetchRoads(lat: number, lon: number) {
 way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street)$"](${lat - degLat},${lon - degLon},${lat + degLat},${lon + degLon});
 out geom;`;
 
+  // Public Overpass instances return 504 and 429 under load with some
+  // regularity — observed live during testing. Three mirrors, and a failure
+  // across all of them degrades to default_side rather than to a wrong
+  // frontage, because an unverified front setback is the dangerous answer.
   for (const endpoint of [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.openstreetmap.ru/api/interpreter',
   ]) {
     try {
       const res = await fetch(endpoint, {
