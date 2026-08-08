@@ -31,7 +31,6 @@ export const DASHBOARD_TOOL_PAGES = [
     title: "CRM and Site Management",
     description: "Reach every tracking, follow-up, and owner-contact workspace directly.",
     tools: [
-      { title: "CRM", description: "Manage candidate sites, outreach, and deal activity.", to: "/crm", icon: Briefcase },
       { title: "Hawk Tracker", description: "Track deployment activity across your sites.", to: "/hawk-tracker", icon: MapPin },
       { title: "Mail Orders", description: "Verify owner addresses and send physical postcards.", to: "/mail-orders", icon: Mail },
       { title: "Skip-Trace", description: "Find available owner contact information.", to: "/skip-trace", icon: PhoneCall },

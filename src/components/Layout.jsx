@@ -41,7 +41,6 @@ const BASE_NAV = [
   { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡 Zoning Verifier" },
   { path: "/rfi-engine", icon: Radio, label: "📡 RF Intelligence" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
-  { path: "/crm", icon: Briefcase, label: "SiteHawk CRM" },
   { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
   { header: "ACCOUNT" },
