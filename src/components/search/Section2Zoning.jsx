@@ -410,8 +410,21 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
                   {panel.title}
                 </div>
                 {panel.section === "tower_specifics" && registry?.section_ref && (
-                  <div className="px-4 py-2 text-xs border-b border-border bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
-                    <span className="font-semibold">Source: SiteHawk Registry</span>
+                  <div
+                    className={
+                      registry.scope === "small_wireless_only"
+                        ? "px-4 py-2 text-xs border-b border-border bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+                        : "px-4 py-2 text-xs border-b border-border bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"
+                    }
+                  >
+                    <span className="font-semibold">
+                      {registry.scope === "small_wireless_only"
+                        ? "Small wireless / ROW ordinance only — no macro tower siting located"
+                        : "Source: SiteHawk Registry"}
+                    </span>
+                    {registry.scope === "small_wireless_only" && (
+                      <span className="font-normal">{" · Source: SiteHawk Registry"}</span>
+                    )}
                     {registry.jurisdiction
                       ? ` — ${registry.jurisdiction}${registry.state ? `, ${registry.state}` : ""}`
                       : ""}
