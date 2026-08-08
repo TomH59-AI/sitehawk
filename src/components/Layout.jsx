@@ -38,7 +38,6 @@ const BASE_NAV = [
   { path: "/government-forms", icon: Landmark, label: "16 · Government Forms" },
   { header: "MORE TOOLS" },
   { path: "/talonfit", icon: Zap, label: "⚡ TalonFit™" },
-  { path: "/hawkfit-map", icon: Radar, label: "👁 HawkVision" },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡 Zoning Verifier" },
   { path: "/rfi-engine", icon: Radio, label: "📡 RF Intelligence" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },

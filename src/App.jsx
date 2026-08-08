@@ -80,7 +80,6 @@ import HawkLeaseSiteDetail from './pages/hawklease/HawkLeaseSiteDetail';
 import HawkLeaseComps from './pages/hawklease/HawkLeaseComps';
 import HawkLeaseReports from './pages/hawklease/HawkLeaseReports';
 import HawkFill from './pages/HawkFill';
-import HawkFit from './pages/HawkFit';
 import HawkForms from './pages/HawkForms';
 import HawkLaw from './pages/HawkLaw';
 import TowerFitExhibit from './pages/TowerFitExhibit';
@@ -212,8 +211,8 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id/anthemnet" element={<AnthemNetScip />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
         <Route path="/hawk-fill" element={<HawkFill />} />
-        {/* HawkFit Map — interactive tower-siting with Realie lookup */}
-        <Route path="/hawkfit-map" element={<HawkFit />} />
+        {/* AIHawkSit / HawkVision retired — TalonFit is the tower-fit surface */}
+        <Route path="/hawkfit-map" element={<Navigate to="/talonfit" replace />} />
         <Route path="/hawk-forms" element={<HawkForms />} />
         <Route path="/hawk-tracker" element={<HawkTracker />} />
         {/* Simplified read-only tracker view for pilot clients */}

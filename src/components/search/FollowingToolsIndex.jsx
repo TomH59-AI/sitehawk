@@ -4,7 +4,6 @@ import { Radio, Eye, ShieldCheck, MapPin, FileSignature, Zap, ArrowRight } from 
 // Ordered continuation of the flow — each card navigates to its tool page.
 const TOOLS = [
   { path: "/talonfit", icon: Zap, label: "TalonFit® Map", desc: "AI spatial intelligence and deterministic tower-fit checks." },
-  { path: "/hawkfit-map", icon: Eye, label: "HawkVision", desc: "Replay the live Target A parcel, setback, fall-zone, compound, and tower sketch." },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "Zoning Verifier", desc: "Cross-check zoning findings and approval requirements." },
   { path: "/rfi-engine", icon: Radio, label: "RF Intelligence", desc: "Explore coverage, nearby assets, and RF opportunity." },
   { path: "/hawk-tracker", icon: MapPin, label: "Hawk Tracker", desc: "Carry the selected site from outreach through build-out." },

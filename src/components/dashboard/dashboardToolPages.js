@@ -19,7 +19,6 @@ export const DASHBOARD_TOOL_PAGES = [
     description: "Open the intelligence tools that support your existing pipeline.",
     tools: [
       { title: "TalonFit®", description: "Screen ordinance constraints and scout candidate targets.", to: "/talonfit", icon: Zap },
-      { title: "HawkVision", description: "Replay the live Target A parcel, setback, fall-zone, and tower sketch.", to: "/hawkfit-map", icon: Eye },
       { title: "Zoning Verifier", description: "Review zoning findings and source confidence.", to: "/zoning-verifier", icon: ShieldCheck },
       { title: "CodeHawk", description: "Look up any jurisdiction's tower ordinance, cited to its code section.", to: "/codehawk", icon: Landmark },
       { title: "RF Intelligence Engine", description: "Model and review RF coverage intelligence.", to: "/rfi-engine", icon: Radar },
