@@ -132,8 +132,17 @@ export function solveTalonFit(input: any) {
   // ── measurements ──────────────────────────────────────────────────────────
   const geo = polygonCheck(parcel.geometry, point);
   const insideParcel = geo?.inside ?? null;
-  const distToLine = geo?.edge_distance_ft ?? null;
+  let distToLine = geo?.edge_distance_ft ?? null;
   if (!geo) missing.push("parcel geometry");
+  // The subscriber may click ANYWHERE inside the 2-mile ring — the solver grades
+  // whatever parcel sits at that coordinate. If the parcel record returned for
+  // the click does not actually contain the point (ROW gap, missing geometry on
+  // the true parcel), that's unconfirmed data, not a rejection — and the edge
+  // distance to the WRONG parcel must not feed setback math.
+  if (insideParcel === false) {
+    distToLine = null;
+    missing.push("parcel boundary at this point — the nearest parcel record does not contain the clicked coordinate");
+  }
 
   const ringCenter: Coord | null = input.search_ring?.center || null;
   const ringFeet = ringCenter ? haversineFeet(ringCenter, point) : null;
@@ -226,7 +235,6 @@ export function solveTalonFit(input: any) {
   if (rules.ordinance_data_verified === false) missing.push("verified ordinance language");
 
   const failures: string[] = [];
-  if (insideParcel === false) failures.push("Candidate point falls outside the selected parcel boundary.");
   if (ringFeet != null && ringFeet > MAX_RING_RADIUS_FEET) {
     failures.push(`Candidate is ${Math.round(ringFeet)} ft from the ring center — beyond the ${MAX_RING_RADIUS_FEET} ft (${MAX_RING_RADIUS_MILES} mile) search ring.`);
   }
