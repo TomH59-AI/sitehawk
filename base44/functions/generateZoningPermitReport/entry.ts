@@ -722,7 +722,38 @@ Deno.serve(async (req) => {
       // Previously that single bad field caused the WHOLE record to be skipped,
       // throwing away good height/setback/fall-zone values with it. Now only the
       // placeholder itself is withheld.
-      const permitType = /^\s*UNVERIFIED/i.test(registry.permit_type || '') ? null : registry.permit_type;
+      //
+      // SECOND GATE (accuracy): a permit_type sitting on a row with NO dimensional
+      // data behind it is almost always a harvest artifact — a section label
+      // ("Supplemental Regs 134-273 (over 35 ft)"), a code title, or a "deep pull
+      // pending" note — not an approval path. 374 rows across 22 states were in
+      // that shape and each printed its artifact into zoning_process stamped
+      // SiteHawk Registry. Require real parsed content on the row before a bare
+      // permit_type is allowed to speak. An explicit zoning_process is exempt:
+      // that column is only ever written as a deliberate approval-path statement.
+      const hasParsedContent = [
+        registry.setback_rule,
+        registry.height_limit_ft,
+        registry.setback_ft,
+        registry.fall_zone_ft,
+        registry.fall_zone_pct_of_height,
+        registry.residential_separation_ft,
+        registry.tower_separation_ft,
+      ].some((v) => v !== null && v !== undefined && v !== '');
+
+      // Placeholder prose that says nothing but would look authoritative in the
+      // deliverable. Same disease as the UNVERIFIED prefix, just better dressed.
+      const isPlaceholderProse = (s) =>
+        !s ||
+        /^\s*(TBD|UNVERIFIED|N\/?A|Unknown|Pending)\b/i.test(s) ||
+        /verify with|deep pull|not extractable|to be confirmed|needs (research|confirmation)/i.test(s);
+
+      const rawPermitType = registry.permit_type || '';
+      const permitType =
+        isPlaceholderProse(rawPermitType) || !hasParsedContent ? null : rawPermitType;
+
+      const rawProcess = registry.zoning_process || '';
+      const zoningProcess = isPlaceholderProse(rawProcess) ? null : rawProcess;
 
       put('tower_specifics', 'maximum_tower_height', ft(registry.height_limit_ft), 'height_limit_ft');
       put('tower_specifics', 'residential_separation', ft(registry.residential_separation_ft), 'residential_separation_ft');
@@ -767,14 +798,14 @@ Deno.serve(async (req) => {
       put('tower_specifics', 'ldc_section_references', registry.section_ref);
       // zoning_process is the structured approval path; permit_type is the older
       // free-form label. Prefer the structured column when we have it.
-      put('zoning_overview', 'zoning_process', registry.zoning_process || permitType,
-        registry.zoning_process ? 'zoning_process' : 'permit_type');
+      put('zoning_overview', 'zoning_process', zoningProcess || permitType,
+        zoningProcess ? 'zoning_process' : 'permit_type');
       put('zoning_overview', 'zoning_approval_timeframe', registry.zoning_approval_timeframe, 'zoning_approval_timeframe');
 
-      const approvalPath = registry.zoning_process || permitType;
+      const approvalPath = zoningProcess || permitType;
       if (approvalPath && /conditional use|special use|special exception/i.test(approvalPath)) {
         put('zoning_overview', 'cup_or_special_exception', approvalPath,
-          registry.zoning_process ? 'zoning_process' : 'permit_type');
+          zoningProcess ? 'zoning_process' : 'permit_type');
       }
 
       // PE fall-zone relief is a siting lever — only assert it when we know.
