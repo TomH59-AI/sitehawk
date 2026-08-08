@@ -7,7 +7,7 @@ import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import HawkVoiceAssistant from "./guide/HawkVoiceAssistant";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, FileStack, Radar, ShieldCheck, PhoneCall, Network, Zap, Map, Target, ScrollText, Landmark, Compass, FileText } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, FileStack, Radar, ShieldCheck, PhoneCall, Network, Zap, Map, Target, Landmark, Compass, FileText } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -29,7 +29,6 @@ const BASE_NAV = [
   { path: "/target-a-maps", icon: MapPin, label: "6 · Target A Maps" },
   { path: "/target-b-maps", icon: MapPin, label: "7 · Target B Maps" },
   { path: "/target-c-maps", icon: MapPin, label: "8 · Target C Maps" },
-  { path: "/deed-skip-trace", icon: ScrollText, label: "9 · Deed & Skip-Trace" },
   { path: "/fiber-operators", icon: Network, label: "10 · Local Services Directory" },
   { path: "/scip", icon: FileText, label: "11 · SCIP" },
   { path: "/hawk-docs", icon: ScanLine, label: "12 · Permitting Applications Fetcher" },

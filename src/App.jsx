@@ -105,7 +105,6 @@ import SarfMapPage from './pages/pipeline/SarfMapPage';
 import ZoningPage from './pages/pipeline/ZoningPage';
 import TargetsPage from './pages/pipeline/TargetsPage';
 import TargetMapsPage from './pages/pipeline/TargetMapsPage';
-import DeedSkipTracePage from './pages/pipeline/DeedSkipTracePage';
 import GovernmentForms from './pages/GovernmentForms';
 
 import SplashScreen from './components/SplashScreen';
@@ -164,7 +163,7 @@ const AuthenticatedApp = () => {
         <Route path="/target-a-maps" element={<TargetMapsPage letter="A" />} />
         <Route path="/target-b-maps" element={<TargetMapsPage letter="B" />} />
         <Route path="/target-c-maps" element={<TargetMapsPage letter="C" />} />
-        <Route path="/deed-skip-trace" element={<DeedSkipTracePage />} />
+        {/* Deed & Skip-Trace removed — it already runs inside the pipeline. */}
         <Route path="/government-forms" element={<GovernmentForms />} />
         <Route path="/pricing" element={<PricingV2 />} />
         <Route path="/billing" element={<Billing />} />
