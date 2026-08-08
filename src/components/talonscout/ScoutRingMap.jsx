@@ -208,7 +208,7 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
         center={[center.lat, center.lon]}
         zoom={12}
         className="h-full w-full"
-        scrollWheelZoom
+        scrollWheelZoom={false}
         doubleClickZoom={false}
       >
         <TileLayer
