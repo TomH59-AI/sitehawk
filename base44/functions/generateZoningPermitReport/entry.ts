@@ -738,12 +738,43 @@ Deno.serve(async (req) => {
         registry.fall_zone_ft ? 'fall_zone_ft' : registry.fall_zone_pct_of_height ? 'fall_zone_pct_of_height' : 'setback_rule'
       );
       put('tower_specifics', 'stealth_required', yn(registry.stealth_required), 'stealth_required');
-      put('tower_specifics', 'required_collocations', yn(registry.collocation_required), 'collocation_required');
+      // "Required Collocations (#)" asks for a NUMBER. Prefer the count; fall back
+      // to the boolean only as a qualitative answer, and say so rather than
+      // printing a bare "Yes" into a field labelled with a (#).
+      put(
+        'tower_specifics',
+        'required_collocations',
+        registry.required_collocations_count
+          ? `${registry.required_collocations_count}`
+          : registry.collocation_required === true
+            ? 'Required — no specific number set by ordinance'
+            : yn(registry.collocation_required),
+        registry.required_collocations_count ? 'required_collocations_count' : 'collocation_required'
+      );
+      put('tower_specifics', 'measured_from_base_or_center', registry.measured_from, 'measured_from');
+      put(
+        'tower_specifics',
+        'special_tower_landscaping',
+        registry.landscaping_details
+          ? registry.landscaping_details
+          : registry.landscaping_required === true
+            ? 'Yes — tower-specific landscaping/screening required by ordinance'
+            : registry.landscaping_required === false
+              ? 'No tower-specific landscaping beyond base district standards'
+              : null,
+        registry.landscaping_details ? 'landscaping_details' : 'landscaping_required'
+      );
       put('tower_specifics', 'ldc_section_references', registry.section_ref);
-      put('zoning_overview', 'zoning_process', permitType, 'permit_type');
+      // zoning_process is the structured approval path; permit_type is the older
+      // free-form label. Prefer the structured column when we have it.
+      put('zoning_overview', 'zoning_process', registry.zoning_process || permitType,
+        registry.zoning_process ? 'zoning_process' : 'permit_type');
+      put('zoning_overview', 'zoning_approval_timeframe', registry.zoning_approval_timeframe, 'zoning_approval_timeframe');
 
-      if (permitType && /conditional use|special use|special exception/i.test(permitType)) {
-        put('zoning_overview', 'cup_or_special_exception', permitType, 'permit_type');
+      const approvalPath = registry.zoning_process || permitType;
+      if (approvalPath && /conditional use|special use|special exception/i.test(approvalPath)) {
+        put('zoning_overview', 'cup_or_special_exception', approvalPath,
+          registry.zoning_process ? 'zoning_process' : 'permit_type');
       }
 
       // PE fall-zone relief is a siting lever — only assert it when we know.
