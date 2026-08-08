@@ -25,6 +25,15 @@ export default function TargetMapsPage({ letter = "A" }) {
   const ringReady = center && Number.isFinite(center.lat) && Number.isFinite(center.lon);
   const ringName = params.ring_name?.trim() || params.agent_name?.trim() || "Search Ring";
   const hasTarget = !!(target && Number.isFinite(target.latitude) && Number.isFinite(target.longitude));
+  // TalonFit coverage is a 2-mile radius measured from TARGET A — not from the
+  // SARF waypoint. Anchoring the Target C picker anywhere else makes points that
+  // are genuinely inside TalonFit's reach read as "outside the search ring".
+  const targetA = session.targets?.[0] || null;
+  const talonCenter = targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude)
+    ? { lat: Number(targetA.latitude), lon: Number(targetA.longitude), label: `Target A · ${Number(targetA.latitude).toFixed(6)}, ${Number(targetA.longitude).toFixed(6)}` }
+    : ringReady
+    ? { lat: Number(center.lat), lon: Number(center.lon), label: "Search Ring Center" }
+    : null;
 
   return (
     <div className="space-y-5">
@@ -37,9 +46,9 @@ export default function TargetMapsPage({ letter = "A" }) {
 
       {/* Target C is the LAST target — the subscriber picks it themselves on the
           TalonFit map, and that pick is what the final SCIP is built from. */}
-      {letter === "C" && ringReady && (
+      {letter === "C" && talonCenter && (
         <ChangeTargetCPanel
-          center={{ lat: Number(center.lat), lon: Number(center.lon) }}
+          center={talonCenter}
           proposal={params}
           onPick={(picked) => {
             setSuiteDone(false);

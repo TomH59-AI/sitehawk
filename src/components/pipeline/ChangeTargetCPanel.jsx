@@ -83,7 +83,10 @@ export default function ChangeTargetCPanel({ center, proposal, onPick }) {
           <Crosshair className="h-4 w-4 text-primary" /> Change Target C — TalonFit pick
         </div>
         <span className="text-xs text-muted-foreground">
-          Click any point inside the ring to grade it. Targets A and B stay exactly as they are.
+          Click any point inside the 2-mile TalonFit radius to grade it. Targets A and B stay exactly as they are.
+        </span>
+        <span className="w-full text-[11px] text-muted-foreground">
+          Coverage is a 2-mile radius measured from {center.label || "the search ring center"}.
         </span>
       </div>
 
@@ -94,7 +97,7 @@ export default function ChangeTargetCPanel({ center, proposal, onPick }) {
 
       <div className="border-t border-border">
         <ScoutRingMap
-          center={{ lat: center.lat, lon: center.lon, label: "Search Ring Center" }}
+          center={{ lat: center.lat, lon: center.lon, label: center.label || "Search Ring Center" }}
           targets={[]}
           probe={probe}
           onProbe={handleProbe}
