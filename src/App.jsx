@@ -42,7 +42,6 @@ import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
 import SiteSearch from './pages/SiteSearch';
-import Pricing from './pages/Pricing';
 import About from './pages/About';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';

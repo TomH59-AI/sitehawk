@@ -1,7 +1,7 @@
 import {
   Search, Zap, ShieldCheck, Radar, Network, Briefcase, MapPin, Landmark,
-  ClipboardList, PhoneCall, FileSignature, Scale, ClipboardEdit,
-  FileStack, ScanLine, CreditCard, Settings, Info,
+  PhoneCall, FileSignature, Scale, ClipboardEdit,
+  FileStack, ScanLine, CreditCard, Settings, Info, Eye, Mail,
 } from "lucide-react";
 
 export const DASHBOARD_TOOL_PAGES = [
@@ -19,6 +19,7 @@ export const DASHBOARD_TOOL_PAGES = [
     description: "Open the intelligence tools that support your existing pipeline.",
     tools: [
       { title: "TalonFit®", description: "Screen ordinance constraints and scout candidate targets.", to: "/talonfit", icon: Zap },
+      { title: "HawkVision", description: "Replay the live Target A parcel, setback, fall-zone, and tower sketch.", to: "/hawkfit-map", icon: Eye },
       { title: "Zoning Verifier", description: "Review zoning findings and source confidence.", to: "/zoning-verifier", icon: ShieldCheck },
       { title: "CodeHawk", description: "Look up any jurisdiction's tower ordinance, cited to its code section.", to: "/codehawk", icon: Landmark },
       { title: "RF Intelligence Engine", description: "Model and review RF coverage intelligence.", to: "/rfi-engine", icon: Radar },
@@ -33,7 +34,7 @@ export const DASHBOARD_TOOL_PAGES = [
     tools: [
       { title: "CRM", description: "Manage candidate sites, outreach, and deal activity.", to: "/crm", icon: Briefcase },
       { title: "Hawk Tracker", description: "Track deployment activity across your sites.", to: "/hawk-tracker", icon: MapPin },
-      { title: "Follow-Up Tracker", description: "Keep next actions and urgent follow-ups visible.", to: "/follow-up-tracker", icon: ClipboardList },
+      { title: "Mail Orders", description: "Verify owner addresses and send physical postcards.", to: "/mail-orders", icon: Mail },
       { title: "Skip-Trace", description: "Find available owner contact information.", to: "/skip-trace", icon: PhoneCall },
     ],
   },
