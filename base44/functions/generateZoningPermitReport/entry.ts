@@ -741,6 +741,17 @@ Deno.serve(async (req) => {
         registry.tower_separation_ft,
       ].some((v) => v !== null && v !== undefined && v !== '');
 
+      // Numeric/dimensional content only — setback_rule prose alone does not
+      // prove macro tower standards were found (an SWA-only row still has prose).
+      const hasParsedContentBeyondNarrative = [
+        registry.height_limit_ft,
+        registry.setback_ft,
+        registry.fall_zone_ft,
+        registry.fall_zone_pct_of_height,
+        registry.residential_separation_ft,
+        registry.tower_separation_ft,
+      ].some((v) => v !== null && v !== undefined && v !== '');
+
       // Placeholder prose that says nothing but would look authoritative in the
       // deliverable. Same disease as the UNVERIFIED prefix, just better dressed.
       const isPlaceholderProse = (s) =>
@@ -819,11 +830,20 @@ Deno.serve(async (req) => {
           'pe_fall_zone_allowed');
       }
 
+      // Some rows are honestly labelled as small-wireless-only: the harvest found
+      // a ROW/small-cell article and no macro tower siting. The citation strip
+      // under TOWER SPECIFICS must not imply this record governs tower rules when
+      // its own text says no macro siting was located. Flag it for the UI.
+      const swaOnly = /small.{0,2}wireless|SWA.only|no macro/i.test(
+        `${registry.setback_rule || ''} ${registry.permit_type || ''} ${registry.zoning_process || ''}`
+      ) && !hasParsedContentBeyondNarrative;
+
       report._registry = {
         jurisdiction: registry.jurisdiction || null,
         state: registry.state || null,
         section_ref: registry.section_ref || null,
         source_url: registry.source_url || null,
+        scope: swaOnly ? 'small_wireless_only' : 'macro',
         verification_status: registry.verification_status || 'unverified',
         completeness_score: registry.completeness_score ?? completenessScore(registry),
         critical_total: CRITICAL_FIELDS.length,
