@@ -135,4 +135,84 @@ export const GOV_FORM_CATEGORIES = [
       },
     ],
   },
+  {
+    key: "fcc_faa_reference",
+    title: "FCC & FAA — Registration and Filing Portals",
+    icon: "📡",
+    items: [
+      {
+        name: "FCC Antenna Structure Registration (ASR)",
+        subtitle: "FCC Form 854 — register or update a structure",
+        tag: "FCC",
+        fillable: true,
+        url: "https://wireless2.fcc.gov/UlsEntry/asr/index.jsp",
+        purpose:
+          "Structures requiring FAA notification must be registered with the FCC before construction. Filed through the ASR system in the Universal Licensing System.",
+      },
+      {
+        name: "FCC ASR Registration Search",
+        subtitle: "Look up existing registered structures",
+        tag: "FCC",
+        url: "https://wireless2.fcc.gov/UlsApp/AsrSearch/asrRegistrationSearch.jsp",
+        purpose:
+          "Public search of registered antenna structures — used to confirm nearby registered towers, owners, heights, and lighting requirements.",
+      },
+      {
+        name: "FAA OE/AAA Portal",
+        subtitle: "Obstruction Evaluation / Airport Airspace Analysis",
+        tag: "FAA",
+        url: "https://oeaaa.faa.gov/oeaaa/external/portal.jsp",
+        purpose:
+          "Where 7460-1 notices are filed and determinations are tracked. Also hosts the Notice Criteria and TOWAIR-style screening tools.",
+      },
+      {
+        name: "FAA Form 7460-2",
+        subtitle: "Notice of Actual Construction or Alteration",
+        tag: "FAA",
+        fillable: true,
+        url: "https://oeaaa.faa.gov/oeaaa/external/portal.jsp",
+        purpose:
+          "Filed to report the start and completion of construction on a structure covered by a 7460-1 determination.",
+      },
+    ],
+  },
+  {
+    key: "environmental_screening",
+    title: "Environmental Screening Tools",
+    icon: "🌎",
+    items: [
+      {
+        name: "USFWS IPaC",
+        subtitle: "Information for Planning and Consultation",
+        tag: "USFWS",
+        url: "https://ipac.ecosphere.fws.gov/",
+        purpose:
+          "Official screening for threatened and endangered species and critical habitat at the candidate location. Produces the species list used in environmental review.",
+      },
+      {
+        name: "USFWS National Wetlands Inventory Mapper",
+        subtitle: "Wetland presence and Cowardin classification",
+        tag: "USFWS",
+        url: "https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper",
+        purpose:
+          "The mapped wetland data behind wetland-proximity findings. Mapped wetlands are screening-level only — a delineation is required for permitting.",
+      },
+      {
+        name: "FEMA Flood Map Service Center",
+        subtitle: "Official FIRM panels and flood zone determinations",
+        tag: "FEMA",
+        url: "https://msc.fema.gov/portal/home",
+        purpose:
+          "Source of the effective FIRM panel and flood zone for the parcel. Use the official panel, not a screening layer, for any filing.",
+      },
+      {
+        name: "EPA NEPAssist",
+        subtitle: "Environmental screening for NEPA review",
+        tag: "EPA",
+        url: "https://nepassist.epa.gov/nepassist/entry.aspx",
+        purpose:
+          "EPA's screening tool for environmental features and regulated sites near the candidate — used to support the NEPA categorical exclusion record.",
+      },
+    ],
+  },
 ];

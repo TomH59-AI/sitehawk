@@ -1,7 +1,6 @@
 import { Landmark } from "lucide-react";
 import { GOV_FORM_CATEGORIES } from "@/components/govforms/govFormsData";
-import { FORM_CATEGORIES } from "@/components/hawkforms/hawkFormsData";
-import HawkFormCard from "@/components/hawkforms/HawkFormCard";
+import GovFormCard from "@/components/govforms/GovFormCard";
 
 /**
  * Government Forms — ONLY the wetland-proximity FAA filings and the NEPA /
@@ -13,7 +12,7 @@ export default function GovernmentForms() {
   // Government Forms is now the single home for every official filing — the
   // wetland/NEPA/SHPO/THPO set plus the FCC / FAA / environmental / portal
   // reference library that used to sit on the Dashboard.
-  const categories = [...GOV_FORM_CATEGORIES, ...FORM_CATEGORIES];
+  const categories = GOV_FORM_CATEGORIES;
   const totalForms = categories.reduce((n, c) => n + c.items.length, 0);
 
   return (
@@ -44,7 +43,7 @@ export default function GovernmentForms() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {cat.items.map((item) => (
-              <HawkFormCard key={item.name} item={item} />
+              <GovFormCard key={item.name} item={item} />
             ))}
           </div>
         </section>

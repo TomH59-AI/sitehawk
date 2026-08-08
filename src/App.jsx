@@ -80,7 +80,6 @@ import HawkLeaseSiteDetail from './pages/hawklease/HawkLeaseSiteDetail';
 import HawkLeaseComps from './pages/hawklease/HawkLeaseComps';
 import HawkLeaseReports from './pages/hawklease/HawkLeaseReports';
 import HawkFill from './pages/HawkFill';
-import HawkForms from './pages/HawkForms';
 import HawkLaw from './pages/HawkLaw';
 import TowerFitExhibit from './pages/TowerFitExhibit';
 import Billing from './pages/Billing';
@@ -213,7 +212,8 @@ const AuthenticatedApp = () => {
         <Route path="/hawk-fill" element={<HawkFill />} />
         {/* AIHawkSit / HawkVision retired — TalonFit is the tower-fit surface */}
         <Route path="/hawkfit-map" element={<Navigate to="/talonfit" replace />} />
-        <Route path="/hawk-forms" element={<HawkForms />} />
+        {/* Hawk Forms retired — Government Forms (step 16) is the single forms library */}
+        <Route path="/hawk-forms" element={<Navigate to="/government-forms" replace />} />
         <Route path="/hawk-tracker" element={<HawkTracker />} />
         {/* Simplified read-only tracker view for pilot clients */}
         <Route path="/pilot-tracker" element={<PilotTracker />} />

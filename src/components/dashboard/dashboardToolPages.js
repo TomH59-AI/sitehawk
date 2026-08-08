@@ -54,7 +54,7 @@ export const DASHBOARD_TOOL_PAGES = [
     description: "Open every document workspace without digging through the menu.",
     tools: [
       { title: "HawkFill", description: "Upload and intelligently complete your own template.", to: "/hawk-fill", icon: ClipboardEdit },
-      { title: "Hawk Forms", description: "Open supported carrier and regulatory forms.", to: "/hawk-forms", icon: FileStack },
+      { title: "Government Forms", description: "Open supported government and regulatory forms.", to: "/government-forms", icon: Landmark },
       { title: "Document Intelligence", description: "Analyze supported zoning and permit documents.", to: "/hawk-docs", icon: ScanLine },
     ],
   },

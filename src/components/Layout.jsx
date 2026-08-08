@@ -44,7 +44,6 @@ const BASE_NAV = [
   { path: "/crm", icon: Briefcase, label: "SiteHawk CRM" },
   { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
   { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
-  { path: "/hawk-forms", icon: FileStack, label: "📑 Hawk Forms" },
   { header: "ACCOUNT" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },
 ];
