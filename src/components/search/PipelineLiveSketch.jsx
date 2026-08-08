@@ -6,10 +6,15 @@ import { buildSketchUtilityLines } from "@/components/scip/livesketch/sketchUtil
 export default function PipelineLiveSketch({ targetA, searchCenter, searchParams, zoningResult, sectionData = {} }) {
   const record = useMemo(() => {
     const zoning = zoningResult?.zoning || {};
+    // The sketch must sit on the SELECTED target (A, B or C) — never the search
+    // ring centroid. Ring center is only a last-resort fallback so the sketch
+    // still renders if a target somehow has no coordinates.
+    const tLat = Number(targetA?.latitude);
+    const tLon = Number(targetA?.longitude);
     return {
       site_name: searchParams.ring_name?.trim() || searchParams.agent_name?.trim() || "Search Ring",
-      latitude: Number(searchCenter.lat),
-      longitude: Number(searchCenter.lon),
+      latitude: Number.isFinite(tLat) ? tLat : Number(searchCenter.lat),
+      longitude: Number.isFinite(tLon) ? tLon : Number(searchCenter.lon),
       search_radius: String(searchParams.radius_miles),
       sarf_height: Number(searchParams.tower_height_ft),
       compound_size: searchParams.compound_size,
