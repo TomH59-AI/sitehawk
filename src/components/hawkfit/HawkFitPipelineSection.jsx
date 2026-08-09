@@ -286,6 +286,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       ordinance_source_url: data?.ordinance_rules?.ordinance_source_url || "",
       wetlands_count: data?.spatial_constraints?.wetland_features?.features?.length || 0,
       solved_at: data?.solved_at || null,
+      parcel_geometry: p?.geometry || null,
     };
   }, [getRingCenter, controls.heightFt, controls.widthFt, controls.depthFt, savedTargets]);
 
