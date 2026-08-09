@@ -45,6 +45,14 @@ function createProbeEl(color, pending = false) {
 }
 
 const PROBE_COLORS = { works: "#10B981", fails: "#EF4444", verify: "#F59E0B", pending: "#94A3B8" };
+const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+const propertyRows = (item) => [
+  ["Owner", item.owner_name], ["Address", item.parcel_address], ["Parcel ID", item.apn],
+  ["Acreage", item.acreage != null ? `${Number(item.acreage).toFixed(2)} ac` : null],
+  ["Zoning", item.zoning], ["Jurisdiction", item.jurisdiction], ["Approval", item.approval_path],
+  ["Ordinance", item.ordinance_section], ["NWI wetlands nearby", item.wetlands_count != null ? String(item.wetlands_count) : null],
+].filter(([, value]) => value != null && value !== "");
+const rowsHtml = (item) => propertyRows(item).map(([label, value]) => `<div style="display:flex;gap:8px;justify-content:space-between;border-top:1px solid #e2e8f0;padding:3px 0"><span style="color:#64748b">${esc(label)}</span><b style="max-width:170px;text-align:right">${esc(value)}</b></div>`).join("");
 
 export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, layers, controls, savedTargets = [], selectionEnabled = false, onMapSelect, onMapProbe, probes = [], explorationRadiusMiles = null, onClearSavedTargets, overlay = null, cursorColor = null, searchRing = null }) {
   const containerRef = useRef(null);
@@ -231,16 +239,21 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
       const color = PROBE_COLORS[probe.status] || PROBE_COLORS.pending;
       const el = createProbeEl(color, probe.status === "pending");
       const heightLine = probe.status === "works" && Number.isFinite(probe.maxHeight)
-        ? `<div style=\"font-weight:800;color:#059669\">WORKS · max ${Math.floor(probe.maxHeight)} ft</div>`
+        ? `<div style="font-weight:900;color:#059669;font-size:13px">APPROVED · max ${Math.floor(probe.maxHeight)} ft</div>`
         : probe.status === "pending"
-          ? `<div style=\"font-weight:700;color:#64748b\">Grading…</div>`
-          : `<div style=\"font-weight:800;color:${probe.status === "verify" ? "#B45309" : "#DC2626"}\">${probe.status === "verify" ? "VERIFY" : "WON'T WORK"}</div>${probe.reason ? `<div style=\"margin-top:2px;color:#334155\">${String(probe.reason).slice(0, 160)}</div>` : ""}`;
-      const popup = new window.mapboxgl.Popup({ offset: 20, closeButton: false, maxWidth: "260px" })
-        .setHTML(`<div style=\"font:11px/1.4 sans-serif\">${heightLine}<div style=\"margin-top:3px;font-family:monospace;color:#475569\">${probe.lat.toFixed(6)}, ${probe.lng.toFixed(6)}</div>${probe.status === "works" ? `<div style=\"margin-top:3px;color:#64748b\">Double-click this spot to save it</div>` : ""}</div>`);
+          ? `<div style="font-weight:700;color:#64748b">Calculating parcel…</div>`
+          : `<div style="font-weight:900;color:${probe.status === "verify" ? "#B45309" : "#DC2626"};font-size:13px">${probe.status === "verify" ? "DATA REQUIRED" : "REJECTED"}</div>`;
+      const reasonHtml = (probe.reasons || (probe.reason ? [probe.reason] : [])).slice(0, 4)
+        .map((reason) => `<div style="margin-top:3px;color:#334155">• ${esc(reason)}</div>`).join("");
+      const moved = probe.moved_to_optimal ? `<div style="margin:4px 0;color:#047857;font-weight:700">Tower moved to SiteSitter™ optimal point</div>` : "";
+      const popup = new window.mapboxgl.Popup({ offset: 20, closeButton: false, maxWidth: "330px" })
+        .setHTML(`<div style="font:11px/1.4 sans-serif;min-width:250px">${heightLine}${moved}<div style="margin:3px 0;font-family:monospace;color:#475569">${probe.lat.toFixed(6)}, ${probe.lng.toFixed(6)}</div>${reasonHtml}${rowsHtml(probe)}${probe.status === "works" ? `<div style="margin-top:5px;color:#047857;font-weight:700">Double-click the green tower to save it for SCIP</div>` : ""}</div>`);
       const marker = new window.mapboxgl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([probe.lng, probe.lat])
         .setPopup(popup)
         .addTo(map);
+      el.addEventListener("mouseenter", () => popup.addTo(map));
+      el.addEventListener("mouseleave", () => popup.remove());
       if (probe.openPopup) popup.addTo(map);
       return marker;
     });
@@ -283,7 +296,12 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
       const el = document.createElement("div");
       el.textContent = ["D", "E", "F"][index];
       el.style.cssText = "width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#7c3aed;color:#fff;border:2px solid #fff;font:700 12px sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.45)";
-      return new window.mapboxgl.Marker({ element: el }).setLngLat([target.lng, target.lat]).addTo(map);
+      const popup = new window.mapboxgl.Popup({ offset: 18, closeButton: false, maxWidth: "330px" })
+        .setHTML(`<div style="font:11px/1.4 sans-serif;min-width:250px"><div style="font-weight:900;color:#6d28d9;font-size:13px">SAVED CANDIDATE ${["D", "E", "F"][index]}</div><div style="font-family:monospace;color:#475569;margin:3px 0">${Number(target.lat).toFixed(6)}, ${Number(target.lng).toFixed(6)}</div><div style="font-weight:800;color:#059669">Maximum buildable: ${Math.round(target.max_height_ft || 0)} ft</div>${rowsHtml(target)}</div>`);
+      const marker = new window.mapboxgl.Marker({ element: el }).setLngLat([target.lng, target.lat]).setPopup(popup).addTo(map);
+      el.addEventListener("mouseenter", () => popup.addTo(map));
+      el.addEventListener("mouseleave", () => popup.remove());
+      return marker;
     }).filter(Boolean);
   }, [ready, savedTargets]);
 
@@ -341,13 +359,13 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
               ? "border-amber-300 bg-amber-50 text-amber-700"
               : "border-red-300 bg-red-50 text-red-700"
         }`}>
-          TalonFit · {fit.status === "works" ? "APPROVED" : fit.status === "needs_review" ? "VERIFY" : "REJECTED"}
+          SiteSitter™ · {fit.status === "works" ? "APPROVED" : fit.status === "needs_review" ? "DATA REQUIRED" : "REJECTED"}
           {fit.maxAvailableHeight > 0 ? ` · max ${Math.floor(fit.maxAvailableHeight)} ft` : ""}
         </div>
       )}
       {selectionEnabled && (
         <div className="absolute left-3 top-12 z-10 max-w-[320px] rounded-lg border border-emerald-300/70 bg-slate-950/85 px-3 py-2 text-[11px] font-semibold text-white shadow-lg">
-          Click anywhere inside the green two-mile ring to grade a spot — green tower works (with max height), red tells you why not. Double-click a green tower to save it as D, E, or F · three saves maximum, unlimited looks.
+          Click a parcel inside the green two-mile ring. SiteSitter™ moves the tower to the best dry, structure-free point: green = approved, red = rejected, amber = data required. Double-click a green tower to save D, E, or F · three SCIP saves maximum.
         </div>
       )}
       {savedTargets.some(Boolean) && (
