@@ -50,7 +50,7 @@ const propertyRows = (item) => [
   ["Owner", item.owner_name], ["Address", item.parcel_address], ["Parcel ID", item.apn],
   ["Acreage", item.acreage != null ? `${Number(item.acreage).toFixed(2)} ac` : null],
   ["Zoning", item.zoning], ["Jurisdiction", item.jurisdiction], ["Approval", item.approval_path],
-  ["Ordinance", item.ordinance_section], ["NWI wetlands nearby", item.wetlands_count != null ? String(item.wetlands_count) : null],
+  ["Ordinance", item.ordinance_section], ["NWI polygons loaded", item.wetlands_count != null ? String(item.wetlands_count) : null],
 ].filter(([, value]) => value != null && value !== "");
 const rowsHtml = (item) => propertyRows(item).map(([label, value]) => `<div style="display:flex;gap:8px;justify-content:space-between;border-top:1px solid #e2e8f0;padding:3px 0"><span style="color:#64748b">${esc(label)}</span><b style="max-width:170px;text-align:right">${esc(value)}</b></div>`).join("");
 
@@ -92,6 +92,7 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
           map.addSource("hf-compound", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-dims", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-ai-overlay", { type: "geojson", data: EMPTY_FC });
+          map.addSource("hf-probe-parcels", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-ring", { type: "geojson", data: EMPTY_FC });
           map.addSource("hf-explore-ring", { type: "geojson", data: EMPTY_FC });
           map.addLayer({ id: "hf-explore-ring-line", type: "line", source: "hf-explore-ring", paint: { "line-color": "#10B981", "line-width": 3, "line-dasharray": [1.5, 1.5] } });
@@ -110,6 +111,8 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
             paint: { "text-color": "#FFFFFF", "text-halo-color": "#0E7490", "text-halo-width": 1.6 },
           });
           map.addLayer({ id: "hf-ai-overlay-fill", type: "fill", source: "hf-ai-overlay", paint: { "fill-color": ["get", "fill"], "fill-opacity": 0.35 } });
+          map.addLayer({ id: "hf-probe-parcels-fill", type: "fill", source: "hf-probe-parcels", paint: { "fill-color": ["match", ["get", "status"], "works", "#10B981", "fails", "#EF4444", "verify", "#F59E0B", "#94A3B8"], "fill-opacity": 0.14 } });
+          map.addLayer({ id: "hf-probe-parcels-line", type: "line", source: "hf-probe-parcels", paint: { "line-color": ["match", ["get", "status"], "works", "#10B981", "fails", "#EF4444", "verify", "#F59E0B", "#94A3B8"], "line-width": 3 } });
           map.addLayer({ id: "hf-parcel-fill", type: "fill", source: "hf-parcel", paint: { "fill-color": "#00A3FF", "fill-opacity": 0.08 } });
           map.addLayer({ id: "hf-parcel-line", type: "line", source: "hf-parcel", paint: { "line-color": "#00A3FF", "line-width": 3 } });
           map.addLayer({ id: "hf-fallzone-fill", type: "fill", source: "hf-fallzone", paint: { "fill-color": "#EF4444", "fill-opacity": 0.12 } });
@@ -228,6 +231,16 @@ export default function HawkFitMap({ siteTarget, towerLngLat, onTowerMove, fit, 
     }
     map.getSource("hf-explore-ring").setData(circle([lon, lat], explorationRadiusMiles, { steps: 128, units: "miles" }));
   }, [ready, explorationRadiusMiles, searchRing?.lat, searchRing?.lon]);
+
+  // Color every evaluated Realie parcel with the same green/red/amber verdict.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const features = (probes || []).filter((probe) => probe.parcel_geometry).map((probe) => ({
+      type: "Feature", properties: { status: probe.status }, geometry: probe.parcel_geometry,
+    }));
+    map.getSource("hf-probe-parcels").setData({ type: "FeatureCollection", features });
+  }, [ready, probes]);
 
   // Exploration probe pins — the little green/red towers. Unlimited; a probe
   // never consumes a save slot. Popup carries the verdict + coordinates.
