@@ -15,7 +15,7 @@ export default function FitStatusPanel({ fit }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-heading font-semibold text-sm text-foreground">AIHawkSit™ Live Status</h3>
+        <h3 className="font-heading font-semibold text-sm text-foreground">SiteSitter™ Live Status</h3>
         <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${meta.cls}`}>
           <Icon className="w-3.5 h-3.5" /> {meta.label}
         </span>
