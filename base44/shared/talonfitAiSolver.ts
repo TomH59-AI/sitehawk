@@ -18,7 +18,7 @@
  * no silent unit conversion or rounding of compliance math inputs.
  */
 
-export const SOLVER_VERSION = "TalonFit-AI-1.0";
+export const SOLVER_VERSION = "SiteSitter-2.0";
 export const MAX_RING_RADIUS_MILES = 2;
 export const MAX_RING_RADIUS_FEET = 10560;
 export const MINIMUM_HEIGHT_FT = 100;
@@ -148,9 +148,8 @@ export function solveTalonFit(input: any) {
   const ringFeet = ringCenter ? haversineFeet(ringCenter, point) : null;
   const ringMiles = ringFeet == null ? null : ringFeet / FT_PER_MILE;
 
-  const wet = (spatial.water_features?.features || []).some(
-    (f: any) => polygonCheck(f.geometry, point)?.inside
-  );
+  const waterFeatures = spatial.water_features?.features || [];
+  const wetlandFeatures = spatial.wetland_features?.features || [];
 
   const towers = spatial.existing_towers || [];
   let nearestTowerFt: number | null = null;
@@ -205,15 +204,22 @@ export function solveTalonFit(input: any) {
   let binding: string | null = null;
   const caps: { label: string; value: number }[] = [];
   if (jurisdictionCap != null) caps.push({ label: "Jurisdiction maximum tower height", value: jurisdictionCap });
+  const fixedClearanceFailures: string[] = [];
   for (const rule of heightRules) {
     if (UNCONFIRMED.has(rule.data_status)) missing.push(`${rule.rule_name} (${rule.data_status})`);
     const available = availableFor(rule);
     if (available == null) { missing.push(`measured distance for ${rule.rule_name}`); continue; }
-    const multiplier = (rule.height_multiplier || 1) * (rule === rules.property_line_rule ? effectiveMultiplier : 1);
-    caps.push({
-      label: rule.rule_name,
-      value: (available - (rule.fixed_distance_ft || 0)) / (multiplier || 1),
-    });
+    const fixedDistance = Number(rule.fixed_distance_ft || 0);
+    if (available < fixedDistance) {
+      fixedClearanceFailures.push(`${rule.rule_name} requires at least ${Math.round(fixedDistance)} ft; only ${Math.round(available)} ft is available.`);
+      continue;
+    }
+    const rawMultiplier = rule === rules.property_line_rule ? effectiveMultiplier : Number(rule.height_multiplier || 0);
+    if (!Number.isFinite(rawMultiplier) || rawMultiplier < 0) {
+      missing.push(`height multiplier for ${rule.rule_name}`);
+      continue;
+    }
+    if (rawMultiplier > 0) caps.push({ label: rule.rule_name, value: available / rawMultiplier });
   }
   if (caps.length) {
     const lowest = caps.reduce((a, b) => (b.value < a.value ? b : a));
@@ -225,6 +231,13 @@ export function solveTalonFit(input: any) {
   const requestedHeight = proposal.requested_height_ft;
   const minHeight = proposal.minimum_height_ft ?? MINIMUM_HEIGHT_FT;
   const halfDiagonal = Math.hypot((proposal.compound_width_ft || 0) / 2, (proposal.compound_depth_ft || 0) / 2);
+  const conflictsWithFootprint = (feature: any) => {
+    const check = polygonCheck(feature?.geometry, point);
+    return !!check && (check.inside || (check.edge_distance_ft != null && check.edge_distance_ft < halfDiagonal));
+  };
+  const waterConflict = waterFeatures.some(conflictsWithFootprint);
+  const wetlandConflict = wetlandFeatures.some(conflictsWithFootprint);
+  const structureConflict = (spatial.mapped_structures || []).some(conflictsWithFootprint);
 
   const towerSep = rules.tower_separation || {};
   const structureSep = rules.structure_separation || {};
@@ -232,13 +245,26 @@ export function solveTalonFit(input: any) {
   if (UNCONFIRMED.has(structureSep.data_status)) missing.push(`structure separation (${structureSep.data_status})`);
   if (spatial.tower_data_available === false) missing.push("existing tower data");
   if (spatial.structure_data_available === false) missing.push("mapped structure data");
+  if (spatial.wetland_data_available === false) missing.push("USFWS NWI wetland polygons");
+  if (spatial.water_data_available === false) missing.push("mapped water features");
   if (rules.ordinance_data_verified === false) missing.push("verified ordinance language");
 
-  const failures: string[] = [];
+  const zoningText = `${parcel.zoning_classification || ""} ${parcel.standardized_zoning_type || ""} ${parcel.standardized_zoning_subtype || ""}`.trim();
+  const residentialZoning = /\b(residential|single[- ]family|multi[- ]family|mobile home)\b/i.test(zoningText)
+    || /(^|[\s,])R[- ]?\d+[A-Z]?\b/i.test(zoningText);
+  const approvalPath = String(rules.approval_path || "").trim().toUpperCase();
+  if (!zoningText) missing.push("parcel zoning classification");
+  if (!approvalPath || approvalPath === "UNKNOWN") missing.push("telecommunications-tower approval path");
+
+  const failures: string[] = [...fixedClearanceFailures];
   if (ringFeet != null && ringFeet > MAX_RING_RADIUS_FEET) {
     failures.push(`Candidate is ${Math.round(ringFeet)} ft from the ring center — beyond the ${MAX_RING_RADIUS_FEET} ft (${MAX_RING_RADIUS_MILES} mile) search ring.`);
   }
-  if (wet) failures.push("Candidate point falls on a mapped water feature — the point must be dry.");
+  if (residentialZoning) failures.push(`Residential zoning (${zoningText}) is excluded from SiteSitter™ candidate approval.`);
+  if (/PROHIBITED|NOT PERMITTED|DISALLOWED/.test(approvalPath)) failures.push(`Telecommunications towers are prohibited in this zoning district (${approvalPath}).`);
+  if (waterConflict) failures.push("The proposed tower compound overlaps a mapped water feature.");
+  if (wetlandConflict) failures.push("The proposed tower compound overlaps a USFWS National Wetlands Inventory polygon.");
+  if (structureConflict) failures.push("The proposed tower compound overlaps a mapped structure; SiteSitter™ will not place a tower on a structure.");
   if (distToLine != null && halfDiagonal > distToLine) {
     failures.push(`The ${proposal.compound_width_ft}×${proposal.compound_depth_ft} ft compound does not fit — only ${Math.round(distToLine)} ft to the nearest property line.`);
   }
@@ -295,6 +321,42 @@ export function solveTalonFit(input: any) {
     reasons,
     missing_information: [...new Set(missing)],
   };
+}
+
+/** Locate the strongest obstruction-free tower-base point inside the selected parcel. */
+export function findOptimalTowerPoint(input: any) {
+  const geometry = input?.parcel?.geometry;
+  const requested: Coord = input?.candidate_point;
+  const rings = polygonRings(geometry);
+  if (!rings.length) return { point: requested, result: solveTalonFit(input), evaluated_count: 1 };
+
+  const coords = rings.flat();
+  const lons = coords.map((c: number[]) => Number(c[0])).filter(Number.isFinite);
+  const lats = coords.map((c: number[]) => Number(c[1])).filter(Number.isFinite);
+  if (!lons.length || !lats.length) return { point: requested, result: solveTalonFit(input), evaluated_count: 1 };
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons), minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  const candidates: Coord[] = [requested];
+  const steps = 12;
+  for (let yi = 1; yi < steps; yi++) {
+    for (let xi = 1; xi < steps; xi++) {
+      const candidate = {
+        latitude: minLat + ((maxLat - minLat) * yi) / steps,
+        longitude: minLon + ((maxLon - minLon) * xi) / steps,
+      };
+      if (polygonCheck(geometry, candidate)?.inside) candidates.push(candidate);
+    }
+  }
+
+  let best: any = null;
+  const decisionRank: Record<string, number> = { APPROVED: 3, VERIFY: 2, REJECTED: 1 };
+  for (const candidate of candidates) {
+    const result = solveTalonFit({ ...input, candidate_point: candidate });
+    const score = [decisionRank[result.decision] || 0, Number(result.maximum_buildable_height_ft) || 0, Number(result.distance_to_property_line_ft) || 0];
+    if (!best || score[0] > best.score[0] || (score[0] === best.score[0] && (score[1] > best.score[1] || (score[1] === best.score[1] && score[2] > best.score[2])))) {
+      best = { point: candidate, result, score };
+    }
+  }
+  return { point: best?.point || requested, result: best?.result || solveTalonFit(input), evaluated_count: candidates.length };
 }
 
 /** Candidate save gate — GREEN APPROVED only, double-click, D/E/F, max three. */
