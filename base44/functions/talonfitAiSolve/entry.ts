@@ -1,10 +1,10 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.41';
 import {
-  solveTalonFit, buildCandidateSave, SOLVER_VERSION,
+  findOptimalTowerPoint, buildCandidateSave, SOLVER_VERSION,
   MAX_RING_RADIUS_MILES, MAX_RING_RADIUS_FEET, MINIMUM_HEIGHT_FT,
 } from '../../shared/talonfitAiSolver.ts';
 import {
-  fetchParcel, fetchOrdinanceRules, fetchWaterFeatures,
+  fetchParcel, fetchOrdinanceRules, fetchWaterFeatures, fetchWetlandFeatures,
   fetchMappedStructures, fetchExistingTowers,
 } from '../../shared/talonfitInputs.ts';
 
@@ -23,6 +23,57 @@ import {
  * calculated_result and candidate_save. Missing source data is never invented —
  * it surfaces in calculated_result.missing_information and forces VERIFY.
  */
+function mergeCodeHawkRules(base: any, record: any) {
+  const fields = record?.fields || {};
+  const value = (name: string) => fields?.[name]?.value;
+  const numeric = (name: string) => Number.isFinite(Number(value(name))) ? Number(value(name)) : null;
+  const heightCap = numeric("height_limit_ft");
+  const setbackFt = numeric("setback_ft");
+  const fallZoneFt = numeric("fall_zone_ft");
+  const fallZonePct = numeric("fall_zone_pct_of_height");
+  const fixedDistance = [setbackFt, fallZoneFt].filter((v) => v != null).reduce((m, v) => Math.max(m, Number(v)), 0);
+  const multiplier = fallZonePct == null ? 0 : fallZonePct / 100;
+  const sourceUrl = record?.source_url || fields?.height_limit_ft?.source_url || base?.ordinance_source_url || null;
+  const section = record?.section_ref || fields?.height_limit_ft?.section_ref || base?.ordinance_section || null;
+  const critical = ["height_limit_ft", "setback_ft", "fall_zone_ft", "residential_separation_ft", "tower_separation_ft", "pe_fall_zone_allowed"];
+  const fullyCited = critical.every((name) => fields?.[name]?.cited === true);
+  return {
+    ...base,
+    maximum_tower_height_ft: heightCap ?? base?.maximum_tower_height_ft ?? null,
+    property_line_rule: {
+      ...(base?.property_line_rule || {}),
+      rule_name: fallZoneFt != null || fallZonePct != null ? "Fall zone / property line clearance" : "Property line setback",
+      fixed_distance_ft: fixedDistance,
+      height_multiplier: multiplier,
+      measured_from: "property line",
+      citation: section,
+      data_status: setbackFt == null && fallZoneFt == null && fallZonePct == null ? "missing" : "verified",
+    },
+    pe_policy: {
+      ...(base?.pe_policy || {}),
+      reduction_allowed: typeof value("pe_fall_zone_allowed") === "boolean" ? value("pe_fall_zone_allowed") : base?.pe_policy?.reduction_allowed ?? null,
+      standard_multiplier: multiplier,
+      pe_multiplier: base?.pe_policy?.pe_multiplier ?? multiplier,
+      citation: fields?.pe_fall_zone_allowed?.section_ref || section,
+    },
+    tower_separation: {
+      required_distance_ft: numeric("tower_separation_ft"),
+      citation: fields?.tower_separation_ft?.section_ref || section,
+      data_status: numeric("tower_separation_ft") == null ? "missing" : "verified",
+    },
+    structure_separation: {
+      required_distance_ft: numeric("residential_separation_ft"),
+      citation: fields?.residential_separation_ft?.section_ref || section,
+      data_status: numeric("residential_separation_ft") == null ? "missing" : "verified",
+    },
+    approval_path: value("permit_type") || base?.approval_path || null,
+    ordinance_source_url: sourceUrl,
+    ordinance_section: section,
+    ordinance_data_verified: Boolean(sourceUrl && section && fullyCited),
+    _summary: record?.extraction_notes || base?._summary || null,
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -37,13 +88,15 @@ Deno.serve(async (req) => {
     const realieKey = Deno.env.get("REALIE_API_KEY");
     if (!realieKey) return Response.json({ error: "REALIE_API_KEY not set" }, { status: 500 });
 
-    const [parcel, rules, water, structures, towers] = await Promise.all([
+    const [parcel, initialRules, water, wetlands, structures, towers] = await Promise.all([
       fetchParcel(lat, lon, realieKey).catch(() => null),
       fetchOrdinanceRules(lat, lon).catch(() => null),
       fetchWaterFeatures(lat, lon).catch(() => ({ available: false, collection: { type: "FeatureCollection", features: [] } })),
+      fetchWetlandFeatures(lat, lon).catch(() => ({ available: false, collection: { type: "FeatureCollection", features: [] } })),
       fetchMappedStructures(lat, lon).catch(() => ({ available: false, structures: [] })),
       fetchExistingTowers(lat, lon, Deno.env.get("UNWIREDLABS_TOKEN") || "").catch(() => ({ available: false, towers: [] })),
     ]);
+    let rules = initialRules;
 
     if (!parcel) {
       return Response.json({
@@ -59,6 +112,21 @@ Deno.serve(async (req) => {
         },
         candidate_save: { slot: "D", save_allowed: false, double_click_required: true, maximum_saved_candidates: 3 },
       });
+    }
+
+    // SiteHawk registry/Notion cache first. On a missing or incomplete rule set,
+    // CodeHawk escalates direct official-code fetch → OxyLabs → Scrapfly, then
+    // writes only quote-verified fields back to the registry.
+    if (!rules?.ordinance_data_verified && parcel?.state) {
+      try {
+        const jurisdiction = String(rules?._jurisdiction || parcel.jurisdiction || parcel.county || "").replace(new RegExp(`,?\\s*${parcel.state}$`, "i"), "").trim();
+        if (jurisdiction) {
+          const hunted = await base44.functions.invoke("codehawkHunt", { jurisdiction, state: parcel.state, force_refresh: false });
+          if (hunted?.data?.record) rules = mergeCodeHawkRules(rules || {}, hunted.data.record);
+        }
+      } catch (error) {
+        console.warn("SiteSitter ordinance fallback unavailable:", error?.message || String(error));
+      }
     }
 
     const input = {
@@ -77,6 +145,8 @@ Deno.serve(async (req) => {
         address: parcel.address,
         jurisdiction: rules?._jurisdiction || parcel.jurisdiction,
         zoning_classification: parcel.zoning_classification,
+        standardized_zoning_type: parcel.standardized_zoning_type,
+        standardized_zoning_subtype: parcel.standardized_zoning_subtype,
         geometry: parcel.geometry,
       },
       tower_proposal: {
@@ -98,23 +168,31 @@ Deno.serve(async (req) => {
       },
       spatial_constraints: {
         water_features: water.collection,
+        wetland_features: wetlands.collection,
         existing_towers: towers.towers,
         mapped_structures: structures.structures,
         tower_data_available: towers.available,
         structure_data_available: structures.available,
+        water_data_available: water.available,
+        wetland_data_available: wetlands.available,
         exclude_structures_intersecting_selected_parcel: true,
       },
     };
 
-    const result = solveTalonFit(input);
+    const optimized = findOptimalTowerPoint(input);
+    const result = optimized.result;
+    const optimalPoint = optimized.point;
     const savedCount = Number(body.saved_count) || 0;
-    const candidateSave = buildCandidateSave(result, savedCount, input.candidate_point);
+    const candidateSave = buildCandidateSave(result, savedCount, optimalPoint);
 
-    console.log(`talonfitAiSolve ${result.decision} @ ${lat},${lon} max=${result.maximum_buildable_height_ft} bind=${result.binding_constraint}`);
+    console.log(`SiteSitter ${result.decision} requested=${lat},${lon} optimal=${optimalPoint.latitude},${optimalPoint.longitude} max=${result.maximum_buildable_height_ft} bind=${result.binding_constraint}`);
 
     return Response.json({
       ...input,
-      parcel_details: { owner: parcel.owner, acreage: parcel.acreage, county: parcel.county, state: parcel.state },
+      requested_point: { latitude: lat, longitude: lon },
+      candidate_point: optimalPoint,
+      optimal_location: { ...optimalPoint, evaluated_points: optimized.evaluated_count, moved_from_click: Math.abs(optimalPoint.latitude - lat) > 1e-7 || Math.abs(optimalPoint.longitude - lon) > 1e-7 },
+      parcel_details: { owner: parcel.owner, acreage: parcel.acreage, county: parcel.county, state: parcel.state, zoning: parcel.zoning_classification },
       ordinance_summary: rules?._summary || null,
       calculated_result: result,
       candidate_save: candidateSave,
