@@ -2,7 +2,7 @@
 export default function TalonFitTagline({ className = "" }) {
   return (
     <p className={`text-[10px] font-semibold tracking-wide text-primary/80 ${className}`}>
-      Powered by SiteHawk TalonFit® proprietary feasibility engine
+      Powered by SiteHawk SiteSitter™ deterministic feasibility engine
     </p>
   );
 }
