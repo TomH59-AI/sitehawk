@@ -20,7 +20,7 @@ export default function HawkPerchTargetPicker({ targets, rejection, onClearRejec
           )}
         </div>
         <p className="text-[11px] text-muted-foreground">
-          {nextLabel ? `Double-click a green point on the HawkPerch map to save ${nextLabel}.` : "Targets D, E, and F are saved."}
+          {nextLabel ? `Double-click a green tower on the SiteSitter™ map to save ${nextLabel}.` : "Targets D, E, and F are saved."}
         </p>
       </div>
       {rejection && (
@@ -51,7 +51,7 @@ export default function HawkPerchTargetPicker({ targets, rejection, onClearRejec
               )}
               <div className="grid grid-cols-2 gap-1.5">
                 <button onClick={() => copy(target)} className="inline-flex items-center justify-center gap-1 rounded border border-border py-1.5 text-[11px] font-semibold hover:bg-muted"><Copy className="w-3 h-3" /> Copy</button>
-                <button onClick={() => onRun(target, label)} className="inline-flex items-center justify-center gap-1 rounded bg-primary py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"><Play className="w-3 h-3" /> Run SARF</button>
+                <button onClick={() => onRun(target, label)} className="inline-flex items-center justify-center gap-1 rounded bg-primary py-1.5 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90"><Play className="w-3 h-3" /> Run this SCIP</button>
               </div>
             </> : <p className="rounded border border-dashed border-primary/40 py-2 text-center text-[11px] font-semibold text-primary">Waiting for green map double-click</p>}
           </div>
