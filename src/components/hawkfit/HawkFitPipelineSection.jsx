@@ -299,7 +299,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
     }
     const miles = turfDistance([point.lng, point.lat], [center.lon, center.lat], { units: "miles" });
     if (miles > RING_MILES) {
-      toast({ title: "Outside the ring", description: `That spot is ${miles.toFixed(2)} miles out — your picks are limited to the two-mile TalonFit ring.`, variant: "destructive" });
+      toast({ title: "Outside the ring", description: `That spot is ${miles.toFixed(2)} miles out — your picks are limited to the two-mile SiteSitter™ ring.`, variant: "destructive" });
       return;
     }
     const id = `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`;
@@ -329,7 +329,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
     }
     const miles = turfDistance([point.lng, point.lat], [center.lon, center.lat], { units: "miles" });
     if (miles > RING_MILES) {
-      const reason = `Outside the two-mile TalonFit ring (${miles.toFixed(2)} miles from center).`;
+      const reason = `Outside the two-mile SiteSitter™ ring (${miles.toFixed(2)} miles from center).`;
       setRejectedPoint({ ...point, reason });
       toast({ title: "REJECTED", description: reason, variant: "destructive" });
       return;
@@ -349,7 +349,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       }
     }
     if (graded.status !== "works") {
-      const reason = graded.reason || "The selected point does not meet the TalonFit requirements.";
+      const reason = graded.reason || "The selected parcel does not meet the SiteSitter™ requirements.";
       setRejectedPoint({ ...point, reason });
       toast({ title: "REJECTED", description: reason, variant: "destructive" });
       return;
