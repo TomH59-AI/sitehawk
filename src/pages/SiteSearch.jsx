@@ -352,10 +352,10 @@ export default function SiteSearch() {
               type="button"
               onClick={() => document.getElementById("talonfit-ai")?.scrollIntoView({ behavior: "smooth", block: "start" })}
               className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/60 bg-gradient-to-r from-cyan-600 to-emerald-600 px-3 py-2 text-sm font-extrabold text-white shadow-lg transition-transform hover:scale-[1.02]"
-              title="Jump to TalonFit AI instant tower feasibility"
+              title="Jump to SiteSitter™ parcel feasibility"
             >
               <Sparkles className="h-4 w-4" />
-              TalonFit AI · Find 3 More Sites
+              SiteSitter™ · Find 3 More SCIP Sites
             </button>
           )}
           {coordsReady && (
