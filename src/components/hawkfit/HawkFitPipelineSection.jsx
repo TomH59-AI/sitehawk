@@ -263,13 +263,29 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
     const r = data?.calculated_result || {};
     const p = data?.parcel || null;
     const d = data?.parcel_details || null;
+    const optimal = data?.candidate_point || { latitude: point.lat, longitude: point.lng };
     return {
+      lat: Number(optimal.latitude),
+      lng: Number(optimal.longitude),
+      requested_lat: point.lat,
+      requested_lng: point.lng,
+      moved_to_optimal: !!data?.optimal_location?.moved_from_click,
       status: r.decision === "APPROVED" ? "works" : r.decision === "VERIFY" ? "verify" : "fails",
       maxHeight: Number.isFinite(Number(r.maximum_buildable_height_ft)) ? Number(r.maximum_buildable_height_ft) : null,
       reason: r.reasons?.[0] || null,
+      reasons: [...(r.reasons || []), ...(r.missing_information || []).map((item) => `DATA REQUIRED: ${item}`)],
+      binding_constraint: r.binding_constraint || null,
       parcel_address: p?.address || "",
       apn: p?.parcel_id || "",
       owner_name: d?.owner || "",
+      acreage: d?.acreage ?? null,
+      zoning: p?.zoning_classification || d?.zoning || "",
+      jurisdiction: p?.jurisdiction || "",
+      approval_path: data?.ordinance_rules?.approval_path || "",
+      ordinance_section: data?.ordinance_rules?.ordinance_section || "",
+      ordinance_source_url: data?.ordinance_rules?.ordinance_source_url || "",
+      wetlands_count: data?.spatial_constraints?.wetland_features?.features?.length || 0,
+      solved_at: data?.solved_at || null,
     };
   }, [getRingCenter, controls.heightFt, controls.widthFt, controls.depthFt, savedTargets]);
 
@@ -351,7 +367,15 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       parcel_address: graded.parcel_address || "",
       apn: graded.apn || "",
       owner_name: graded.owner_name || "",
-      binding_constraint: graded.reason || null,
+      binding_constraint: graded.binding_constraint || graded.reason || null,
+      acreage: graded.acreage ?? null,
+      zoning: graded.zoning || "",
+      jurisdiction: graded.jurisdiction || "",
+      approval_path: graded.approval_path || "",
+      ordinance_section: graded.ordinance_section || "",
+      ordinance_source_url: graded.ordinance_source_url || "",
+      wetlands_count: graded.wetlands_count || 0,
+      moved_to_optimal: !!graded.moved_to_optimal,
     };
     setRejectedPoint(null);
     onSaveTarget?.(slot, savedPoint);
@@ -490,7 +514,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
       className="relative scroll-mt-24 rounded-3xl border-2 border-cyan-400/70 bg-gradient-to-br from-cyan-500/10 via-card to-emerald-500/10 overflow-hidden shadow-[0_0_36px_rgba(34,211,238,0.18)]"
     >
       <div className="bg-gradient-to-r from-cyan-500 via-blue-600 to-emerald-500 px-5 py-2 text-center text-[10px] font-black uppercase tracking-[0.24em] text-white">
-        AI-Powered Ordinance Intelligence · Patent Pending · Powered by HawkPerch
+        SiteSitter™ · AI Ordinance & Parcel Intelligence · Patent Pending · Powered by HawkPerch
       </div>
       <div className="flex flex-col gap-4 px-5 py-5 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-4">
@@ -499,10 +523,10 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
           </div>
           <div>
             <div className="font-heading text-xl font-black text-foreground md:text-2xl">
-              TalonFit® AI — Instant Tower Feasibility
+              SiteSitter™ — Instant Tower Feasibility
             </div>
             <div className="mt-1 max-w-3xl text-sm font-medium text-muted-foreground">
-              Click any property to calculate its maximum buildable tower height—or receive an immediate rejection with the exact reason.
+              Click any parcel inside the two-mile ring. SiteSitter™ finds the best dry, obstruction-free tower location, calculates the maximum lawful monopole height, and shows APPROVED, REJECTED, or DATA REQUIRED with the controlling reason.
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-wide">
               <span className="rounded-full border border-cyan-400/50 bg-cyan-500/10 px-2.5 py-1 text-cyan-700 dark:text-cyan-300">AI ordinance analysis</span>
@@ -517,7 +541,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
           className="shrink-0 bg-gradient-to-r from-cyan-600 to-emerald-600 font-extrabold text-white shadow-lg hover:from-cyan-500 hover:to-emerald-500"
         >
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          {expanded ? "Collapse TalonFit AI" : "Find 3 More Approved Sites"}
+          {expanded ? "Collapse SiteSitter™" : "Find 3 More SCIP Sites"}
         </Button>
       </div>
 
@@ -526,7 +550,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
           <div className="flex items-start gap-3 rounded-xl border border-cyan-400/40 bg-cyan-500/10 px-4 py-3">
             <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-cyan-600" />
             <p className="flex-1 text-xs font-semibold leading-relaxed text-foreground">
-              SiteHawk picked Targets A, B and C. Inside the green two-mile ring, the next three are yours: single-click any spot to grade it — a green tower means it works and shows the maximum height, a red tower tells you exactly why not. Double-click a green tower to save it as Target D, E or F. Unlimited looks, three saves.
+              SiteHawk picked Targets A, B and C. Inside the green two-mile ring, click any parcel: SiteSitter™ checks Realie property data, the governing telecom ordinance, setbacks, fall zone, residential and tower separation, mapped structures, water, and USFWS NWI wetlands—then moves the tower to the strongest buildable point. Double-click a green tower to save Candidate D, E, or F. Three SCIP saves maximum.
             </p>
             <Button
               size="sm"
@@ -658,7 +682,7 @@ export default function HawkFitPipelineSection({ unlocked, targetA, towerHeightF
                 </div>
               ) : (
                 <div className="w-full h-full min-h-[480px] rounded-xl border border-border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground">
-                  Resolve a Target A to open the HawkFit map.
+                  Resolve a Target A to open the SiteSitter™ map.
                 </div>
               )}
             </div>
