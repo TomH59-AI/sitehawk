@@ -9,7 +9,7 @@
 // Matches on jurisdiction_normalized + state; updates the existing registry
 // record when found, creates one otherwise. Values are stored verbatim —
 // numbers are never converted or rounded (compliance math depends on them).
-import { createClient } from 'npm:@base44/sdk@0.8.40';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 
 const FIELDS = [
@@ -60,7 +60,7 @@ export default async function(req) {
       if (body[key] !== undefined && body[key] !== null) payload[key] = body[key];
     }
 
-    const base44 = createClient({ appId: secrets.get('BASE44_APP_ID') });
+    const base44 = createClientFromRequest(req);
     const existing = await base44.asServiceRole.entities.TelecomOrdinance.filter({
       jurisdiction_normalized,
       state,
