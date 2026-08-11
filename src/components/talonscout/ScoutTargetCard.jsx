@@ -52,6 +52,23 @@ export default function ScoutTargetCard({ target, active, onSelect, onSave, onRe
           {target.ordinance?.jurisdiction && <div className="col-span-2">{target.ordinance.jurisdiction}</div>}
           {target.ordinance?.height_limit_ft != null && <div>Height cap: {target.ordinance.height_limit_ft} ft</div>}
           {target.ordinance?.setback_ft != null && <div>Setback: {target.ordinance.setback_ft} ft</div>}
+          {target.ordinance?.fall_zone_ft != null && <div>Fall zone: {target.ordinance.fall_zone_ft} ft</div>}
+          {target.ordinance?.fall_zone_ft == null && target.ordinance?.fall_zone_pct_of_height != null && (
+            <div>Fall zone: {target.ordinance.fall_zone_pct_of_height}% of height</div>
+          )}
+          {target.ordinance?.section_ref && <div className="col-span-2">Code § {target.ordinance.section_ref}</div>}
+          {target.ordinance?.source && <div className="col-span-2">Source: {target.ordinance.source}</div>}
+          {target.ordinance?.source_url && (
+            <a
+              href={target.ordinance.source_url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="col-span-2 text-primary hover:underline"
+            >
+              View ordinance text ↗
+            </a>
+          )}
           {target.ordinance?.notion_page_url && (
             <a
               href={target.ordinance.notion_page_url}

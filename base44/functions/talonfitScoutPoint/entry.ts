@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.41';
 import { lookupNotionOrdinance } from '../../shared/notionOrdinanceLookup.ts';
+import { findOrdinance } from '../../shared/telecomOrdinance.ts';
 
 /**
  * talonfitScoutPoint — TalonFit® live-point screen.
@@ -148,6 +149,49 @@ Deno.serve(async (req) => {
     ]);
     ordinance = ordinanceInitial;
 
+    // ── Ordinance library (TelecomOrdinance registry) ────────────────────────
+    // The app's own ordinance library is the primary zoning authority. Try the
+    // parcel's municipality first, then its county, and gap-fill only what the
+    // point lookup left blank — nothing here overwrites a value already on file,
+    // and no value is ever invented.
+    {
+      const st = ordinance?.state || parcel?.state || null;
+      const jurCandidates = [
+        ordinance?.city, parcel?.city,
+        ordinance?.county && `${ordinance.county} County`,
+        parcel?.county && `${parcel.county} County`,
+      ].filter(Boolean);
+      for (const jur of jurCandidates) {
+        if (!st) break;
+        let rules = null;
+        try {
+          ({ rules } = await findOrdinance(base44.asServiceRole, st, jur));
+        } catch (e) {
+          console.warn("TelecomOrdinance lookup skipped:", e?.message || String(e));
+          break;
+        }
+        if (!rules) continue;
+        const merged = ordinance && !ordinance.missing ? ordinance : {
+          jurisdiction: rules.jurisdiction || `${jur}, ${st}`, city: ordinance?.city || parcel?.city || null,
+          county: ordinance?.county || parcel?.county || null, state: st,
+          allowable_zones: [], pe_fall_zone_allowed: null, permit_type: null, missing: false,
+        };
+        if (merged.height_limit_ft == null) merged.height_limit_ft = rules.height_limit_ft;
+        if (merged.setback_ft == null) merged.setback_ft = rules.setback_ft;
+        if (merged.fall_zone_ft == null) merged.fall_zone_ft = rules.fall_zone_ft;
+        if (merged.fall_zone_pct_of_height == null) merged.fall_zone_pct_of_height = rules.fall_zone_pct_of_height;
+        if (merged.pe_fall_zone_allowed == null) merged.pe_fall_zone_allowed = rules.pe_fall_zone_allowed;
+        if (merged.residential_separation_ft == null) merged.residential_separation_ft = rules.residential_separation_ft;
+        if (!merged.permit_type) merged.permit_type = rules.permit_type;
+        if (!merged.zoning_process) merged.zoning_process = rules.zoning_process;
+        if (!merged.section_ref) merged.section_ref = rules.section_ref;
+        if (!merged.source_url) merged.source_url = rules.source_url;
+        merged.source = merged.source ? `${merged.source} + Ordinance Library` : "SiteHawk Ordinance Library";
+        ordinance = merged;
+        break;
+      }
+    }
+
     // Notion zoning knowledge base — fill ordinance gaps from the archived
     // "{Jurisdiction}, {ST} — Telecom Ordinance" page. Notion never overrides a
     // value the primary registry already has; it only fills what's missing.
@@ -221,12 +265,15 @@ Deno.serve(async (req) => {
           binding = cap != null ? "Ordinance height cap" : null;
         }
       } else {
-        // Standard 100%-of-height fall zone (50% with a PE letter): height ≤ clearance.
-        const fzHeight = hasPeLetter ? clear * 2 : clear;
+        // Fall zone stated as a percentage of tower height by the ordinance
+        // library, else the standard 100% of height. A PE letter halves it.
+        const pct = ordinance?.fall_zone_pct_of_height;
+        const factor = (Number.isFinite(pct) && pct > 0 ? pct / 100 : 1) * (hasPeLetter ? 0.5 : 1);
+        const fzHeight = clear / factor;
         maxHeightFt = cap != null ? Math.min(cap, fzHeight) : fzHeight;
         binding = cap != null && cap <= fzHeight
           ? "Ordinance height cap"
-          : `Fall-zone clearance to property line${hasPeLetter ? " (PE-engineered 50%)" : ""}`;
+          : `Fall-zone clearance to property line (${Math.round(factor * 100)}% of height${hasPeLetter ? ", PE-engineered" : ""})`;
       }
       if (verdict === "fit" && maxHeightFt != null && maxHeightFt < MACRO_FLOOR_FT) {
         verdict = "ejected";
