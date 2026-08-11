@@ -1,0 +1,52 @@
+{
+  "name": "n8n \u2014 New SCIP Generated",
+  "description": "On new SCIP: posts the SCIP payload to the n8n webhook, then starts the n8n ordinance-scraper workflow with the jurisdiction context.",
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "entity",
+      "events": [
+        "create"
+      ],
+      "entity_name": "ScipRecord"
+    }
+  },
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "n8n_new_scip_generated",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "send_to_n8n": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "n8nNewScip",
+            "args": {}
+          },
+          "then": "start_ordinance_scraper",
+          "x-base44": {
+            "title": "Send SCIP to n8n",
+            "description": "New SCIP webhook"
+          }
+        }
+      },
+      {
+        "start_ordinance_scraper": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "n8nOrdinanceScraper",
+            "args": {}
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Start ordinance scraper",
+            "description": "n8n production webhook"
+          }
+        }
+      }
+    ]
+  }
+}
