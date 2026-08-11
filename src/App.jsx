@@ -97,6 +97,7 @@ import SkipTrace from './pages/SkipTrace';
 import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
 import TalonFit from './pages/TalonFit';
+import SiteSitterDashboard from './pages/SiteSitterDashboard';
 import SarfMapPage from './pages/pipeline/SarfMapPage';
 import ZoningPage from './pages/pipeline/ZoningPage';
 import TargetsPage from './pages/pipeline/TargetsPage';
@@ -188,6 +189,8 @@ const AuthenticatedApp = () => {
         <Route path="/fiber-operators" element={<FiberOperators />} />
         {/* TalonFit® — ordinance intelligence + ten-target scout */}
         <Route path="/talonfit" element={<TalonFit />} />
+        {/* SiteSitter™ feasibility dashboard — best build opportunities at a glance */}
+        <Route path="/sitesitter" element={<SiteSitterDashboard />} />
         <Route path="/hawkbolt" element={<Navigate to="/talonfit" replace />} />
         {/* RF Intelligence Engine — standalone nationwide RF map module */}
         <Route path="/rfi-engine" element={<RfiEngine />} />
