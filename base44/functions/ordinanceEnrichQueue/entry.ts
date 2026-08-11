@@ -15,7 +15,7 @@
 // TalonFit's grading math needs. Each job carries the citation and source URL the
 // record already holds so n8n starts from the known code section instead of
 // re-hunting. Read-only — n8n writes results back through upsertTelecomOrdinance.
-import { createClient } from 'npm:@base44/sdk@0.8.40';
+import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 
 const DEFAULT_MISSING = ['height_limit_ft', 'setback_ft', 'fall_zone'];
@@ -53,7 +53,7 @@ export default async function (req) {
     const cooldownDays = Number.isFinite(Number(body?.cooldown_days)) ? Number(body.cooldown_days) : 14;
     const wanted = Array.isArray(body?.missing) && body.missing.length ? body.missing : DEFAULT_MISSING;
 
-    const base44 = createClient({ appId: secrets.get('BASE44_APP_ID') });
+    const base44 = createClientFromRequest(req);
     const all = state
       ? await base44.asServiceRole.entities.TelecomOrdinance.filter({ state }, '-updated_date', 5000)
       : await base44.asServiceRole.entities.TelecomOrdinance.list('-updated_date', 5000);
