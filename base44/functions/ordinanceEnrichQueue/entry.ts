@@ -18,7 +18,22 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
 
-const DEFAULT_MISSING = ['height_limit_ft', 'setback_ft', 'fall_zone'];
+// All five grading-critical NUMBERS. Chasing only three left records "done" in
+// the queue while TalonFit still had to fall back to conservative assumptions.
+const DEFAULT_MISSING = [
+  'height_limit_ft',
+  'setback_ft',
+  'fall_zone',
+  'residential_separation_ft',
+  'tower_separation_ft',
+];
+
+// County code governs unincorporated land and is mirrored by many of its
+// municipalities, so one enriched county answers far more sites than one city.
+function isCounty(r) {
+  const n = `${r.jurisdiction || ''} ${r.jurisdiction_type || ''}`.toUpperCase();
+  return n.includes('COUNTY') || n.includes('PARISH');
+}
 
 function hasFallZone(r) {
   return r.fall_zone_ft != null || r.fall_zone_pct_of_height != null;
@@ -32,6 +47,9 @@ function gapsFor(r, wanted) {
   if (wanted.includes('fall_zone') && !hasFallZone(r)) gaps.push('fall_zone');
   if (wanted.includes('residential_separation_ft') && r.residential_separation_ft == null) {
     gaps.push('residential_separation_ft');
+  }
+  if (wanted.includes('tower_separation_ft') && r.tower_separation_ft == null) {
+    gaps.push('tower_separation_ft');
   }
   return gaps;
 }
@@ -66,11 +84,18 @@ export default async function (req) {
       if (!gaps.length) continue;
       const lastTried = r.last_verified_date ? new Date(r.last_verified_date).getTime() : 0;
       if (cutoff && lastTried && lastTried > cutoff) continue; // attempted too recently
-      candidates.push({ record: r, gaps, lastTried });
+      candidates.push({ record: r, gaps, lastTried, county: isCounty(r) });
     }
 
-    // Most gaps first, then the ones untouched the longest.
-    candidates.sort((a, b) => (b.gaps.length - a.gaps.length) || (a.lastTried - b.lastTried));
+    // Counties first (they answer the most sites), then most gaps, then the ones
+    // untouched the longest. Pass county_first:false to enrich cities instead.
+    const countyFirst = body?.county_first !== false;
+    candidates.sort(
+      (a, b) =>
+        (countyFirst ? Number(b.county) - Number(a.county) : 0) ||
+        b.gaps.length - a.gaps.length ||
+        a.lastTried - b.lastTried
+    );
 
     const jobs = candidates.slice(0, limit).map(({ record: r, gaps }) => ({
       id: r.id,
