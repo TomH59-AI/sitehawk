@@ -61,10 +61,25 @@ export default async function(req) {
     }
 
     const base44 = createClientFromRequest(req);
-    const existing = await base44.asServiceRole.entities.TelecomOrdinance.filter({
+    // The registry holds BOTH key conventions from earlier passes — some county
+    // rows are stored as 'LEON', others as 'LEON COUNTY'. Matching on only one
+    // silently creates a duplicate instead of filling the row that exists, which
+    // then splits one county's ordinance across two records. Try both.
+    let existing = await base44.asServiceRole.entities.TelecomOrdinance.filter({
       jurisdiction_normalized,
       state,
     });
+    if (existing.length === 0) {
+      const alt = /\bCOUNTY\b/.test(String(jurisdiction).toUpperCase())
+        ? `${jurisdiction_normalized} COUNTY`
+        : null;
+      if (alt) {
+        existing = await base44.asServiceRole.entities.TelecomOrdinance.filter({
+          jurisdiction_normalized: alt,
+          state,
+        });
+      }
+    }
 
     if (existing.length > 0) {
       const record = await base44.asServiceRole.entities.TelecomOrdinance.update(existing[0].id, payload);
