@@ -78,8 +78,37 @@ Deno.serve(async (req) => {
     // Look for state zoning folders
     const stateFolders = accessible.filter(a => /(-Zoning|\sZoning)$/i.test(a.title));
 
+    // Confirm the configured master Zoning Folder page and list its state folders.
+    const rawMaster = Deno.env.get('NOTION_MASTER_ZONING_PAGE_ID') || '';
+    const hex = (rawMaster.replace(/-/g, '').match(/[0-9a-f]{32}/i) || [])[0] || null;
+    const masterId = hex
+      ? `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+      : null;
+    let master = { configured: !!masterId, id: masterId, accessible: false, title: null, child_pages: [] };
+    if (masterId) {
+      const pRes = await fetch(`${NOTION_API}/pages/${masterId}`, {
+        headers: { Authorization: `Bearer ${token}`, 'Notion-Version': NOTION_VERSION },
+      });
+      if (pRes.ok) {
+        const p = await pRes.json();
+        master.accessible = true;
+        const tp = Object.values(p.properties || {}).find(x => x?.type === 'title');
+        master.title = tp ? (tp.title || []).map(t => t.plain_text).join('') : null;
+        const cRes = await fetch(`${NOTION_API}/blocks/${masterId}/children?page_size=100`, {
+          headers: { Authorization: `Bearer ${token}`, 'Notion-Version': NOTION_VERSION },
+        });
+        if (cRes.ok) {
+          const c = await cRes.json();
+          master.child_pages = (c.results || []).filter(b => b.type === 'child_page').map(b => b.child_page.title);
+        }
+      } else {
+        master.error = `HTTP ${pRes.status}`;
+      }
+    }
+
     return Response.json({
       connected: true,
+      master_zoning_page: master,
       bot_user: { id: me.id, name: me.name, type: me.type, owner: me.bot?.owner, workspace_name: me.bot?.workspace_name },
       total_accessible: accessible.length,
       on_air_hq_matches: onAirMatches,
