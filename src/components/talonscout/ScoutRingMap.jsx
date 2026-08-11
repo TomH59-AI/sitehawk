@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
-import { MapContainer, TileLayer, Circle, Marker, useMapEvents, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Circle, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { probePinIcon } from "./probeIcons";
+import ProbePopup from "./ProbePopup";
 import TribalLandLayer from "./TribalLandLayer";
 import UtilityTerritoryLayer from "./UtilityTerritoryLayer";
 import FiberRoutesLayer from "./FiberRoutesLayer";
@@ -59,44 +61,6 @@ function targetIcon(letter, verdict) {
   });
 }
 
-// Floating readout that follows the clicked point: APPROVED @ height, or REJECTED + reason.
-function probeIcon(probe) {
-  const v = probe.verdict;
-  const bg = VERDICT_COLOR[v] || VERDICT_COLOR.pending;
-  // Every clicked point answers the same question: how tall can this spot go?
-  // A rejected point still reports its graded maximum when the solver produced
-  // one — only a true zero means nothing can be built here.
-  const maxFt = Number(probe.max_height_ft);
-  const hasMax = Number.isFinite(maxFt) && maxFt > 0;
-  const head =
-    v === "pending"
-      ? "CHECKING…"
-      : v === "fit"
-      ? `APPROVED — ${maxFt} FT MAX`
-      : v === "ejected"
-      ? hasMax
-        ? `REJECTED AT THIS HEIGHT — ${maxFt} FT MAX`
-        : "CANNOT BUILD HERE"
-      : hasMax
-      ? `VERIFY — ${maxFt} FT MAX`
-      : "VERIFY";
-  const body = v !== "pending" && v !== "fit" && probe.reason ? `<div style="font-weight:500;margin-top:3px">${probe.reason}</div>` : "";
-  const coords = `<div style="font:600 10px/1.3 ui-monospace,monospace;opacity:.9;margin-top:3px">${probe.lat.toFixed(6)}, ${probe.lon.toFixed(6)}</div>`;
-  return L.divIcon({
-    className: "",
-    html: `<div style="position:relative;width:240px">
-      <div style="position:absolute;left:0;bottom:14px;width:240px;box-sizing:border-box;background:${bg};color:#fff;font:700 11px/1.35 system-ui;padding:6px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.45)">${head}${body}${coords}
-        <div style="font-weight:500;opacity:.85;margin-top:3px">${
-          v === "fit" ? "Double-click to save this spot" : v === "pending" ? "" : "Not saveable — fails TalonFit™"
-        }</div>
-      </div>
-      <div style="position:absolute;left:115px;bottom:0;width:10px;height:10px;border-radius:50%;background:${bg};border:2px solid #fff"></div>
-    </div>`,
-    iconSize: [240, 10],
-    iconAnchor: [120, 10],
-  });
-}
-
 // Single click probes the point; double click saves it as a lettered target.
 // Clicks outside the 2-mile search ring are ignored.
 function ClickCatcher({ center, onProbe, onSave, enabled }) {
@@ -141,7 +105,7 @@ function ZoomButtons() {
 
 // TalonFit™ ring map — SRC waypoint + 0.25 / 0.50 / 1 / 2-mile radii (2 miles is
 // the contract maximum). Click to grade a point, double-click to save it as D/E/F.
-export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, onSelect, canPick }) {
+export default function ScoutRingMap({ center, targets, probes = [], onProbe, onSave, onSelect, canPick }) {
   const [tribalOn, setTribalOn] = useState(false);
   const [utilityOn, setUtilityOn] = useState(false);
   const [utilityNames, setUtilityNames] = useState([]);
@@ -267,7 +231,15 @@ export default function ScoutRingMap({ center, targets, probe, onProbe, onSave, 
             eventHandlers={{ click: () => onSelect(t.id) }}
           />
         ))}
-        {probe && <Marker position={[probe.lat, probe.lon]} icon={probeIcon(probe)} interactive={false} />}
+        {probes.map((p) => (
+          <Marker key={p.id} position={[p.lat, p.lon]} icon={probePinIcon(p)}>
+            {p.verdict !== "pending" && (
+              <Popup maxWidth={310} minWidth={290} autoPan>
+                <ProbePopup probe={p} />
+              </Popup>
+            )}
+          </Marker>
+        ))}
         <ClickCatcher center={[center.lat, center.lon]} onProbe={onProbe} onSave={onSave} enabled={canPick} />
         <ZoomButtons />
       </MapContainer>

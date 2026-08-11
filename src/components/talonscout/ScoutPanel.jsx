@@ -41,7 +41,9 @@ export default function ScoutPanel({ onActiveTargetChange }) {
   // labelled "D Alternate" so letters never shift under a SCIP'd target.
   const [usedSlots, setUsedSlots] = useState([]);
   const [activeId, setActiveId] = useState(null);
-  const [probe, setProbe] = useState(null);
+  // Every graded click stays on the map as a green/red tower pin, so the whole
+  // 2-mile ring builds up a buildable-vs-rejected picture as the user works it.
+  const [probes, setProbes] = useState([]);
   const [peLetter, setPeLetter] = useState(false);
   const [proposal, setProposal] = useState({
     requested_height_ft: 150,
@@ -98,7 +100,7 @@ export default function ScoutPanel({ onActiveTargetChange }) {
   useEffect(() => {
     if (!center) return;
     const t = setTimeout(async () => {
-      if (probe) handleProbe({ lat: probe.lat, lon: probe.lon });
+      for (const p of probes) await handleProbe({ lat: p.lat, lon: p.lon });
       for (const tg of targets) {
         const { data } = await solvePoint(tg.lat, tg.lon, targets.length);
         const r = data?.calculated_result || {};
@@ -135,37 +137,60 @@ export default function ScoutPanel({ onActiveTargetChange }) {
       saved_count: savedCount,
     });
 
+  const probeId = (lat, lon) => `${lat.toFixed(6)},${lon.toFixed(6)}`;
+  const upsertProbe = (p) =>
+    setProbes((prev) => (prev.some((x) => x.id === p.id) ? prev.map((x) => (x.id === p.id ? p : x)) : [...prev, p]));
+
+  // A clicked point is solved and pinned. Nothing here is filled in from
+  // assumption — a field the solver did not return stays out of the popup.
   const handleProbe = async ({ lat, lon }) => {
-    setProbe({ lat, lon, verdict: "pending" });
+    const id = probeId(lat, lon);
+    upsertProbe({ id, lat, lon, verdict: "pending" });
     const { data } = await solvePoint(lat, lon, targets.length);
     const r = data?.calculated_result || {};
-    setProbe({
+    upsertProbe({
+      id,
       lat,
       lon,
       verdict: VERDICT[r.decision] || "verify",
       reason: r.reasons?.[0] || null,
       max_height_ft: r.maximum_buildable_height_ft ?? null,
+      binding_constraint: r.binding_constraint || null,
+      edge_distance_ft: r.distance_to_property_line_ft ?? null,
+      distance_to_tower_ft: r.distance_to_nearest_existing_tower_ft ?? null,
+      distance_to_structure_ft: r.distance_to_nearest_external_structure_ft ?? null,
+      parcel: {
+        address: data?.parcel?.address || null,
+        apn: data?.parcel?.parcel_id || null,
+        zoning: data?.parcel?.zoning_classification || null,
+        owner: data?.parcel_details?.owner || null,
+        acreage: data?.parcel_details?.acreage ?? null,
+      },
+      ordinance: {
+        jurisdiction: data?.parcel?.jurisdiction || null,
+        height_limit_ft: data?.ordinance_rules?.maximum_tower_height_ft ?? null,
+        setback_ft: data?.ordinance_rules?.property_line_rule?.fixed_distance_ft ?? null,
+        permit_type: data?.ordinance_rules?.approval_path || null,
+        section_ref: data?.ordinance_rules?.property_line_rule?.citation || null,
+        source_url: data?.ordinance_rules?.source_url || null,
+      },
+      unverified_fields: r.missing_information || [],
     });
   };
 
   // Double-click save gate — GREEN APPROVED only, and only under three saved.
   const handleSavePoint = async ({ lat, lon }) => {
     if (targets.length >= MAX_SAVED) return;
-    setProbe({ lat, lon, verdict: "pending" });
     const { data } = await solvePoint(lat, lon, targets.length);
     const r = data?.calculated_result || {};
     const save = data?.candidate_save || {};
     if (!save.save_allowed) {
-      setProbe({
-        lat,
-        lon,
-        verdict: VERDICT[r.decision] || "verify",
-        reason: r.reasons?.[0] || "Not an approved TalonFit result — not saved.",
-        max_height_ft: r.maximum_buildable_height_ft ?? null,
-      });
+      // Leave the graded pin standing so the user can read WHY it can't be saved.
+      await handleProbe({ lat, lon });
       return;
     }
-    setProbe(null);
+    // Saved points become lettered D/E/F markers — drop the probe pin.
+    setProbes((prev) => prev.filter((p) => p.id !== probeId(lat, lon)));
     const id = `${Date.now()}-${lat}`;
     // Letters are pinned to slots, not to list position. A freed slot that was
     // used before comes back as an Alternate.
@@ -306,6 +331,15 @@ export default function ScoutPanel({ onActiveTargetChange }) {
           PE letter will be provided
         </label>
         <span className="text-xs font-medium text-foreground">{targets.length}/{MAX_SAVED} saved (D·E·F)</span>
+        {probes.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setProbes([])}
+            className="text-xs font-medium text-muted-foreground underline hover:text-foreground"
+          >
+            Clear {probes.length} pin{probes.length === 1 ? "" : "s"}
+          </button>
+        )}
         <span className="text-xs font-medium text-muted-foreground">
           {scipsUsed}/{scipAllowance} SCIPs used in this ring
         </span>
@@ -325,7 +359,7 @@ export default function ScoutPanel({ onActiveTargetChange }) {
             <ScoutRingMap
               center={center}
               targets={targets}
-              probe={probe}
+              probes={probes}
               onProbe={handleProbe}
               onSave={handleSavePoint}
               onSelect={selectTarget}
