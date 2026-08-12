@@ -15,6 +15,7 @@ import {
   completenessScore,
   discoverSourceCandidates,
   extractOrdinanceFields,
+  fetchCachedOrdinanceText,
   fetchOrdinanceSource,
   gateExtraction,
   isUsableSource,
@@ -72,7 +73,24 @@ async function pendingQueueKeys(base44, jurisdiction, state) {
  *   1. A source_url we already trust for this jurisdiction — tried free/direct.
  *   2. Only on a miss, a parallel web-research fan-out for candidate URLs.
  */
-async function resolveSource(base44, { jurisdiction, state, existing, counters, creds, forceDiscovery }) {
+async function resolveSource(base44, { jurisdiction, state, existing, counters, creds, forceDiscovery, skipCache }) {
+  // Tier 0 — text the SiteHawk scrape pipeline already landed in Supabase.
+  // Free, instant, and already rendered; skipped only on an explicit
+  // force_refresh, whose meaning is "re-read the official code".
+  if (!skipCache) {
+    const cached = await fetchCachedOrdinanceText(jurisdiction, state, creds);
+    if (cached.ok && isUsableSource(cached)) {
+      counters.cache_hits = (counters.cache_hits || 0) + 1;
+      return {
+        ...cached,
+        url: cached.url || existing?.source_url || '',
+        signal: towerSignal(cached.text),
+        tried: [{ url: cached.url || 'supabase:municode_ordinances', ok: true, method: 'supabase_cache' }],
+        governance: null,
+      };
+    }
+  }
+
   if (existing?.source_url && !forceDiscovery) {
     const known = await fetchOrdinanceSource(base44, existing.source_url, counters, creds, false);
     if (isUsableSource(known)) {
@@ -109,6 +127,7 @@ export async function processJurisdiction(base44, options) {
     counters = {},
     dryRun = false,
     forceDiscovery = false,
+    skipCache = false,
   } = options;
 
   const stateCode = String(state || '').toUpperCase();
@@ -129,7 +148,7 @@ export async function processJurisdiction(base44, options) {
     result.completeness_before = completenessScore(existing);
     result.ordinance_id = existing?.id || null;
 
-    const source = await resolveSource(base44, { jurisdiction, state: stateCode, existing, counters, creds, forceDiscovery });
+    const source = await resolveSource(base44, { jurisdiction, state: stateCode, existing, counters, creds, forceDiscovery, skipCache });
     result.sources_tried = source?.tried || [];
     result.governance = source?.governance || null;
 
@@ -343,7 +362,7 @@ export async function selectDiscoveryTargets(base44, existingRecords, { batchSiz
  * batch picks them up first.
  */
 export async function runBatch(base44, targets, { creds, runId, dryRun, concurrency = 5, deadlineMs = 240000, onProgress }) {
-  const counters = { direct_fetch_calls: 0, oxylabs_calls: 0, scrapfly_calls: 0 };
+  const counters = { direct_fetch_calls: 0, oxylabs_calls: 0, scrapfly_calls: 0, cache_hits: 0 };
   const started = Date.now();
   const results = [];
 
