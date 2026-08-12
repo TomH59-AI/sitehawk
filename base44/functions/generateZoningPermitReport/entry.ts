@@ -664,6 +664,59 @@ Deno.serve(async (req) => {
     // authority over the site.
     const countyLabel = countyEquivalentLabel(geo.state_code, geo.county_name);
 
+    // If another site already resolved this jurisdiction recently, reuse its
+    // panels instead of re-running CodeHawk and the LLM over rules that cannot
+    // have changed since. The site-specific half (parcel, coordinates) is still
+    // assembled fresh below.
+    const jurisdictionLabel = city || countyLabel || null;
+    const jurisdictionType = city ? 'city' : countyLabel ? 'county' : 'unknown';
+    const jurisdictionKey = jurisdictionCacheKey(geo.state_code, jurisdictionLabel, jurisdictionType);
+    const jurisdictionMeta = { key: jurisdictionKey, label: jurisdictionLabel, type: jurisdictionType, county: geo.county_name };
+    const jurisdictionHit = await getJurisdictionPanels(base44, jurisdictionKey).catch(() => null);
+    if (jurisdictionHit) {
+      console.log(`[ZONING CACHE] JURISDICTION HIT ${jurisdictionKey} — panels reused, no CodeHawk/LLM calls`);
+      const reusedPayload = {
+        status: 'ok',
+        coordinates: { lat, lon },
+        geo,
+        llm_engine: 'cached',
+        report: jurisdictionHit.report.report,
+        jurisdiction: {
+          state_code: geo.state_code,
+          state_name: geo.state_name,
+          county_name: geo.county_name,
+          city_name: city || null,
+          label: [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
+        },
+        zoneomics: {
+          ok: !!zoneomics?.ok,
+          http_status: zoneomics?.http_status ?? null,
+          error: zoneomics?.error || null,
+          populated_count: Object.keys(zoneomics?.fields || {}).length,
+          zone_code: zoneomics?.zone_code || null,
+          land_use_tags: zoneomics?.land_use_tags || null,
+        },
+        zoning_district_conflict: null,
+        parcel: realie ? {
+          parcel_id: realie.parcel_id,
+          owner_name: realie.owner_name,
+          acreage: realie.acreage,
+          geometry: realie.geometry,
+        } : null,
+        sources_used: {
+          telecom_ordinance: true,
+          codehawk: { ran: false, reason: 'jurisdiction_panels_cached' },
+          realie: !!realie,
+          realie_zoning: realie?.zoning || null,
+        },
+        panels_cached_from: jurisdictionKey,
+      };
+      await putCachedZoning(base44, siteKey, geo.state_code, reusedPayload, jurisdictionMeta).catch((e) =>
+        console.log(`[ZONING CACHE] site write failed ${siteKey}: ${e?.message}`)
+      );
+      return Response.json(reusedPayload);
+    }
+
     let ordinance = null;
     let ordinanceJurisdiction = null;
     for (const candidateJurisdiction of [city, countyLabel].filter(Boolean)) {
@@ -1060,8 +1113,8 @@ Deno.serve(async (req) => {
       },
     };
 
-    // Cache the assembled report per site_key so Run/Re-query reuse it.
-    await putCachedZoning(base44, siteKey, geo.state_code, responsePayload).catch((e) =>
+    // Panels cached once per jurisdiction; site row keeps the site-specific half.
+    await putCachedZoning(base44, siteKey, geo.state_code, responsePayload, jurisdictionMeta).catch((e) =>
       console.log(`[ZONING CACHE] write failed site=${siteKey}: ${e?.message}`)
     );
 
