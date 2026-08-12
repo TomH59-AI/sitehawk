@@ -107,6 +107,8 @@ export default async function (req) {
       oxylabs_username: secrets.get('OXYLABS_USERNAME'),
       oxylabs_password: secrets.get('OXYLABS_PASSWORD'),
       scrapfly_key: secrets.get('SCRAPFLY_API_KEY'),
+      supabase_url: secrets.get('HAWK_SUPABASE_URL'),
+      supabase_key: secrets.get('HAWK_SUPABASE_SERVICE_ROLE_KEY') || secrets.get('SUPABASE_SERVICE_ROLE_KEY'),
     };
 
     // Persist partial progress after every chunk so a killed function still
