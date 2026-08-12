@@ -91,28 +91,95 @@ async function getTelecomOrdinance(base44, stateCode, jurisdiction) {
 // Caches the assembled zoning report per {lat},{lon} so "Run Zoning" /
 // "Re-query Sources" REUSE it instead of re-firing the paid sources — this is
 // what caused the 2,850-call spike. TTL 30 days. Stored in JurisdictionZoningCache.
+// Two tiers, because the four panels (zoning / tower / site plan / building
+// permit) describe a JURISDICTION while the parcel and coordinates describe a
+// SITE. Storing them together meant every site in Brevard County kept its own
+// copy of Brevard's rules — copies free to drift from each other and from the
+// CodeHawk registry they were derived from.
+//
+// Now the panels live in exactly one row per jurisdiction, and the per-site row
+// keeps only what genuinely varies by location plus a pointer. The site row
+// still gives "Run Zoning" / "Re-query Sources" a zero-source-call re-run (the
+// thing that caused the 2,850-call spike) but can no longer disagree with the
+// jurisdiction it came from.
 const ZONING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function jurisdictionCacheKey(stateCode, jurisdictionName, type) {
+  const norm = String(jurisdictionName || '')
+    .toLowerCase()
+    .replace(/\b(city|town|village|borough) of\b/g, ' ')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!norm) return null;
+  return `${String(stateCode || 'NA').toUpperCase()}|${type || 'unknown'}|${norm}`;
+}
+
+const zoningCacheFresh = (row) =>
+  Boolean(row?.fetched_at) && Date.now() - new Date(row.fetched_at).getTime() <= ZONING_CACHE_TTL_MS;
+
+async function getJurisdictionPanels(base44, key) {
+  if (!key) return null;
+  const rows = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: key });
+  const hit = rows?.[0];
+  if (!hit || !zoningCacheFresh(hit) || !hit.report?.report) return null;
+  return hit;
+}
+
 async function getCachedZoning(base44, siteKey) {
   const rows = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: `sitekey:${siteKey}` });
   const hit = rows?.[0];
-  if (!hit?.report || !hit.fetched_at) return null;
-  if (Date.now() - new Date(hit.fetched_at).getTime() > ZONING_CACHE_TTL_MS) return null;
-  return hit;
+  if (!hit?.report || !zoningCacheFresh(hit)) return null;
+
+  // Legacy rows carry their own full copy of the panels — serve them unchanged
+  // so nothing breaks mid-migration. New rows point at the jurisdiction row.
+  const pointer = hit.report.panels_from;
+  if (!pointer) return hit;
+
+  const juris = await getJurisdictionPanels(base44, pointer).catch(() => null);
+  // Jurisdiction row gone or stale: regenerate rather than serve a husk.
+  if (!juris) return null;
+  return { ...hit, report: { ...hit.report, report: juris.report.report } };
 }
-async function putCachedZoning(base44, siteKey, stateCode, payload) {
-  const key = `sitekey:${siteKey}`;
-  const existing = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: key });
-  const data = {
+
+async function putCachedZoning(base44, siteKey, stateCode, payload, jurisdictionMeta) {
+  const write = async (normalized, data) => {
+    const existing = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: normalized });
+    if (existing?.[0]) await base44.asServiceRole.entities.JurisdictionZoningCache.update(existing[0].id, data);
+    else await base44.asServiceRole.entities.JurisdictionZoningCache.create(data);
+  };
+
+  const key = jurisdictionMeta?.key || null;
+  const now = new Date().toISOString();
+
+  // Canonical row: the four panels, one per jurisdiction, reused by every site.
+  if (key && payload?.report) {
+    await write(key, {
+      state_code: stateCode || 'NA',
+      jurisdiction_name_normalized: key,
+      jurisdiction_name: jurisdictionMeta.label || 'Unknown jurisdiction',
+      jurisdiction_type: jurisdictionMeta.type || 'unknown',
+      county_name: jurisdictionMeta.county || null,
+      report: { report: payload.report },
+      source_url: payload.report?._registry?.source_url || null,
+      fetched_at: now,
+      last_verified_at: now,
+      status: 'published',
+      source_name: 'telecom_ordinances + web',
+    });
+  }
+
+  // Site row: coordinates, parcel, geo — plus a pointer instead of a copy.
+  const { report: _panels, ...siteSpecific } = payload || {};
+  await write(`sitekey:${siteKey}`, {
     state_code: stateCode || 'NA',
-    jurisdiction_name_normalized: key,
+    jurisdiction_name_normalized: `sitekey:${siteKey}`,
     jurisdiction_name: `Site ${siteKey}`,
-    report: payload,
-    fetched_at: new Date().toISOString(),
+    report: key ? { ...siteSpecific, panels_from: key } : payload,
+    fetched_at: now,
     status: 'published',
     source_name: 'telecom_ordinances + web + Realie',
-  };
-  if (existing?.[0]) await base44.asServiceRole.entities.JurisdictionZoningCache.update(existing[0].id, data);
-  else await base44.asServiceRole.entities.JurisdictionZoningCache.create(data);
+  });
 }
 
 function monthStartISO() {
