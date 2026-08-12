@@ -95,6 +95,8 @@ export default async function (req) {
       oxylabs_username: secrets.get('OXYLABS_USERNAME'),
       oxylabs_password: secrets.get('OXYLABS_PASSWORD'),
       scrapfly_key: secrets.get('SCRAPFLY_API_KEY'),
+      supabase_url: secrets.get('HAWK_SUPABASE_URL'),
+      supabase_key: secrets.get('HAWK_SUPABASE_SERVICE_ROLE_KEY') || secrets.get('SUPABASE_SERVICE_ROLE_KEY'),
     };
 
     const run = await base44.asServiceRole.entities.CodeHawkRun.create({
@@ -116,6 +118,7 @@ export default async function (req) {
       runId,
       dryRun,
       forceDiscovery: forceRefresh && !existing?.source_url,
+      skipCache: forceRefresh, // force_refresh means "re-read the official code", not the cache
     });
 
     const updated = dryRun ? existing : await loadExisting(base44, state, jurisdiction);
