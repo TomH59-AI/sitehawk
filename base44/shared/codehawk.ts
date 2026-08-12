@@ -220,7 +220,7 @@ export function quoteAppears(quote, sourceText) {
  * Quote verification still runs against the FULL text, so windowing can only
  * cost us a field, never fabricate one.
  */
-export function focusOrdinanceText(text, limit = 120000) {
+export function focusOrdinanceText(text, limit = 45000) {
   const source = String(text || '');
   if (source.length <= limit) return source;
 
@@ -230,7 +230,7 @@ export function focusOrdinanceText(text, limit = 120000) {
   while ((match = marker.exec(source)) !== null) hits.push(match.index);
   if (!hits.length) return source.slice(0, limit);
 
-  const WINDOW = 20000;
+  const WINDOW = 15000;
   const density = new Map();
   for (const index of hits) {
     const bucket = Math.floor(index / WINDOW);
