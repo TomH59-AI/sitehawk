@@ -406,6 +406,67 @@ export async function fetchOrdinanceSource(base44, url, counters = {}, creds = {
 }
 
 /* ------------------------------------------------------------------ *
+ * Tier 0 — the SiteHawk scrape cache (municode_ordinances in Supabase)
+ *
+ * The n8n "SiteHawk Zoning Scrapfly Intake" pipeline lands the FULL,
+ * untruncated ordinance text (markdown, nav links stripped) in Supabase.
+ * Reading it here means a jurisdiction that has already been scraped enriches
+ * with zero network fetches and zero paid-scraper spend. The length gate
+ * (>= 5,000 chars) keeps the pre-fix truncated rows (~2k, March 2026) and
+ * failed "Loading, please wait" scrapes from ever being used as a source, and
+ * the caller still applies isUsableSource() so off-topic text falls through
+ * to the normal fetch chain.
+ * ------------------------------------------------------------------ */
+
+export async function fetchCachedOrdinanceText(jurisdiction, state, creds) {
+  const base = String(creds?.supabase_url || '').replace(/^['"\\\s]+/, '').replace(/\/+$/, '');
+  const key = creds?.supabase_key;
+  if (!base || !key) return { ok: false, reason: 'cache_not_configured' };
+
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
+  const stateCode = String(state || '').toUpperCase();
+  const select = 'jurisdiction,full_text,municode_url,fetched_at';
+  const wantsCounty = countyWordPattern(stateCode).test(String(jurisdiction || ''));
+
+  // Exact name first; then a normalized fuzzy pass so "City of Rockledge"
+  // still finds rows stored as "Rockledge".
+  const queries = [
+    `jurisdiction=eq.${encodeURIComponent(jurisdiction)}`,
+    `jurisdiction=ilike.${encodeURIComponent('%' + normalizeJurisdiction(jurisdiction) + '%')}`,
+  ];
+
+  for (const q of queries) {
+    try {
+      const res = await fetch(
+        `${base}/rest/v1/municode_ordinances?select=${select}&${q}&state=eq.${encodeURIComponent(stateCode)}&order=fetched_at.desc&limit=8`,
+        { headers, signal: AbortSignal.timeout(15000) }
+      );
+      if (!res.ok) continue;
+      const rows = (await res.json()) || [];
+      const best = rows
+        // County-ness must agree, so "Alachua" (the city) never borrows
+        // "Alachua County" text — the same guard the registry matcher uses.
+        .filter((r) => countyWordPattern(stateCode).test(String(r.jurisdiction || '')) === wantsCounty)
+        .filter((r) => (r.full_text || '').length >= 5000)
+        .sort((a, b) => (b.full_text || '').length - (a.full_text || '').length)[0];
+      if (best) {
+        return {
+          ok: true,
+          method: 'supabase_cache',
+          text: best.full_text,
+          chars: best.full_text.length,
+          url: best.municode_url || '',
+          cached_at: best.fetched_at || null,
+        };
+      }
+    } catch {
+      /* the cache is an optimization — any failure falls through to live fetching */
+    }
+  }
+  return { ok: false, reason: 'cache_miss' };
+}
+
+/* ------------------------------------------------------------------ *
  * Source discovery — the parallel research fan-out
  * ------------------------------------------------------------------ */
 
