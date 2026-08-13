@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import SiteSitterStats from "@/components/sitesitter/SiteSitterStats";
 import SiteSitterRow from "@/components/sitesitter/SiteSitterRow";
 import { rollUpSites, summarize } from "@/lib/siteSitterFeasibility";
+import SiteSitterScout from "@/components/sitesitter/SiteSitterScout";
 
 // SiteSitter™ Feasibility Dashboard — one row per active site, ranked so the
 // best build opportunities (buildable, greatest allowable height) sit on top.
@@ -37,6 +38,8 @@ export default function SiteSitterDashboard() {
       </header>
 
       <SiteSitterStats summary={summary} />
+
+      <SiteSitterScout />
 
       {sites.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
