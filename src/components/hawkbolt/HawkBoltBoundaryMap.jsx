@@ -75,7 +75,8 @@ export default function HawkBoltBoundaryMap() {
         </div>
       </div>
       <div className="h-[520px] w-full border-t border-border">
-        <MapContainer center={[42.33143, -83.04575]} zoom={8} className="h-full w-full" scrollWheelZoom={false}>
+        <MapContainer
+      scrollWheelZoom={false} center={[42.33143, -83.04575]} zoom={8} className="h-full w-full" scrollWheelZoom={false}>
           <TileLayer key={basemap} url={BASEMAPS[basemap]} attribution="Esri" maxZoom={19} zIndex={1} />
           <TigerBoundaryLayer layerIds={activeIds} />
         </MapContainer>
