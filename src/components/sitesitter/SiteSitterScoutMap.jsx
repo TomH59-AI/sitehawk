@@ -70,7 +70,7 @@ export default function SiteSitterScoutMap({
   return (
     <MapContainer
       center={[anchor.lat, anchor.lon]}
-      zoom={11}
+      zoom={12}
       className="h-[480px] w-full"
       scrollWheelZoom={false}
     >

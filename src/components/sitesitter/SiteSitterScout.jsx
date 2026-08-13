@@ -6,7 +6,7 @@ import SavedScoutTargets from "./SavedScoutTargets";
 
 const MAX_EXTRA = 3;
 const LETTERS = ["D", "E", "F"];
-const RADIUS_MILES = 5;
+const RADIUS_MILES = 2;
 
 /**
  * SiteSitterScout — "Explore More Targets" on the SiteSitter dashboard.
