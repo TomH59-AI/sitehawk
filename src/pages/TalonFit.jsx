@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Zap } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import HawkBoltBoundaryMap from "@/components/hawkbolt/HawkBoltBoundaryMap";
-import ScoutPanel from "@/components/talonscout/ScoutPanel";
 import ShadowPanel from "@/components/talonfit/ShadowPanel";
 
 // TalonFit™ — TalonFit-AI-1.0 feasibility solver and boundary map.
@@ -34,7 +33,6 @@ export default function TalonFit() {
       {/* Admin-only: HawkPerchSolver v2 vs the live engine. Not user-facing. */}
       <ShadowPanel isAdmin={isAdmin} />
 
-      <ScoutPanel />
       <HawkBoltBoundaryMap />
     </div>
   );

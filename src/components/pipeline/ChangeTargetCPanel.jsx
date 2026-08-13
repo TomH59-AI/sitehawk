@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Crosshair, Loader2, CheckCircle2 } from "lucide-react";
-import ScoutRingMap from "@/components/talonscout/ScoutRingMap";
+import TargetCRingMap from "@/components/pipeline/TargetCRingMap";
 
 const VERDICT = { APPROVED: "fit", REJECTED: "ejected", VERIFY: "verify" };
 
@@ -96,13 +96,10 @@ export default function ChangeTargetCPanel({ center, proposal, onPick }) {
       </div>
 
       <div className="border-t border-border">
-        <ScoutRingMap
-          center={{ lat: center.lat, lon: center.lon, label: center.label || "Search Ring Center" }}
-          targets={[]}
+        <TargetCRingMap
+          center={{ lat: center.lat, lon: center.lon }}
           probe={probe}
           onProbe={handleProbe}
-          onSave={handleProbe}
-          onSelect={() => {}}
           canPick={!solving}
         />
       </div>
