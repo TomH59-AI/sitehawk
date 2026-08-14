@@ -127,13 +127,13 @@
     },
     "parcel_targets": {
       "type": "array",
-      "description": "Top 3 candidate parcels (Target A/B/C) chosen from all parcels in the ring, scored against tower-siting criteria. Index 0 = Target A (the SCIP focus).",
+      "description": "Up to 6 candidate parcels (Target A\u2013F) chosen from the 2-mile TalonFit exploration radius, scored against tower-siting criteria. Index 0 = Target A. Each target carries its full TalonFit-AI-1.0 solve result in talonfit_data so the data is 'filled in waiting' when the user returns to SCIP a different target.",
       "items": {
         "type": "object",
         "properties": {
           "label": {
             "type": "string",
-            "description": "Target A | Target B | Target C"
+            "description": "Target A | Target B | Target C | Target D | Target E | Target F"
           },
           "owner_name": {
             "type": "string"
@@ -184,6 +184,44 @@
           },
           "land_use": {
             "type": "string"
+          },
+          "talonfit_data": {
+            "type": "object",
+            "description": "Full TalonFit-AI-1.0 solve result persisted on the target so the data is 'filled in waiting' when the user returns. Written by the TalonFit scout; read by the SCIP pipeline and target sidebar.",
+            "properties": {
+              "decision": {
+                "type": "string",
+                "description": "APPROVED | REJECTED | VERIFY"
+              },
+              "max_height_ft": {
+                "type": "number",
+                "description": "Maximum buildable height in feet determined by the solver."
+              },
+              "binding_constraint": {
+                "type": "string",
+                "description": "The constraint that set the final height (e.g. ordinance height cap, fall-zone clearance)."
+              },
+              "ordinance_section": {
+                "type": "string",
+                "description": "Real ordinance section citation from the SiteHawk registry."
+              },
+              "ordinance_source_url": {
+                "type": "string"
+              },
+              "ordinance_verified": {
+                "type": "boolean",
+                "description": "True when the ordinance data was verified against the source."
+              },
+              "agent_analysis": {
+                "type": "string",
+                "description": "TalonFit\u00ae agent markdown analysis \u2014 the WHY behind the numbers."
+              },
+              "solved_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the TalonFit solve ran for this target."
+              }
+            }
           }
         }
       }

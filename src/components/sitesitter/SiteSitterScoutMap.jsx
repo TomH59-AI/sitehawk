@@ -97,7 +97,7 @@ export default function SiteSitterScoutMap({
           <Marker
             key={s.id}
             position={[s.latitude, s.longitude]}
-            icon={dot(s.fit?.feasible ? "#16a34a" : "#f59e0b", ["D", "E", "F"][i])}
+            icon={dot(s.fit?.feasible ? "#16a34a" : "#f59e0b", ["A", "B", "C", "D", "E", "F"][i])}
           />
         ))}
         {probe && (

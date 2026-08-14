@@ -1,65 +1,64 @@
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Crosshair } from "lucide-react";
+import { Crosshair, ChevronDown } from "lucide-react";
 import SiteSitterScoutMap from "./SiteSitterScoutMap";
 import SavedScoutTargets from "./SavedScoutTargets";
 import { invokeTalonfitAgent } from "@/lib/talonfitAgent";
 
-const MAX_EXTRA = 3;
-const LETTERS = ["D", "E", "F"];
+const MAX_TARGETS = 6;
+const LETTERS = ["A", "B", "C", "D", "E", "F"];
 const RADIUS_MILES = 2;
 
 /**
- * SiteSitterScout — "Explore More Targets" on the SiteSitter dashboard.
- * Anchored to the user's latest SCIP search ring center, with a LARGER
- * exploration radius (5 miles). Every click is graded by TalonFit-AI-1.0,
- * which pulls the parcel from Realie and zoning rules from the SiteHawk
- * ordinance registry (same zoning process as SCIP Section 2). The user can
- * save up to three extra targets (D/E/F) from the popup.
+ * TalonFit™ Target Selector — the primary target selection flow.
+ *
+ * Anchored to a ScipRecord (SARF search ring). The user clicks any point in
+ * the 2-mile radius; TalonFit-AI-1.0 grades it and the result is saved
+ * directly onto the ScipRecord's parcel_targets array (Target A first, then
+ * B, C, D, E, F). Data persists so when the user returns for SCIP B or C,
+ * everything is already filled in waiting.
+ *
+ * Up to 6 targets per search ring. The user can SCIP any target by setting
+ * active_target_index. Site recall by original name + coordinates via the
+ * "Recall a previous search ring" dropdown.
  */
 export default function SiteSitterScout() {
-  const [anchor, setAnchor] = useState(null);
+  const [scipRecord, setScipRecord] = useState(null);
+  const [scipRecords, setScipRecords] = useState([]);
   const [loadingAnchor, setLoadingAnchor] = useState(true);
   const [heightFt, setHeightFt] = useState(150);
   const [probe, setProbe] = useState(null);
-  const [saved, setSaved] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [showRecall, setShowRecall] = useState(false);
 
   useEffect(() => {
-    // Anchor on the latest SCIP search ring; if none, fall back to the most
-    // recent scored site (the same coordinates driving this dashboard).
-    const mk = (lat, lon, label) => ({
-      lat,
-      lon,
-      label,
-      key: `${lat.toFixed(4)},${lon.toFixed(4)}`,
-    });
-    base44.entities.ScipRecord.list("-updated_date", 1)
-      .then(async (rows) => {
-        const r = rows?.[0];
-        if (r && Number.isFinite(r.latitude) && Number.isFinite(r.longitude)) {
-          setAnchor(mk(r.latitude, r.longitude, r.site_name || "Search Ring Center"));
-          return;
-        }
-        const runs = await base44.entities.TalonFitRunLog.list("-run_timestamp_utc", 1);
-        const run = runs?.[0];
-        if (run && Number.isFinite(run.latitude) && Number.isFinite(run.longitude)) {
-          setAnchor(mk(run.latitude, run.longitude, run.jurisdiction || "your last scored site"));
-        }
+    base44.entities.ScipRecord.list("-updated_date", 50)
+      .then((rows) => {
+        setScipRecords(rows || []);
+        if (rows?.[0]) setScipRecord(rows[0]);
       })
       .finally(() => setLoadingAnchor(false));
   }, []);
 
-  useEffect(() => {
-    if (!anchor) return;
-    base44.entities.SiteCandidate.list("-created_date", 100).then((rows) => {
-      setSaved(
-        (rows || [])
-          .filter((c) => c?.field_provenance?.sitesitter_scout?.anchor_key === anchor.key)
-          .slice(0, MAX_EXTRA)
-      );
-    });
-  }, [anchor]);
+  const targets = scipRecord?.parcel_targets || [];
+  const nextLetter = targets.length < MAX_TARGETS ? LETTERS[targets.length] : null;
+
+  const anchor = scipRecord
+    ? {
+        lat: scipRecord.latitude,
+        lon: scipRecord.longitude,
+        label: scipRecord.site_name || "Search Ring Center",
+        key: `${Number(scipRecord.latitude).toFixed(4)},${Number(scipRecord.longitude).toFixed(4)}`,
+      }
+    : null;
+
+  // Transform parcel_targets into the marker format the map expects
+  const mapSaved = targets.map((t, i) => ({
+    id: `${scipRecord.id}-${i}`,
+    latitude: t.latitude,
+    longitude: t.longitude,
+    fit: { feasible: t.talonfit_data?.decision === "APPROVED" },
+  }));
 
   const handleProbe = async ({ lat, lon }) => {
     setProbe({ lat, lon, solving: true, solve: null });
@@ -67,17 +66,22 @@ export default function SiteSitterScout() {
       const { data } = await base44.functions.invoke("talonfitAiSolve", {
         lat,
         lon,
-        center_lat: lat,
-        center_lon: lon,
+        center_lat: anchor.lat,
+        center_lon: anchor.lon,
         requested_height_ft: Number(heightFt) || 150,
         compound_width_ft: 100,
         compound_depth_ft: 100,
-        saved_count: saved.length,
+        saved_count: targets.length,
       });
       const pt = data?.candidate_point || { latitude: lat, longitude: lon };
-      // Structured data is ready immediately — show it
-      setProbe({ lat: pt.latitude, lon: pt.longitude, solving: false, solve: data, agentThinking: true, agentAnalysis: null });
-      // Then invoke the TalonFit® agent for the WHY (uses TALONFITformula.docx + Turf.js.docx)
+      setProbe({
+        lat: pt.latitude,
+        lon: pt.longitude,
+        solving: false,
+        solve: data,
+        agentThinking: true,
+        agentAnalysis: null,
+      });
       invokeTalonfitAgent({
         lat: pt.latitude,
         lon: pt.longitude,
@@ -107,51 +111,63 @@ export default function SiteSitterScout() {
 
   const handleSave = async () => {
     const solve = probe?.solve;
-    if (!solve || saved.length >= MAX_EXTRA || saving) return;
+    if (!solve || targets.length >= MAX_TARGETS || saving) return;
     setSaving(true);
     try {
       const p = solve.parcel || {};
       const d = solve.parcel_details || {};
       const r = solve.calculated_result || {};
       const o = solve.ordinance_rules || {};
-      const now = new Date().toISOString();
-      const created = await base44.entities.SiteCandidate.create({
-        site_label: `Target ${LETTERS[saved.length]} — ${p.address || `${probe.lat.toFixed(6)}, ${probe.lon.toFixed(6)}`}`,
-        address: p.address || "",
+      const newTarget = {
+        label: `Target ${LETTERS[targets.length]}`,
+        owner_name: d.owner || "",
+        parcel_address: p.address || "",
+        apn: p.parcel_id || "",
+        ...(Number.isFinite(Number(d.acreage)) ? { acreage: Number(d.acreage) } : {}),
+        zoning_classification: p.zoning_classification || "",
         latitude: probe.lat,
         longitude: probe.lon,
-        apn: p.parcel_id || "",
-        owner_name: d.owner || "",
-        ...(Number.isFinite(Number(d.acreage)) ? { acreage: Number(d.acreage) } : {}),
-        zoning_code: p.zoning_classification || "",
-        jurisdiction: p.jurisdiction || "",
-        ...(p.geometry ? { parcel_geometry: p.geometry } : {}),
-        ordinance: {
-          height_limit_ft: o.maximum_tower_height_ft ?? null,
-          source_ref: o.ordinance_section || null,
-          source_url: o.ordinance_source_url || null,
-          verified: o.ordinance_data_verified === true,
-        },
-        fit: {
+        talonfit_data: {
+          decision: r.decision || "",
           max_height_ft: r.maximum_buildable_height_ft ?? null,
-          binding_constraint: r.binding_constraint || null,
-          feasible: r.decision === "APPROVED",
-          decision: r.decision || null,
+          binding_constraint: r.binding_constraint || "",
+          ordinance_section: o.ordinance_section || "",
+          ordinance_source_url: o.ordinance_source_url || "",
+          ordinance_verified: o.ordinance_data_verified === true,
+          agent_analysis: probe.agentAnalysis || "",
+          solved_at: new Date().toISOString(),
         },
-        field_provenance: { sitesitter_scout: { anchor_key: anchor.key, saved_at: now } },
-        status: r.decision === "APPROVED" ? "qualified" : "partially_qualified",
-        qualified_at: now,
+      };
+      const updatedTargets = [...targets, newTarget];
+      const updated = await base44.entities.ScipRecord.update(scipRecord.id, {
+        parcel_targets: updatedTargets,
       });
-      setSaved((prev) => [...prev, created]);
+      setScipRecord(updated);
       setProbe(null);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleRemove = async (id) => {
-    await base44.entities.SiteCandidate.delete(id);
-    setSaved((prev) => prev.filter((c) => c.id !== id));
+  const handleRemove = async (index) => {
+    const updatedTargets = targets.filter((_, i) => i !== index);
+    const updated = await base44.entities.ScipRecord.update(scipRecord.id, {
+      parcel_targets: updatedTargets,
+    });
+    setScipRecord(updated);
+  };
+
+  const handleScip = async (index) => {
+    await base44.entities.ScipRecord.update(scipRecord.id, {
+      active_target_index: index,
+    });
+    window.location.href = `/scip/${scipRecord.id}`;
+  };
+
+  const handleRecall = (record) => {
+    setScipRecord(record);
+    setShowRecall(false);
+    setProbe(null);
   };
 
   if (loadingAnchor) return null;
@@ -160,12 +176,12 @@ export default function SiteSitterScout() {
     <section className="rounded-xl border border-border bg-card">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Crosshair className="h-4 w-4 text-primary" /> Explore More Targets
+          <Crosshair className="h-4 w-4 text-primary" /> TalonFit™ Target Selector
         </div>
         <span className="text-xs text-muted-foreground">
           {anchor
-            ? `${RADIUS_MILES}-mile exploration radius around ${anchor.label}. Click any point — parcel from Realie, zoning from the SiteHawk ordinance registry.`
-            : "No search ring found — generate a SCIP first to anchor this map."}
+            ? `${RADIUS_MILES}-mile exploration radius around ${anchor.label}. Click any point — Target A first, then B, C, D, E, F.`
+            : "No search ring found — generate a SARF first to anchor this map."}
         </span>
         {anchor && (
           <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
@@ -182,10 +198,43 @@ export default function SiteSitterScout() {
         )}
         {anchor && (
           <span className="text-[11px] font-medium text-muted-foreground">
-            Saved {saved.length}/{MAX_EXTRA} extra targets
+            {targets.length}/{MAX_TARGETS} targets · {MAX_TARGETS - targets.length} SCIP slots remaining
           </span>
         )}
       </div>
+
+      {/* Site Recall — switch between search rings by name + coordinates */}
+      {scipRecords.length > 1 && (
+        <div className="border-t border-border px-4 py-2">
+          <button
+            onClick={() => setShowRecall(!showRecall)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <ChevronDown className={`h-3 w-3 transition-transform ${showRecall ? "rotate-180" : ""}`} />
+            Recall a previous search ring ({scipRecords.length} sites)
+          </button>
+          {showRecall && (
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+              {scipRecords.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => handleRecall(r)}
+                  className={`rounded-lg border px-2.5 py-1.5 text-left text-xs transition-all ${
+                    r.id === scipRecord?.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-muted/40 hover:bg-muted/60"
+                  }`}
+                >
+                  <div className="font-semibold text-foreground">{r.site_name || "Unnamed"}</div>
+                  <div className="font-mono text-[10px] text-muted-foreground">
+                    {Number(r.latitude).toFixed(6)}, {Number(r.longitude).toFixed(6)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {anchor && (
         <div className="grid gap-0 border-t border-border lg:grid-cols-3">
@@ -194,17 +243,22 @@ export default function SiteSitterScout() {
               anchor={anchor}
               radiusMiles={RADIUS_MILES}
               probe={probe}
-              saved={saved}
+              saved={mapSaved}
               onProbe={handleProbe}
               onSave={handleSave}
-              canSave={saved.length < MAX_EXTRA && !saving}
+              canSave={targets.length < MAX_TARGETS && !saving}
               saving={saving}
-              nextLetter={LETTERS[saved.length] || null}
+              nextLetter={nextLetter}
               heightFt={heightFt}
             />
           </div>
           <div className="border-t border-border lg:border-l lg:border-t-0">
-            <SavedScoutTargets saved={saved} onRemove={handleRemove} />
+            <SavedScoutTargets
+              targets={targets}
+              onRemove={handleRemove}
+              onScip={handleScip}
+              scipId={scipRecord?.id}
+            />
           </div>
         </div>
       )}

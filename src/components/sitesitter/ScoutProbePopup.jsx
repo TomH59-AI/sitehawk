@@ -103,7 +103,7 @@ export default function ScoutProbePopup({ probe, onSave, canSave, saving, nextLe
             ? "Saving…"
             : canSave
             ? `Save as Target ${nextLetter}`
-            : "All 3 extra target slots used"}
+            : "All 6 target slots used"}
         </button>
       ) : (
         <div className="text-[11px] text-slate-500">No parcel record at this point — pick another spot.</div>
