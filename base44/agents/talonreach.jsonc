@@ -10,11 +10,11 @@
     },
     {
       "function_name": "talonreachRun",
-      "description": "Run a CloudRF coverage simulation + AI RF-engineer analysis for a tower site. Args: { latitude, longitude, tower_height_ft, frequency_mhz, power_w, site_label, source, radius_mi }. Returns a saved report with coverage grade, weak zones, recommendations, and infill spot."
+      "description": "Run a new CloudRF coverage simulation + AI RF-engineer analysis for a tower site."
     },
     {
       "function_name": "parcelFullLookup",
-      "description": "Full parcel record including boundary, owner, and zoning classification \u2014 use to resolve coordinates from an address or APN."
+      "description": "Full parcel record including boundary, owner, and zoning classification."
     }
   ],
   "context_files": [],
