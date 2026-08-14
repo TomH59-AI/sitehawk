@@ -1,4 +1,5 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 const Row = ({ k, v }) => (
   <div className="flex justify-between gap-3 text-[11px]">
@@ -44,6 +45,24 @@ export default function ScoutProbePopup({ probe, onSave, canSave, saving, nextLe
         {Number.isFinite(r.maximum_buildable_height_ft) ? ` · max ${r.maximum_buildable_height_ft} ft` : ""}
       </div>
       {r.binding_constraint && <div className="text-[11px] text-slate-600">Binding: {r.binding_constraint}</div>}
+
+      {/* TalonFit® agent analysis — the WHY behind the numbers */}
+      <div className="border-t border-slate-200 pt-1.5">
+        <div className="pb-0.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-cyan-700">
+          <Sparkles className="h-3 w-3" /> TalonFit® Agent Analysis
+        </div>
+        {probe.agentThinking ? (
+          <div className="flex items-center gap-1.5 py-1 text-[11px] text-slate-500">
+            <Loader2 className="h-3 w-3 animate-spin" /> Agent analyzing site…
+          </div>
+        ) : probe.agentAnalysis ? (
+          <div className="max-h-44 overflow-y-auto rounded-md bg-cyan-50/60 px-2 py-1.5 text-[11px] leading-relaxed text-slate-700">
+            <ReactMarkdown>{probe.agentAnalysis}</ReactMarkdown>
+          </div>
+        ) : (
+          <div className="text-[10px] text-slate-400">Agent analysis unavailable.</div>
+        )}
+      </div>
 
       <div className="border-t border-slate-200 pt-1.5">
         <div className="pb-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Parcel (Realie)</div>

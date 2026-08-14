@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Crosshair } from "lucide-react";
 import SiteSitterScoutMap from "./SiteSitterScoutMap";
 import SavedScoutTargets from "./SavedScoutTargets";
+import { invokeTalonfitAgent } from "@/lib/talonfitAgent";
 
 const MAX_EXTRA = 3;
 const LETTERS = ["D", "E", "F"];
@@ -74,7 +75,31 @@ export default function SiteSitterScout() {
         saved_count: saved.length,
       });
       const pt = data?.candidate_point || { latitude: lat, longitude: lon };
-      setProbe({ lat: pt.latitude, lon: pt.longitude, solving: false, solve: data });
+      // Structured data is ready immediately — show it
+      setProbe({ lat: pt.latitude, lon: pt.longitude, solving: false, solve: data, agentThinking: true, agentAnalysis: null });
+      // Then invoke the TalonFit® agent for the WHY (uses TALONFITformula.docx + Turf.js.docx)
+      invokeTalonfitAgent({
+        lat: pt.latitude,
+        lon: pt.longitude,
+        heightFt: Number(heightFt) || 150,
+        centerLat: anchor.lat,
+        centerLon: anchor.lon,
+        solveResult: data,
+      })
+        .then((analysis) => {
+          setProbe((prev) =>
+            prev && prev.lat === pt.latitude && prev.lon === pt.longitude
+              ? { ...prev, agentThinking: false, agentAnalysis: analysis }
+              : prev
+          );
+        })
+        .catch(() => {
+          setProbe((prev) =>
+            prev && prev.lat === pt.latitude && prev.lon === pt.longitude
+              ? { ...prev, agentThinking: false, agentAnalysis: null }
+              : prev
+          );
+        });
     } catch (e) {
       setProbe({ lat, lon, solving: false, solve: null, error: e?.message || "Solver failed" });
     }
