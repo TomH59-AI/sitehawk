@@ -16,15 +16,15 @@
     },
     {
       "function_name": "fccBdcConnectivity",
-      "description": "FCC Broadband Data Collection \u2014 fiber providers and max speeds reported as serving a location. Args: { latitude, longitude } or { address }."
+      "description": "FCC BDC fiber providers and max speeds reported at a location \u2014 the starting list of on-net carriers."
     },
     {
       "function_name": "fccFiberLookup",
-      "description": "Fiber provider lookup at a coordinate \u2014 returns provider names, technology, and max download/upload speeds."
+      "description": "Fiber provider lookup at a coordinate \u2014 provider names, technology, and max speeds."
     },
     {
       "function_name": "targetAConnectionPoints",
-      "description": "Nearest PeeringDB carrier-neutral facilities and internet exchange points to a site coordinate, with carrier/IXP counts and distances."
+      "description": "Nearest PeeringDB carrier-neutral facilities and IXPs to a site, with carrier/IXP counts and distances."
     },
     {
       "function_name": "zayoFiberRoutes",
@@ -36,7 +36,7 @@
     },
     {
       "function_name": "parcelFullLookup",
-      "description": "Full parcel record including boundary, owner, and zoning classification \u2014 use to resolve coordinates from an address or APN."
+      "description": "Full parcel record including boundary, owner, and zoning classification."
     }
   ],
   "context_files": [],
