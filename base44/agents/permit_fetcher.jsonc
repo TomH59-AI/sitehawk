@@ -4,7 +4,7 @@
   "tool_configs": [
     {
       "function_name": "scrapflyScrape",
-      "description": "Scrapfly-powered web scraper. Pass a URL to render it with JavaScript + anti-bot bypass and get back the full page content (markdown) plus all extracted links. Use this to scrape jurisdiction official websites for permit application forms and zoning maps."
+      "description": "Scrapfly-powered web scraper \u2014 renders a URL with JS + anti-bot bypass and returns the page content + all extracted links."
     },
     {
       "function_name": "zoneResolve",
