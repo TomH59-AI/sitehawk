@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import UtilityTerritoryOverlay from "./UtilityTerritoryOverlay";
 import MapOverlayControls from "./MapOverlayControls";
+import FiberConnectionPointsToggle from "@/components/maps/FiberConnectionPointsToggle";
 import CesiumViewer from "./CesiumViewer";
 import { loadPublicConfig } from "@/lib/publicConfig";
 const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
@@ -364,6 +365,13 @@ export default function MapboxSatelliteMap({ centerLat, centerLon, results, load
         {/* Overlay toggles (USGS Topo + USFWS NWI) */}
         {centerLat && !loading && mapLoaded && (
           <MapOverlayControls map={mapRef.current} mapLoaded={mapLoaded} />
+        )}
+
+        {/* Fiber connection points (PeeringDB carrier facilities) */}
+        {centerLat && !loading && mapLoaded && (
+          <div className="absolute top-3 right-36 z-10">
+            <FiberConnectionPointsToggle mapRef={mapRef} />
+          </div>
         )}
 
         {/* Hover Tooltip */}

@@ -11,19 +11,19 @@
     },
     {
       "function_name": "scipBookQc",
-      "description": "Gemini QC pass \u2014 fills blank SCIP text fields with verified public-source values, flags the rest as needs_human. Args: { scip_id, missing, context }."
+      "description": "Gemini QC pass \u2014 fills blank SCIP text fields with verified public-source values, flags the rest as needs_human."
     },
     {
       "function_name": "scipBookSheet",
-      "description": "Generates the live Google Sheets SCIP on the NEWSCIP_8.1.2026 eight-page template with embedded map images. Returns { gsheet: { url, pdf_url } }. Args: { scip_id, sections, map_pages }."
+      "description": "Generates the live Google Sheets SCIP on the NEWSCIP_8.1.2026 eight-page template with embedded map images. Returns the live URL and the 8.5x11 PDF export link."
     },
     {
       "function_name": "scipQualityAudit",
-      "description": "Deterministic pre-print quality audit \u2014 returns verdict (PASS/WARN/FAIL) with critical issues, warnings, and missing exhibits. Args: { scip_record_id }."
+      "description": "Deterministic pre-print quality audit \u2014 returns verdict (PASS/WARN/FAIL) with critical issues, warnings, and missing exhibits."
     },
     {
       "function_name": "generateScipWorkbook",
-      "description": "Generates a downloadable .xlsx SCIP workbook with embedded map images. Args: { scip_id, sections, map_pages }."
+      "description": "Generates a downloadable .xlsx SCIP workbook with embedded map images."
     }
   ],
   "context_files": [],
