@@ -414,6 +414,29 @@
       "description": "Live Google Sheets SCIP built on the NEW SCIP 8.1.2026 eight-page template: { spreadsheet_id, url, pdf_url, synced_at }. Created/refreshed by the scipBookSheet backend function via the shared Google Sheets connector (anyone-with-link readable). url = live shareable spreadsheet; pdf_url = 8.5x11 letter PDF export link.",
       "additionalProperties": true
     },
+    "branding": {
+      "type": "object",
+      "description": "Subscriber branding for the printed SCIP package. When use_sitehawk_branding is true (default), the SCIP cover and footer use SiteHawk branding. When false, the subscriber's logo_url, company_name, and company_address appear instead. Agent name/phone/email always come from the record's agent_name, agent_phone, agent_email fields.",
+      "properties": {
+        "use_sitehawk_branding": {
+          "type": "boolean",
+          "default": true,
+          "description": "True = SiteHawk default branding on cover and footer. False = subscriber's own branding."
+        },
+        "logo_url": {
+          "type": "string",
+          "description": "Subscriber's logo image URL (PNG, transparent background preferred). Appears on the SCIP cover and footer when use_sitehawk_branding is false."
+        },
+        "company_name": {
+          "type": "string",
+          "description": "Subscriber's company name for the SCIP cover header."
+        },
+        "company_address": {
+          "type": "string",
+          "description": "Subscriber's company address for the SCIP cover header."
+        }
+      }
+    },
     "status": {
       "type": "string",
       "enum": [
