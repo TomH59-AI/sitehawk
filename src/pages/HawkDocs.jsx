@@ -5,6 +5,7 @@ import { ScanLine, Map } from "lucide-react";
 import PermitApplications from "../components/hawkdoc/PermitApplications";
 import ZoningMapPanel from "../components/hawkdoc/ZoningMapPanel";
 import HawkFetchModule from "../components/hawkfetch/HawkFetchModule";
+import PermitFetcherChat from "../components/hawkdoc/PermitFetcherChat";
 
 // Unified Hawk Document Intelligence hub:
 //  · Permit Applications — upload zoning/permit app, AI fills, Q&A, e-sign, print
@@ -37,6 +38,9 @@ export default function HawkDocs() {
           <p className="text-sm text-muted-foreground">Retrieve a jurisdiction's building and zoning permit applications, then get AI help completing them.</p>
         </div>
       </div>
+
+      {/* AI Permit & Zoning Map Fetcher — Scrapfly-powered agent */}
+      <PermitFetcherChat />
 
       {/* HawkFetch — standalone permit-application finder. Upload CTA jumps to the Permit Applications upload flow. */}
       <HawkFetchModule
