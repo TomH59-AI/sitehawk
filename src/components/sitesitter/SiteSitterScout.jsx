@@ -26,7 +26,7 @@ export default function SiteSitterScout() {
   const [scipRecord, setScipRecord] = useState(null);
   const [scipRecords, setScipRecords] = useState([]);
   const [loadingAnchor, setLoadingAnchor] = useState(true);
-  const [heightFt, setHeightFt] = useState(150);
+  const [heightFt, setHeightFt] = useState(199);
   const [probe, setProbe] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showRecall, setShowRecall] = useState(false);
@@ -138,9 +138,16 @@ export default function SiteSitterScout() {
           solved_at: new Date().toISOString(),
         },
       };
-      const updatedTargets = [...targets, newTarget];
+      // Auto-rank by max buildable height (descending) so Target A is always
+      // the tallest/best site. Height is flexibility — we can always lower it.
+      const ranked = [...targets, newTarget].sort(
+        (a, b) =>
+          (b.talonfit_data?.max_height_ft ?? -1) -
+          (a.talonfit_data?.max_height_ft ?? -1)
+      );
+      const labeled = ranked.map((t, idx) => ({ ...t, label: `Target ${LETTERS[idx]}` }));
       const updated = await base44.entities.ScipRecord.update(scipRecord.id, {
-        parcel_targets: updatedTargets,
+        parcel_targets: labeled,
       });
       setScipRecord(updated);
       setProbe(null);
@@ -180,7 +187,7 @@ export default function SiteSitterScout() {
         </div>
         <span className="text-xs text-muted-foreground">
           {anchor
-            ? `${RADIUS_MILES}-mile exploration radius around ${anchor.label}. Click any point — Target A first, then B, C, D, E, F.`
+            ? `${RADIUS_MILES}-mile exploration radius around ${anchor.label}. Target A is auto-ranked to your tallest buildable site — height is flexibility, we can always lower it.`
             : "No search ring found — generate a SARF first to anchor this map."}
         </span>
         {anchor && (
