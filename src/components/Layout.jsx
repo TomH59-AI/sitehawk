@@ -22,7 +22,7 @@ const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 const BASE_NAV = [
   { header: "SITE ACQUISITION FLOW" },
   { path: "/dashboard", icon: LayoutDashboard, label: "1 · Dashboard" },
-  { path: "/search", icon: Search, label: "2 · Site Search" },
+  { path: "/search", icon: Search, label: "2 · Start Here" },
   { path: "/sarf-map", icon: Map, label: "3 · SARF Map" },
   { path: "/zoning", icon: ShieldCheck, label: "4 · Zoning" },
   { path: "/targets", icon: Target, label: "5 · Targets A·B·C" },
