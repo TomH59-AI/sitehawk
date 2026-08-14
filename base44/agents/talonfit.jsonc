@@ -60,9 +60,9 @@
   "line_greeting": "",
   "memory_config": {
     "enabled": true,
-    "scope": "both",
+    "scope": "global",
     "include_other_conversation_context": false,
-    "instructions": null
+    "instructions": "Higher Siting Velocity: Instead of solving siting constraints, NEPA triggers, and document intelligence from scratch every time, the platform gets faster and more accurate with every single query, driving shorter cycle times from initial search ring to Notice to Proceed to clients. "
   },
   "voice_config": {
     "voice_id": null
