@@ -175,6 +175,7 @@ export default function SiteSitterScout() {
               canSave={saved.length < MAX_EXTRA && !saving}
               saving={saving}
               nextLetter={LETTERS[saved.length] || null}
+              heightFt={heightFt}
             />
           </div>
           <div className="border-t border-border lg:border-l lg:border-t-0">
