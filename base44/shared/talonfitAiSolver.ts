@@ -18,7 +18,7 @@
  * no silent unit conversion or rounding of compliance math inputs.
  */
 
-export const SOLVER_VERSION = "SiteSitter-2.0";
+export const SOLVER_VERSION = "TalonFit-AI-1.0";
 export const MAX_RING_RADIUS_MILES = 2;
 export const MAX_RING_RADIUS_FEET = 10560;
 export const MINIMUM_HEIGHT_FT = 100;
