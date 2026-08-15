@@ -98,6 +98,31 @@ Deno.serve(async (req) => {
     ]);
     let rules = initialRules;
 
+    // NightHawk path — read from the Base44 TelecomOrdinance registry FIRST.
+    // NightHawk lands verified data here; TalonFit must consume it directly
+    // rather than falling back to the legacy Supabase zoning-lookup edge function.
+    if (parcel?.state) {
+      try {
+        const rawJur = String(rules?._jurisdiction || parcel.jurisdiction || parcel.county || "")
+          .replace(new RegExp(`,?\\s*${parcel.state}$`, "i"), "").trim();
+        const normalized = rawJur.toUpperCase()
+          .replace(/^(CITY OF|COUNTY OF|TOWN OF|VILLAGE OF)\s+/, "").trim();
+        if (normalized) {
+          const records = await base44.asServiceRole.entities.TelecomOrdinance.filter({
+            jurisdiction_normalized: normalized, state: parcel.state,
+          }, "-last_verified_date", 1);
+          if (records?.length) {
+            const rec = records[0];
+            // Map field_citations to the shape mergeCodeHawkRules expects
+            const mapped = { ...rec, fields: rec.field_citations };
+            rules = mergeCodeHawkRules(rules || {}, mapped);
+          }
+        }
+      } catch (e) {
+        console.warn("TelecomOrdinance registry lookup failed:", e?.message || String(e));
+      }
+    }
+
     if (!parcel) {
       return Response.json({
         solver_version: SOLVER_VERSION,
@@ -114,9 +139,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // SiteHawk registry/Notion cache first. On a missing or incomplete rule set,
-    // CodeHawk escalates direct official-code fetch → OxyLabs → Scrapfly, then
-    // writes only quote-verified fields back to the registry.
+    // CodeHawk on-demand hunt — only fires when BOTH the TelecomOrdinance
+    // registry (NightHawk path above) AND the Supabase zoning-lookup returned
+    // missing or unverified data. CodeHawk escalates direct official-code fetch
+    // → OxyLabs → Scrapfly, then writes verified fields back to the registry
+    // so the next TalonFit run finds them without re-hunting.
     if (!rules?.ordinance_data_verified && parcel?.state) {
       try {
         const jurisdiction = String(rules?._jurisdiction || parcel.jurisdiction || parcel.county || "").replace(new RegExp(`,?\\s*${parcel.state}$`, "i"), "").trim();
