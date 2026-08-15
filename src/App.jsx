@@ -102,6 +102,7 @@ import ZoningPage from './pages/pipeline/ZoningPage';
 import TargetsPage from './pages/pipeline/TargetsPage';
 import TargetMapsPage from './pages/pipeline/TargetMapsPage';
 import GovernmentForms from './pages/GovernmentForms';
+import CodeBrowser from './pages/CodeBrowser';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -161,6 +162,7 @@ const AuthenticatedApp = () => {
         <Route path="/target-c-maps" element={<TargetMapsPage letter="C" />} />
         {/* Deed & Skip-Trace removed — it already runs inside the pipeline. */}
         <Route path="/government-forms" element={<GovernmentForms />} />
+        <Route path="/code" element={<CodeBrowser />} />
         <Route path="/pricing" element={<PricingV2 />} />
         <Route path="/billing" element={<Billing />} />
         <Route path="/plans-selection" element={<PlansSelection />} />

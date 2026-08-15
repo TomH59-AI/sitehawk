@@ -7,7 +7,7 @@ import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import HawkVoiceAssistant from "./guide/HawkVoiceAssistant";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, FileStack, Radar, ShieldCheck, PhoneCall, Network, Zap, Map, Target, Landmark, Compass, FileText } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, FileStack, Radar, ShieldCheck, PhoneCall, Network, Zap, Map, Target, Landmark, Compass, FileText, FileCode } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -93,6 +93,7 @@ export default function Layout() {
     ? [
         { path: "/usage-analytics", icon: BarChart2, label: "Usage Analytics" },
         { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" },
+        { path: "/code", icon: FileCode, label: "Code Browser" },
         { path: "/send-update", icon: Send, label: "Send Update" },
         { path: "/mail-analytics", icon: BarChart2, label: "Mail Analytics" },
       ]
