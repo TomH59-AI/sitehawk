@@ -19,7 +19,6 @@ import NotionSyncToggle from "../components/scip/NotionSyncToggle";
 import ScipCrmPanel from "../components/scip/crm/ScipCrmPanel";
 import PrintSiteHawkScipButton from "../components/scip/PrintSiteHawkScipButton";
 import RunFullScipButton from "../components/scip/RunFullScipButton";
-import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
 import ScipQualityAuditor from "../components/scip/audit/ScipQualityAuditor";
 import JurisdictionPermitsCard from "../components/jurisdiction/JurisdictionPermitsCard";
 import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
@@ -271,19 +270,7 @@ export default function ScipDetail() {
           <ScipPrintDoc record={record} />
         </div>
 
-        {/* HAWKFIT MAP — immediately after the Tower Siter exhibit (the final
-            SCIP page above). Uses the SCIP's active Target A
-            (parcel_targets[active_target_index || 0]). Not printed. */}
-        {record.parcel_targets?.[record.active_target_index || 0] && (
-          <div className="mt-5 no-print">
-            <HawkFitPipelineSection
-              unlocked={true}
-              targetA={record.parcel_targets[record.active_target_index || 0]}
-              towerHeightFt={Number(record.sarf_height) || 199}
-              searchRing={{ lat: Number(record.latitude), lon: Number(record.longitude), radius_miles: Number(record.search_radius) || 1 }}
-            />
-          </div>
-        )}
+        {/* TalonFIT™ is the sole siting engine — use /talonfit for standalone grading. */}
 
         {/* LIVE SITE SKETCH — the finale. Freehand-draws Target A to scale
             (Talon FT geometry), stamps the verdict, PE-letter toggle re-draws

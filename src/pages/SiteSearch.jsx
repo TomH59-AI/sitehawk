@@ -12,7 +12,6 @@ import Section3Targets from "../components/search/Section3Targets";
 import Section4MapSuite from "../components/search/Section4MapSuite";
 import Section8Propagation from "../components/search/Section8Propagation";
 import Section9Colocation from "../components/search/Section9Colocation";
-import HawkFitPipelineSection from "../components/hawkfit/HawkFitPipelineSection";
 import TargetLanePipeline from "../components/search/TargetLanePipeline";
 import AIChatPanel from "../components/search/AIChatPanel";
 import { usePipeline } from "@/lib/PipelineContext";
@@ -530,23 +529,7 @@ export default function SiteSearch() {
         />
       )}
 
-      {/* HAWKFIT MAP — deterministic fit checks AFTER the Tower Siter /
-          Preliminary Tower Siting Exhibit. Consumes the SAME active Target A
-          (ScipRecord.parcel_targets → SearchResult → TowerSitingRun →
-          TowerVisualization → Tower3DRender) and refreshes when it changes. */}
-      {coordsReady && sarfReady && zoningReady && propagationComplete && (
-        <HawkFitPipelineSection
-          unlocked={!!(targetA && Number.isFinite(targetA.latitude) && Number.isFinite(targetA.longitude))}
-          targetA={targetA}
-          towerHeightFt={searchParams.tower_height_ft || 150}
-          zoningResult={zoningResult}
-          searchCenter={searchCenter}
-          savedTargets={perchTargets}
-          onSaveTarget={savePerchTarget}
-          onClearTarget={(slot) => setPerchTargets((prev) => prev.map((target, index) => index === slot ? null : target))}
-          onRunTarget={runPerchTarget}
-        />
-      )}
+      {/* TalonFIT™ is the sole siting engine — use /talonfit for standalone grading. */}
 
       {/* INDEPENDENT TARGET B / C PIPELINES — additive. Target A above stays the
           default; each lane below is a fully isolated pipeline run (own maps,

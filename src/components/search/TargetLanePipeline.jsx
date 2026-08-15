@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import Section4MapSuite from "./Section4MapSuite";
 import Section8Propagation from "./Section8Propagation";
-import Section5TowerSiter from "./Section5TowerSiter";
 import { wetlandsLookup } from "@/functions/wetlandsLookup";
 import { historicSitesLookup } from "@/functions/historicSitesLookup";
 import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
@@ -104,19 +103,7 @@ export default function TargetLanePipeline({
         onData={merge}
       />
 
-      {/* Tower Siter — lane-private instance; its Exhibit A/B exports and PDF
-          print buttons are inside this instance, so they export THIS target. */}
-      <Section5TowerSiter
-        key={`lane-${laneLabel}-siter`}
-        unlocked={true}
-        active={step === "tower_siter"}
-        onClear={() => { /* lane-local — remount handled by parent lane close/reopen */ }}
-        onRun={() => setStep("tower_siter")}
-        targetA={target}
-        zoningResult={zoningResult}
-        towerHeightFt={towerHeightFt}
-        onData={merge}
-      />
+      {/* Tower Siter retired — TalonFIT™ is the sole siting engine. */}
 
       {/* Local Governing Authorities & Area Profile for THIS lane's target —
           cached per county+state, so it reuses the main pipeline's lookup. */}

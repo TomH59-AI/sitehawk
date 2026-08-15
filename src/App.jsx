@@ -68,10 +68,7 @@ import UsageAnalytics from './pages/UsageAnalytics';
 import PlansSelection from './pages/PlansSelection';
 import HawkTracker from './pages/HawkTracker';
 import PilotTracker from './pages/PilotTracker';
-import TowerSiter from './pages/TowerSiter';
-import Tower3DViewer from './pages/Tower3DViewer';
-import CesiumTowerViewer from './pages/CesiumTowerViewer';
-import Photo3DViewer from './pages/Photo3DViewer';
+// TowerSiter, Tower3DViewer, CesiumTowerViewer, Photo3DViewer removed — TalonFIT™ is the sole siting engine.
 import HawkLease from './pages/HawkLease';
 import HawkLeaseDashboard from './pages/hawklease/HawkLeaseDashboard';
 import HawkLeaseSites from './pages/hawklease/HawkLeaseSites';
@@ -80,7 +77,7 @@ import HawkLeaseComps from './pages/hawklease/HawkLeaseComps';
 import HawkLeaseReports from './pages/hawklease/HawkLeaseReports';
 import HawkFill from './pages/HawkFill';
 import HawkLaw from './pages/HawkLaw';
-import TowerFitExhibit from './pages/TowerFitExhibit';
+// TowerFitExhibit removed — TalonFIT™ is the sole siting engine.
 import Billing from './pages/Billing';
 import PricingV2 from './pages/PricingV2';
 import HawkLawNewAnalysis from './pages/hawklaw/HawkLawNewAnalysis';
@@ -221,13 +218,12 @@ const AuthenticatedApp = () => {
         <Route path="/hawk-tracker" element={<HawkTracker />} />
         {/* Simplified read-only tracker view for pilot clients */}
         <Route path="/pilot-tracker" element={<PilotTracker />} />
-        <Route path="/tower-fit-exhibit" element={<TowerFitExhibit />} />
-        {/* HawkPerch — feature_tower_siter ships dark: route exists, no nav link */}
-        <Route path="/tower-siter" element={<TowerSiter />} />
-        <Route path="/tower-3d-viewer" element={<Tower3DViewer />} />
-        {/* Interactive Cesium scene for a Tower3DRender (viewer_html_url target) */}
-        <Route path="/cesium-tower-viewer" element={<CesiumTowerViewer />} />
-        <Route path="/photo-3d-viewer" element={<Photo3DViewer />} />
+        <Route path="/tower-fit-exhibit" element={<Navigate to="/talonfit" replace />} />
+        {/* Legacy siting routes — all redirect to TalonFIT™ */}
+        <Route path="/tower-siter" element={<Navigate to="/talonfit" replace />} />
+        <Route path="/tower-3d-viewer" element={<Navigate to="/talonfit" replace />} />
+        <Route path="/cesium-tower-viewer" element={<Navigate to="/talonfit" replace />} />
+        <Route path="/photo-3d-viewer" element={<Navigate to="/talonfit" replace />} />
         {/* HawkLease */}
         <Route path="/hawk-lease" element={<HawkLease />}>
           <Route index element={<HawkLeaseDashboard />} />
