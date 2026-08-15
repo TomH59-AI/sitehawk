@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { MapContainer, TileLayer, Circle, Marker, Popup, GeoJSON, useMapEvents } from "react-leaflet";
+import { Fragment, useEffect, useRef, useState, useCallback } from "react";
+import { MapContainer, TileLayer, Circle, Marker, Popup, GeoJSON, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import * as turf from "@turf/turf";
 import { base44 } from "@/api/base44Client";
-import { MousePointer2, Loader2 } from "lucide-react";
+import { MousePointer2, Loader2, RotateCcw, Circle as CircleIcon } from "lucide-react";
 import TalonFitPopup from "./TalonFitPopup";
 
 const MILE_M = 1609.344;
@@ -130,6 +130,60 @@ function SmartCursorLayers({ hover }) {
   );
 }
 
+// ── Fall zone computation: radius (ft) + PE applied flag ──
+function computeFallZone(solve) {
+  const r = solve?.calculated_result || {};
+  const o = solve?.ordinance_rules || {};
+  const plr = o.property_line_rule || {};
+  const pe = o.pe_policy || {};
+  const maxH = r.maximum_buildable_height_ft;
+  const stdMult = pe.standard_multiplier ?? plr.height_multiplier ?? 1;
+  const effMult = r.effective_fall_zone_multiplier ?? stdMult;
+  const peApplied = pe.reduction_allowed === true && effMult < stdMult;
+  let fallZoneFt = null;
+  if (Number.isFinite(maxH) && maxH > 0) {
+    fallZoneFt = Number.isFinite(effMult) && effMult > 0 ? maxH * effMult : maxH;
+  } else if (Number.isFinite(plr.fixed_distance_ft)) {
+    fallZoneFt = plr.fixed_distance_ft;
+  }
+  return { fallZoneFt, peApplied };
+}
+
+// ── Fall zone circle with optional "PE Applied" tag ──
+function FallZoneCircle({ lat, lon, solve, visible }) {
+  const { fallZoneFt, peApplied } = computeFallZone(solve);
+  if (!visible || !Number.isFinite(fallZoneFt) || fallZoneFt <= 0) return null;
+  const color = solve?.calculated_result?.decision === "APPROVED" ? "#16a34a"
+    : solve?.calculated_result?.decision === "REJECTED" ? "#dc2626" : "#f59e0b";
+  return (
+    <>
+      <Circle
+        center={[lat, lon]}
+        radius={fallZoneFt * FT_TO_M}
+        pathOptions={{ color, weight: 1.5, dashArray: "5 3", fillOpacity: 0.07 }}
+      />
+      {peApplied && (
+        <Marker
+          position={[lat, lon]}
+          icon={L.divIcon({
+            className: "",
+            html: `<div style="background:#7c3aed;color:#fff;font:700 9px sans-serif;padding:1px 5px;border-radius:3px;white-space:nowrap;transform:translateY(-22px)">PE Applied</div>`,
+            iconSize: [60, 16],
+            iconAnchor: [30, 8],
+          })}
+        />
+      )}
+    </>
+  );
+}
+
+// ── Map ref capture for programmatic re-centering ──
+function MapRefCapture({ onReady }) {
+  const map = useMap();
+  useEffect(() => { onReady(map); }, [map, onReady]);
+  return null;
+}
+
 // ── Probe marker with auto-open popup ──
 function ProbeMarker({ probe, onSave, canSave, saving, nextLetter }) {
   const ref = useRef(null);
@@ -171,9 +225,21 @@ export default function TalonFitMap({
   saving,
   nextLetter,
   heightFt,
+  onReset,
 }) {
   const [smartCursor, setSmartCursor] = useState(false);
   const [hover, setHover] = useState(null);
+  const [showFallZone, setShowFallZone] = useState(true);
+  const mapRef = useRef(null);
+
+  const handleReset = useCallback(() => {
+    onReset?.();
+    setHover(null);
+    setSmartCursor(false);
+    if (mapRef.current) {
+      mapRef.current.setView([anchor.lat, anchor.lon], 12);
+    }
+  }, [onReset, anchor]);
 
   // Turf.js: generate the 2-mile search ring as a GeoJSON polygon
   const ringGeo = useCallback(() => {
@@ -215,6 +281,7 @@ export default function TalonFitMap({
           attribution="Esri"
           maxZoom={19}
         />
+        <MapRefCapture onReady={(map) => { mapRef.current = map; }} />
 
         {/* Search ring — rendered via Turf.js geometry */}
         {ringFeature && (
@@ -229,35 +296,42 @@ export default function TalonFitMap({
 
         {/* Auto-selected targets */}
         {autoTargets.map((t, i) => (
-          <Marker
-            key={`auto-${i}`}
-            position={[t.lat, t.lon]}
-            icon={towerIcon(t.decision, ["A", "B", "C"][i])}
-          >
-            <Popup maxWidth={340} minWidth={280}>
-              <TalonFitPopup probe={t} hideSave />
-            </Popup>
-          </Marker>
+          <Fragment key={`auto-${i}`}>
+            <FallZoneCircle lat={t.lat} lon={t.lon} solve={t.solve} visible={showFallZone} />
+            <Marker
+              position={[t.lat, t.lon]}
+              icon={towerIcon(t.decision, ["A", "B", "C"][i])}
+            >
+              <Popup maxWidth={340} minWidth={280}>
+                <TalonFitPopup probe={t} hideSave />
+              </Popup>
+            </Marker>
+          </Fragment>
         ))}
 
         {/* Saved sites */}
         {saved.map((s, i) => (
-          <Marker
-            key={`saved-${i}`}
-            position={[s.latitude, s.longitude]}
-            icon={towerIcon(s.decision, ["A", "B", "C"][i])}
-          />
+          <Fragment key={`saved-${i}`}>
+            <FallZoneCircle lat={s.latitude} lon={s.longitude} solve={s.solve} visible={showFallZone} />
+            <Marker
+              position={[s.latitude, s.longitude]}
+              icon={towerIcon(s.decision, ["A", "B", "C"][i])}
+            />
+          </Fragment>
         ))}
 
         {/* Current probe */}
         {probe && (
-          <ProbeMarker
-            probe={probe}
-            onSave={onSave}
-            canSave={canSave}
-            saving={saving}
-            nextLetter={nextLetter}
-          />
+          <Fragment>
+            <FallZoneCircle lat={probe.lat} lon={probe.lon} solve={probe.solve} visible={showFallZone} />
+            <ProbeMarker
+              probe={probe}
+              onSave={onSave}
+              canSave={canSave}
+              saving={saving}
+              nextLetter={nextLetter}
+            />
+          </Fragment>
         )}
 
         {/* Smart cursor */}
@@ -274,16 +348,34 @@ export default function TalonFitMap({
         <MapInteraction onProbe={handleProbe} onSave={onSave} canSave={canSave} />
       </MapContainer>
 
-      {/* Smart cursor toggle */}
-      <button
-        onClick={() => { setSmartCursor((s) => !s); if (smartCursor) setHover(null); }}
-        className={`absolute right-3 top-3 z-[1000] flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg transition-all ${
-          smartCursor ? "border-cyan-400 bg-cyan-500 text-slate-900" : "border-white/15 bg-slate-900/85 text-white/80 hover:text-white"
-        }`}
-        title="Smart Cursor — hover any parcel for an instant TalonFit verdict"
-      >
-        <MousePointer2 className="h-3.5 w-3.5" /> Smart Cursor
-      </button>
+      {/* Map control buttons */}
+      <div className="absolute right-3 top-3 z-[1000] flex flex-col items-end gap-1.5">
+        <button
+          onClick={() => { setSmartCursor((s) => !s); if (smartCursor) setHover(null); }}
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg transition-all ${
+            smartCursor ? "border-cyan-400 bg-cyan-500 text-slate-900" : "border-white/15 bg-slate-900/85 text-white/80 hover:text-white"
+          }`}
+          title="Smart Cursor — hover any parcel for an instant TalonFit verdict"
+        >
+          <MousePointer2 className="h-3.5 w-3.5" /> Smart Cursor
+        </button>
+        <button
+          onClick={() => setShowFallZone((s) => !s)}
+          className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg transition-all ${
+            showFallZone ? "border-cyan-400 bg-cyan-500 text-slate-900" : "border-white/15 bg-slate-900/85 text-white/80 hover:text-white"
+          }`}
+          title="Toggle fall zone circle visibility"
+        >
+          <CircleIcon className="h-3.5 w-3.5" /> Fall Zone
+        </button>
+        <button
+          onClick={handleReset}
+          className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-slate-900/85 px-2.5 py-1.5 text-[11px] font-semibold text-white/80 shadow-lg transition-all hover:text-white"
+          title="Clear probes and re-center — saved sites are kept"
+        >
+          <RotateCcw className="h-3.5 w-3.5" /> Reset Map
+        </button>
+      </div>
 
       {/* Smart cursor tooltip */}
       {smartCursor && hover?.result && (

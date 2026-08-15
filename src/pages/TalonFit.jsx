@@ -153,6 +153,7 @@ export default function TalonFit() {
   }, [anchor, heightFt, saved.length]);
 
   // ── Save: double-click on map (or Save button in popup) ──
+  // Creates a ScipRecord for APPROVED sites so they enter the SCIP pipeline.
   const handleSave = useCallback(async (clickLat, clickLon) => {
     if (!probe || saved.length >= MAX_SAVED || saving) return;
     const solve = probe.solve;
@@ -163,6 +164,7 @@ export default function TalonFit() {
       const p = solve.parcel || {};
       const d = solve.parcel_details || {};
       const o = solve.ordinance_rules || {};
+      const letter = LETTERS[saved.length] || "X";
       const newSite = {
         latitude: probe.lat,
         longitude: probe.lon,
@@ -177,17 +179,82 @@ export default function TalonFit() {
         acreage: d.acreage ?? null,
         zoning: p.zoning_classification || "",
         agentAnalysis: probe.agentAnalysis || "",
+        solve: solve,
         savedAt: new Date().toISOString(),
       };
       setSaved((prev) => [...prev, newSite]);
       setProbe(null);
+
+      // Auto-create a ScipRecord for APPROVED sites — enters the SCIP pipeline
+      // with the full TALONFIT_DECISION verdict, H_MAX(p), and all constraints.
+      if (r.decision === "APPROVED") {
+        try {
+          const user = await base44.auth.me();
+          const today = new Date().toISOString().split("T")[0];
+          await base44.entities.ScipRecord.create({
+            agent_name: user?.full_name || "SiteHawk User",
+            agent_phone: user?.phone || "",
+            agent_email: user?.email || "",
+            submittal_date: today,
+            site_name: `TalonFit-${letter}-${probe.lat.toFixed(6)},${probe.lon.toFixed(6)}`,
+            latitude: probe.lat,
+            longitude: probe.lon,
+            search_radius: "1.00",
+            sarf_height: Number(heightFt) || 199,
+            county: d.county || "",
+            state: d.state || "",
+            parcel_targets: [{
+              label: `Target ${letter}`,
+              owner_name: d.owner || "",
+              parcel_address: p.address || "",
+              apn: p.parcel_id || "",
+              acreage: d.acreage ?? null,
+              latitude: probe.lat,
+              longitude: probe.lon,
+              zoning_classification: p.zoning_classification || "",
+              talonfit_data: {
+                decision: r.decision,
+                max_height_ft: r.maximum_buildable_height_ft ?? null,
+                binding_constraint: r.binding_constraint || "",
+                ordinance_section: o.ordinance_section || "",
+                ordinance_source_url: o.ordinance_source_url || "",
+                ordinance_verified: o.ordinance_data_verified === true,
+                agent_analysis: probe.agentAnalysis || "",
+                solved_at: new Date().toISOString(),
+              },
+            }],
+            active_target_index: 0,
+            zoning_jurisdiction: p.jurisdiction || "",
+            zoning_report: {
+              height_limit: { value: o.maximum_tower_height_ft, source: "TalonFit™ Ordinance Registry", confidence: o.ordinance_data_verified ? "verified" : "unverified" },
+              setback: { value: o.property_line_rule?.fixed_distance_ft, source: "TalonFit™ Ordinance Registry", confidence: o.property_line_rule?.data_status === "verified" ? "verified" : "unverified" },
+              fall_zone: { value: r.effective_fall_zone_multiplier, source: "TalonFit™ Solver", confidence: "computed" },
+              tower_separation: { value: o.tower_separation?.required_distance_ft, source: "TalonFit™ Ordinance Registry", confidence: o.tower_separation?.data_status === "verified" ? "verified" : "unverified" },
+              structure_separation: { value: o.structure_separation?.required_distance_ft, source: "TalonFit™ Ordinance Registry", confidence: o.structure_separation?.data_status === "verified" ? "verified" : "unverified" },
+              pe_letter_required: { value: r.pe_letter_required, source: "TalonFit™ Solver", confidence: "computed" },
+              binding_constraint: { value: r.binding_constraint, source: "TalonFit™ Solver", confidence: "computed" },
+              max_buildable_height: { value: r.maximum_buildable_height_ft, source: "TalonFit™ Solver", confidence: "computed" },
+            },
+            status: "draft",
+          });
+        } catch (e) {
+          console.warn("ScipRecord auto-create failed:", e?.message || String(e));
+        }
+      }
     } finally {
       setSaving(false);
     }
-  }, [probe, saved.length, saving]);
+  }, [probe, saved.length, saving, heightFt]);
 
   const handleRemove = useCallback((index) => {
     setSaved((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  // ── Reset: clear probes and auto-targets, keep saved sites ──
+  const handleReset = useCallback(() => {
+    setProbe(null);
+    setAutoTargets([]);
+    setError("");
   }, []);
 
   return (
@@ -281,6 +348,7 @@ export default function TalonFit() {
               saving={saving}
               nextLetter={nextLetter}
               heightFt={heightFt}
+              onReset={handleReset}
             />
           </div>
           <div className="border-t border-border lg:border-l lg:border-t-0">
