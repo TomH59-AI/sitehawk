@@ -24,6 +24,7 @@ export const FIBER_PROVIDERS = [
   { id: "consolidated", name: "Consolidated Communications",  color: "#15803D", showSplicePoints: true },
   { id: "extenet",      name: "ExteNet Systems",              color: "#EA580C", showSplicePoints: true },
   { id: "lumos",        name: "Lumos Networks",               color: "#0D9488", showSplicePoints: true },
+  { id: "osm_fiber", name: "OSM Live Fiber Routes", color: "#22D3EE", showSplicePoints: true, isLive: true },
 ];
 
 // Command Center layer definitions — one toggleable layer per provider.
@@ -31,7 +32,11 @@ export const FIBER_PROVIDER_LAYERS = FIBER_PROVIDERS.map((p) => ({
   id: `fiberkmz_${p.id}`,
   group: "Fiber optics map layers",
   label: p.name,
-  description: p.showSplicePoints ? "Imported KMZ routes & splice points" : "Imported KMZ routes",
+  description: p.isLive
+    ? `Live ${p.name} — cabinets, manholes & routes`
+    : p.showSplicePoints
+    ? "Imported KMZ routes & splice points"
+    : "Imported KMZ routes",
   color: p.color,
   geometry: "line",
   source: "KMZ import",

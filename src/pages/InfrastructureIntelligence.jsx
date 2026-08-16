@@ -6,6 +6,7 @@ import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
 import { fccBdcInfrastructure } from "@/functions/fccBdcInfrastructure";
 import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
 import { fiberProviderRoutes } from "@/functions/fiberProviderRoutes";
+import { osmFiberRoutes } from "@/functions/osmFiberRoutes";
 import { infrastructureMap } from "@/functions/infrastructureMap";
 import { parcelClickIntel } from "@/functions/parcelClickIntel";
 
@@ -14,8 +15,10 @@ const loadInfrastructureLayer = (payload) => LIVE_DETAIL_LAYERS.has(payload.laye
   ? infrastructureMap(payload)
   : payload.layer === "fiberkmz_zayo"
     ? zayoFiberRoutes({ ...payload, layer: "zayo_routes" }) // Zayo reuses its existing table
-    : payload.layer.startsWith("fiberkmz_")
-      ? fiberProviderRoutes(payload)
+    : payload.layer === "fiberkmz_osm_fiber"
+      ? osmFiberRoutes({ bbox: payload.bbox || payload })
+      : payload.layer.startsWith("fiberkmz_")
+        ? fiberProviderRoutes(payload)
       : payload.layer === "zayo_routes"
         ? zayoFiberRoutes(payload)
         : payload.layer === "broadband_service"
