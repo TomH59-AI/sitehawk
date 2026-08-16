@@ -7,18 +7,29 @@ import { fccBdcInfrastructure } from "@/functions/fccBdcInfrastructure";
 import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
 import { fiberProviderRoutes } from "@/functions/fiberProviderRoutes";
 import { osmFiberRoutes } from "@/functions/osmFiberRoutes";
+import { osmPowerGrid } from "@/functions/osmPowerGrid";
 import { peeringdbPops } from "@/functions/peeringdbPops";
 import { infrastructureMap } from "@/functions/infrastructureMap";
 import { parcelClickIntel } from "@/functions/parcelClickIntel";
 
-const LIVE_DETAIL_LAYERS = new Set(["fiber_splice_points", "transformers", "utility_easements"]);
+const LIVE_DETAIL_LAYERS = new Set(["fiber_splice_points", "utility_easements"]);
 const loadInfrastructureLayer = (payload) => LIVE_DETAIL_LAYERS.has(payload.layer)
   ? infrastructureMap(payload)
   : payload.layer === "fiberkmz_zayo"
     ? zayoFiberRoutes({ ...payload, layer: "zayo_routes" }) // Zayo reuses its existing table
     : payload.layer === "fiberkmz_osm_fiber"
       ? osmFiberRoutes({ bbox: payload.bbox || payload })
-      : payload.layer.startsWith("fiberkmz_")
+      : payload.layer === "transmission_lines" && payload.bbox
+        ? osmPowerGrid({ bbox: payload.bbox, layer: 'transmission_lines' })
+        : payload.layer === "distribution_lines"
+          ? osmPowerGrid({ bbox: payload.bbox || payload, layer: 'distribution_lines' })
+          : payload.layer === "transmission_towers"
+            ? osmPowerGrid({ bbox: payload.bbox || payload, layer: 'transmission_towers' })
+            : payload.layer === "distribution_poles"
+              ? osmPowerGrid({ bbox: payload.bbox || payload, layer: 'distribution_poles' })
+              : payload.layer === "transformers"
+                ? osmPowerGrid({ bbox: payload.bbox || payload, layer: 'transformers' })
+                : payload.layer.startsWith("fiberkmz_")
         ? fiberProviderRoutes(payload)
       : payload.layer === "zayo_routes"
         ? zayoFiberRoutes(payload)
