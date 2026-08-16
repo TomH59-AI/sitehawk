@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
 import { Crosshair, Zap, Loader2, MapPin } from "lucide-react";
 import TalonFitMap from "@/components/talonfit/TalonFitMap";
-import TalonFitSavedSites from "@/components/talonfit/TalonFitSavedSites";
+import TalonFitDataPanel from "@/components/talonfit/TalonFitDataPanel";
 import { invokeTalonfitAgent } from "@/lib/talonfitAgent";
 
 const RADIUS_MILES = 2;
@@ -47,6 +47,8 @@ export default function TalonFit() {
   const [saved, setSaved] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [solveResult, setSolveResult] = useState(null);
+  const [panelOpen, setPanelOpen] = useState(true);
 
   const nextLetter = saved.length < MAX_SAVED ? LETTERS[saved.length] : null;
 
@@ -62,6 +64,7 @@ export default function TalonFit() {
     setProbe(null);
     setAutoTargets([]);
     setSaved([]);
+    setSolveResult(null);
   }, [centerLat, centerLon]);
 
   // ── Auto-select 3 targets: solve at 3 points around the ring ──
@@ -71,14 +74,14 @@ export default function TalonFit() {
     setAutoTargets([]);
     const points = generateAutoPoints(anchor.lat, anchor.lon);
     const results = await Promise.all(
-      points.map(async (pt, i) => {
+      points.map(async (pt, _i) => {
         try {
           const { data } = await base44.functions.invoke("talonfitAiSolve", {
             lat: pt.lat,
             lon: pt.lon,
             center_lat: anchor.lat,
             center_lon: anchor.lon,
-            requested_height_ft: Number(heightFt) || 150,
+            requested_height_ft: Number(heightFt) || 199,
             compound_width_ft: 100,
             compound_depth_ft: 100,
             saved_count: 0,
@@ -110,11 +113,12 @@ export default function TalonFit() {
         lon,
         center_lat: anchor.lat,
         center_lon: anchor.lon,
-        requested_height_ft: Number(heightFt) || 150,
+        requested_height_ft: Number(heightFt) || 199,
         compound_width_ft: 100,
         compound_depth_ft: 100,
         saved_count: saved.length,
       });
+      setSolveResult(data);
       const cp = data?.candidate_point || { latitude: lat, longitude: lon };
       setProbe({
         lat: cp.latitude,
@@ -128,7 +132,7 @@ export default function TalonFit() {
       invokeTalonfitAgent({
         lat: cp.latitude,
         lon: cp.longitude,
-        heightFt: Number(heightFt) || 150,
+        heightFt: Number(heightFt) || 199,
         centerLat: anchor.lat,
         centerLon: anchor.lon,
         solveResult: data,
@@ -154,7 +158,7 @@ export default function TalonFit() {
 
   // ── Save: double-click on map (or Save button in popup) ──
   // Creates a ScipRecord for APPROVED sites so they enter the SCIP pipeline.
-  const handleSave = useCallback(async (clickLat, clickLon) => {
+  const handleSave = useCallback(async (_clickLat, _clickLon) => {
     if (!probe || saved.length >= MAX_SAVED || saving) return;
     const solve = probe.solve;
     if (!solve) return;
@@ -246,75 +250,61 @@ export default function TalonFit() {
     }
   }, [probe, saved.length, saving, heightFt]);
 
-  const handleRemove = useCallback((index) => {
-    setSaved((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
   // ── Reset: clear probes and auto-targets, keep saved sites ──
   const handleReset = useCallback(() => {
     setProbe(null);
     setAutoTargets([]);
     setError("");
+    setSolveResult(null);
   }, []);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4 p-4 lg:p-8">
-      {/* ── Header ── */}
-      <header>
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col w-full" style={{ height: 'calc(100vh - 60px)' }}>
+      {/* ── Top control bar ── */}
+      <div className="flex h-[52px] shrink-0 items-center gap-3 bg-sidebar border-b border-border px-3">
+        <div className="flex items-center gap-2 shrink-0">
           <Zap className="h-5 w-5 text-primary" />
-          <h1 className="font-heading text-2xl text-foreground">TalonFIT™</h1>
-          <span className="text-xs font-medium text-muted-foreground">Patent Pending</span>
+          <h1 className="font-heading text-lg text-foreground">TalonFIT™</h1>
+          <span className="text-[10px] font-medium text-muted-foreground">Patent Pending</span>
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          The unified tower-siting engine. Enter coordinates to center a {RADIUS_MILES}-mile search ring,
-          auto-select 3 targets, then click anywhere to probe. Double-click to save up to {MAX_SAVED} sites.
-        </p>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Screening tool only — ordinance readings and fit results are not a substitute for a PE-stamped
-          drawing or the jurisdiction's own determination.
-        </p>
-      </header>
-
-      {/* ── Coordinate input + controls ── */}
-      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="h-6 w-px bg-border shrink-0" />
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-muted-foreground">Latitude</label>
+            <label className="block text-[10px] font-medium text-muted-foreground">Latitude</label>
             <input
               type="number"
               step="0.000001"
               value={centerLat}
               onChange={(e) => setCenterLat(e.target.value)}
               placeholder="e.g. 28.0836"
-              className="w-36 rounded-md border border-input bg-secondary px-2 py-1.5 text-sm"
+              className="w-32 rounded-md border border-input bg-secondary px-2 py-1 text-sm"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-muted-foreground">Longitude</label>
+            <label className="block text-[10px] font-medium text-muted-foreground">Longitude</label>
             <input
               type="number"
               step="0.000001"
               value={centerLon}
               onChange={(e) => setCenterLon(e.target.value)}
               placeholder="e.g. -80.7553"
-              className="w-36 rounded-md border border-input bg-secondary px-2 py-1.5 text-sm"
+              className="w-32 rounded-md border border-input bg-secondary px-2 py-1 text-sm"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-muted-foreground">Tower height (ft)</label>
+            <label className="block text-[10px] font-medium text-muted-foreground">Tower height (ft)</label>
             <input
               type="number"
               min="50"
               max="500"
               value={heightFt}
               onChange={(e) => setHeightFt(e.target.value)}
-              className="w-24 rounded-md border border-input bg-secondary px-2 py-1.5 text-sm"
+              className="w-20 rounded-md border border-input bg-secondary px-2 py-1 text-sm"
             />
           </div>
           <button
             onClick={handleSetCenter}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-sm font-bold text-primary-foreground hover:bg-primary/90"
+            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-sm font-bold text-primary-foreground hover:bg-primary/90"
           >
             <Crosshair className="h-4 w-4" /> Set Search Ring
           </button>
@@ -322,20 +312,26 @@ export default function TalonFit() {
             <button
               onClick={handleAutoSelect}
               disabled={autoLoading}
-              className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-bold text-primary hover:bg-primary/20 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-bold text-primary hover:bg-primary/20 disabled:opacity-50"
             >
               {autoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
               Auto-Select 3 Targets
             </button>
           )}
-          {error && <span className="text-xs text-destructive">{error}</span>}
         </div>
+        {error && <span className="ml-auto text-xs text-destructive">{error}</span>}
       </div>
 
-      {/* ── Map + Saved sites ── */}
+      {/* ── Data panel + Map ── */}
       {anchor ? (
-        <div className="grid gap-0 rounded-xl border border-border bg-card lg:grid-cols-3">
-          <div className="lg:col-span-2">
+        <div className="flex flex-1 overflow-hidden">
+          <TalonFitDataPanel
+            solveResult={solveResult}
+            towerHeightFt={heightFt}
+            isOpen={panelOpen}
+            onToggle={() => setPanelOpen((p) => !p)}
+          />
+          <div className="flex-1 h-full relative">
             <TalonFitMap
               anchor={anchor}
               radiusMiles={RADIUS_MILES}
@@ -349,14 +345,12 @@ export default function TalonFit() {
               nextLetter={nextLetter}
               heightFt={heightFt}
               onReset={handleReset}
+              solveResult={solveResult}
             />
-          </div>
-          <div className="border-t border-border lg:border-l lg:border-t-0">
-            <TalonFitSavedSites sites={saved} onRemove={handleRemove} />
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
           Enter latitude and longitude above to center a {RADIUS_MILES}-mile search ring.
         </div>
       )}
