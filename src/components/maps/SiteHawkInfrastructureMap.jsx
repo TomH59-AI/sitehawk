@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NLCD_LAYERS, NLCD_YEARS, nlcdTilesUrl } from "./nlcdLayers";
 import { FIBER_PROVIDER_LAYERS } from "./fiberLayers";
 import { fccFiberProviders } from "@/functions/fccFiberProviders";
+import { hifldUtilityEnrichment } from "@/functions/hifldUtilityEnrichment";
 import ParcelIntelPanel from "./ParcelIntelPanel";
 
 const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css";
@@ -589,6 +590,37 @@ export default function SiteHawkInfrastructureMap({
                   <table style="width:100%;border-collapse:collapse;">${rows}</table>
                   <div style="font-size:9px;color:#64748b;margin-top:4px;">Source: FCC National Broadband Map · Technology code 50 FTTP</div>
                 </div>`
+                const popup = document.querySelector('.mapboxgl-popup-content')
+                if (popup) {
+                  const div = document.createElement('div')
+                  div.innerHTML = section
+                  popup.appendChild(div)
+                }
+              }
+            }).catch(() => {})
+
+            hifldUtilityEnrichment({ lat, lon: lng }).then((utilData) => {
+              if (utilData?.utilities?.length > 0) {
+                const rows = utilData.utilities.map((u) => `
+                  <tr>
+                    <td colspan="2" style="padding:4px 8px;font-size:11px;font-weight:600;color:#fbbf24;">
+                      ⚡ ${u.name}
+                    </td>
+                  </tr>
+                  ${u.type ? `<tr><td style="padding:1px 8px;font-size:10px;color:#94a3b8;">Type</td><td style="padding:1px 8px;font-size:10px;color:#e2e8f0;">${u.type}</td></tr>` : ''}
+                  ${u.phone ? `<tr><td style="padding:1px 8px;font-size:10px;color:#94a3b8;">Phone</td><td style="padding:1px 8px;font-size:10px;color:#4ade80;">${u.phone}</td></tr>` : ''}
+                  ${u.website ? `<tr><td style="padding:1px 8px;font-size:10px;color:#94a3b8;">Web</td><td style="padding:1px 8px;font-size:10px;color:#60a5fa;">${u.website.replace(/^https?:\/\//, '')}</td></tr>` : ''}
+                  ${u.address ? `<tr><td style="padding:1px 8px;font-size:10px;color:#94a3b8;">Address</td><td style="padding:1px 8px;font-size:10px;color:#e2e8f0;">${u.address}</td></tr>` : ''}
+                `).join('<tr><td colspan="2" style="height:4px;"></td></tr>')
+
+                const section = `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155;">
+                  <div style="font-size:11px;font-weight:600;color:#fbbf24;margin-bottom:4px;">
+                    ⚡ Serving Electric Utility (${utilData.count})
+                  </div>
+                  <table style="width:100%;border-collapse:collapse;">${rows}</table>
+                  <div style="font-size:9px;color:#64748b;margin-top:4px;">Source: HIFLD Electric Retail Service Territories</div>
+                </div>`
+
                 const popup = document.querySelector('.mapboxgl-popup-content')
                 if (popup) {
                   const div = document.createElement('div')
