@@ -159,6 +159,8 @@ export default function HawkLawNewAnalysis() {
   const [triageData, setTriageData] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [upgradeModal, setUpgradeModal] = useState(null);
+  const [inputMode, setInputMode] = useState("upload"); // "upload" | "paste"
+  const [pasteText, setPasteText] = useState("");
 
   const { checkHawkLaw, admin, loading: billingLoading } = useBilling();
 
@@ -169,7 +171,8 @@ export default function HawkLawNewAnalysis() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return;
+    if (inputMode === "upload" && !file) return;
+    if (inputMode === "paste" && (!pasteText || pasteText.trim().length < 50)) return;
     setError(null);
     setTriageData(null);
 
@@ -183,24 +186,38 @@ export default function HawkLawNewAnalysis() {
     }
 
     try {
-      // 1. Extract text
-      setStatus("extracting");
-      const leaseText = await extractTextFromFile(file);
+      let leaseText = "";
+      let fileUrl = null;
+      let fileName = "";
 
-      if (!leaseText || leaseText.trim().length < 50) {
-        throw new Error("Could not extract meaningful text from this file. Please try a different file.");
+      if (inputMode === "paste") {
+        // Paste mode — no file extraction or upload needed
+        setStatus("analyzing");
+        leaseText = pasteText.trim();
+        fileName = "Pasted Lease Text";
+      } else {
+        // 1. Extract text
+        setStatus("extracting");
+        leaseText = await extractTextFromFile(file);
+
+        if (!leaseText || leaseText.trim().length < 50) {
+          throw new Error("Could not extract meaningful text from this file. Please try a different file.");
+        }
+
+        // 2. Upload file to storage
+        setStatus("uploading");
+        const { file_url } = await base44.integrations.Core.UploadFile({ file });
+        fileUrl = file_url;
+        fileName = file.name;
       }
 
-      // 2. Upload file to storage
-      setStatus("uploading");
       const user = await base44.auth.me();
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
       // 3. Create session record
       const now = new Date().toISOString();
       const session = await base44.entities.HawkLawSession.create({
-        file_name: file.name,
-        uploaded_lease_file: file_url,
+        file_name: fileName,
+        uploaded_lease_file: fileUrl || null,
         disclaimer_acknowledged_at: now,
         hawklease_site_id: prefillSiteId || undefined,
         vendor_detected: "Unknown",
@@ -289,35 +306,82 @@ export default function HawkLawNewAnalysis() {
       {/* Upload Form */}
       {status !== "done" && (
         <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="font-heading font-semibold text-foreground mb-1">Upload Lease Document</h2>
-          <p className="text-sm text-muted-foreground mb-5">Upload a lease PDF, DOCX, or TXT document to begin AI-powered triage.</p>
+          <h2 className="font-heading font-semibold text-foreground mb-1">Analyze Lease Document</h2>
+
+          {/* Mode toggle */}
+          <div className="flex gap-1 bg-secondary/40 rounded-lg p-1 mb-5 w-fit">
+            <button
+              type="button"
+              onClick={() => { setInputMode("upload"); setPasteText(""); }}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                inputMode === "upload"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              📂 Upload File
+            </button>
+            <button
+              type="button"
+              onClick={() => { setInputMode("paste"); setFile(null); }}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                inputMode === "paste"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              📋 Paste Text
+            </button>
+          </div>
+
+          {inputMode === "upload" && (
+            <p className="text-sm text-muted-foreground mb-5">
+              Upload a lease PDF, DOCX, or TXT document to begin AI-powered triage.
+            </p>
+          )}
+          {inputMode === "paste" && (
+            <p className="text-sm text-muted-foreground mb-5">
+              Paste any lease language — full document, a single clause, or landlord redlines — to get instant AI analysis.
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div
-              className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
-              onClick={() => !status && document.getElementById("lease-file-input").click()}
-            >
-              {file ? (
-                <div className="flex items-center justify-center gap-2 text-primary">
-                  <FileText className="w-5 h-5" />
-                  <span className="font-medium text-sm">{file.name}</span>
-                  <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
-                </div>
-              ) : (
-                <>
-                  <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-medium text-foreground">Click to select a lease document</p>
-                  <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, or TXT — up to 10MB</p>
-                </>
-              )}
-              <input
-                id="lease-file-input"
-                type="file"
-                accept=".pdf,.docx,.doc,.txt"
-                className="hidden"
-                onChange={e => { setFile(e.target.files[0] || null); setStatus(null); setError(null); }}
+            {inputMode === "upload" && (
+              <div
+                className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                onClick={() => !status && document.getElementById("lease-file-input").click()}
+              >
+                {file ? (
+                  <div className="flex items-center justify-center gap-2 text-primary">
+                    <FileText className="w-5 h-5" />
+                    <span className="font-medium text-sm">{file.name}</span>
+                    <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm font-medium text-foreground">Click to select a lease document</p>
+                    <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, or TXT — up to 10MB</p>
+                  </>
+                )}
+                <input
+                  id="lease-file-input"
+                  type="file"
+                  accept=".pdf,.docx,.doc,.txt"
+                  className="hidden"
+                  onChange={e => { setFile(e.target.files[0] || null); setStatus(null); setError(null); }}
+                />
+              </div>
+            )}
+
+            {inputMode === "paste" && (
+              <textarea
+                value={pasteText}
+                onChange={e => setPasteText(e.target.value)}
+                placeholder="Paste lease language here — full document, a single clause, or landlord redlines…"
+                className="w-full min-h-[180px] rounded-xl border border-border bg-secondary/20 p-4 text-sm text-foreground placeholder:text-muted-foreground resize-y focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
-            </div>
+            )}
 
             {/* Loading state */}
             {status && status !== "error" && (
@@ -336,7 +400,10 @@ export default function HawkLawNewAnalysis() {
 
             <Button
               type="submit"
-              disabled={!file || (status && status !== "error")}
+              disabled={
+                (inputMode === "upload" && (!file || (status && status !== "error"))) ||
+                (inputMode === "paste" && (!pasteText || pasteText.trim().length < 50 || (status && status !== "error")))
+              }
               className="w-full"
             >
               {status && status !== "error" && status !== "done"
