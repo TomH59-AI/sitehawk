@@ -8,6 +8,7 @@ import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
 import { fiberProviderRoutes } from "@/functions/fiberProviderRoutes";
 import { osmFiberRoutes } from "@/functions/osmFiberRoutes";
 import { osmPowerGrid } from "@/functions/osmPowerGrid";
+import { hifldPowerLive } from "@/functions/hifldPowerLive";
 import { peeringdbPops } from "@/functions/peeringdbPops";
 import { infrastructureMap } from "@/functions/infrastructureMap";
 import { parcelClickIntel } from "@/functions/parcelClickIntel";
@@ -29,22 +30,26 @@ const loadInfrastructureLayer = (payload) => LIVE_DETAIL_LAYERS.has(payload.laye
               ? osmPowerGrid({ bbox: payload.bbox || payload, layer: 'distribution_poles' })
               : payload.layer === "transformers"
                 ? osmPowerGrid({ bbox: payload.bbox || payload, layer: 'transformers' })
-                : payload.layer.startsWith("fiberkmz_")
-        ? fiberProviderRoutes(payload)
-      : payload.layer === "zayo_routes"
-        ? zayoFiberRoutes(payload)
-        : payload.layer === "peeringdb_pops"
-          ? (() => {
-              const center = payload.center || payload;
-              return peeringdbPops({
-                lat: center.lat || payload.lat,
-                lon: center.lng || center.lon || payload.lon,
-                radius_deg: 1.5,
-              });
-            })()
-          : payload.layer === "broadband_service"
-          ? fccBdcInfrastructure(payload)
-          : hifldTransmissionLines(payload);
+                : payload.layer === "substations"
+                  ? hifldPowerLive({ bbox: payload.bbox || payload, layer: 'substations' })
+                  : payload.layer === "electric_service_territory"
+                    ? hifldPowerLive({ bbox: payload.bbox || payload, layer: 'electric_service_territory' })
+                    : payload.layer.startsWith("fiberkmz_")
+                      ? fiberProviderRoutes(payload)
+                      : payload.layer === "zayo_routes"
+                        ? zayoFiberRoutes(payload)
+                        : payload.layer === "peeringdb_pops"
+                          ? (() => {
+                              const center = payload.center || payload;
+                              return peeringdbPops({
+                                lat: center.lat || payload.lat,
+                                lon: center.lng || center.lon || payload.lon,
+                                radius_deg: 1.5,
+                              });
+                            })()
+                          : payload.layer === "broadband_service"
+                            ? fccBdcInfrastructure(payload)
+                            : hifldTransmissionLines(payload);
 
 // Parcel Intelligence — click an empty map spot to sample zoning, utility,
 // fiber proximity, flood, elevation/slope, soil, and NLCD land cover.
