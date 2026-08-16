@@ -7,7 +7,7 @@ import { invokeTalonfitAgent } from "@/lib/talonfitAgent";
 
 const RADIUS_MILES = 2;
 const MAX_SAVED = 3;
-const LETTERS = ["A", "B", "C"];
+const LETTERS = ["D", "E", "F"];
 
 // Auto-select points: 3 points at 0.5mi from center, 120° apart
 function generateAutoPoints(lat, lon) {
