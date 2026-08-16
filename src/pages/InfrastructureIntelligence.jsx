@@ -7,6 +7,7 @@ import { fccBdcInfrastructure } from "@/functions/fccBdcInfrastructure";
 import { zayoFiberRoutes } from "@/functions/zayoFiberRoutes";
 import { fiberProviderRoutes } from "@/functions/fiberProviderRoutes";
 import { osmFiberRoutes } from "@/functions/osmFiberRoutes";
+import { peeringdbPops } from "@/functions/peeringdbPops";
 import { infrastructureMap } from "@/functions/infrastructureMap";
 import { parcelClickIntel } from "@/functions/parcelClickIntel";
 
@@ -21,7 +22,16 @@ const loadInfrastructureLayer = (payload) => LIVE_DETAIL_LAYERS.has(payload.laye
         ? fiberProviderRoutes(payload)
       : payload.layer === "zayo_routes"
         ? zayoFiberRoutes(payload)
-        : payload.layer === "broadband_service"
+        : payload.layer === "peeringdb_pops"
+          ? (() => {
+              const center = payload.center || payload;
+              return peeringdbPops({
+                lat: center.lat || payload.lat,
+                lon: center.lng || center.lon || payload.lon,
+                radius_deg: 1.5,
+              });
+            })()
+          : payload.layer === "broadband_service"
           ? fccBdcInfrastructure(payload)
           : hifldTransmissionLines(payload);
 

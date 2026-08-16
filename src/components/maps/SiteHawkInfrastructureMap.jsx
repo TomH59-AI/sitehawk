@@ -30,6 +30,17 @@ const LAYERS = [
     minZoom: 10,
     live: true,
   },
+  {
+    id: 'peeringdb_pops',
+    group: 'Fiber & backhaul',
+    label: 'Carrier PoPs & Backhaul Nodes',
+    description: 'PeeringDB colocation facilities — carrier points-of-presence and IXP locations',
+    color: '#A855F7',
+    geometry: 'point',
+    source: 'PeeringDB',
+    minZoom: 6,
+    live: true,
+  },
 
   {
     id: "transmission_lines",
