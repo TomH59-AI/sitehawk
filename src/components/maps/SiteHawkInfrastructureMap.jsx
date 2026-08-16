@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NLCD_LAYERS, NLCD_YEARS, nlcdTilesUrl } from "./nlcdLayers";
 import { FIBER_PROVIDER_LAYERS } from "./fiberLayers";
+import { fccFiberProviders } from "@/functions/fccFiberProviders";
 import ParcelIntelPanel from "./ParcelIntelPanel";
 
 const MAPBOX_CSS = "https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.css";
@@ -508,6 +509,30 @@ export default function SiteHawkInfrastructureMap({
               .catch((error) => {
                 if (intelSeqRef.current === seq) setIntel({ loading: false, lat, lon: lng, error: error.message || String(error) });
               });
+
+            fccFiberProviders({ lat, lon: lng }).then((fccData) => {
+              if (fccData?.fiber_providers?.length > 0) {
+                const rows = fccData.fiber_providers
+                  .map((p) => `<tr>
+                    <td style="padding:2px 8px;font-size:11px;color:#a3e635;">${p.provider_name}</td>
+                    <td style="padding:2px 8px;font-size:11px;color:#94a3b8;text-align:right;">${p.max_down_mbps}↓ / ${p.max_up_mbps}↑ Mbps</td>
+                  </tr>`)
+                  .join('')
+                const section = `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155;">
+                  <div style="font-size:11px;font-weight:600;color:#7c3aed;margin-bottom:4px;">
+                    📡 FCC Licensed Fiber Carriers (${fccData.count})
+                  </div>
+                  <table style="width:100%;border-collapse:collapse;">${rows}</table>
+                  <div style="font-size:9px;color:#64748b;margin-top:4px;">Source: FCC National Broadband Map · Technology code 50 FTTP</div>
+                </div>`
+                const popup = document.querySelector('.mapboxgl-popup-content')
+                if (popup) {
+                  const div = document.createElement('div')
+                  div.innerHTML = section
+                  popup.appendChild(div)
+                }
+              }
+            }).catch(() => {})
           }
         });
         map.on("mouseenter", () => { map.getCanvas().style.cursor = "crosshair"; });
