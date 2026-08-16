@@ -47,10 +47,12 @@ const LAYERS = [
     id: "transmission_lines",
     group: "Power infrastructure",
     label: "Transmission lines",
-    description: "Public electric transmission corridors",
+    description: "HIFLD electric transmission corridors — color-coded by voltage (kV)",
     color: "#fbbf24",
     geometry: "line",
-    source: "Data.gov / HIFLD",
+    source: "HIFLD / OSM live",
+    live: true,
+    voltageColored: true,
   },
   {
     id: "substations",
@@ -91,6 +93,50 @@ const LAYERS = [
     color: "#fb7185",
     geometry: "point",
     source: "Data.gov / EIA",
+  },
+  {
+    id: "distribution_lines",
+    group: "Power infrastructure",
+    label: "Distribution lines",
+    description: "OSM live distribution grid — power=minor_line, voltage < 69 kV",
+    color: "#4ade80",
+    geometry: "line",
+    source: "OpenStreetMap live",
+    live: true,
+    minZoom: 12,
+  },
+  {
+    id: "transmission_towers",
+    group: "Power infrastructure",
+    label: "Transmission towers",
+    description: "OSM lattice steel transmission tower locations",
+    color: "#ef4444",
+    geometry: "point",
+    source: "OpenStreetMap live",
+    live: true,
+    minZoom: 10,
+  },
+  {
+    id: "distribution_poles",
+    group: "Power infrastructure",
+    label: "Distribution poles",
+    description: "OSM wood/concrete distribution pole locations",
+    color: "#a16207",
+    geometry: "point",
+    source: "OpenStreetMap live",
+    live: true,
+    minZoom: 14,
+  },
+  {
+    id: "electric_service_territory",
+    group: "Power infrastructure",
+    label: "Electric service territory",
+    description: "HIFLD retail service boundaries — utility name, phone, website",
+    color: "#818cf8",
+    geometry: "fill",
+    source: "HIFLD live",
+    live: true,
+    minZoom: 7,
   },
   {
     id: "macro_towers",
@@ -233,8 +279,26 @@ function addMapLayer(map, definition, data, { nlcdYear = 2025 } = {}) {
       type: "line",
       source: sourceId,
       paint: {
-        "line-color": definition.color,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.2, 13, 4],
+        "line-color": definition.voltageColored
+          ? [
+              "step",
+              ["to-number", ["coalesce", ["get", "voltage"], ["get", "VOLTAGE"], 0]],
+              "#fbbf24",   // default / < 100 kV — amber
+              100, "#f97316",   // 100–199 kV — orange
+              200, "#ef4444",   // 200–344 kV — red
+              345, "#d946ef",   // 345–499 kV — fuchsia
+              500, "#ff0099",   // 500+ kV — hot pink (extra-high voltage)
+            ]
+          : definition.color,
+        "line-width": definition.voltageColored
+          ? [
+              "interpolate", ["linear"], ["zoom"],
+              4, ["step", ["to-number", ["coalesce", ["get", "voltage"], ["get", "VOLTAGE"], 0]],
+                    1.2, 100, 1.8, 200, 2.5, 345, 3.5],
+              13, ["step", ["to-number", ["coalesce", ["get", "voltage"], ["get", "VOLTAGE"], 0]],
+                    2, 100, 3, 200, 4.5, 345, 6],
+            ]
+          : ["interpolate", ["linear"], ["zoom"], 4, 1.2, 13, 4],
         "line-opacity": 0.9,
         "line-blur": ["interpolate", ["linear"], ["zoom"], 4, 0, 13, 1.2],
         "line-emissive-strength": 1,
