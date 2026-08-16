@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, BookmarkPlus, ShieldAlert, ChevronDown, ChevronUp, Star, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HAWK_LAW_HEADER } from "../HawkLaw";
+import { diff_match_patch } from "diff-match-patch";
 
 const HAWK_LAW_EDGE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/hawk-law";
 
@@ -37,8 +38,50 @@ function Stars({ score }) {
   );
 }
 
+function RedlineDiff({ original, revised }) {
+  const dmp = new diff_match_patch();
+  const diffs = dmp.diff_main(original || "", revised || "");
+  dmp.diff_cleanupSemantic(diffs);
+  return (
+    <div className="text-xs leading-relaxed font-mono bg-card rounded-lg p-3 border border-border whitespace-pre-wrap break-words">
+      {diffs.map(([op, text], i) =>
+        op === -1 ? (
+          <span
+            key={i}
+            style={{
+              background: "#fee2e2",
+              textDecoration: "line-through",
+              color: "#dc2626",
+              borderRadius: 2,
+              padding: "0 1px",
+            }}
+          >
+            {text}
+          </span>
+        ) : op === 1 ? (
+          <span
+            key={i}
+            style={{
+              background: "#dcfce7",
+              textDecoration: "underline",
+              color: "#16a34a",
+              borderRadius: 2,
+              padding: "0 1px",
+            }}
+          >
+            {text}
+          </span>
+        ) : (
+          <span key={i} style={{ color: "#374151" }}>{text}</span>
+        )
+      )}
+    </div>
+  );
+}
+
 function ReviewClauseCard({ clause }) {
   const [expanded, setExpanded] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
   const name = clause.clause_name || clause.clause_key || clause.category || "Clause";
   const severity = clause.red_flag_severity || clause.severity || "none";
   return (
@@ -68,19 +111,59 @@ function ReviewClauseCard({ clause }) {
       </button>
       {expanded && (
         <div className="px-4 py-4 bg-secondary/10 border-t border-border space-y-3">
-          {(clause.clause_text || clause.text_as_written) && (
-            <div>
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">As Written</div>
-              <p className="text-xs text-muted-foreground italic leading-relaxed bg-card rounded-lg p-3 border border-border">
-                "{clause.clause_text || clause.text_as_written}"
-              </p>
+          {(clause.clause_text || clause.text_as_written) && (clause.industry_standard || clause.standard_language) && (
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Clause Text
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowDiff(d => !d)}
+                className={`text-xs px-2.5 py-1 rounded-md font-medium transition-colors border ${
+                  showDiff
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-secondary text-foreground border-border hover:bg-primary/10"
+                }`}
+              >
+                {showDiff ? "✕ Hide Redline" : "📝 Show Redline vs Industry Standard"}
+              </button>
             </div>
           )}
-          {(clause.industry_standard || clause.standard_language) && (
+
+          {showDiff && (clause.clause_text || clause.text_as_written) && (clause.industry_standard || clause.standard_language) ? (
             <div>
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Industry Standard</div>
-              <p className="text-xs text-foreground leading-relaxed">{clause.industry_standard || clause.standard_language}</p>
+              <div className="flex gap-4 text-xs mb-1.5">
+                <span className="flex items-center gap-1">
+                  <span style={{ background:"#fee2e2", color:"#dc2626", padding:"0 4px", borderRadius:2, textDecoration:"line-through" }}>removed</span>
+                  Landlord language
+                </span>
+                <span className="flex items-center gap-1">
+                  <span style={{ background:"#dcfce7", color:"#16a34a", padding:"0 4px", borderRadius:2, textDecoration:"underline" }}>added</span>
+                  Industry standard
+                </span>
+              </div>
+              <RedlineDiff
+                original={clause.clause_text || clause.text_as_written || ""}
+                revised={clause.industry_standard || clause.standard_language || ""}
+              />
             </div>
+          ) : (
+            <>
+              {(clause.clause_text || clause.text_as_written) && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">As Written</div>
+                  <p className="text-xs text-muted-foreground italic leading-relaxed bg-card rounded-lg p-3 border border-border">
+                    "{clause.clause_text || clause.text_as_written}"
+                  </p>
+                </div>
+              )}
+              {(clause.industry_standard || clause.standard_language) && (
+                <div>
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Industry Standard</div>
+                  <p className="text-xs text-foreground leading-relaxed">{clause.industry_standard || clause.standard_language}</p>
+                </div>
+              )}
+            </>
           )}
           {clause.ai_explainer && (
             <div>
