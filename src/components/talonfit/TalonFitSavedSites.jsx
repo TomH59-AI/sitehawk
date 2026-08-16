@@ -13,7 +13,7 @@ const verdictBg = (decision) => {
  */
 export default function TalonFitSavedSites({ sites, onRemove }) {
   const MAX = 3;
-  const LETTERS = ["A", "B", "C"];
+  const LETTERS = ["D", "E", "F"];
 
   return (
     <div className="flex h-full flex-col p-3">
