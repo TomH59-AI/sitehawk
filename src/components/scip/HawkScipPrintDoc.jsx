@@ -8,6 +8,7 @@ import ScipParcelDataPage from "../skywave/ScipParcelDataPage";
 import ScipHawkMapsPage from "../skywave/ScipHawkMapsPage";
 import ScipPowerAirportPage from "../skywave/ScipPowerAirportPage";
 import ScipExistingConditionsPage from "../skywave/ScipExistingConditionsPage";
+import ScipCompliancePage from "../skywave/ScipCompliancePage";
 
 const EXACT = { printColorAdjust: "exact", WebkitPrintColorAdjust: "exact" };
 
@@ -122,6 +123,25 @@ export default function HawkScipPrintDoc({ record }) {
           footerNote="FEMA NFHL flood zone · USFWS National Wetlands Inventory · nearest OSM police & fire · web-researched water management district, hazardous-waste status and access notes. Field verification recommended."
         >
           <ScipExistingConditionsPage conditions={r.existing_conditions} />
+        </HawkScipSection>
+      ),
+    });
+  }
+
+  // ── Compliance Actions — always shown when any zoning or parcel data exists ──
+  if (r.zoning_report || r.existing_conditions || r.parcel_targets) {
+    sections.push({
+      id: "compliance",
+      label: "Compliance Actions",
+      node: (
+        <HawkScipSection
+          kicker="SCIP · Section 7"
+          title="COMPLIANCE ACTION CHECKLIST"
+          right={r.zoning_report?.zoning_jurisdiction || "Field Verification Required"}
+          page={next()}
+          footerNote="MISS DIG 811 · MDEQ/EGLE Part 303 · FAA 7460-1 · CUP/SUP · PE Letter · E911 · Bond — Status derived from SiteHawk AI data. Field verification by a licensed professional is required before submittal."
+        >
+          <ScipCompliancePage record={r} />
         </HawkScipSection>
       ),
     });
