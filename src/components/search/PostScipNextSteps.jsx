@@ -1,10 +1,9 @@
 import { Link } from "react-router-dom";
-import { MapPin, ClipboardList, PhoneCall, FileSignature, Scale, Mail } from "lucide-react";
+import { MapPin, ClipboardList, FileSignature, Scale, Mail } from "lucide-react";
 
 const NEXT_STEPS = [
   { path: "/hawk-tracker", icon: MapPin, label: "Hawk Tracker", desc: "Log this site and track it to build-out." },
   { path: "/follow-up-tracker", icon: ClipboardList, label: "Follow-Up Tracker", desc: "Schedule owner follow-ups so nothing slips." },
-  { path: "/skip-trace", icon: PhoneCall, label: "Skip-Trace", desc: "Get the owner's phone and email." },
   { path: "/mail-orders", icon: Mail, label: "Mail Orders", desc: "Verify, pay for, and send Lob postcards." },
   { path: "/hawk-lease", icon: FileSignature, label: "HawkLease", desc: "Model lease terms and comps." },
   { path: "/hawk-law", icon: Scale, label: "Hawk Law", desc: "Review the lease before it's signed." },

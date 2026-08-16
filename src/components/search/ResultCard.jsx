@@ -1,7 +1,5 @@
 import { MapPin, User, Phone, Mail, Shield, Hash, Ruler, Building, Lightbulb, PlaneTakeoff, Radio, FileText, Mountain } from "lucide-react";
-import SkipTraceButton from "./SkipTraceButton";
 import SendPropositionButton from "./SendPropositionButton";
-import { Badge } from "@/components/ui/badge";
 import CRMPanel from "@/components/crm/CRMPanel";
 import UtilityRow from "./UtilityRow";
 
@@ -19,7 +17,7 @@ function getScoreLabel(score) {
   return "Poor";
 }
 
-export default function ResultCard({ result, rank, searchId, skipTraceResult, onSkipTraceResult, ordinance }) {
+export default function ResultCard({ result, rank, searchId, ordinance }) {
   return (
     <div id={`candidate-card-${rank - 1}`} className="rounded-xl border border-border bg-card p-5 hover:border-primary/30 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
@@ -177,12 +175,6 @@ export default function ResultCard({ result, rank, searchId, skipTraceResult, on
       )}
 
       <div className="mt-3 flex justify-end gap-2 flex-wrap">
-        <SkipTraceButton
-          candidate={result}
-          searchId={searchId}
-          result={skipTraceResult}
-          onResult={onSkipTraceResult}
-        />
         <SendPropositionButton candidate={result} searchId={searchId} />
       </div>
 

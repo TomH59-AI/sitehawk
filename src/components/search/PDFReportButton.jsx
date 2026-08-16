@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { loadPublicConfig } from "@/lib/publicConfig";
 
@@ -194,7 +194,7 @@ function buildCandidateMapUrl(mapboxToken, lat, lon, geometry, width = 300, heig
   return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${pin}/${lon},${lat},${zoom},0/${width}x${height}@2x?access_token=${mapboxToken}`;
 }
 
-export default function PDFReportButton({ results, extraResults, ordinance, searchCenter, mapImageGetterRef, skipTraceResults = {} }) {
+export default function PDFReportButton({ results, extraResults, ordinance, searchCenter, mapImageGetterRef }) {
   const [generating, setGenerating] = useState(false);
 
   const handleGenerate = async () => {
@@ -430,7 +430,6 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
     y = drawSectionHeader(doc, y, W, margin, `CANDIDATE PARCELS (${allCands.length} IDENTIFIED)`);
 
     allCands.forEach((r, idx) => {
-      const skipTrace = skipTraceResults?.[r.id];
       const towers = r.cell_towers || [];
       const fiber = r.fiber_providers || [];
       const hasFiber = r.has_fiber;
@@ -440,9 +439,8 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
       const baseH = hasInsetMap ? 170 : 160;
       const towerH = towers.length > 0 ? 14 + towers.length * 12 : 0;
       const fiberH = fiber.length > 0 ? 14 + 12 : 0;
-      const stH = skipTrace ? 28 : 0;
       const mrH = r.match_reason ? 22 : 0;
-      const cardH = baseH + towerH + fiberH + stH + mrH;
+      const cardH = baseH + towerH + fiberH + mrH;
 
       if (y + cardH > H - 50) {
         doc.addPage();
@@ -586,26 +584,6 @@ export default function PDFReportButton({ results, extraResults, ordinance, sear
         doc.setTextColor(...TEXT);
         const fiberLine = fiber.map(f => `${f.provider_name} · ${f.max_download_speed}/${f.max_upload_speed} Mbps`).join("  |  ");
         doc.text(fiberLine.substring(0, 95), margin + 12, curY + 19);
-        curY += 28;
-      }
-
-      // ── SKIP TRACE ──
-      if (skipTrace) {
-        doc.setFillColor(...TEAL_BG);
-        doc.setDrawColor(...TEAL_BD);
-        doc.roundedRect(margin + 6, curY, W - margin * 2 - 12, 22, 3, 3, "FD");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(...TEAL_TXT);
-        doc.text("SKIP TRACE CONTACT:", margin + 12, curY + 9);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(...TEXT);
-        const stParts = [];
-        if (skipTrace.phone) stParts.push(`Phone: ${skipTrace.phone}`);
-        if (skipTrace.email) stParts.push(`Email: ${skipTrace.email}`);
-        if (skipTrace.registered_agent) stParts.push(`Agent: ${skipTrace.registered_agent}`);
-        if (!stParts.length) stParts.push("No direct contact found — manual lookup required");
-        doc.text(stParts.join("  |  ").substring(0, 90), margin + 12, curY + 19);
         curY += 28;
       }
 

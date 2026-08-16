@@ -48,13 +48,11 @@ import { Lock, Layers } from "lucide-react";
 import { toast } from "sonner";
 import MapSubStep from "./section4/MapSubStep";
 import DeedStep from "./section4/DeedStep";
-import SkipTraceStep from "./section4/SkipTraceStep";
 import ComplianceStep from "./section4/ComplianceStep";
 import SectionClearButton from "./SectionClearButton";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { realieParcelsInRing } from "@/functions/realieParcelsInRing";
 import { reportAllParcels } from "@/functions/reportAllParcels";
-import { skipTraceCascade } from "@/functions/skipTraceCascade";
 import { femaFloodLookup } from "@/functions/femaFloodLookup";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
@@ -69,7 +67,7 @@ import CustomizeProbe from "@/components/maps/CustomizeProbe";
 import ViewshedTerrainControls from "@/components/maps/ViewshedTerrainControls";
 import {
   ensureMapboxLoaded, renderAerial, renderTopo, renderFema,
-  renderZoningGrid, renderFlumPolygon, renderRegridZoningMap, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiberOptics, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
+  renderFlumPolygon, renderRegridZoningMap, renderWetlands, renderAirport, renderCellTower, renderParcel, renderWind, renderFiberOptics, renderPower, fetchPowerInfrastructure, BRAND_GREEN, buildCircle,
 } from "@/lib/section4Maps";
 import FiberOpticsBanner from "./section4/FiberOpticsBanner";
 
@@ -129,9 +127,6 @@ export default function Section4MapSuite({
   const [flumUsedRegrid, setFlumUsedRegrid] = useState(false);
   // Warranty Deed of record for Target A (Realie click lookup). null = no deed found.
   const [deedInfo, setDeedInfo] = useState(null);
-  // Hawk Skip-Trace result for Target A's owner (phones + emails). Runs only
-  // after the Warranty Deed step completes.
-  const [traceInfo, setTraceInfo] = useState(null);
   // Zoning legend (color-coded districts) + a fallback notice when no tiles.
   const [zoningLegend, setZoningLegend] = useState([]);
   const [zoningFallback, setZoningFallback] = useState(null);
@@ -545,27 +540,6 @@ export default function Section4MapSuite({
     }
   }, [targetA]);
 
-  // Hawk Skip-Trace — owner phone & email cascade for Target A's owner. Nothing
-  // is fabricated: whatever the cascade returns is what's displayed.
-  const runTrace = useCallback(async () => {
-    setErrors((p) => ({ ...p, skiptrace: null }));
-    setLoadingStep("skiptrace");
-    try {
-      const res = await skipTraceCascade({
-        owner_name: targetA?.owner_name || targetA?.owner || "",
-        mailing_address: targetA?.mailing_address || targetA?.parcel_address || "",
-        target_label: "Target A",
-      });
-      setTraceInfo(res?.data ?? res ?? null);
-      setCompleted((prev) => ({ ...prev, skiptrace: true }));
-    } catch (err) {
-      console.error(err);
-      setErrors((p) => ({ ...p, skiptrace: err?.message || "Skip-Trace failed." }));
-    } finally {
-      setLoadingStep(null);
-    }
-  }, [targetA]);
-
   // A sub-step is unlocked once the previous one is complete (aerial = first).
   const isUnlocked = (step) => {
     const i = STEPS.indexOf(step);
@@ -912,16 +886,7 @@ export default function Section4MapSuite({
           ownerName={targetA?.owner_name || targetA?.owner || ""}
           onRun={runDeed}
         />
-        <SkipTraceStep
-          index={17}
-          unlocked={active && !!completed.deed}
-          loading={loadingStep === "skiptrace"}
-          done={!!completed.skiptrace}
-          result={traceInfo}
-          error={errors.skiptrace}
-          ownerName={targetA?.owner_name || targetA?.owner || ""}
-          onRun={runTrace}
-        />
+
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import {
-  Search, Zap, ShieldCheck, Radar, Network, Briefcase, MapPin, Landmark,
-  PhoneCall, FileSignature, Scale, ClipboardEdit,
-  FileStack, ScanLine, CreditCard, Settings, Info, Eye, Mail,
+  Search, Zap, ShieldCheck, Radar, Network, MapPin, Landmark,
+  FileSignature, Scale, ClipboardEdit,
+  ScanLine, CreditCard, Settings, Info, Eye, Mail,
 } from "lucide-react";
 
 export const DASHBOARD_TOOL_PAGES = [
@@ -34,7 +34,6 @@ export const DASHBOARD_TOOL_PAGES = [
     tools: [
       { title: "Hawk Tracker", description: "Track deployment activity across your sites.", to: "/hawk-tracker", icon: MapPin },
       { title: "Mail Orders", description: "Verify owner addresses and send physical postcards.", to: "/mail-orders", icon: Mail },
-      { title: "Skip-Trace", description: "Find available owner contact information.", to: "/skip-trace", icon: PhoneCall },
     ],
   },
   {

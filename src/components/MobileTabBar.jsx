@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Search, Briefcase, ScanLine } from "lucide-react";
+import { LayoutDashboard, Search, ScanLine } from "lucide-react";
 
 const TABS = [
   { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },

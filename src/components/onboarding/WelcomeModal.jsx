@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, ChevronRight, ChevronLeft, Search, Phone, HelpCircle } from "lucide-react";
+import { X, ChevronRight, ChevronLeft } from "lucide-react";
 import HawkIcon from "../HawkIcon";
 import { Button } from "@/components/ui/button";
 
@@ -28,16 +28,16 @@ const STEPS = [
   {
     icon: null,
     emoji: "📞",
-    title: "Step 3 — Skip Trace the Owner",
-    desc: "Click 'Skip Trace' on any candidate to instantly surface verified owner phone numbers, emails, and registered agent info. Start the acquisition conversation the same day.",
-    tip: "Tip: Use 'Skip Trace All' to run all candidates at once and batch-trace every result in one click.",
+    title: "Step 3 — Look Up the Owner's Contact Info",
+    desc: "In TalonFit™, run Contact Lookup on any saved site to surface owner phone numbers, emails, registered agent, and business records from public sources. Start the acquisition conversation the same day.",
+    tip: "Tip: Contact Lookup runs right inside the Site Details panel after you save a TalonFit probe.",
   },
   {
     icon: null,
     emoji: "✉️",
     title: "Step 4 — Can't Reach Them? Send Direct Mail",
-    desc: "If skip trace can't find contact info, no problem. Order a professional direct mail campaign and we'll send physical acquisition letters straight to the property owner's mailing address — 3 letters ($79) or 5 letters ($119).",
-    tip: "Tip: Look for the 'Send Direct Mail' button that appears automatically when skip trace returns no contact info.",
+    desc: "If contact lookup can't find a phone or email, no problem. Order a professional direct mail campaign and we'll send physical acquisition letters straight to the property owner's mailing address — 3 letters ($79) or 5 letters ($119).",
+    tip: "Tip: Look for the 'Send Direct Mail' button when a candidate has a mailing address.",
   },
   {
     icon: null,
@@ -51,7 +51,7 @@ const STEPS = [
     icon: null,
     emoji: "📄",
     title: "Step 6 — Export & Share",
-    desc: "Generate a full branded PDF intelligence report from your scan — includes all candidates, zoning ordinance, airport & tower data, skip trace info, and a satellite map snapshot. Perfect for team presentations.",
+    desc: "Generate a full branded PDF intelligence report from your scan — includes all candidates, zoning ordinance, airport & tower data, owner contact info, and a satellite map snapshot. Perfect for team presentations.",
     tip: "Find the 'Download PDF Report' button at the bottom of your scan results.",
   },
 ];

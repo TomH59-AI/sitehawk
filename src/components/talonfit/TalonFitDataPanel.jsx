@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ownerContactLookup } from "@/functions/ownerContactLookup";
 
 const Row = ({ label, value }) => (
   <div className="flex justify-between gap-3 py-1 text-[11px]">
@@ -35,6 +37,28 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
   const ord = ordRaw || {};
 
   const ht = towerHeightFt || 199;
+
+  const [contactResult, setContactResult] = useState(null);
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactError, setContactError] = useState(null);
+
+  const handleContactLookup = async () => {
+    const ownerName = solveResult?.parcel?.owner_name || solveResult?.parcel_details?.owner;
+    const address = solveResult?.parcel?.address || solveResult?.parcel_details?.address || "";
+    const jurisdiction = solveResult?.ordinance?.jurisdiction || solveResult?.ordinance_rules?.jurisdiction || "";
+    if (!ownerName) return;
+    setContactLoading(true);
+    setContactError(null);
+    setContactResult(null);
+    try {
+      const result = await ownerContactLookup({ ownerName, address, jurisdiction });
+      setContactResult(result);
+    } catch (e) {
+      setContactError("Lookup failed. Try again.");
+    } finally {
+      setContactLoading(false);
+    }
+  };
 
   // ── Parcel values ──
   const address = parcel.address || parcel.full_address || parcelDetails.address || null;
@@ -134,6 +158,76 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
           <Row label="Address" value={address || "Pending verification"} />
           <Row label="APN" value={apn || "Pending verification"} />
           <Row label="Owner" value={owner || "Pending verification"} />
+
+          {/* Skip-Trace Contact Lookup */}
+          <div className="px-3 pb-2">
+            <button
+              onClick={handleContactLookup}
+              disabled={contactLoading || (!solveResult?.parcel?.owner_name && !solveResult?.parcel_details?.owner)}
+              className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded text-xs font-medium bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 border border-blue-700/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {contactLoading ? (
+                <>
+                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                  </svg>
+                  Searching contact records…
+                </>
+              ) : (
+                <>📞 Skip-Trace Owner Contact</>
+              )}
+            </button>
+
+            {contactError && (
+              <p className="text-red-400 text-xs mt-1 text-center">{contactError}</p>
+            )}
+
+            {contactResult && (
+              <div className="mt-2 rounded bg-slate-800/60 border border-slate-700/40 p-2 text-xs space-y-1">
+                {contactResult.phones?.length > 0 && (
+                  <div>
+                    <span className="text-slate-400 uppercase tracking-wide text-[10px]">Phone Numbers</span>
+                    {contactResult.phones.map((p, i) => (
+                      <div key={i} className="flex justify-between text-slate-200">
+                        <span>{p.type || "Phone"}</span>
+                        <a href={`tel:${p.number}`} className="text-blue-400 hover:underline">{p.number}</a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {contactResult.emails?.length > 0 && (
+                  <div>
+                    <span className="text-slate-400 uppercase tracking-wide text-[10px]">Email</span>
+                    {contactResult.emails.map((e, i) => (
+                      <div key={i} className="text-blue-400 text-right">
+                        <a href={`mailto:${e}`} className="hover:underline">{e}</a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {contactResult.business_name && (
+                  <div className="flex justify-between text-slate-200">
+                    <span className="text-slate-400">Registered As</span>
+                    <span>{contactResult.business_name}</span>
+                  </div>
+                )}
+                {contactResult.agent && (
+                  <div className="flex justify-between text-slate-200">
+                    <span className="text-slate-400">Registered Agent</span>
+                    <span>{contactResult.agent}</span>
+                  </div>
+                )}
+                {(!contactResult.phones?.length && !contactResult.emails?.length && !contactResult.business_name) && (
+                  <p className="text-slate-400 text-center">No contact records found for this owner.</p>
+                )}
+                <div className="text-slate-600 text-[10px] text-right pt-1">
+                  Source: {contactResult.source || "Public records"}
+                </div>
+              </div>
+            )}
+          </div>
+
           <Row label="Acreage" value={acreage || "Pending verification"} />
           <Row label="Zoning" value={zoning || "Pending verification"} />
           <Row label="Jurisdiction" value={jurisdiction || "—"} />

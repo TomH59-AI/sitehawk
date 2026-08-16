@@ -90,7 +90,6 @@ import RfiEngine from './pages/RfiEngine';
 import ZoningVerifier from './pages/ZoningVerifier';
 import CodeHawk from './pages/CodeHawk';
 import AnthemNetScip from './pages/AnthemNetScip';
-import SkipTrace from './pages/SkipTrace';
 import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
 import TalonFit from './pages/TalonFit';
@@ -172,7 +171,6 @@ const AuthenticatedApp = () => {
         <Route path="/mail-orders" element={<MailOrders />} />
         {/* SiteHawk CRM retired — Hawk Tracker is the site-management surface */}
         <Route path="/crm" element={<Navigate to="/hawk-tracker" replace />} />
-        <Route path="/skip-trace" element={<SkipTrace />} />
         <Route path="/hubspot" element={<Navigate to="/hawk-tracker" replace />} />
         <Route path="/subscriber-crm" element={<SubscriberCRM />} />
         <Route path="/usage-analytics" element={<UsageAnalytics />} />

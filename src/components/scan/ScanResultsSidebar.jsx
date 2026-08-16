@@ -5,7 +5,6 @@ import HawkIcon from "../HawkIcon";
 import DirectMailButton from "../search/DirectMailButton";
 import PDFReportButton from "../search/PDFReportButton";
 import SearchUsageBar from "./SearchUsageBar";
-import BatchSkipTrace from "../search/BatchSkipTrace";
 import ResultsFilterSort from "./ResultsFilterSort";
 import TelecomOrdinanceSummary from "./TelecomOrdinanceSummary";
 import ZoningSummaryCard from "./ZoningSummaryCard";
@@ -33,8 +32,6 @@ export default function ScanResultsSidebar({
   onOpenChat,
   onNewScan,
   userTier,
-  contactCache,
-  onContactFound,
   searchId,
   usage,
   plan,
@@ -227,11 +224,6 @@ export default function ScanResultsSidebar({
         {/* Usage indicator */}
         <SearchUsageBar usage={usage} plan={plan} />
 
-        {/* Batch skip trace */}
-        {(allResults || results)?.length > 0 && (
-          <BatchSkipTrace candidates={allResults || results} />
-        )}
-
         {/* PDF Download */}
         <PDFReportButton
           results={results}
@@ -239,7 +231,6 @@ export default function ScanResultsSidebar({
           ordinance={ordinance}
           searchCenter={searchCenter}
           mapImageGetterRef={null}
-          skipTraceResults={contactCache || {}}
         />
 
         {/* Direct Mail — for selected candidate if it has a mailing address */}

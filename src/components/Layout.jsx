@@ -7,7 +7,7 @@ import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import HawkVoiceAssistant from "./guide/HawkVoiceAssistant";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, Briefcase, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, FileStack, Radar, ShieldCheck, PhoneCall, Network, Zap, Map, Target, Landmark, Compass, FileText, FileCode } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ShieldCheck, Network, Zap, Map, Target, Landmark, FileText, FileCode } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -22,7 +22,7 @@ const ADMIN_EMAIL = "hodgesthomas@outlook.com";
 const BASE_NAV = [
   { header: "SITE ACQUISITION FLOW" },
   { path: "/dashboard", icon: LayoutDashboard, label: "1 · Dashboard" },
-  { path: "/search", icon: Search, label: "2 · Start Here" },
+  { path: "/search", icon: Search, label: "2 · Site Search" },
   { path: "/sarf-map", icon: Map, label: "3 · SARF Map" },
   { path: "/zoning", icon: ShieldCheck, label: "4 · Zoning" },
   { path: "/targets", icon: Target, label: "5 · Targets A·B·C" },
@@ -30,19 +30,18 @@ const BASE_NAV = [
   { path: "/target-b-maps", icon: MapPin, label: "7 · Target B Maps" },
   { path: "/target-c-maps", icon: MapPin, label: "8 · Target C Maps" },
   { path: "/fiber-operators", icon: Network, label: "10 · Local Services Directory" },
-  { path: "/scip", icon: FileText, label: "11 · SCIP" },
+  { path: "/scip", icon: FileText, label: "11 · SCIP Records" },
   { path: "/hawk-docs", icon: ScanLine, label: "12 · Permitting Applications Fetcher" },
   { path: "/hawk-fill", icon: ClipboardEdit, label: "13 · HawkFill" },
   { path: "/hawk-law", icon: Scale, label: "14 · HawkLaw" },
   { path: "/hawk-lease", icon: FileSignature, label: "15 · HawkLease" },
   { path: "/government-forms", icon: Landmark, label: "16 · Government Forms" },
   { header: "MORE TOOLS" },
-  { path: "/talonfit", icon: Zap, label: "⚡ TalonFit™" },
+  { path: "/talonfit", icon: Zap, label: "⚡ TalonFit™ Site Analysis" },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡 Zoning Verifier" },
   { path: "/rfi-engine", icon: Radio, label: "📡 RF Intelligence" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
-  { path: "/skip-trace", icon: PhoneCall, label: "📞 Skip-Trace" },
   { header: "ACCOUNT" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },
 ];

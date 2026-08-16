@@ -26,7 +26,6 @@ export default function ScanResults() {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [userTier, setUserTier] = useState(null);
-  const [contactCache, setContactCache] = useState({});
   const [sortKey, setSortKey] = useState("match_score_desc");
   const [displayedResults, setDisplayedResults] = useState(null);
   const flyToRef = useRef(null);
@@ -55,10 +54,6 @@ export default function ScanResults() {
 
   const { results, ordinance, searchCenter, searchId, usage, plan, searchParams } = state;
   const shown = displayedResults ?? results;
-
-  const handleContactFound = (candidateId, data) => {
-    setContactCache(prev => ({ ...prev, [candidateId]: data }));
-  };
 
   const handleSelectCandidate = (idx) => {
     setSelectedIndex(idx);
@@ -132,8 +127,6 @@ export default function ScanResults() {
             onOpenChat={() => setChatOpen(true)}
             onNewScan={() => navigate("/search")}
             userTier={userTier}
-            contactCache={contactCache}
-            onContactFound={handleContactFound}
             searchId={searchId}
             usage={usage}
             plan={plan}

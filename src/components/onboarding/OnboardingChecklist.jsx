@@ -6,18 +6,16 @@ import HawkIcon from "../HawkIcon";
 const STEPS = [
   { id: "plan", label: "Activate a paid plan", desc: "Unlock AI scanning with Hawk 20/20 Vision", link: "/pricing", linkLabel: "View Plans" },
   { id: "scan", label: "Run your first scan", desc: "Drop coordinates into Site Search and scan a 0.5-mile radius", link: "/search", linkLabel: "Go to Search" },
-  { id: "skiptrace", label: "Skip trace an owner", desc: "Click 'Skip Trace' on any candidate to get verified contact info", link: "/search", linkLabel: "Go to Search" },
   { id: "ai", label: "Chat with SiteHawk AI", desc: "Open the AI chat panel after a scan — it's the hawk icon bottom-right", link: "/search", linkLabel: "Start a Scan" },
   { id: "pdf", label: "Download a PDF report", desc: "Generate a full intelligence report from your scan results", link: "/search", linkLabel: "Start a Scan" },
 ];
 
-export default function OnboardingChecklist({ searches, hasSkipTrace, tier }) {
+export default function OnboardingChecklist({ searches, tier }) {
   const [collapsed, setCollapsed] = useState(false);
 
   const completed = {
     plan: tier === "monthly" || tier === "annual",
     scan: searches > 0,
-    skiptrace: hasSkipTrace,
     ai: searches > 0,
     pdf: searches > 0,
   };
