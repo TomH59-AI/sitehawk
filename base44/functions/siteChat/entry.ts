@@ -36,6 +36,9 @@ function detectIntent(message) {
   if (/police|fire|911|public safety|emergency|ems/.test(m)) return 'safety';
   if (/zoning|zone|jurisdiction|ordinance|municipality|permit|land use/.test(m)) return 'zoning';
   if (/fiber|broadband|fcc|isp|internet provider/.test(m)) return 'fiber';
+  if (/lease|landlord|ground lease|rent escalat|co.?locat|rooftop lease|hawk.?law|redline|lease clause|licen[sc]e agreement/.test(m)) return 'lease';
+  if (/\btower\b|monopole|lattice tower|guyed tower|small.?cell|site acqui|antenna structure|\bfaa \b|fcc asr|\bnepa\b|\bshpo\b|section 106|structural letter|pe letter|fall zone/.test(m)) return 'tower';
+  if (/substation|hifld|power grid|transmission line|\bkv\b|megawatt|\bmw\b|transformer|voltage rating|power infrastructure/.test(m)) return 'power';
   return null;
 }
 
@@ -127,16 +130,20 @@ Deno.serve(async (req) => {
             ? { lat: loc.lat, lon: loc.lon }
             : { zip: loc.zip };
           
-          const [utilRes, providerRes] = await Promise.allSettled([
+          const [utilRes, providerRes, hifldRes] = await Promise.allSettled([
             base44.functions.invoke('electricUtilityLookup', lookupPayload),
             base44.functions.invoke('electricProviderContact', lookupPayload),
+            loc.lat ? base44.functions.invoke('hifldUtilityEnrichment', { lat: loc.lat, lon: loc.lon }) : Promise.resolve(null),
           ]);
-          
+
           if (utilRes.status === 'fulfilled' && utilRes.value) {
             toolContext += `\n\n[LIVE DATA — Electric Utility Lookup]\n${JSON.stringify(utilRes.value, null, 2)}`;
           }
           if (providerRes.status === 'fulfilled' && providerRes.value) {
             toolContext += `\n\n[LIVE DATA — Electric Provider Contact]\n${JSON.stringify(providerRes.value, null, 2)}`;
+          }
+          if (hifldRes.status === 'fulfilled' && hifldRes.value) {
+            toolContext += `\n\n[LIVE DATA — HIFLD Serving Utility]\n${JSON.stringify(hifldRes.value, null, 2)}`;
           }
 
         } else if (intent === 'safety' && loc.lat) {
@@ -150,6 +157,10 @@ Deno.serve(async (req) => {
         } else if (intent === 'fiber' && (loc.lat || loc.zip)) {
           const fiberRes = await base44.functions.invoke('fccBroadbandLookup', loc.lat ? { lat: loc.lat, lon: loc.lon } : { zip: loc.zip });
           if (fiberRes) toolContext += `\n\n[LIVE DATA — FCC Broadband / Fiber Lookup]\n${JSON.stringify(fiberRes, null, 2)}`;
+
+        } else if (intent === 'power' && loc?.lat) {
+          const powerRes = await base44.functions.invoke('hifldUtilityEnrichment', { lat: loc.lat, lon: loc.lon });
+          if (powerRes) toolContext += `\n\n[LIVE DATA — Power Infrastructure / Serving Utility]\n${JSON.stringify(powerRes, null, 2)}`;
         }
 
         if (toolContext) {
