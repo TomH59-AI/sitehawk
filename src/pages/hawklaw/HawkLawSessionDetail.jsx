@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, BookmarkPlus, ShieldAlert, ChevronDown, ChevronUp, Star, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HAWK_LAW_HEADER } from "../HawkLaw";
-import { ensureDmpLoaded } from "@/lib/dmpLoader";
+import DiffMatchPatch from "diff-match-patch";
 
 const HAWK_LAW_EDGE_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/hawk-law";
 
@@ -39,35 +39,14 @@ function Stars({ score }) {
 }
 
 function RedlineDiff({ original, revised }) {
-  const [diffs, setDiffs] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    ensureDmpLoaded()
-      .then(() => {
-        if (cancelled) return;
-        const dmp = new window.diff_match_patch();
-        const d = dmp.diff_main(original || "", revised || "");
-        dmp.diff_cleanupSemantic(d);
-        setDiffs(d);
-      })
-      .catch(() => setDiffs(null));
-    return () => { cancelled = true; };
-  }, [original, revised]);
-
-  if (!diffs) {
-    return (
-      <div className="text-xs leading-relaxed font-mono bg-card rounded-lg p-3 border border-border text-muted-foreground">
-        <Loader2 className="inline w-3 h-3 animate-spin mr-1" /> Loading redline…
-      </div>
-    );
-  }
-
+  const dmp = new DiffMatchPatch();
+  const diffs = dmp.diff_main(original || "", revised || "");
+  dmp.diff_cleanupSemantic(diffs);
   return (
     <div className="text-xs leading-relaxed font-mono bg-card rounded-lg p-3 border border-border whitespace-pre-wrap break-words">
       {diffs.map(([op, text], i) =>
         op === -1 ? (
-          <span
+          <del
             key={i}
             style={{
               background: "#fee2e2",
@@ -78,20 +57,20 @@ function RedlineDiff({ original, revised }) {
             }}
           >
             {text}
-          </span>
+          </del>
         ) : op === 1 ? (
-          <span
+          <ins
             key={i}
             style={{
               background: "#dcfce7",
-              textDecoration: "underline",
               color: "#16a34a",
               borderRadius: 2,
               padding: "0 1px",
+              textDecoration: "none",
             }}
           >
             {text}
-          </span>
+          </ins>
         ) : (
           <span key={i} style={{ color: "#374151" }}>{text}</span>
         )
