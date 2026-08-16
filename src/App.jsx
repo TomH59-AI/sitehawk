@@ -94,6 +94,7 @@ import SkipTrace from './pages/SkipTrace';
 import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
 import TalonFit from './pages/TalonFit';
+import SiteSketch from './pages/SiteSketch';
 import SarfMapPage from './pages/pipeline/SarfMapPage';
 import ZoningPage from './pages/pipeline/ZoningPage';
 import TargetsPage from './pages/pipeline/TargetsPage';
@@ -187,6 +188,7 @@ const AuthenticatedApp = () => {
         <Route path="/fiber-operators" element={<FiberOperators />} />
         {/* TalonFit® — ordinance intelligence + ten-target scout */}
         <Route path="/talonfit" element={<TalonFit />} />
+        <Route path="/site-sketch" element={<SiteSketch />} />
         {/* Legacy path — the feasibility dashboard now lives on TalonFit™ */}
         <Route path="/sitesitter" element={<Navigate to="/talonfit" replace />} />
         <Route path="/hawkbolt" element={<Navigate to="/talonfit" replace />} />
