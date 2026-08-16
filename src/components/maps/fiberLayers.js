@@ -13,6 +13,17 @@ export const FIBER_PROVIDERS = [
   { id: "uniti", name: "Uniti Fiber", color: "#FF8C00", showSplicePoints: true },
   { id: "dfs", name: "Dark Fiber Systems (Florida)", color: "#00FF7F", showSplicePoints: true },
   { id: "openinfra", name: "OpenInfraMap Fiber (OSM-derived)", color: "#1E90FF", showSplicePoints: false },
+  { id: "att",          name: "AT&T Fiber Backbone",         color: "#00A8E0", showSplicePoints: true },
+  { id: "cogent",       name: "Cogent Communications",        color: "#DC143C", showSplicePoints: true },
+  { id: "windstream",   name: "Windstream / Kinetic Fiber",   color: "#F59E0B", showSplicePoints: true },
+  { id: "frontier",     name: "Frontier Fiber",               color: "#BE123C", showSplicePoints: true },
+  { id: "brightspeed",  name: "Brightspeed Fiber",            color: "#0891B2", showSplicePoints: true },
+  { id: "spectrum_ent", name: "Spectrum Enterprise Fiber",    color: "#374151", showSplicePoints: true },
+  { id: "comcast_biz",  name: "Comcast Business Fiber",       color: "#6366F1", showSplicePoints: true },
+  { id: "gtt",          name: "GTT Communications",           color: "#A3001D", showSplicePoints: true },
+  { id: "consolidated", name: "Consolidated Communications",  color: "#15803D", showSplicePoints: true },
+  { id: "extenet",      name: "ExteNet Systems",              color: "#EA580C", showSplicePoints: true },
+  { id: "lumos",        name: "Lumos Networks",               color: "#0D9488", showSplicePoints: true },
 ];
 
 // Command Center layer definitions — one toggleable layer per provider.
