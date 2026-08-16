@@ -1,7 +1,6 @@
-import { useMemo } from "react";
-import rough from "roughjs";
+import { useMemo, useState, useEffect } from "react";
+import { ensureRoughLoaded } from "@/lib/roughLoader";
 
-const gen = rough.generator();
 const DASH = 9999;
 
 const OPTS = {
@@ -17,7 +16,7 @@ const T = {
   compound:5.5, tower:6.1, north:6.6, stamp:7.2,
 };
 
-function RoughPaths({ drawable, delay, dur=0.95, pencil=true }) {
+function RoughPaths({ drawable, delay, dur=0.95, pencil=true, gen }) {
   const paths = gen.toPaths(drawable);
   return (
     <>
@@ -70,6 +69,16 @@ function AT({ x,y,delay,anchor="middle",size=9,fill="#1B2A4A",rotate,children })
 }
 
 export default function ExhibitDrawing({ model={}, x=0, y=0, w=540, h=400 }) {
+  const [gen, setGen] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    ensureRoughLoaded()
+      .then(() => { if (!cancelled) setGen(window.rough.generator()); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const {
     north_ft=140, south_ft=70, east_ft=405, west_ft=100,
     tower_height_ft=199, setback_ft=25,
@@ -92,6 +101,7 @@ export default function ExhibitDrawing({ model={}, x=0, y=0, w=540, h=400 }) {
   const toY = ft => cy + ft * scale;
 
   const drawables = useMemo(() => {
+    if (!gen) return null;
     const parcelPts = [
       [toX(-west_ft),  toY(-north_ft)],
       [toX(east_ft),   toY(-north_ft)],
@@ -112,7 +122,7 @@ export default function ExhibitDrawing({ model={}, x=0, y=0, w=540, h=400 }) {
       ),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cx,cy,scale,west_ft,east_ft,north_ft,south_ft,
+  }, [gen, cx,cy,scale,west_ft,east_ft,north_ft,south_ft,
       setback_ft,fzFt,compound_w_ft,compound_h_ft]);
 
   const nW = toX(-west_ft);
@@ -127,6 +137,8 @@ export default function ExhibitDrawing({ model={}, x=0, y=0, w=540, h=400 }) {
     for (let gy=y; gy<y+h; gy+=20) lines.push({type:"h",v:gy});
     return lines;
   },[x,y,w,h]);
+
+  if (!gen || !drawables) return null;
 
   return (
     <g>
@@ -173,7 +185,7 @@ export default function ExhibitDrawing({ model={}, x=0, y=0, w=540, h=400 }) {
       )}
 
       {/* Parcel boundary */}
-      <RoughPaths drawable={drawables.parcel} delay={T.parcel} dur={1.1}/>
+      <RoughPaths drawable={drawables.parcel} delay={T.parcel} dur={1.1} gen={gen}/>
 
       {/* Dimension lines N */}
       <AL x1={nW} y1={nN-14} x2={nE} y2={nN-14} delay={T.dims} stroke="#555" sw={0.8}/>
@@ -199,13 +211,13 @@ export default function ExhibitDrawing({ model={}, x=0, y=0, w=540, h=400 }) {
       <AT x={nE+22} y={(nN+nS)/2} delay={T.labels+0.2} size={8} fill="#374151" rotate={90}>{(north_ft+south_ft).toFixed(0)} ft</AT>
 
       {/* Buildable envelope */}
-      <RoughPaths drawable={drawables.envelope} delay={T.envelope} dur={0.8}/>
+      <RoughPaths drawable={drawables.envelope} delay={T.envelope} dur={0.8} gen={gen}/>
       <AT x={cx} y={nN-setback_ft*scale-8} delay={T.envelope+0.5} size={7.5} fill="#0891B2">
         BUILDABLE ENV. ({setback_ft}ft SETBACK)
       </AT>
 
       {/* Fall zone */}
-      <RoughPaths drawable={drawables.fallZone} delay={T.fall} dur={1.0}/>
+      <RoughPaths drawable={drawables.fallZone} delay={T.fall} dur={1.0} gen={gen}/>
       <AT x={cx+fzFt*scale*0.68} y={cy-fzFt*scale*0.68} delay={T.fall+0.8} size={7.5} fill="#B45309">FALL ZONE</AT>
       <AT x={cx+fzFt*scale*0.68} y={cy-fzFt*scale*0.68+11} delay={T.fall+0.9} size={7} fill="#B45309">r = {fzFt} ft</AT>
 
@@ -220,7 +232,7 @@ export default function ExhibitDrawing({ model={}, x=0, y=0, w=540, h=400 }) {
       </AT>
 
       {/* Compound */}
-      <RoughPaths drawable={drawables.compound} delay={T.compound} dur={0.6}/>
+      <RoughPaths drawable={drawables.compound} delay={T.compound} dur={0.6} gen={gen}/>
       <AT x={cx} y={cy+(compound_h_ft/2)*scale+10} delay={T.compound+0.5} size={7} fill="#374151">
         COMPOUND {compound_w_ft}x{compound_h_ft}ft
       </AT>

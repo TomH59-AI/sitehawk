@@ -38,6 +38,8 @@ export default function ScanResultsSidebar({
   sortKey,
   onSortChange,
   onFiltered,
+  contactCache,
+  onContactFound,
 }) {
   const navigate = useNavigate();
   const cardRefs = useRef([]);

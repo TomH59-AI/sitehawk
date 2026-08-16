@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useRef, useState, useCallback } from "react";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import * as turf from "@turf/turf";
 import { createRoot } from "react-dom/client";
 import { base44 } from "@/api/base44Client";
@@ -126,7 +125,7 @@ export default function TalonFitMap({
 
     root.render(content);
 
-    const popup = new mapboxgl.Popup({ maxWidth: "340px", minWidth: "280px", offset: 20 })
+    const popup = new window.mapboxgl.Popup({ maxWidth: "340px", minWidth: "280px", offset: 20 })
       .setDOMContent(popupNode)
       .setLngLat([probeOrTarget.lon, probeOrTarget.lat])
       .addTo(map);
@@ -143,61 +142,68 @@ export default function TalonFitMap({
 
   // Initialize map
   useEffect(() => {
-    mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/satellite-streets-v12",
-      center: [anchor.lon, anchor.lat],
-      zoom: 16,
-      pitch: 0,
-      bearing: 0,
-      scrollZoom: true,
-      dragPan: true,
-      touchZoomRotate: true,
-    });
-    map.addControl(new mapboxgl.NavigationControl(), "top-left");
-    mapRef.current = map;
-
-    map.on("load", () => {
-      setMapLoaded(true);
-
-      const multiplier = solveResult?.calculated_result?.effective_fall_zone_multiplier ?? 1;
-      const radiusM = (heightFt || 199) * FT_TO_M * multiplier;
-      const fallZone = createGeoJSONCircle(anchor.lon, anchor.lat, radiusM / 1000);
-
-      map.addSource("fall-zone", { type: "geojson", data: fallZone });
-      map.addLayer({
-        id: "fall-zone-fill",
-        type: "fill",
-        source: "fall-zone",
-        paint: { "fill-color": "#06b6d4", "fill-opacity": 0.12 },
+    let cancelled = false;
+    (async () => {
+      await ensureMapboxLoaded();
+      if (cancelled) return;
+      const mapboxgl = window.mapboxgl;
+      mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+      const map = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: "mapbox://styles/mapbox/satellite-streets-v12",
+        center: [anchor.lon, anchor.lat],
+        zoom: 16,
+        pitch: 0,
+        bearing: 0,
+        scrollZoom: true,
+        dragPan: true,
+        touchZoomRotate: true,
       });
-      map.addLayer({
-        id: "fall-zone-line",
-        type: "line",
-        source: "fall-zone",
-        paint: { "line-color": "#06b6d4", "line-width": 2, "line-dasharray": [4, 3] },
-      });
+      map.addControl(new mapboxgl.NavigationControl(), "top-left");
+      mapRef.current = map;
 
-      const ring = makeRingFeature(anchor, radiusMiles);
-      if (ring) {
-        map.addSource("search-ring", { type: "geojson", data: ring });
+      map.on("load", () => {
+        setMapLoaded(true);
+
+        const multiplier = solveResult?.calculated_result?.effective_fall_zone_multiplier ?? 1;
+        const radiusM = (heightFt || 199) * FT_TO_M * multiplier;
+        const fallZone = createGeoJSONCircle(anchor.lon, anchor.lat, radiusM / 1000);
+
+        map.addSource("fall-zone", { type: "geojson", data: fallZone });
         map.addLayer({
-          id: "search-ring-line",
-          type: "line",
-          source: "search-ring",
-          paint: { "line-color": "#06b6d4", "line-width": 2 },
-        });
-        map.addLayer({
-          id: "search-ring-fill",
+          id: "fall-zone-fill",
           type: "fill",
-          source: "search-ring",
-          paint: { "fill-color": "#06b6d4", "fill-opacity": 0.04 },
+          source: "fall-zone",
+          paint: { "fill-color": "#06b6d4", "fill-opacity": 0.12 },
         });
-      }
-    });
+        map.addLayer({
+          id: "fall-zone-line",
+          type: "line",
+          source: "fall-zone",
+          paint: { "line-color": "#06b6d4", "line-width": 2, "line-dasharray": [4, 3] },
+        });
+
+        const ring = makeRingFeature(anchor, radiusMiles);
+        if (ring) {
+          map.addSource("search-ring", { type: "geojson", data: ring });
+          map.addLayer({
+            id: "search-ring-line",
+            type: "line",
+            source: "search-ring",
+            paint: { "line-color": "#06b6d4", "line-width": 2 },
+          });
+          map.addLayer({
+            id: "search-ring-fill",
+            type: "fill",
+            source: "search-ring",
+            paint: { "fill-color": "#06b6d4", "fill-opacity": 0.04 },
+          });
+        }
+      });
+    })();
 
     return () => {
+      cancelled = true;
       if (popupRootRef.current) {
         popupRootRef.current.unmount();
         popupRootRef.current = null;
@@ -221,8 +227,10 @@ export default function TalonFitMap({
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
       if (smartCursorDebounceRef.current) clearTimeout(smartCursorDebounceRef.current);
-      map.remove();
-      mapRef.current = null;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
   }, []);
 
@@ -255,7 +263,7 @@ export default function TalonFitMap({
       return true;
     });
     const el = createTowerMarkerEl();
-    const marker = new mapboxgl.Marker(el).setLngLat([anchor.lon, anchor.lat]).addTo(map);
+    const marker = new window.mapboxgl.Marker(el).setLngLat([anchor.lon, anchor.lat]).addTo(map);
     marker._isTower = true;
     markersRef.current.push(marker);
   }, [anchor, mapLoaded]);
@@ -269,7 +277,7 @@ export default function TalonFitMap({
       return true;
     });
     const el = createSrcMarkerEl();
-    const marker = new mapboxgl.Marker(el).setLngLat([anchor.lon, anchor.lat]).addTo(map);
+    const marker = new window.mapboxgl.Marker(el).setLngLat([anchor.lon, anchor.lat]).addTo(map);
     marker._isSrc = true;
     markersRef.current.push(marker);
   }, [anchor, mapLoaded]);
@@ -284,7 +292,7 @@ export default function TalonFitMap({
     });
     autoTargets.forEach((t, i) => {
       const el = createMarkerEl(t.decision, ["A", "B", "C"][i]);
-      const marker = new mapboxgl.Marker(el).setLngLat([t.lon, t.lat]).addTo(map);
+      const marker = new window.mapboxgl.Marker(el).setLngLat([t.lon, t.lat]).addTo(map);
       marker._isAuto = true;
       marker.getElement().addEventListener("click", (e) => {
         e.stopPropagation();
@@ -304,7 +312,7 @@ export default function TalonFitMap({
     });
     saved.forEach((s, i) => {
       const el = createMarkerEl(s.decision, ["D", "E", "F"][i]);
-      const marker = new mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
+      const marker = new window.mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
       marker._isSaved = true;
       markersRef.current.push(marker);
     });
@@ -333,7 +341,7 @@ export default function TalonFitMap({
     }
 
     const el = createMarkerEl(probe.solve?.calculated_result?.decision, "?");
-    const marker = new mapboxgl.Marker(el).setLngLat([probe.lon, probe.lat]).addTo(map);
+    const marker = new window.mapboxgl.Marker(el).setLngLat([probe.lon, probe.lat]).addTo(map);
     marker._isProbe = true;
     markersRef.current.push(marker);
 
@@ -453,7 +461,7 @@ export default function TalonFitMap({
 
     if (hoverMarkerRef.current) hoverMarkerRef.current.remove();
     const el = createMarkerEl(r.decision, r.decision === "APPROVED" ? "✓" : r.decision === "REJECTED" ? "✗" : "?");
-    hoverMarkerRef.current = new mapboxgl.Marker(el).setLngLat([cp.longitude, cp.latitude]).addTo(map);
+    hoverMarkerRef.current = new window.mapboxgl.Marker(el).setLngLat([cp.longitude, cp.latitude]).addTo(map);
 
     if (hoverPopupRootRef.current) {
       hoverPopupRootRef.current.unmount();
@@ -477,7 +485,7 @@ export default function TalonFitMap({
         <div className="text-slate-300">{r.binding_constraint || ""}</div>
       </div>
     );
-    const popup = new mapboxgl.Popup({ closeButton: false, offset: 20, maxWidth: "220px" })
+    const popup = new window.mapboxgl.Popup({ closeButton: false, offset: 20, maxWidth: "220px" })
       .setDOMContent(popupNode)
       .setLngLat([cp.longitude, cp.latitude])
       .addTo(map);
