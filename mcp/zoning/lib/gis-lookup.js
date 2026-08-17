@@ -24,13 +24,15 @@
 //   3. Verify the districtField matches the actual field name in that layer
 
 const KNOWN_ENDPOINTS = [
-  // Michigan examples
+  // Milford Village, Michigan — Zoning_Layers_view FeatureServer/12
+  // Fields: ZONECODE (district code), ZONEDESC (district name)
+  // Service ItemId: 73be51167dd44e7bb9006d74bd40e518
   {
     placeName:     'milford',
     fipsState:     '26',          // MI
-    url:           process.env.ZONING_GIS_MILFORD_URL ?? null,  // set in .env.local
-    districtField: 'ZONE_CODE',
-    nameField:     'ZONE_NAME',
+    url:           'https://services1.arcgis.com/GE4Idg9FL97XBa3P/arcgis/rest/services/Zoning_Layers_view/FeatureServer/12',
+    districtField: 'ZONECODE',
+    nameField:     'ZONEDESC',
   },
   // Generic override — highest priority
   ...(process.env.ZONING_GIS_URL
@@ -38,8 +40,8 @@ const KNOWN_ENDPOINTS = [
         placeName:     null,
         fipsState:     null,
         url:           process.env.ZONING_GIS_URL,
-        districtField: process.env.ZONING_GIS_DISTRICT_FIELD ?? 'ZONE_CODE',
-        nameField:     process.env.ZONING_GIS_NAME_FIELD     ?? 'ZONE_NAME',
+        districtField: process.env.ZONING_GIS_DISTRICT_FIELD ?? 'ZONECODE',
+        nameField:     process.env.ZONING_GIS_NAME_FIELD     ?? 'ZONEDESC',
       }]
     : []),
 ];
@@ -136,5 +138,3 @@ async function fetchWithTimeout(url, options = {}, ms = 12_000) {
  * @property {object|null} geometry     - ArcGIS geometry object
  * @property {string}      source
  */
-
-
