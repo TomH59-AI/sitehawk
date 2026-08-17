@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import MessageBubble from "@/components/agent/MessageBubble";
+import ZoningLookupPanel from "@/components/zoning/ZoningLookupPanel";
 import { Send, Loader2, ShieldCheck } from "lucide-react";
 
 const QUICK_PROMPTS = [
@@ -62,6 +63,10 @@ export default function ZoningVerifier() {
             Verifies zoning districts, future land use & telecom ordinance rules against official sources — never guesses.
           </p>
         </div>
+      </div>
+
+      <div className="pt-4">
+        <ZoningLookupPanel />
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 space-y-4">
