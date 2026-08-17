@@ -7,7 +7,8 @@
  *   import { checkZoning } from "@/api/zoningEngine";
  *   const zone = await checkZoning({ address: "123 Main St, Milford, MI" });
  */
-const BASE_URL = import.meta.env.VITE_ZONING_API_URL ?? "/api/zoning";
+const BASE_URL = import.meta.env.VITE_ZONING_API_URL ??
+  "https://vkiwvctpxhbsoeagivnl.supabase.co/functions/v1/zoning-proxy";
 
 async function callTool(tool, input = {}) {
   const res = await fetch(`${BASE_URL}/${tool}`, {
