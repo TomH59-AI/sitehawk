@@ -1,0 +1,13 @@
+﻿{
+  "_comment": "MCP server configuration for SiteHawk.",
+  "mcpServers": {
+    "sitehawk-zoning": {
+      "command": "node",
+      "args": ["./mcp/zoning/index.js"],
+      "description": "SiteHawk Zoning Engine v1.0.0",
+      "env": { "NODE_ENV": "production" },
+      "transport": "stdio",
+      "autoStart": true
+    }
+  }
+}
