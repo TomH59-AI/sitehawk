@@ -1,4 +1,4 @@
-﻿/**
+/**
  * gis-lookup.js
  * ArcGIS REST API zoning district lookup.
  *
@@ -24,14 +24,12 @@
 //   3. Verify the districtField matches the actual field name in that layer
 
 const KNOWN_ENDPOINTS = [
-  // Milford Village, Michigan — Zoning_Layers_view FeatureServer/12
-  // Fields: ZONECODE (district code), ZONEDESC (district name)
-  // Service ItemId: 73be51167dd44e7bb9006d74bd40e518
+  // Michigan examples
   {
     placeName:     'milford',
     fipsState:     '26',          // MI
-    url:           'https://services1.arcgis.com/GE4Idg9FL97XBa3P/arcgis/rest/services/Zoning_Layers_view/FeatureServer/12',
-    districtField: 'ZONECODE',
+    url:           process.env.ZONING_GIS_MILFORD_URL ?? null,  // set in .env.local
+    districtField: 'ZONECODE',   // Oakland County AGOL Zoning_Layers_view field
     nameField:     'ZONEDESC',
   },
   // Generic override — highest priority
@@ -40,8 +38,8 @@ const KNOWN_ENDPOINTS = [
         placeName:     null,
         fipsState:     null,
         url:           process.env.ZONING_GIS_URL,
-        districtField: process.env.ZONING_GIS_DISTRICT_FIELD ?? 'ZONECODE',
-        nameField:     process.env.ZONING_GIS_NAME_FIELD     ?? 'ZONEDESC',
+        districtField: process.env.ZONING_GIS_DISTRICT_FIELD ?? 'ZONE_CODE',
+        nameField:     process.env.ZONING_GIS_NAME_FIELD     ?? 'ZONE_NAME',
       }]
     : []),
 ];

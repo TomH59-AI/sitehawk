@@ -1,4 +1,4 @@
-﻿/**
+/**
  * supabase/functions/zoning-proxy/index.ts
  * ─────────────────────────────────────────────────────────────────────────────
  * Supabase Edge Function — HTTP bridge between Base44 and the zoning engine.
@@ -16,7 +16,7 @@
  *   DEFAULT_STATE_ABBR         e.g. "MI"
  *   ZONING_CACHE_TTL_DAYS      default 30
  *   DISTRICT_CACHE_TTL_DAYS    default 90
- *   MILFORD_GIS_URL             ArcGIS FeatureServer layer URL (optional override)
+ *   OAKLAND_COUNTY_GIS_URL     ArcGIS FeatureServer layer URL
  *
  * Deploy:
  *   supabase functions deploy zoning-proxy --no-verify-jwt
@@ -46,16 +46,15 @@ const DEFAULT_STATE_ABBR   = Deno.env.get("DEFAULT_STATE_ABBR")   ?? "MI";
 const ZONING_TTL_DAYS      = parseInt(Deno.env.get("ZONING_CACHE_TTL_DAYS")   ?? "30");
 const DISTRICT_TTL_DAYS    = parseInt(Deno.env.get("DISTRICT_CACHE_TTL_DAYS") ?? "90");
 
-// Milford Village GIS — zoning polygons (ArcGIS FeatureServer)
-// Service: Zoning_Layers_view/FeatureServer/12  Fields: ZONECODE, ZONEDESC
-const GIS_URL = Deno.env.get("MILFORD_GIS_URL") ??
+// Oakland County GIS — zoning polygons (ArcGIS FeatureServer)
+// Verify / update at: https://gis.oakgov.com/arcgis/rest/services
+const GIS_URL = Deno.env.get("OAKLAND_COUNTY_GIS_URL") ??
   "https://services1.arcgis.com/GE4Idg9FL97XBa3P/arcgis/rest/services/Zoning_Layers_view/FeatureServer/12";
 const GIS_DISTRICT_FIELD = Deno.env.get("GIS_DISTRICT_FIELD") ?? "ZONECODE";
 const GIS_NAME_FIELD     = Deno.env.get("GIS_NAME_FIELD")     ?? "ZONEDESC";
 
 // Municode municipality ID for Milford, MI
-// NOTE: Milford Village zoning is a standalone ordinance, NOT in Municode.
-// Leave null until an alternative ordinance source is wired up.
+// Override via MUNICODE_CLIENT_ID env var if you find the exact ID
 const MUNICODE_CLIENT_ID = Deno.env.get("MUNICODE_CLIENT_ID") ?? null;
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -113,14 +112,17 @@ async function checkZoning({ address, parcelId, lat, lng }: CheckZoningInput) {
 
   const cacheKey = buildCacheKey({ address, parcelId, lat, lng });
 
+  // Cache hit?
   const cached = await readZoningCache(cacheKey);
   if (cached) { console.info(`[cache HIT] ${cacheKey}`); return cached; }
   console.info(`[cache MISS] ${cacheKey}`);
 
+  // Geocode
   const geo = lat != null
     ? await reverseGeocode(lat!, lng!)
     : await geocodeAddress(address!);
 
+  // GIS lookup
   const gis = await gisLookup(geo.lat, geo.lng);
 
   const result = {
@@ -134,7 +136,7 @@ async function checkZoning({ address, parcelId, lat, lng }: CheckZoningInput) {
     geometry:      gis?.geometry ?? null,
     source:        gis?.source ?? "census-geocoder",
     _notice:       gis ? undefined :
-      "No GIS layer configured for this location. Set MILFORD_GIS_URL in Edge Function secrets.",
+      "No GIS layer configured for this location. Set OAKLAND_COUNTY_GIS_URL in Edge Function secrets.",
   };
 
   await writeZoningCache(cacheKey, { address, parcelId }, result);
@@ -152,6 +154,7 @@ async function getZoningDetails(districtCode: string, jurisdiction: string) {
   const cached = await readDistrictCache(code, jurisdiction);
   if (cached) return cached;
 
+  // Try Municode
   const details = await fetchMunicodeDetails(code, jurisdiction);
   if (details) {
     await writeDistrictCache(code, jurisdiction, details);
@@ -160,8 +163,7 @@ async function getZoningDetails(districtCode: string, jurisdiction: string) {
 
   throw new Error(
     `No ordinance data found for district "${code}" in "${jurisdiction}". ` +
-    `Milford Village zoning ordinance is not on Municode — set MUNICODE_CLIENT_ID ` +
-    `when an ordinance source is wired up.`
+    `Set MUNICODE_CLIENT_ID in Edge Function secrets, or ensure the jurisdiction is on Municode.`
   );
 }
 
@@ -211,7 +213,7 @@ async function runZoningFeasibility({ address, proposedUse, units, sqft }: Feasi
     listPermittedUses(zone.districtCode, zone.jurisdiction),
   ]);
 
-  const details   = detailsResult.status  === "fulfilled" ? detailsResult.value  : null;
+  const details  = detailsResult.status  === "fulfilled" ? detailsResult.value  : null;
   const useMatrix = usesResult.status === "fulfilled" ? usesResult.value : null;
 
   const useStatus = classifyUse(proposedUse, useMatrix as UsesResult | null);
@@ -225,31 +227,31 @@ async function runZoningFeasibility({ address, proposedUse, units, sqft }: Feasi
   }
   if (sqft && (details as DistrictDetails | null)?.maxFAR) {
     const d = details as DistrictDetails;
-    flags.push(`FAR ${d.maxFAR}: ${sqft.toLocaleString()} sq ft needs >= ${Math.ceil(sqft / d.maxFAR!).toLocaleString()} sq ft lot`);
+    flags.push(`FAR ${d.maxFAR}: ${sqft.toLocaleString()} sq ft needs ≥ ${Math.ceil(sqft / d.maxFAR!).toLocaleString()} sq ft lot`);
   }
   if ((details as DistrictDetails | null)?.maxHeight) {
     flags.push(`Max building height: ${(details as DistrictDetails).maxHeight} ft`);
   }
   if ((details as DistrictDetails | null)?.setbacks) {
     const sb = (details as DistrictDetails).setbacks!;
-    flags.push(`Setbacks -- Front: ${sb.front ?? "?"}ft  Rear: ${sb.rear ?? "?"}ft  Side: ${sb.side ?? "?"}ft`);
+    flags.push(`Setbacks — Front: ${sb.front ?? "?"}ft  Rear: ${sb.rear ?? "?"}ft  Side: ${sb.side ?? "?"}ft`);
   }
 
   const feasible = useStatus === "permitted" || useStatus === "conditional";
   const statusLabel = {
-    permitted:   "PERMITTED by right",
-    conditional: "CONDITIONAL -- permit required",
-    prohibited:  "PROHIBITED in this district",
-    unknown:     "STATUS UNKNOWN -- ordinance not available",
-  }[useStatus] ?? "UNKNOWN";
+    permitted:   "✅ PERMITTED by right",
+    conditional: "⚠️  CONDITIONAL — permit required",
+    prohibited:  "🚫 PROHIBITED in this district",
+    unknown:     "❓ STATUS UNKNOWN — ordinance not available",
+  }[useStatus] ?? "❓ UNKNOWN";
 
   const summary = [
     `Address: ${address}`,
-    `District: ${zone.districtCode} (${zone.districtName}) -- ${zone.jurisdiction}`,
+    `District: ${zone.districtCode} (${zone.districtName}) — ${zone.jurisdiction}`,
     `Proposed use: ${proposedUse}${units ? ` (${units} units)` : sqft ? ` (${sqft.toLocaleString()} sq ft)` : ""}`,
     `Status: ${statusLabel}`,
-    ...(conditions.length ? ["", "Conditions:", ...conditions.map(c => `  - ${c}`)] : []),
-    ...(flags.length ? ["", "Development standards:", ...flags.map(f => `  - ${f}`)] : []),
+    ...(conditions.length ? ["", "Conditions:", ...conditions.map(c => `  • ${c}`)] : []),
+    ...(flags.length ? ["", "Development standards:", ...flags.map(f => `  • ${f}`)] : []),
     ...(details && (details as DistrictDetails).ordinanceUrl
       ? ["", `Ordinance: ${(details as DistrictDetails).ordinanceUrl}`] : []),
   ].join("\n");
@@ -260,7 +262,7 @@ async function runZoningFeasibility({ address, proposedUse, units, sqft }: Feasi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Geocoding -- US Census API (free, no key)
+// Geocoding — US Census API (free, no key)
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function geocodeAddress(address: string) {
@@ -317,7 +319,7 @@ async function reverseGeocode(lat: number, lng: number) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ArcGIS GIS lookup -- Milford Village zoning layer
+// ArcGIS GIS lookup — Oakland County zoning layer
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function gisLookup(lat: number, lng: number) {
@@ -358,14 +360,18 @@ async function gisLookup(lat: number, lng: number) {
 async function fetchMunicodeDetails(districtCode: string, jurisdiction: string) {
   const clientId = MUNICODE_CLIENT_ID;
   if (!clientId) {
-    console.warn("[municode] MUNICODE_CLIENT_ID not set -- skipping ordinance lookup");
+    console.warn("[municode] MUNICODE_CLIENT_ID not set — skipping ordinance lookup");
     return null;
   }
   try {
+    // Fetch product list to find the right code
     const tocRes = await timedFetch(
       `https://library.municode.com/api/products/${clientId}/codes/toc?levelsDeep=3`, 15_000
     );
     if (!tocRes.ok) return null;
+    const toc = await tocRes.json();
+    // Return a minimal stub — full parsing is in the Node.js engine
+    // For production, implement full TOC → section → HTML → parse flow
     return {
       code:        districtCode,
       name:        `${districtCode} District`,
@@ -387,7 +393,7 @@ async function fetchMunicodeDetails(districtCode: string, jurisdiction: string) 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Supabase cache -- read / write
+// Supabase cache — read / write
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildCacheKey({ address, parcelId, lat, lng }: CheckZoningInput) {
@@ -407,8 +413,7 @@ async function readZoningCache(key: string) {
   if (!data) return null;
   return { districtCode: data.district_code, districtName: data.district_name,
            jurisdiction: data.jurisdiction, lat: data.lat, lng: data.lng,
-           parcelId: data.parcel_id,
-           fips: { state: data.fips_state, county: data.fips_county, place: data.fips_place },
+           parcelId: data.parcel_id, fips: { state: data.fips_state, county: data.fips_county, place: data.fips_place },
            geometry: data.geometry, source: data.source, _fromCache: true };
 }
 

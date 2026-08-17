@@ -1,4 +1,4 @@
-﻿import { checkZoning, getZoningDetails, listPermittedUses, runZoningFeasibility } from './zoning.js';
+import { checkZoning, getZoningDetails, listPermittedUses, runZoningFeasibility } from './zoning.js';
 
 export async function handleToolCall(toolName, toolInput) {
   try {
