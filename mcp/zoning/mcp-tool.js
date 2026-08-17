@@ -5,8 +5,8 @@ export async function handleToolCall(toolName, toolInput) {
     let result;
     switch (toolName) {
       case 'checkZoning':          result = await checkZoning(toolInput); break;
-      case 'getZoningDetails':     result = await getZoningDetails(toolInput.districtCode); break;
-      case 'listPermittedUses':    result = await listPermittedUses(toolInput.districtCode); break;
+      case 'getZoningDetails':     result = await getZoningDetails(toolInput.districtCode, toolInput.jurisdiction); break;
+      case 'listPermittedUses':    result = await listPermittedUses(toolInput.districtCode, toolInput.jurisdiction); break;
       case 'runZoningFeasibility': result = await runZoningFeasibility(toolInput); break;
       default: throw new Error(`Unknown tool: ${toolName}`);
     }
