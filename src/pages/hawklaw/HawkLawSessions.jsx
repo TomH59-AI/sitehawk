@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,7 @@ const triageColor = {
 const triageLabel = { green: "✓ Green", yellow: "⚠ Yellow", red: "⛔ Red" };
 
 export default function HawkLawSessions() {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -63,7 +64,7 @@ export default function HawkLawSessions() {
               <tbody>
                 {sessions.map(s => (
                   <tr key={s.id} className="border-b border-border last:border-0 hover:bg-secondary/20 transition-colors cursor-pointer"
-                    onClick={() => window.location.href = `/hawk-law/sessions/${s.id}`}>
+                    onClick={() => navigate(`/hawk-law/sessions/${s.id}`)}>
                     <td className="px-4 py-3 font-medium text-foreground">{s.file_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.vendor_detected || "Unknown"}</td>
                     <td className="px-4 py-3">

@@ -8,6 +8,13 @@
       "env": { "NODE_ENV": "production" },
       "transport": "stdio",
       "autoStart": true
+    },
+    "mapbox": {
+      "command": "npx",
+      "args": ["-y", "@mapbox/mcp-server"],
+      "env": {
+        "MAPBOX_ACCESS_TOKEN": "<your token here>"
+      }
     }
   }
 }

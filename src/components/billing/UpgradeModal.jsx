@@ -9,6 +9,7 @@
  *   currentTier: tier key string
  */
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { TIERS } from "@/lib/billingConfig";
@@ -30,6 +31,7 @@ const GATE_UNLOCK_TEXT = {
 };
 
 export default function UpgradeModal({ open, onClose, gate, message, upgradeTo, currentTier }) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -42,7 +44,7 @@ export default function UpgradeModal({ open, onClose, gate, message, upgradeTo, 
     if (!nextTier?.priceId) {
       // HawkCommand — scroll to contact
       onClose();
-      window.location.href = "/pricing#hawk-command";
+      navigate("/pricing#hawk-command");
       return;
     }
     setLoading(true);

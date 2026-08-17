@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import TalonFitMap from "@/components/talonfit/TalonFitMap";
 import TalonFitDataPanel from "@/components/talonfit/TalonFitDataPanel";
@@ -33,6 +35,7 @@ function generateAutoPoints(lat, lon) {
  * generation and point-in-polygon click gating on the map.
  */
 export default function TalonFit() {
+  const navigate = useNavigate();
   const [centerLat, setCenterLat] = useState("");
   const [centerLon, setCenterLon] = useState("");
   const [heightFt, setHeightFt] = useState(199);
@@ -279,6 +282,14 @@ export default function TalonFit() {
     <div className="flex w-full flex-col">
       {/* ── Top control bar ── */}
       <div className="flex h-12 w-full shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="flex shrink-0 items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs font-bold text-slate-200 hover:bg-slate-700"
+          aria-label="Back to home"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
+        </button>
         <div>
           <label className="block text-[10px] uppercase tracking-wide text-slate-400">Latitude</label>
           <input

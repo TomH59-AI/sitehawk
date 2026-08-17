@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import SiteHawkInfrastructureMap from "@/components/maps/SiteHawkInfrastructureMap";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { hifldTransmissionLines } from "@/functions/hifldTransmissionLines";
@@ -60,6 +60,7 @@ const loadParcelIntel = async ({ lat, lon }) => {
 };
 
 export default function InfrastructureIntelligence() {
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const [mapboxToken, setMapboxToken] = useState(null);
   const lat = Number(params.get("lat"));
@@ -95,7 +96,7 @@ export default function InfrastructureIntelligence() {
           zoom: String(zoom ?? ""),
         });
 
-        window.location.assign(`/photo-3d-viewer?${params.toString()}`);
+        navigate(`/photo-3d-viewer?${params.toString()}`);
       }}
     />
   );
