@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
+import { loadPublicConfig } from "@/lib/publicConfig";
 import * as turf from "@turf/turf";
 import { createRoot } from "react-dom/client";
 import { base44 } from "@/api/base44Client";
@@ -342,7 +343,9 @@ export default function TalonFitMap({
       await ensureMapboxLoaded();
       if (cancelled) return;
       const mapboxgl = window.mapboxgl;
-      mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+      const cfg = await loadPublicConfig();
+      if (cancelled) return;
+      mapboxgl.accessToken = cfg?.mapboxAccessToken || "";
       const map = new mapboxgl.Map({
         container: mapContainer.current,
         style: "mapbox://styles/mapbox/satellite-streets-v12",
