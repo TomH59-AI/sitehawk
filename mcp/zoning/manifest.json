@@ -1,0 +1,55 @@
+﻿{
+  "name": "sitehawk-zoning-engine",
+  "version": "1.0.0",
+  "description": "MCP Zoning Engine - versioned component for SiteHawk / Base44",
+  "entry": "./index.js",
+  "tools": [
+    {
+      "name": "checkZoning",
+      "description": "Check zoning classification and permitted uses for a given parcel or address",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "address":  { "type": "string", "description": "Full street address to check" },
+          "parcelId": { "type": "string", "description": "County parcel / APN identifier" },
+          "lat":      { "type": "number", "description": "Latitude" },
+          "lng":      { "type": "number", "description": "Longitude" }
+        }
+      }
+    },
+    {
+      "name": "getZoningDetails",
+      "description": "Return full zoning ordinance details for a zoning district code",
+      "inputSchema": {
+        "type": "object",
+        "required": ["districtCode"],
+        "properties": {
+          "districtCode": { "type": "string", "description": "e.g. R-1, C-2, I-M" }
+        }
+      }
+    },
+    {
+      "name": "listPermittedUses",
+      "description": "List all permitted, conditional, and prohibited land uses for a district",
+      "inputSchema": {
+        "type": "object",
+        "required": ["districtCode"],
+        "properties": { "districtCode": { "type": "string" } }
+      }
+    },
+    {
+      "name": "runZoningFeasibility",
+      "description": "Run a full feasibility check for a proposed land use at a specific location",
+      "inputSchema": {
+        "type": "object",
+        "required": ["address", "proposedUse"],
+        "properties": {
+          "address":     { "type": "string" },
+          "proposedUse": { "type": "string", "description": "e.g. retail, multifamily residential, light industrial" },
+          "units":       { "type": "number" },
+          "sqft":        { "type": "number" }
+        }
+      }
+    }
+  ]
+}
