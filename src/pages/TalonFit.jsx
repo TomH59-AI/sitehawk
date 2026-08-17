@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { base44 } from "@/api/base44Client";
-import { Crosshair, Zap, Loader2, MapPin } from "lucide-react";
 import TalonFitMap from "@/components/talonfit/TalonFitMap";
 import TalonFitDataPanel from "@/components/talonfit/TalonFitDataPanel";
 import { invokeTalonfitAgent } from "@/lib/talonfitAgent";
@@ -22,19 +21,16 @@ function generateAutoPoints(lat, lon) {
 }
 
 /**
- * TalonFIT™ (Patent Pending) — the single unified tower-siting engine.
+ * Unified tower-siting page — a 2-mile search ring on a full-page map.
+ * The map renders immediately at world view; entering coordinates and
+ * clicking Set Ring flies to the search center. Clicking a parcel inside
+ * the ring runs the solver and shows a GREEN/RED verdict popup; approved
+ * sites can be saved from the popup as Targets D/E/F (max 3).
  *
- * A standalone page with a 2-mile search ring centered on user coordinates.
- * Three auto-selected targets are graded immediately; the user can click
- * three more points for smart-cursor TalonFit-AI-1.0 grading. Up to 3 sites
- * can be saved via double-click. GREEN tower icons mark approved sites;
- * RED icons mark rejected sites. All computed constraints are displayed.
- *
- * Uses the TalonFit-AI-1.0 solver (talonfitAiSolve) as the single source of
- * truth for: m_eff logic, fall-zone multiplier, setback, height limit,
- * external structure, separation, PE reduction, and save-site logic.
- * Turf.js handles parcel buffer, fall-zone circle, containment check, and
- * search ring generation on the map.
+ * The talonfitAiSolve solver is the single source of truth for: m_eff
+ * logic, fall-zone multiplier, setback, height limit, external structure,
+ * separation, PE reduction, and save-site logic. Turf.js handles ring
+ * generation and point-in-polygon click gating on the map.
  */
 export default function TalonFit() {
   const [centerLat, setCenterLat] = useState("");
@@ -106,6 +102,7 @@ export default function TalonFit() {
 
   // ── Probe: single-click on map → solve ──
   const handleProbe = useCallback(async ({ lat, lon }) => {
+    if (!anchor) return;
     setProbe({ lat, lon, solving: true, solve: null });
     try {
       const { data } = await base44.functions.invoke("talonfitAiSolve", {
@@ -128,7 +125,7 @@ export default function TalonFit() {
         agentThinking: true,
         agentAnalysis: null,
       });
-      // TalonFit® agent analysis — the WHY behind the numbers
+      // Agent analysis — the WHY behind the numbers
       invokeTalonfitAgent({
         lat: cp.latitude,
         lon: cp.longitude,
@@ -156,15 +153,18 @@ export default function TalonFit() {
     }
   }, [anchor, heightFt, saved.length]);
 
-  // ── Save: double-click on map (or Save button in popup) ──
+  // ── Save: from the Save button in the verdict popup ──
   // Creates a ScipRecord for APPROVED sites so they enter the SCIP pipeline.
-  const handleSave = useCallback(async (_clickLat, _clickLon) => {
+  const handleSave = useCallback(async () => {
     if (!probe || saved.length >= MAX_SAVED || saving) return;
     const solve = probe.solve;
     if (!solve) return;
+    const r = solve.calculated_result || {};
+    // Rejected sites are never saved — the popup shows no save button and
+    // this guard is the second line of defense.
+    if ((r.decision || r.verdict || "").toString().toUpperCase() === "REJECTED") return;
     setSaving(true);
     try {
-      const r = solve.calculated_result || {};
       const p = solve.parcel || {};
       const d = solve.parcel_details || {};
       const o = solve.ordinance_rules || {};
@@ -184,13 +184,25 @@ export default function TalonFit() {
         zoning: p.zoning_classification || "",
         agentAnalysis: probe.agentAnalysis || "",
         solve: solve,
+        // Raw solver payload, normalized for the saved-targets tray
+        parcel: {
+          ...p,
+          owner_name: p.owner_name || d.owner || "",
+          apn: p.apn || p.parcel_id || "",
+          acreage: p.acreage ?? d.acreage ?? null,
+          zoning: p.zoning || o.zoning_district || p.zoning_classification || "",
+        },
+        calculated_result: {
+          ...r,
+          max_buildable_height_ft: r.max_buildable_height_ft ?? r.maximum_buildable_height_ft ?? null,
+        },
         savedAt: new Date().toISOString(),
       };
       setSaved((prev) => [...prev, newSite]);
       setProbe(null);
 
       // Auto-create a ScipRecord for APPROVED sites — enters the SCIP pipeline
-      // with the full TALONFIT_DECISION verdict, H_MAX(p), and all constraints.
+      // with the full decision verdict, H_MAX(p), and all constraints.
       if (r.decision === "APPROVED") {
         try {
           const user = await base44.auth.me();
@@ -250,6 +262,11 @@ export default function TalonFit() {
     }
   }, [probe, saved.length, saving, heightFt]);
 
+  // ── Remove a saved target (tray × button) ──
+  const handleRemoveSaved = useCallback((index) => {
+    setSaved((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   // ── Reset: clear probes and auto-targets, keep saved sites ──
   const handleReset = useCallback(() => {
     setProbe(null);
@@ -259,101 +276,133 @@ export default function TalonFit() {
   }, []);
 
   return (
-    <div className="flex flex-col w-full" style={{ height: 'calc(100vh - 60px)' }}>
+    <div className="flex w-full flex-col">
       {/* ── Top control bar ── */}
-      <div className="flex h-[52px] shrink-0 items-center gap-3 bg-sidebar border-b border-border px-3">
-        <div className="flex items-center gap-2 shrink-0">
-          <Zap className="h-5 w-5 text-primary" />
-          <h1 className="font-heading text-lg text-foreground">TalonFIT™</h1>
-          <span className="text-[10px] font-medium text-muted-foreground">Patent Pending</span>
+      <div className="flex h-12 w-full shrink-0 items-center gap-3 border-b border-slate-800 bg-slate-900 px-3">
+        <div>
+          <label className="block text-[10px] uppercase tracking-wide text-slate-400">Latitude</label>
+          <input
+            type="number"
+            step="0.000001"
+            value={centerLat}
+            onChange={(e) => setCenterLat(e.target.value)}
+            placeholder="e.g. 28.0836"
+            className="w-32 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-xs text-slate-100"
+          />
         </div>
-        <div className="h-6 w-px bg-border shrink-0" />
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="block text-[10px] font-medium text-muted-foreground">Latitude</label>
-            <input
-              type="number"
-              step="0.000001"
-              value={centerLat}
-              onChange={(e) => setCenterLat(e.target.value)}
-              placeholder="e.g. 28.0836"
-              className="w-32 rounded-md border border-input bg-secondary px-2 py-1 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-muted-foreground">Longitude</label>
-            <input
-              type="number"
-              step="0.000001"
-              value={centerLon}
-              onChange={(e) => setCenterLon(e.target.value)}
-              placeholder="e.g. -80.7553"
-              className="w-32 rounded-md border border-input bg-secondary px-2 py-1 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-muted-foreground">Tower height (ft)</label>
-            <input
-              type="number"
-              min="50"
-              max="500"
-              value={heightFt}
-              onChange={(e) => setHeightFt(e.target.value)}
-              className="w-20 rounded-md border border-input bg-secondary px-2 py-1 text-sm"
-            />
-          </div>
+        <div>
+          <label className="block text-[10px] uppercase tracking-wide text-slate-400">Longitude</label>
+          <input
+            type="number"
+            step="0.000001"
+            value={centerLon}
+            onChange={(e) => setCenterLon(e.target.value)}
+            placeholder="e.g. -80.7553"
+            className="w-32 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-xs text-slate-100"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] uppercase tracking-wide text-slate-400">Tower Height (ft)</label>
+          <input
+            type="number"
+            min="50"
+            max="500"
+            value={heightFt}
+            onChange={(e) => setHeightFt(e.target.value)}
+            className="w-32 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-xs text-slate-100"
+          />
+        </div>
+        <div className="self-end">
           <button
             onClick={handleSetCenter}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1 text-sm font-bold text-primary-foreground hover:bg-primary/90"
+            className="rounded bg-cyan-600 px-3 py-1 text-xs font-bold text-white hover:bg-cyan-500"
           >
-            <Crosshair className="h-4 w-4" /> Set Search Ring
+            Set Ring
           </button>
-          {anchor && (
-            <button
-              onClick={handleAutoSelect}
-              disabled={autoLoading}
-              className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-bold text-primary hover:bg-primary/20 disabled:opacity-50"
-            >
-              {autoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-              Auto-Select 3 Targets
-            </button>
-          )}
         </div>
-        {error && <span className="ml-auto text-xs text-destructive">{error}</span>}
+        <div className="self-end">
+          <button
+            onClick={handleAutoSelect}
+            disabled={!anchor || autoLoading}
+            className="rounded border border-cyan-500/40 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-40"
+          >
+            {autoLoading ? "Selecting…" : "Auto-Select D/E/F"}
+          </button>
+        </div>
+        {error && <span className="ml-auto text-xs text-red-400">{error}</span>}
       </div>
 
-      {/* ── Data panel + Map ── */}
-      {anchor ? (
-        <div className="flex flex-1 overflow-hidden">
-          <TalonFitDataPanel
+      {/* ── Data panel + map — the map is the entire experience ── */}
+      <div style={{ height: "calc(100vh - 48px)" }} className="flex">
+        <TalonFitDataPanel
+          solveResult={solveResult}
+          towerHeightFt={heightFt}
+          lat={anchor?.lat}
+          lon={anchor?.lon}
+          saved={saved}
+          isOpen={panelOpen}
+          onToggle={() => setPanelOpen((p) => !p)}
+        />
+        <div className="relative h-full flex-1">
+          <TalonFitMap
+            anchor={anchor}
+            radiusMiles={RADIUS_MILES}
+            probe={probe}
+            saved={saved}
+            autoTargets={autoTargets}
+            onProbe={handleProbe}
+            onSave={handleSave}
+            saving={saving}
+            nextLetter={nextLetter}
+            heightFt={heightFt}
+            onReset={handleReset}
             solveResult={solveResult}
-            towerHeightFt={heightFt}
-            isOpen={panelOpen}
-            onToggle={() => setPanelOpen((p) => !p)}
           />
-          <div className="flex-1 h-full relative">
-            <TalonFitMap
-              anchor={anchor}
-              radiusMiles={RADIUS_MILES}
-              probe={probe}
-              saved={saved}
-              autoTargets={autoTargets}
-              onProbe={handleProbe}
-              onSave={handleSave}
-              canSave={saved.length < MAX_SAVED && !saving}
-              saving={saving}
-              nextLetter={nextLetter}
-              heightFt={heightFt}
-              onReset={handleReset}
-              solveResult={solveResult}
-            />
+
+          {/* ── Saved targets tray — bottom of map, always visible ── */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-3 items-center">
+            {LETTERS.map((letter, i) => {
+              const site = saved[i];
+              return (
+                <div
+                  key={letter}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs border shadow-lg ${
+                    site
+                      ? "bg-emerald-900/90 border-emerald-600 text-emerald-100"
+                      : "bg-slate-900/80 border-slate-700 text-slate-500"
+                  }`}
+                >
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs ${
+                      site ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-400"
+                    }`}
+                  >
+                    {letter}
+                  </span>
+                  {site ? (
+                    <>
+                      <div>
+                        <div className="font-medium">{site.parcel?.owner_name || site.address || "Parcel " + letter}</div>
+                        <div className="text-emerald-400">
+                          {site.calculated_result?.max_buildable_height_ft || 199} ft · {site.parcel?.zoning || "—"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleRemoveSaved(i)}
+                        className="ml-1 text-slate-400 hover:text-red-400 text-base leading-none"
+                      >
+                        ×
+                      </button>
+                    </>
+                  ) : (
+                    <span>Target {letter} — click a parcel</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-      ) : (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          Enter latitude and longitude above to center a {RADIUS_MILES}-mile search ring.
-        </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -1,10 +1,9 @@
-import { Fragment, useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import * as turf from "@turf/turf";
 import { createRoot } from "react-dom/client";
 import { base44 } from "@/api/base44Client";
 import { MousePointer2, Loader2, RotateCcw, Circle as CircleIcon } from "lucide-react";
-import TalonFitPopup from "./TalonFitPopup";
 
 const FT_TO_M = 0.3048;
 
@@ -20,6 +19,14 @@ function createMarkerEl(decision, label) {
   const el = document.createElement("div");
   el.style.cssText = `display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.6);color:#fff;font:700 13px sans-serif;cursor:pointer;`;
   el.textContent = glyph;
+  return el;
+}
+
+// Saved target pin: green filled circle, white D/E/F letter, 28px
+function createSavedPinEl(letter) {
+  const el = document.createElement("div");
+  el.style.cssText = "display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#10b981;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.6);color:#fff;font:700 13px sans-serif;";
+  el.textContent = letter;
   return el;
 }
 
@@ -49,10 +56,195 @@ function makeRingFeature(anchor, radiusMiles) {
   }
 }
 
+// Lazily add the 2-mile search ring source/layers (style must be loaded first)
+function ensureRingLayers(map) {
+  if (map.getSource("search-ring")) return;
+  map.addSource("search-ring", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({
+    id: "search-ring-fill",
+    type: "fill",
+    source: "search-ring",
+    paint: { "fill-color": "#06b6d4", "fill-opacity": 0.05 },
+  });
+  map.addLayer({
+    id: "search-ring-line",
+    type: "line",
+    source: "search-ring",
+    paint: { "line-color": "#06b6d4", "line-width": 2, "line-dasharray": [4, 3] },
+  });
+  map.addLayer({
+    id: "search-ring-label",
+    type: "symbol",
+    source: "search-ring",
+    layout: {
+      "symbol-placement": "line",
+      "text-field": "2 mi search ring",
+      "text-size": 11,
+      "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+      "text-offset": [0, 0.8],
+    },
+    paint: { "text-color": "#22d3ee", "text-halo-color": "#0f172a", "text-halo-width": 1.2 },
+  });
+}
+
+function ensureFallZoneLayers(map) {
+  if (map.getSource("fall-zone")) return;
+  map.addSource("fall-zone", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({
+    id: "fall-zone-fill",
+    type: "fill",
+    source: "fall-zone",
+    paint: { "fill-color": "#06b6d4", "fill-opacity": 0.12 },
+  });
+  map.addLayer({
+    id: "fall-zone-line",
+    type: "line",
+    source: "fall-zone",
+    paint: { "line-color": "#06b6d4", "line-width": 2, "line-dasharray": [4, 3] },
+  });
+}
+
+function updateAnchorLayers(map, anchor, heightFt, solveResult, radiusMiles) {
+  if (!anchor) return;
+  ensureFallZoneLayers(map);
+  ensureRingLayers(map);
+  const multiplier = solveResult?.calculated_result?.effective_fall_zone_multiplier ?? 1;
+  const radiusM = (heightFt || 199) * FT_TO_M * multiplier;
+  map.getSource("fall-zone").setData(createGeoJSONCircle(anchor.lon, anchor.lat, radiusM / 1000));
+  const ring = makeRingFeature(anchor, radiusMiles);
+  if (ring) map.getSource("search-ring").setData(ring);
+}
+
+// Ordinance rules can arrive as strings or structured objects — render either
+function fmtRule(v) {
+  if (v == null || v === "") return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "object") {
+    const dist = v.fixed_distance_ft != null ? `${v.fixed_distance_ft} ft` : null;
+    const rule = typeof v.rule === "string" ? v.rule : typeof v.description === "string" ? v.description : null;
+    if (dist && rule) return `${dist} · ${rule}`;
+    return dist || rule;
+  }
+  return String(v);
+}
+
+const PopupRow = ({ label, value }) => (
+  <div className="flex justify-between gap-3 py-0.5 text-xs text-slate-300">
+    <span className="shrink-0">{label}</span>
+    <span className="truncate pl-2 text-right font-medium">{value}</span>
+  </div>
+);
+
 /**
- * TalonFitMap — full-page Mapbox GL JS map with satellite-streets basemap,
- * 2-mile search ring, tower marker, fall-zone circle, 2D/3D toggle, smart
- * cursor, probe popup, auto-selected targets, and saved sites.
+ * ProbePopupContent — dark 280px verdict card rendered inside a mapboxgl.Popup.
+ * Colored banner (GREEN approved / RED rejected / AMBER review) on top,
+ * parcel + constraint rows in the middle, save footer at the bottom.
+ */
+function ProbePopupContent({ probe, hideSave, towerHeightFt, savedCount, onSave, saving, nextLetter }) {
+  if (probe.solving) {
+    return (
+      <div className="w-[280px] rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-xl">
+        <div className="flex items-center gap-2 text-xs text-slate-300">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Solving…
+        </div>
+      </div>
+    );
+  }
+  if (probe.error || !probe.solve) {
+    return (
+      <div className="w-[280px] rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-xl">
+        <div className="text-xs text-red-400">{probe.error || "Solver returned no result."}</div>
+      </div>
+    );
+  }
+
+  const result = probe.solve;
+  const calc = result.calculated_result || {};
+  const parcel = result.parcel || {};
+  const details = result.parcel_details || {};
+  const ordinance = result.ordinance || result.ordinance_rules || {};
+
+  const verdict = String(result.verdict ?? calc.verdict ?? calc.decision ?? result.decision ?? "").toLowerCase();
+  const isApproved = verdict === "approved";
+  const isRejected = verdict === "rejected";
+
+  const ht = towerHeightFt || 199;
+  const maxBuildable = calc.max_buildable_height_ft ?? calc.maximum_buildable_height_ft ?? null;
+  const acreage = parcel.acreage ?? details.acreage ?? null;
+  const distToLine = calc.distance_to_property_line_ft ?? null;
+
+  return (
+    <div className="w-[280px] rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-xl">
+      {/* ── Verdict banner ── */}
+      {isApproved && (
+        <div className="rounded-t-md bg-emerald-600 px-3 py-2 text-sm font-bold text-white">
+          ✅ BUILDABLE — {maxBuildable ?? ht} ft
+          <div className="text-xs font-normal text-emerald-100">Tower fits on this parcel</div>
+        </div>
+      )}
+      {isRejected && (
+        <div className="rounded-t-md bg-red-700 px-3 py-2 text-sm font-bold text-white">
+          ❌ REJECTED
+          <div className="text-xs font-normal text-red-100">
+            {calc.rejection_reasons?.[0] || ordinance.rejection_reason || calc.reasons?.[0] || "Zoning does not permit towers"}
+          </div>
+        </div>
+      )}
+      {!isApproved && !isRejected && (
+        <div className="rounded-t-md bg-amber-600 px-3 py-2 text-sm font-bold text-white">
+          ⚠️ REVIEW REQUIRED
+          <div className="text-xs font-normal text-amber-100">
+            {calc.conditions?.[0] || calc.reasons?.[0] || calc.binding_constraint || "—"}
+          </div>
+        </div>
+      )}
+
+      {/* ── Body rows ── */}
+      <div className="mt-2">
+        <PopupRow label="Owner" value={parcel.owner_name || details.owner || "Pending"} />
+        <PopupRow label="APN" value={parcel.apn || parcel.parcel_id || "—"} />
+        <PopupRow label="Acreage" value={acreage ? `${acreage} ac` : "—"} />
+        <PopupRow label="Zoning" value={parcel.zoning || ordinance.zoning_district || parcel.zoning_classification || "—"} />
+        <PopupRow label="Max Height" value={maxBuildable ? `${maxBuildable} ft` : `${ht} ft (unverified)`} />
+        <PopupRow label="Setback rule" value={fmtRule(ordinance.property_line_rule ?? ordinance.setback_rule) || "—"} />
+        <PopupRow label="Permit path" value={fmtRule(ordinance.approval_path ?? ordinance.permit_type) || "—"} />
+        <PopupRow label="Dist to line" value={distToLine ? `${distToLine} ft` : "—"} />
+        <PopupRow
+          label="PE letter"
+          value={calc.pe_letter_required === true ? "Yes" : calc.pe_letter_required === false ? "No" : "—"}
+        />
+      </div>
+
+      {/* ── Footer ── */}
+      {!hideSave && isRejected && (
+        <p className="mt-2 text-center text-xs text-red-400">
+          This site cannot be saved — tower is not permitted here.
+        </p>
+      )}
+      {!hideSave && !isRejected && savedCount >= 3 && (
+        <p className="mt-2 text-center text-xs text-slate-500">
+          3 targets saved — remove one to add another.
+        </p>
+      )}
+      {!hideSave && !isRejected && savedCount < 3 && (
+        <button
+          className="mt-2 w-full rounded bg-emerald-700 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+          onClick={onSave}
+          disabled={saving}
+        >
+          {saving ? "Saving…" : `💾 Save as Target ${nextLetter}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * TalonFitMap — full-page Mapbox GL JS map with satellite-streets basemap.
+ * Renders immediately at world view ([0, 20], zoom 2); when a search ring
+ * is set the map flies to it at zoom 15. Includes the 2-mile search ring,
+ * tower marker, fall-zone circle, 2D/3D toggle, smart cursor, verdict
+ * popup, auto-selected targets, and saved-site pins.
  */
 export default function TalonFitMap({
   anchor,
@@ -62,7 +254,6 @@ export default function TalonFitMap({
   autoTargets,
   onProbe,
   onSave,
-  canSave,
   saving,
   nextLetter,
   heightFt,
@@ -83,7 +274,6 @@ export default function TalonFitMap({
   const hoverMarkerRef = useRef(null);
   const hoverPopupRef = useRef(null);
   const hoverPopupRootRef = useRef(null);
-  const lastClickRef = useRef(0);
   const smartCursorReqRef = useRef(0);
   const smartCursorDebounceRef = useRef(null);
 
@@ -101,31 +291,19 @@ export default function TalonFitMap({
     const root = createRoot(popupNode);
     popupRootRef.current = root;
 
-    let content;
-    if (probeOrTarget.solving) {
-      content = (
-        <div className="flex items-center gap-2 py-1 text-xs text-slate-600">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Grading with TalonFit-AI-1.0…
-        </div>
-      );
-    } else if (probeOrTarget.error || !probeOrTarget.solve) {
-      content = <div className="py-1 text-xs text-red-600">{probeOrTarget.error || "Solver returned no result."}</div>;
-    } else {
-      content = (
-        <TalonFitPopup
-          probe={probeOrTarget}
-          hideSave={hideSave}
-          onSave={saveProps?.onSave}
-          canSave={saveProps?.canSave}
-          saving={saveProps?.saving}
-          nextLetter={saveProps?.nextLetter}
-        />
-      );
-    }
+    root.render(
+      <ProbePopupContent
+        probe={probeOrTarget}
+        hideSave={hideSave}
+        towerHeightFt={saveProps?.towerHeightFt}
+        savedCount={saveProps?.savedCount ?? 0}
+        onSave={saveProps?.onSave}
+        saving={saveProps?.saving}
+        nextLetter={saveProps?.nextLetter}
+      />
+    );
 
-    root.render(content);
-
-    const popup = new window.mapboxgl.Popup({ maxWidth: "340px", minWidth: "280px", offset: 20 })
+    const popup = new window.mapboxgl.Popup({ maxWidth: "280px", minWidth: "280px", offset: 20 })
       .setDOMContent(popupNode)
       .setLngLat([probeOrTarget.lon, probeOrTarget.lat])
       .addTo(map);
@@ -137,10 +315,27 @@ export default function TalonFitMap({
       }
     });
 
+    // Dark card look: neutralize mapbox's default white popup chrome
+    const popupEl = popup.getElement();
+    const contentEl = popupEl?.querySelector(".mapboxgl-popup-content");
+    if (contentEl) {
+      contentEl.style.background = "transparent";
+      contentEl.style.padding = "0";
+      contentEl.style.boxShadow = "none";
+      contentEl.style.borderRadius = "0.5rem";
+    }
+    const tipEl = popupEl?.querySelector(".mapboxgl-popup-tip");
+    if (tipEl) {
+      tipEl.style.borderTopColor = "#0f172a";
+      tipEl.style.borderBottomColor = "#0f172a";
+      tipEl.style.borderLeftColor = "#0f172a";
+      tipEl.style.borderRightColor = "#0f172a";
+    }
+
     popupRef.current = popup;
   }, []);
 
-  // Initialize map
+  // Initialize map — immediately, at world view; no anchor required
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -151,8 +346,8 @@ export default function TalonFitMap({
       const map = new mapboxgl.Map({
         container: mapContainer.current,
         style: "mapbox://styles/mapbox/satellite-streets-v12",
-        center: [anchor.lon, anchor.lat],
-        zoom: 16,
+        center: anchor ? [anchor.lon, anchor.lat] : [0, 20],
+        zoom: anchor ? 15 : 2,
         pitch: 0,
         bearing: 0,
         scrollZoom: true,
@@ -164,41 +359,7 @@ export default function TalonFitMap({
 
       map.on("load", () => {
         setMapLoaded(true);
-
-        const multiplier = solveResult?.calculated_result?.effective_fall_zone_multiplier ?? 1;
-        const radiusM = (heightFt || 199) * FT_TO_M * multiplier;
-        const fallZone = createGeoJSONCircle(anchor.lon, anchor.lat, radiusM / 1000);
-
-        map.addSource("fall-zone", { type: "geojson", data: fallZone });
-        map.addLayer({
-          id: "fall-zone-fill",
-          type: "fill",
-          source: "fall-zone",
-          paint: { "fill-color": "#06b6d4", "fill-opacity": 0.12 },
-        });
-        map.addLayer({
-          id: "fall-zone-line",
-          type: "line",
-          source: "fall-zone",
-          paint: { "line-color": "#06b6d4", "line-width": 2, "line-dasharray": [4, 3] },
-        });
-
-        const ring = makeRingFeature(anchor, radiusMiles);
-        if (ring) {
-          map.addSource("search-ring", { type: "geojson", data: ring });
-          map.addLayer({
-            id: "search-ring-line",
-            type: "line",
-            source: "search-ring",
-            paint: { "line-color": "#06b6d4", "line-width": 2 },
-          });
-          map.addLayer({
-            id: "search-ring-fill",
-            type: "fill",
-            source: "search-ring",
-            paint: { "fill-color": "#06b6d4", "fill-opacity": 0.04 },
-          });
-        }
+        if (anchor) updateAnchorLayers(map, anchor, heightFt, solveResult, radiusMiles);
       });
     })();
 
@@ -234,30 +395,18 @@ export default function TalonFitMap({
     };
   }, []);
 
-  // Fly to anchor changes and refresh dynamic sources
+  // Fly to anchor changes (Set Ring → zoom 15) and refresh dynamic sources
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    map.flyTo({ center: [anchor.lon, anchor.lat], zoom: 16, duration: 1200 });
-
-    const multiplier = solveResult?.calculated_result?.effective_fall_zone_multiplier ?? 1;
-    const radiusM = (heightFt || 199) * FT_TO_M * multiplier;
-    const fallZoneSource = map.getSource("fall-zone");
-    if (fallZoneSource) {
-      fallZoneSource.setData(createGeoJSONCircle(anchor.lon, anchor.lat, radiusM / 1000));
-    }
-
-    const ringSource = map.getSource("search-ring");
-    if (ringSource) {
-      const ring = makeRingFeature(anchor, radiusMiles);
-      if (ring) ringSource.setData(ring);
-    }
-  }, [anchor.lat, anchor.lon, heightFt, solveResult, radiusMiles]);
+    if (!map || !mapLoaded || !anchor) return;
+    map.flyTo({ center: [anchor.lon, anchor.lat], zoom: 15, duration: 1200 });
+    updateAnchorLayers(map, anchor, heightFt, solveResult, radiusMiles);
+  }, [anchor?.lat, anchor?.lon, heightFt, solveResult, radiusMiles, mapLoaded]);
 
   // Tower marker
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded) return;
+    if (!map || !mapLoaded || !anchor) return;
     markersRef.current = markersRef.current.filter((m) => {
       if (m._isTower) { m.remove(); return false; }
       return true;
@@ -271,7 +420,7 @@ export default function TalonFitMap({
   // Search ring center (SRC) marker
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded) return;
+    if (!map || !mapLoaded || !anchor) return;
     markersRef.current = markersRef.current.filter((m) => {
       if (m._isSrc) { m.remove(); return false; }
       return true;
@@ -302,7 +451,7 @@ export default function TalonFitMap({
     });
   }, [autoTargets, mapLoaded, openPopup]);
 
-  // Saved site markers
+  // Saved site pins — green D/E/F circles, persist until the site is removed
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
@@ -311,14 +460,14 @@ export default function TalonFitMap({
       return true;
     });
     saved.forEach((s, i) => {
-      const el = createMarkerEl(s.decision, ["D", "E", "F"][i]);
+      const el = createSavedPinEl(["D", "E", "F"][i]);
       const marker = new window.mapboxgl.Marker(el).setLngLat([s.longitude, s.latitude]).addTo(map);
       marker._isSaved = true;
       markersRef.current.push(marker);
     });
   }, [saved, mapLoaded]);
 
-  // Probe marker + popup
+  // Probe marker + verdict popup
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
@@ -345,8 +494,8 @@ export default function TalonFitMap({
     marker._isProbe = true;
     markersRef.current.push(marker);
 
-    openPopup(map, probe, { onSave, canSave, saving, nextLetter }, false);
-  }, [probe, canSave, saving, nextLetter, onSave, mapLoaded, openPopup]);
+    openPopup(map, probe, { onSave, saving, nextLetter, towerHeightFt: heightFt, savedCount: saved.length }, false);
+  }, [probe, saving, nextLetter, onSave, heightFt, saved.length, mapLoaded, openPopup]);
 
   // Fall zone visibility
   useEffect(() => {
@@ -360,30 +509,27 @@ export default function TalonFitMap({
     }
   }, [showFallZone]);
 
-  // Click handling: single-click probes, double-click saves
+  // Parcel click → solve → verdict popup, gated to points inside the 2-mile ring
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const handleClick = (e) => {
-      const now = Date.now();
-      if (now - lastClickRef.current < 400) {
-        if (canSave) onSave(e.lngLat.lat, e.lngLat.lng);
-      } else {
-        const ring = makeRingFeature(anchor, radiusMiles);
-        if (ring) {
-          try {
-            if (!turf.booleanPointInPolygon([e.lngLat.lng, e.lngLat.lat], ring)) return;
-          } catch {
-            // fall through to probe
-          }
+      if (!anchor) return;
+      const { lng, lat } = e.lngLat;
+      const ring = makeRingFeature(anchor, radiusMiles);
+      if (ring) {
+        try {
+          const pt = turf.point([lng, lat]);
+          if (!turf.booleanPointInPolygon(pt, ring)) return;
+        } catch {
+          // fall through to probe
         }
-        onProbe({ lat: e.lngLat.lat, lon: e.lngLat.lng });
       }
-      lastClickRef.current = now;
+      onProbe({ lat, lon: lng });
     };
     map.on("click", handleClick);
     return () => map.off("click", handleClick);
-  }, [onProbe, onSave, canSave, anchor, radiusMiles]);
+  }, [onProbe, anchor, radiusMiles]);
 
   // Smart cursor
   useEffect(() => {
@@ -391,7 +537,7 @@ export default function TalonFitMap({
     if (!map) return;
 
     const handleMove = (e) => {
-      if (!smartCursor) return;
+      if (!smartCursor || !anchor) return;
       const pt = e.point;
       const { lat, lng } = e.lngLat;
       if (smartCursorDebounceRef.current) clearTimeout(smartCursorDebounceRef.current);
@@ -413,6 +559,7 @@ export default function TalonFitMap({
   }, [smartCursor, heightFt, anchor, saved.length]);
 
   const doSolve = useCallback(async (lat, lon, pt) => {
+    if (!anchor) return;
     const reqId = ++smartCursorReqRef.current;
     setHover({ px: pt, solving: true, point: { lat, lon }, result: null });
     try {
@@ -503,7 +650,7 @@ export default function TalonFitMap({
     setHover(null);
     setSmartCursor(false);
     const map = mapRef.current;
-    if (map) map.flyTo({ center: [anchor.lon, anchor.lat], zoom: 16, duration: 800 });
+    if (map && anchor) map.flyTo({ center: [anchor.lon, anchor.lat], zoom: 15, duration: 800 });
   }, [onReset, anchor]);
 
   return (
@@ -533,7 +680,7 @@ export default function TalonFitMap({
           className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg transition-all ${
             smartCursor ? "border-cyan-400 bg-cyan-500 text-slate-900" : "border-white/15 bg-slate-900/85 text-white/80 hover:text-white"
           }`}
-          title="Smart Cursor — hover any parcel for an instant TalonFit verdict"
+          title="Smart Cursor — hover any parcel for an instant verdict"
         >
           <MousePointer2 className="h-3.5 w-3.5" /> Smart Cursor
         </button>

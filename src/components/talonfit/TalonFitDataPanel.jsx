@@ -29,7 +29,7 @@ function formatUrl(url) {
  * TalonFitDataPanel — persistent dark sidebar that keeps parcel, zoning,
  * and TalonFit™ constraint data on screen after a probe.
  */
-export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, towerHeightFt }) {
+export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, towerHeightFt, lat, lon, saved }) {
   const calc = solveResult?.calculated_result || {};
   const parcel = solveResult?.parcel || {};
   const parcelDetails = solveResult?.parcel_details || {};
@@ -139,6 +139,19 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
+        </div>
+
+        {/* Search center readout */}
+        <div className="px-3 py-2 border-b border-slate-700 bg-slate-950">
+          <div className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">
+            Search Center
+          </div>
+          <div className="text-slate-200 text-xs font-mono">
+            {lat ? `${lat.toFixed(6)}, ${lon.toFixed(6)}` : "No coordinates set"}
+          </div>
+          <div className="text-slate-400 text-[10px] mt-0.5">
+            Tower: {towerHeightFt || 199} ft · Ring: 2 mi · Targets: {saved?.length || 0}/3
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
