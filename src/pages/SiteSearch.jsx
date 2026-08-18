@@ -244,7 +244,7 @@ export default function SiteSearch() {
     setSearchParams(merged);
 
     if (!user) {
-      base44.auth.redirectToLogin(window.location.href);
+      window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
 
