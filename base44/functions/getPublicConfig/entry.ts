@@ -11,6 +11,7 @@ Deno.serve(async (req) => {
 
     return Response.json({
       mapboxAccessToken:
+        Deno.env.get("MAPBOX_API_TOKEN") ||
         Deno.env.get("MAPBOX_API_KEY") ||
         Deno.env.get("MAPBOX_ACCESS_TOKEN") ||
         "",
