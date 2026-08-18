@@ -20,7 +20,6 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [message, setMessage] = useState("");
   const [formError, setFormError] = useState("");
   const { signIn, signUp, isAuthenticated, isLoadingAuth } = useAuth();
 
@@ -28,7 +27,6 @@ export default function Login() {
 
   const submit = async (event) => {
     event.preventDefault();
-    setMessage("");
     setFormError("");
     sessionStorage.setItem("sitehawk:returnTo", next);
     try {
@@ -40,7 +38,8 @@ export default function Login() {
         if (data.session) {
           window.location.assign(next);
         } else {
-          setMessage("Account created. Check your email to confirm it, then return to SiteHawk.");
+          const query = new URLSearchParams({ email: email.trim(), next });
+          window.location.assign(`/auth/check-email?${query.toString()}`);
         }
       }
     } catch (error) {
@@ -67,7 +66,7 @@ export default function Login() {
             <button
               key={value}
               type="button"
-              onClick={() => { setMode(value); setFormError(""); setMessage(""); }}
+              onClick={() => { setMode(value); setFormError(""); }}
               className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
                 mode === value ? "bg-[#00A3FF] text-white" : "text-white/55 hover:text-white"
               }`}
@@ -118,11 +117,6 @@ export default function Login() {
           {formError && (
             <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
               {formError}
-            </p>
-          )}
-          {message && (
-            <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
-              {message}
             </p>
           )}
 
