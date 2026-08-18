@@ -45,7 +45,7 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^5.2.0",
-    "@supabase/supabase-js": "2.112.3",
+    "@supabase/supabase-js": "2.109.0",
     "@tanstack/react-query": "^5.84.1",
     "@turf/area": "^7.3.5",
     "@turf/bbox-clip": "^7.3.5",
