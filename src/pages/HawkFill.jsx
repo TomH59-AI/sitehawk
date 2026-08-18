@@ -87,7 +87,7 @@ export default function HawkFill() {
         <LogIn className="w-10 h-10 text-muted-foreground" />
         <h2 className="font-heading font-bold text-xl">Sign In Required</h2>
         <p className="text-muted-foreground text-sm">Please sign in to use HawkFill.</p>
-        <Button onClick={() => base44.auth.redirectToLogin(window.location.href)}>Sign In</Button>
+        <Button onClick={() => window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`)}>Sign In</Button>
       </div>
     );
   }
