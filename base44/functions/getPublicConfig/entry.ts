@@ -10,7 +10,10 @@ Deno.serve(async (req) => {
     }
 
     return Response.json({
-      mapboxAccessToken: Deno.env.get("MAPBOX_API_KEY") || "",
+      mapboxAccessToken:
+        Deno.env.get("MAPBOX_API_KEY") ||
+        Deno.env.get("MAPBOX_ACCESS_TOKEN") ||
+        "",
       cesiumIonToken: Deno.env.get("CESIUM_ION_API") || "",
       zoneomicsApiKey: Deno.env.get("ZONEOMICS_API_KEY") || "",
       hawkSupabaseAnonKey: Deno.env.get("HAWK_SUPABASE_ANON_KEY") || "",
