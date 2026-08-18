@@ -41,6 +41,9 @@ import { PipelineProvider } from '@/lib/PipelineContext';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import AuthCallback from './pages/AuthCallback';
 import CheckEmail from './pages/CheckEmail';
 import Dashboard from './pages/Dashboard';
@@ -120,8 +123,10 @@ function AppWithSplash() {
 const AuthenticatedApp = () => {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/auth/check-email" element={<CheckEmail />} />
       <Route path="/scip-share" element={<SCIPShareView />} />
@@ -131,6 +136,7 @@ const AuthenticatedApp = () => {
       {/* PUBLIC privacy policy — required URL for Apple App Store / createPlus */}
       <Route path="/privacy-policy" element={<PrivacyPolicyPublic />} />
       <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<Landing />} />
         <Route element={<Layout />}>
           <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />

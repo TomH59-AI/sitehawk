@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import HawkIcon from "@/components/HawkIcon";
+import GoogleIcon from "@/components/GoogleIcon";
+import MicrosoftIcon from "@/components/MicrosoftIcon";
+import AppleIcon from "@/components/AppleIcon";
 import { useAuth } from "@/lib/AuthContext";
+import { base44 } from "@/api/base44Client";
 
 const safeNext = (value) =>
   typeof value === "string" && value.startsWith("/") && !value.startsWith("//")
@@ -16,12 +20,11 @@ export default function Login() {
     () => safeNext(params.get("next") || location.state?.from || "/dashboard"),
     [location.state, params]
   );
-  const [mode, setMode] = useState(params.get("mode") === "signup" ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState("");
-  const { signIn, signUp, isAuthenticated, isLoadingAuth } = useAuth();
+  const { signIn, isAuthenticated, isLoadingAuth } = useAuth();
 
   if (isAuthenticated) return <Navigate to={next} replace />;
 
@@ -30,18 +33,8 @@ export default function Login() {
     setFormError("");
     sessionStorage.setItem("sitehawk:returnTo", next);
     try {
-      if (mode === "signin") {
-        await signIn({ email: email.trim(), password });
-        window.location.assign(next);
-      } else {
-        const data = await signUp({ email: email.trim(), password });
-        if (data.session) {
-          window.location.assign(next);
-        } else {
-          const query = new URLSearchParams({ email: email.trim(), next });
-          window.location.assign(`/auth/check-email?${query.toString()}`);
-        }
-      }
+      await signIn({ email: email.trim(), password });
+      window.location.assign(next);
     } catch (error) {
       if (/email not confirmed/i.test(error.message || "")) {
         const query = new URLSearchParams({ email: email.trim(), next });
@@ -50,6 +43,11 @@ export default function Login() {
       }
       setFormError(error.message || "Authentication failed. Please try again.");
     }
+  };
+
+  const handleProvider = (provider) => {
+    sessionStorage.setItem("sitehawk:returnTo", next);
+    base44.auth.loginWithProvider(provider, next);
   };
 
   return (
@@ -63,22 +61,43 @@ export default function Login() {
           </div>
         </Link>
 
-        <div className="grid grid-cols-2 rounded-xl bg-white/5 p-1 mb-6">
-          {[
-            ["signin", "Sign In"],
-            ["signup", "Create Account"],
-          ].map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => { setMode(value); setFormError(""); }}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                mode === value ? "bg-[#00A3FF] text-white" : "text-white/55 hover:text-white"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <h1 className="font-heading font-bold text-2xl text-center mb-1">Welcome back</h1>
+        <p className="text-sm text-white/45 text-center mb-6">Sign in to your SiteHawk account</p>
+
+        <div className="space-y-2.5 mb-5">
+          <button
+            type="button"
+            onClick={() => handleProvider("google")}
+            className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-white/90 transition-colors"
+          >
+            <GoogleIcon className="w-5 h-5" />
+            Continue with Google
+          </button>
+          <button
+            type="button"
+            onClick={() => handleProvider("microsoft")}
+            className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:bg-white/90 transition-colors"
+          >
+            <MicrosoftIcon className="w-5 h-5" />
+            Continue with Microsoft
+          </button>
+          <button
+            type="button"
+            onClick={() => handleProvider("apple")}
+            className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-black px-4 py-3 text-sm font-semibold text-white hover:bg-black/80 transition-colors"
+          >
+            <AppleIcon className="w-5 h-5" />
+            Continue with Apple
+          </button>
+        </div>
+
+        <div className="relative mb-5">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-white/10" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-[#111114] px-3 text-white/35">or</span>
+          </div>
         </div>
 
         <form onSubmit={submit} className="space-y-4">
@@ -95,18 +114,25 @@ export default function Login() {
             />
           </label>
 
-          <label className="block">
-            <span className="block text-xs font-semibold text-white/60 mb-2">Password</span>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-white/60">Password</span>
+              <Link
+                to={`/forgot-password${next !== "/dashboard" ? `?returnTo=${encodeURIComponent(next)}` : ""}`}
+                className="text-xs text-[#00A3FF] hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
-                autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                autoComplete="current-password"
                 required
-                minLength={8}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 pr-12 outline-none focus:border-[#00A3FF]"
-                placeholder="At least 8 characters"
+                placeholder="Enter your password"
               />
               <button
                 type="button"
@@ -117,7 +143,7 @@ export default function Login() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-          </label>
+          </div>
 
           {formError && (
             <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
@@ -131,11 +157,21 @@ export default function Login() {
             className="w-full rounded-xl bg-[#00A3FF] px-4 py-3 font-bold text-white hover:bg-[#0089d8] disabled:opacity-60 flex items-center justify-center gap-2"
           >
             {isLoadingAuth && <Loader2 size={18} className="animate-spin" />}
-            {mode === "signin" ? "Sign In" : "Create Account"}
+            Sign In
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-white/35">
+        <p className="mt-6 text-center text-sm text-white/45">
+          Don't have an account?{" "}
+          <Link
+            to={`/register${next !== "/dashboard" ? `?returnTo=${encodeURIComponent(next)}` : ""}`}
+            className="text-[#00A3FF] font-semibold hover:underline"
+          >
+            Create one
+          </Link>
+        </p>
+
+        <p className="mt-4 text-center text-xs text-white/35">
           Authentication is protected by Supabase. SiteHawk data permissions remain enforced separately.
         </p>
       </section>
