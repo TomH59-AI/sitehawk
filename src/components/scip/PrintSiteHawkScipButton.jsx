@@ -13,6 +13,51 @@ import {
 } from "@/lib/sitehawkScipStatic";
 
 const PRINT_STYLE_ID = "sitehawk-scip-print-styles";
+
+function zoningCell(report, section, field, ...legacyKeys) {
+  const structured = report?.[section]?.[field];
+  const structuredValue = structured && typeof structured === "object" && "value" in structured ? structured.value : structured;
+  if (structuredValue !== null && structuredValue !== undefined && structuredValue !== "") return String(structuredValue);
+  for (const key of legacyKeys) {
+    const value = report?.[key];
+    if (value !== null && value !== undefined && value !== "") return String(value);
+  }
+  return "";
+}
+
+function printableZoning(report, jurisdiction, target) {
+  const zoning = {
+    jurisdiction: zoningCell(report, "zoning_overview", "zoning_jurisdiction", "jurisdiction") || jurisdiction || "",
+    contact: zoningCell(report, "zoning_overview", "zoning_contact_information", "contact"),
+    process: zoningCell(report, "zoning_overview", "zoning_process", "process"),
+    fees: zoningCell(report, "zoning_overview", "zoning_fees", "fees"),
+    timeframe: zoningCell(report, "zoning_overview", "zoning_approval_timeframe", "timeframe"),
+    district: zoningCell(report, "zoning_overview", "property_zoning_district", "district") || target?.zoning_classification || "",
+    future_land_use: zoningCell(report, "zoning_overview", "property_future_land_use", "future_land_use"),
+    current_usage: zoningCell(report, "zoning_overview", "property_current_usage", "current_usage") || target?.land_use || "",
+    meets_min_lot: zoningCell(report, "zoning_overview", "meets_minimum_lot_requirements", "meets_min_lot"),
+    cup_or_special_exception: zoningCell(report, "zoning_overview", "cup_or_special_exception", "cup_or_special_exception"),
+    pe_self_certification: zoningCell(report, "zoning_overview", "pe_self_certification", "pe_self_certification"),
+    ldc_reference: zoningCell(report, "tower_specifics", "ldc_section_references", "ldc_reference"),
+    max_height: zoningCell(report, "tower_specifics", "maximum_tower_height", "max_height"),
+    stealth: zoningCell(report, "tower_specifics", "stealth_required", "stealth"),
+    collocations: zoningCell(report, "tower_specifics", "required_collocations", "collocations"),
+    residential_separation: zoningCell(report, "tower_specifics", "residential_separation", "residential_separation"),
+    tower_separation: zoningCell(report, "tower_specifics", "tower_separation", "tower_separation"),
+    measured_from: zoningCell(report, "tower_specifics", "measured_from_base_or_center", "measured_from"),
+    fall_zone: zoningCell(report, "tower_specifics", "fall_zone_requirements", "fall_zone"),
+    landscaping: zoningCell(report, "tower_specifics", "special_tower_landscaping", "landscaping"),
+    site_plan: report?.site_plan || null,
+    building_permit: report?.building_permit || null,
+    notes: zoningCell(report, "zoning_notes", "notes", "notes"),
+  };
+  const noLocalZoning = Boolean(report?._unincorporated) || Object.values(zoning).some((value) => String(value || "").startsWith("Un-Incorporated Jurisdiction"));
+  const unresolved = Object.entries(zoning)
+    .filter(([key]) => !["site_plan", "building_permit", "notes"].includes(key))
+    .filter(([, value]) => !String(value || "").trim() || String(value).trim() === "NEEDS_HUMAN_REVIEW")
+    .map(([key]) => key);
+  return { zoning, noLocalZoning, unresolved };
+}
 function ensurePrintStyles() {
   if (document.getElementById(PRINT_STYLE_ID)) return;
   const style = document.createElement("style");
@@ -106,6 +151,10 @@ export default function PrintSiteHawkScipButton({ scipId, scip, variant = "toolb
       };
 
       const zr = s.zoning_report || {};
+      const zoningPrint = printableZoning(zr, s.zoning_jurisdiction, targetA);
+      if (zoningPrint.unresolved.length && !zoningPrint.noLocalZoning) {
+        throw new Error(`Zoning is incomplete: ${zoningPrint.unresolved.join(", ")}`);
+      }
       const rec = {
         site_name: s.site_name || "Search Ring",
         agent_name: s.agent_name,
@@ -119,30 +168,7 @@ export default function PrintSiteHawkScipButton({ scipId, scip, variant = "toolb
         sarf_map: s.map_image_url || buildSarfMap(srcLat, srcLon, radius, token, targetA),
         targetA: { label: "Target A", ...targetA },
         maps,
-        zoning: {
-          jurisdiction: s.zoning_jurisdiction,
-          district: zr.district || targetA.zoning_classification,
-          future_land_use: zr.future_land_use,
-          process: zr.process,
-          fees: zr.fees,
-          timeframe: zr.timeframe,
-          max_height: zr.max_height,
-          stealth: zr.stealth,
-          collocations: zr.collocations,
-          residential_separation: zr.residential_separation,
-          tower_separation: zr.tower_separation,
-          fall_zone: zr.fall_zone,
-          ldc_reference: zr.ldc_reference,
-          meets_min_lot: zr.meets_min_lot,
-          contact: zr.contact,
-          measured_from: zr.measured_from,
-          landscaping: zr.landscaping,
-          cup_or_special_exception: zr.cup_or_special_exception,
-          pe_self_certification: zr.pe_self_certification,
-          site_plan: zr.site_plan || null,
-          building_permit: zr.building_permit || null,
-          notes: zr.notes,
-        },
+        zoning: zoningPrint.zoning,
         conditions: {
           flood_zone: s.existing_conditions?.flood_zone || targetA.fema_risk_factor,
           wetlands: s.existing_conditions?.wetland_concerns,
@@ -154,7 +180,7 @@ export default function PrintSiteHawkScipButton({ scipId, scip, variant = "toolb
       setOpen(true);
     } catch (err) {
       console.error(err);
-      toast.error("Could not build the SCIP. Open the SCIP and regenerate its maps.");
+      toast.error(err?.message || "Could not build the SCIP. Open the SCIP and regenerate its zoning and maps.");
     } finally {
       setBuilding(false);
     }
