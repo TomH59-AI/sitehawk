@@ -14,6 +14,7 @@ import UsageBadge from "./billing/UsageBadge";
 import HistoryNavigation from "./HistoryNavigation";
 import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
 import { isDemoCampaignOver } from "@/lib/demoCampaign";
 
@@ -48,6 +49,7 @@ const BASE_NAV = [
 
 export default function Layout() {
   const location = useLocation();
+  const { logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggle } = useTheme();
   const [isAdmin, setIsAdmin] = useState(() => {
@@ -105,7 +107,7 @@ export default function Layout() {
   ];
 
   const handleLogout = () => {
-    base44.auth.logout();
+    logout(true);
   };
 
   if (demoExpired) {
