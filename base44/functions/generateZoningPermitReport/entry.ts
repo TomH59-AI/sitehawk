@@ -20,6 +20,7 @@ import { secrets } from 'base44:runtime';
 import { findOrdinance } from '../../shared/telecomOrdinance.ts';
 import { CRITICAL_FIELDS, completenessScore, countyEquivalentLabel } from '../../shared/codehawk.ts';
 import { processJurisdiction } from '../../shared/codehawkRun.ts';
+import { lookupNotionOrdinance } from '../../shared/notionOrdinanceLookup.ts';
 
 // ─── CodeHawk inline upgrade ────────────────────────────────────────────────
 // The subscriber's SCIP must come back with the zoning section filled, every
@@ -728,6 +729,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Notion is the curated staging/library mirror for the n8n + OxyLabs /
+    // Scrapfly pipeline. Read it directly when the Base44 registry is absent or
+    // incomplete so an already-researched ordinance is never skipped.
+    let notionOrdinance = null;
+    if (!ordinance || completenessScore(ordinance) < CRITICAL_FIELDS.length) {
+      const notionConnection = await base44.asServiceRole.connectors.getConnection('notion').catch(() => null);
+      const notionToken = notionConnection?.accessToken || null;
+      for (const candidateJurisdiction of [ordinanceJurisdiction, city, countyLabel].filter(Boolean)) {
+        notionOrdinance = await lookupNotionOrdinance(notionToken, candidateJurisdiction, geo.state_code).catch(() => null);
+        if (notionOrdinance) break;
+      }
+    }
+
     // STEP 4 — LLM web-grounded gap-fill (Gemini, web-grounded).
     const llmCtx = {
       lat, lon,
@@ -781,6 +795,23 @@ Deno.serve(async (req) => {
     const report = llmReport || {};
     report.zoning_overview = report.zoning_overview || {};
     report.tower_specifics = report.tower_specifics || {};
+
+    // Curated Notion values outrank inference but remain below the promoted,
+    // field-cited Base44 registry. Only explicit values are overlaid.
+    if (notionOrdinance) {
+      const notionSource = notionOrdinance.page_url || 'SiteHawk Notion Ordinance Registry';
+      const putNotion = (section, field, value) => {
+        if (value === null || value === undefined || value === '') return;
+        report[section] = report[section] || {};
+        report[section][field] = row(value, notionSource, 'medium');
+      };
+      putNotion('zoning_overview', 'zoning_jurisdiction', notionOrdinance.title);
+      putNotion('tower_specifics', 'ldc_section_references', notionOrdinance.section_ref);
+      putNotion('tower_specifics', 'maximum_tower_height', notionOrdinance.height_limit_ft != null ? `${notionOrdinance.height_limit_ft} ft` : null);
+      putNotion('tower_specifics', 'residential_separation', notionOrdinance.setback_ft != null ? `${notionOrdinance.setback_ft} ft` : null);
+      putNotion('tower_specifics', 'fall_zone_requirements', notionOrdinance.fall_zone_ft != null ? `${notionOrdinance.fall_zone_ft} ft` : null);
+      report._notion = { title: notionOrdinance.title, page_url: notionOrdinance.page_url, matched: true };
+    }
 
     // Which panel section each Zoneomics field lives in.
     const FIELD_SECTION = {
@@ -1103,8 +1134,19 @@ Deno.serve(async (req) => {
         acreage: realie.acreage,
         geometry: realie.geometry,
       } : null,
+      zoning_resolution: {
+        status: report._unincorporated
+          ? 'no_local_zoning'
+          : report?.zoning_overview?.zoning_jurisdiction?.value
+            ? 'resolved'
+            : 'needs_review',
+        explicit_no_zoning: Boolean(report._unincorporated),
+        jurisdiction_resolved: Boolean(report?.zoning_overview?.zoning_jurisdiction?.value),
+        district_resolved: Boolean(report?.zoning_overview?.property_zoning_district?.value),
+      },
       sources_used: {
         telecom_ordinance: !!registry,
+        notion: notionOrdinance ? { matched: true, page_url: notionOrdinance.page_url || null } : { matched: false },
         codehawk: shouldHunt
           ? { ran: true, action: huntResult?.action || 'no_result_in_budget', fields_written: huntResult?.fields_written || [] }
           : { ran: false, reason: ordinance ? 'registry_already_complete' : 'no_jurisdiction_resolved' },
