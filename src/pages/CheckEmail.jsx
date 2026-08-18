@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Loader2, Mail } from "lucide-react";
 import HawkIcon from "@/components/HawkIcon";
-import { supabase } from "@/api/supabaseClient";
+import { getAuthCallbackUrl, supabase } from "@/api/supabaseClient";
 import { useAuth } from "@/lib/AuthContext";
 
 const safeNext = (value) =>
@@ -41,7 +41,7 @@ export default function CheckEmail() {
     setNotice("");
     setError("");
     try {
-      const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+      const emailRedirectTo = getAuthCallbackUrl(next);
       const { error: resendError } = await supabase.auth.resend({
         type: "signup",
         email,
