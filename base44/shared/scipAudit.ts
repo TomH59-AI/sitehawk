@@ -128,19 +128,32 @@ export function auditScipRecord(rec) {
 
   // ── 10. Zoning report ──
   const zr = rec.zoning_report || {};
-  const zrSections = Object.keys(zr);
-  if (!zrSections.length) {
-    add('warning', 'Zoning & Permitting', 'Zoning & Permitting worksheet has not been generated.');
-  } else {
-    let blank = 0, total = 0;
-    for (const sec of zrSections) {
-      for (const row of Object.values(zr[sec] || {})) {
+  const explicitNoZoning = Boolean(
+    zr._unincorporated ||
+    zr.zoning_resolution?.explicit_no_zoning ||
+    zr.zoning_resolution?.status === 'no_local_zoning'
+  );
+  const worksheetSections = Object.entries(zr).filter(
+    ([key, value]) => !key.startsWith('_') &&
+      key !== 'zoning_resolution' &&
+      value && typeof value === 'object' && !Array.isArray(value)
+  );
+  if (!worksheetSections.length) {
+    add('critical', 'Zoning & Permitting', 'Zoning & Permitting worksheet has not been generated.');
+  } else if (!explicitNoZoning) {
+    let unresolved = 0, total = 0;
+    for (const [, rows] of worksheetSections) {
+      for (const row of Object.values(rows)) {
+        if (!row || typeof row !== 'object' || !Object.prototype.hasOwnProperty.call(row, 'value')) continue;
         total++;
-        if (isBlank(row?.value)) blank++;
+        const value = row.value;
+        if (isBlank(value) || String(value).trim().toUpperCase() === 'NEEDS_HUMAN_REVIEW') unresolved++;
       }
     }
-    if (blank > 0) add(blank > total / 2 ? 'warning' : 'info', 'Zoning & Permitting', `${blank} of ${total} zoning worksheet fields are blank.`);
-    if (isBlank(rec.zoning_jurisdiction)) add('warning', 'Zoning & Permitting', 'Zoning jurisdiction is not resolved.');
+    if (unresolved > 0) {
+      add('critical', 'Zoning & Permitting', `${unresolved} of ${total} zoning worksheet fields are unresolved. SCIP completion and printing must remain blocked.`);
+    }
+    if (isBlank(rec.zoning_jurisdiction)) add('critical', 'Zoning & Permitting', 'Zoning jurisdiction is not resolved.');
   }
 
   const counts = {
