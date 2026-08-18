@@ -43,6 +43,11 @@ export default function Login() {
         }
       }
     } catch (error) {
+      if (/email not confirmed/i.test(error.message || "")) {
+        const query = new URLSearchParams({ email: email.trim(), next });
+        window.location.assign(`/auth/check-email?${query.toString()}`);
+        return;
+      }
       setFormError(error.message || "Authentication failed. Please try again.");
     }
   };
