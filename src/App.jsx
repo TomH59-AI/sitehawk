@@ -35,11 +35,13 @@ import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { AuthProvider } from '@/lib/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
 import { PipelineProvider } from '@/lib/PipelineContext';
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
+import Login from './pages/Login';
+import AuthCallback from './pages/AuthCallback';
 import Dashboard from './pages/Dashboard';
 import SiteSearch from './pages/SiteSearch';
 import About from './pages/About';
@@ -115,40 +117,20 @@ function AppWithSplash() {
 }
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
-
-  // Show loading spinner while checking app public settings or auth
-  if (isLoadingPublicSettings || isLoadingAuth) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  // Handle authentication errors
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
-      navigateToLogin();
-      return null;
-    }
-  }
-
-  // Render the main app
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/scip-share" element={<SCIPShareView />} />
       <Route path="/hawk-doc-share" element={<HawkDocShareView />} />
       {/* SiteHawk Pitch Deck — full-screen presentation narrated by Brian */}
       <Route path="/presentation" element={<Presentation />} />
       {/* PUBLIC privacy policy — required URL for Apple App Store / createPlus */}
       <Route path="/privacy-policy" element={<PrivacyPolicyPublic />} />
-      <Route element={<Layout />}>
-        <Route path="/dashboard" element={<Dashboard />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/search" element={<SiteSearch />} />
         {/* Standalone site-acquisition flow — each step is its own full page */}
         <Route path="/sarf-map" element={<SarfMapPage />} />
@@ -241,7 +223,8 @@ const AuthenticatedApp = () => {
           <Route path="history" element={<HawkLawHistory />} />
         </Route>
         {/* Unknown/stale links land on the Dashboard instead of a 404 sheet */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
       </Route>
     </Routes>
   );
