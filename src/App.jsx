@@ -42,6 +42,7 @@ import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
+import CheckEmail from './pages/CheckEmail';
 import Dashboard from './pages/Dashboard';
 import SiteSearch from './pages/SiteSearch';
 import About from './pages/About';
@@ -122,6 +123,7 @@ const AuthenticatedApp = () => {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/auth/check-email" element={<CheckEmail />} />
       <Route path="/scip-share" element={<SCIPShareView />} />
       <Route path="/hawk-doc-share" element={<HawkDocShareView />} />
       {/* SiteHawk Pitch Deck — full-screen presentation narrated by Brian */}
