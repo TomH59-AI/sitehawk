@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
 import { deleteAccount } from "@/functions/deleteAccount";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export default function DeleteAccountSection() {
+  const { logout } = useAuth();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -19,7 +20,7 @@ export default function DeleteAccountSection() {
     try {
       const res = await deleteAccount({});
       if (res.data?.success) {
-        base44.auth.logout("/");
+        await logout(true);
       } else {
         setError(res.data?.error || "Could not delete account.");
         setDeleting(false);
