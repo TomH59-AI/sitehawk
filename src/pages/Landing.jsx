@@ -76,10 +76,10 @@ export default function Landing() {
             <Link to="/about" className="hover:text-white transition-colors">About</Link>
           </div>
           <div className="hidden md:flex items-center gap-3">
-            <Link to="/dashboard" className="px-4 py-2 text-sm font-semibold text-white/70 hover:text-white transition-colors">
+            <Link to="/login?next=%2Fdashboard" className="px-4 py-2 text-sm font-semibold text-white/70 hover:text-white transition-colors">
               Log In
             </Link>
-            <Link to="/pricing" className="px-5 py-2 rounded-xl bg-[#00A3FF] hover:bg-[#0056B3] text-white text-sm font-bold shadow-lg shadow-[#00A3FF]/20 transition-all">
+            <Link to="/login?mode=signup&next=%2Fpricing" className="px-5 py-2 rounded-xl bg-[#00A3FF] hover:bg-[#0056B3] text-white text-sm font-bold shadow-lg shadow-[#00A3FF]/20 transition-all">
               Get Started
             </Link>
           </div>
@@ -94,8 +94,8 @@ export default function Landing() {
             <Link to="/crm" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Deal Pipeline</Link>
             <Link to="/hawk-docs" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Document Intelligence</Link>
             <Link to="/about" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>About</Link>
-            <Link to="/dashboard" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Log In</Link>
-            <Link to="/pricing" className="block w-full text-center px-5 py-2.5 rounded-xl bg-[#00A3FF] text-white font-bold mt-2" onClick={() => setMenuOpen(false)}>Get Started</Link>
+            <Link to="/login?next=%2Fdashboard" className="block text-white/70 hover:text-white" onClick={() => setMenuOpen(false)}>Log In</Link>
+            <Link to="/login?mode=signup&next=%2Fpricing" className="block w-full text-center px-5 py-2.5 rounded-xl bg-[#00A3FF] text-white font-bold mt-2" onClick={() => setMenuOpen(false)}>Get Started</Link>
           </div>
         )}
       </nav>
@@ -129,13 +129,13 @@ export default function Landing() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/dashboard"
+              to="/login?mode=signup&next=%2Fdashboard"
               className="px-8 py-4 rounded-2xl bg-[#00A3FF] hover:bg-[#0056B3] text-white font-heading font-bold text-lg shadow-2xl shadow-[#00A3FF]/25 transition-all hover:scale-105"
             >
               Get Started →
             </Link>
             <Link
-              to="/dashboard"
+              to="/login?next=%2Fdashboard"
               className="px-8 py-4 rounded-2xl border border-white/10 hover:border-white/25 text-white/70 hover:text-white font-semibold text-lg transition-all"
             >
               Log In to Dashboard
