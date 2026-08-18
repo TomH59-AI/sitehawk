@@ -69,8 +69,6 @@ export default function SiteHawkScipDoc({ record }) {
   ];
   const urlOf = (u) => (typeof u === "string" ? u : u?.url);
   const MAP_TILES = ALL_MAP_TILES.filter(([, u]) => urlOf(u));
-  const hasMaps = MAP_TILES.length > 0;
-  const hasZoning = z && (z.jurisdiction || z.district || z.future_land_use || z.process || z.fees || z.max_height);
   const hasConditions = Object.values(cond).some((v) => v);
 
   return (
@@ -257,8 +255,7 @@ export default function SiteHawkScipDoc({ record }) {
       )}
 
       {/* ─────────── ZONING & PERMITTING ─────────── */}
-      {hasZoning && (
-        <HawkScipSection
+      <HawkScipSection
           kicker="SCIP · Section 5"
           title="ZONING & PERMITTING"
           right={z.jurisdiction || "Jurisdiction"}
@@ -297,7 +294,6 @@ export default function SiteHawkScipDoc({ record }) {
           />
           {z.notes && <SiteHawkInfoTable heading="Zoning Notes" rows={[["Notes", z.notes]]} />}
         </HawkScipSection>
-      )}
 
       {/* ─────────── SITE PLAN & BUILDING PERMIT ─────────── */}
       {(Object.values(z.site_plan || {}).some(Boolean) || Object.values(z.building_permit || {}).some(Boolean)) && (
