@@ -99,7 +99,28 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) throw error;
-      await finishBase44Session(data.session);
+
+      if (data.session) {
+        await finishBase44Session(data.session);
+      } else {
+        // Preserve the owner's Base44 editor-to-app workflow without opening
+        // protected routes to regular users. The role comes from Base44's
+        // authenticated server session, never from browser-editable metadata.
+        try {
+          const currentUser = await base44.auth.me();
+          if (currentUser?.role !== "admin") {
+            throw new Error("Admin access required");
+          }
+          if (!mounted.current) return;
+          setUser(currentUser);
+          setSupabaseUser(null);
+          setSession(null);
+          setIsAuthenticated(true);
+          setAuthError(null);
+        } catch {
+          await finishBase44Session(null);
+        }
+      }
     } catch (error) {
       setAuthError({ type: "auth_required", message: error.message || "Authentication required" });
       setIsAuthenticated(false);
