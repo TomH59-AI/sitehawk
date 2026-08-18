@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { supabase } from "@/api/supabaseClient";
+import { getAuthCallbackUrl, supabase } from "@/api/supabaseClient";
 import { referral } from "@/functions/referral";
 import { subscriberCrmSync } from "@/functions/subscriberCrmSync";
 
@@ -156,9 +156,9 @@ export const AuthProvider = ({ children }) => {
     setIsLoadingAuth(true);
     setAuthError(null);
     try {
-      const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+      const emailRedirectTo = getAuthCallbackUrl(
         safeReturnTo(sessionStorage.getItem("sitehawk:returnTo"))
-      )}`;
+      );
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
