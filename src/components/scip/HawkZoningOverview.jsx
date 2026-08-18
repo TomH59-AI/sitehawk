@@ -176,10 +176,22 @@ function emptyState() {
   return s;
 }
 
+function unresolvedRows(values) {
+  const missing = [];
+  for (const sec of SECTIONS) {
+    for (const row of sec.rows) {
+      const value = String(values?.[sec.title]?.[row] || "").trim();
+      if (!value || value === "NEEDS_HUMAN_REVIEW") missing.push(`${sec.title}: ${row}`);
+    }
+  }
+  return missing;
+}
+
 export default function HawkZoningOverview({ lat, lon, autoRun = false, onComplete }) {
   const [values, setValues] = useState(emptyState);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [resolutionError, setResolutionError] = useState("");
 
   const handleChange = (section, row, val) => {
     setValues((prev) => ({
@@ -194,9 +206,11 @@ export default function HawkZoningOverview({ lat, lon, autoRun = false, onComple
       return;
     }
     setLoading(true);
+    setResolutionError("");
     try {
       const res = await generateZoningPermitReport({ lat, lon });
       const report = res.data?.report || null;
+      const resolution = res.data?.zoning_resolution || {};
       const mapped = mapZoningToTemplate(report);
       setValues((prev) => {
         const next = emptyState();
@@ -207,14 +221,26 @@ export default function HawkZoningOverview({ lat, lon, autoRun = false, onComple
         }
         return next;
       });
+      const missing = unresolvedRows(mapped);
+      const explicitNoZoning = resolution.explicit_no_zoning === true || Boolean(report?._unincorporated);
+      if (missing.length && !explicitNoZoning) {
+        const message = `Zoning is not complete yet (${missing.length} field${missing.length === 1 ? "" : "s"} unresolved). Re-run after the ordinance agent finishes its source check.`;
+        setGenerated(false);
+        setResolutionError(message);
+        toast.error(message);
+        return;
+      }
       setGenerated(true);
-      toast.success("Hawk Intelligence populated the zoning template.");
+      toast.success(explicitNoZoning ? "No local zoning was explicitly confirmed." : "Hawk Intelligence populated the complete zoning template.");
+      onComplete?.({ report, resolution, mapped });
     } catch (err) {
       console.error(err);
-      toast.error(err?.message || "Hawk Intelligence lookup failed.");
+      const message = err?.message || "Hawk Intelligence lookup failed.";
+      setGenerated(false);
+      setResolutionError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
-      onComplete?.();
     }
   }, [lat, lon, onComplete]);
 
@@ -249,6 +275,12 @@ export default function HawkZoningOverview({ lat, lon, autoRun = false, onComple
           )}
         </Button>
       </div>
+
+      {resolutionError && (
+        <div className="border-b border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+          {resolutionError} The SCIP will not advance with a blank zoning section.
+        </div>
+      )}
 
       {/* Template */}
       <div className="divide-y divide-border">
