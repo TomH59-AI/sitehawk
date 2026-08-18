@@ -32,13 +32,32 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
 
-    try {
-      const currentUser = await base44.auth.me();
-      if (!mounted.current) return currentUser;
-      setUser(currentUser);
+    // Supabase is the source of truth for route access. Keep its persisted
+    // session active while the legacy Base44 data session reconnects.
+    if (mounted.current) {
       setSupabaseUser(nextSession.user);
       setSession(nextSession);
       setIsAuthenticated(true);
+      setAuthError(null);
+    }
+
+    try {
+      let currentUser = null;
+      let lastError = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          currentUser = await base44.auth.me();
+          break;
+        } catch (error) {
+          lastError = error;
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+          }
+        }
+      }
+      if (!currentUser) throw lastError || new Error("Unable to restore SiteHawk data session");
+      if (!mounted.current) return currentUser;
+      setUser(currentUser);
       setAuthError(null);
 
       const refCode = localStorage.getItem("sitehawk_ref_code");
@@ -61,12 +80,14 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       if (!mounted.current) return null;
       setUser(null);
+      // Do not invalidate a confirmed Supabase login because the secondary
+      // Base44 lookup is delayed or unavailable.
       setSupabaseUser(nextSession.user);
       setSession(nextSession);
-      setIsAuthenticated(false);
+      setIsAuthenticated(true);
       setAuthError({
-        type: "base44_session_required",
-        message: "Your SiteHawk data session expired. Sign in again to reconnect it.",
+        type: "base44_session_unavailable",
+        message: "You are signed in. SiteHawk is reconnecting your data session.",
       });
       return null;
     }
@@ -128,17 +149,21 @@ export const AuthProvider = ({ children }) => {
     setIsLoadingAuth(true);
     setAuthError(null);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-
+      // Establish the Base44 data session first so Supabase's SIGNED_IN event
+      // cannot race ahead and immediately fail the secondary user lookup.
       try {
         await base44.auth.loginViaEmailPassword(email, password);
       } catch (bridgeError) {
-        await supabase.auth.signOut({ scope: "local" });
         throw new Error(
           bridgeError?.message ||
-          "Supabase accepted the login, but SiteHawk could not open its data session."
+          "SiteHawk could not open its data session."
         );
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        await Promise.resolve(base44.auth.logout()).catch(() => {});
+        throw error;
       }
 
       await finishBase44Session(data.session);
