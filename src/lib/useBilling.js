@@ -46,6 +46,7 @@ export function useBilling() {
   const canCreateLeaseSite = admin || tier.unlimited || (tier.lease_site_cap > 0);
   const canHawkLaw = admin || tier.hawk_law;
   const canCarrierOverlay = admin || tier.carrier_overlay;
+  const canPropagation = admin || tier.unlimited || tier.propagation_daily_quota > 0;
 
   // Quota helpers — call these to check live usage
   const checkScipQuota = async (currentMonthCount) => {
@@ -106,6 +107,28 @@ export function useBilling() {
     };
   };
 
+  const checkPropagationAccess = (usedToday = 0) => {
+    if (admin || tier.unlimited) return { allowed: true };
+    const limit = Number(tier.propagation_daily_quota || 0);
+    if (limit <= 0) {
+      return {
+        allowed: false,
+        gate: "propagation",
+        upgradeTo: GATE_UPGRADE.propagation[tierKey] || "hawk_vision",
+        message: "Propagation Explorer requires HawkVision Pro or higher.",
+      };
+    }
+    if (usedToday >= limit) {
+      return {
+        allowed: false,
+        gate: "propagation",
+        upgradeTo: GATE_UPGRADE.propagation[tierKey] || "hawk_command",
+        message: `You've reached your ${limit}-run daily propagation limit.`,
+      };
+    }
+    return { allowed: true, limit, remaining: Math.max(0, limit - usedToday) };
+  };
+
   return {
     user,
     loading,
@@ -116,9 +139,11 @@ export function useBilling() {
     canCreateLeaseSite,
     canHawkLaw,
     canCarrierOverlay,
-    checkScipQuota,
+    canPropagation,
+    checkScipQuota:
     checkLeaseSiteCap,
     checkHawkLaw,
     checkCarrierOverlay,
+    checkPropagationAccess,
   };
 }
