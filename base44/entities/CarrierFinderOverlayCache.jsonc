@@ -1,0 +1,72 @@
+{
+  "name": "CarrierFinderOverlayCache",
+  "type": "object",
+  "description": "Private 15-minute cache for normalized CarrierFinder Propagation Explorer overlay responses. CarrierFinder credentials and raw responses never reach browser code.",
+  "properties": {
+    "cache_key": {
+      "type": "string",
+      "description": "Stable key derived from the validated bbox, zoom, and requested layers."
+    },
+    "bbox": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "Validated [west, south, east, north] request bounds."
+    },
+    "zoom": {
+      "type": "number"
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "geojson": {
+      "type": "object",
+      "description": "Normalized, browser-safe GeoJSON FeatureCollection."
+    },
+    "feature_count": {
+      "type": "number"
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "cache_key",
+    "bbox",
+    "layers",
+    "geojson",
+    "fetched_at",
+    "expires_at"
+  ],
+  "rls": {
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
