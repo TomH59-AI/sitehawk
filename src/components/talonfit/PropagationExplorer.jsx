@@ -646,6 +646,128 @@ export default function PropagationExplorer({
     });
   }, [billing.tierKey]);
 
+  const handleCarrierFinderToggle = useCallback(() => {
+    if (!billing.canPropagation) {
+      openUpgrade(
+        "carrierfinder",
+        "CarrierFinder requires HawkVision Pro or higher.",
+        billing.tierKey === "hawk_site_law" ? "hawk_vision_law" : "hawk_vision"
+      );
+      return;
+    }
+    setCarrierFinderEnabled((enabled) => !enabled);
+    setCarrierFinderError("");
+  }, [billing.canPropagation, billing.tierKey, openUpgrade]);
+
+  const handleCarrierFinderFeature = useCallback(async (feature, lngLat) => {
+    const request = carrierFinderRequestRef.current;
+    const featureId = String(feature?.properties?.id || feature?.id || "").slice(0, 96);
+    if (!request || !featureId || !window.mapboxgl) return;
+
+    const popup = new window.mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: true,
+      maxWidth: "300px",
+    })
+      .setLngLat(lngLat)
+      .setDOMContent(carrierFinderPopupContent({ loading: true }))
+      .addTo(mapRef.current);
+
+    try {
+      const response = await base44.functions.invoke("carrierFinderOverlay", {
+        action: "metadata",
+        featureId,
+        ...request,
+      });
+      const data = response?.data ?? response;
+      if (!data?.success || !data?.metadata) {
+        throw Object.assign(
+          new Error(data?.error || "CarrierFinder details are unavailable."),
+          { data }
+        );
+      }
+      popup.setDOMContent(carrierFinderPopupContent({ metadata: data.metadata }));
+      if (data.quota) setCarrierFinderQuota(data.quota);
+    } catch (err) {
+      const body = err?.response?.data || err?.data || {};
+      popup.setDOMContent(
+        carrierFinderPopupContent({
+          error: body?.error || err?.message || "CarrierFinder details are unavailable.",
+        })
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    carrierFinderClickRef.current = handleCarrierFinderFeature;
+  }, [handleCarrierFinderFeature]);
+
+  useEffect(() => {
+    if (!carrierFinderEnabled) {
+      carrierFinderSequenceRef.current += 1;
+      carrierFinderRequestRef.current = null;
+      setCarrierFinderGeojson(null);
+      setCarrierFinderLoading(false);
+      return undefined;
+    }
+    if (!active || !mapReady || !center || billing.loading) return undefined;
+    if (!billing.canPropagation) {
+      setCarrierFinderError("CarrierFinder requires HawkVision Pro or higher.");
+      return undefined;
+    }
+
+    const sequence = carrierFinderSequenceRef.current + 1;
+    carrierFinderSequenceRef.current = sequence;
+    const timer = window.setTimeout(async () => {
+      const request = {
+        bbox: carrierFinderBbox(center),
+        zoom: Math.round(mapRef.current?.getZoom?.() ?? 14),
+        layers: ["runs", "points"],
+      };
+      carrierFinderRequestRef.current = request;
+      setCarrierFinderLoading(true);
+      setCarrierFinderError("");
+      try {
+        const response = await base44.functions.invoke("carrierFinderOverlay", {
+          action: "geojson",
+          ...request,
+        });
+        const data = response?.data ?? response;
+        if (!data?.success || data?.geojson?.type !== "FeatureCollection") {
+          throw Object.assign(
+            new Error(data?.error || "CarrierFinder overlay failed."),
+            { data }
+          );
+        }
+        if (carrierFinderSequenceRef.current !== sequence) return;
+        setCarrierFinderGeojson(data.geojson);
+        setCarrierFinderQuota(data.quota || null);
+        setCarrierFinderCacheHit(Boolean(data.cache?.hit));
+      } catch (err) {
+        if (carrierFinderSequenceRef.current !== sequence) return;
+        const body = err?.response?.data || err?.data || {};
+        setCarrierFinderGeojson(null);
+        setCarrierFinderQuota(body?.quota || null);
+        setCarrierFinderError(
+          body?.error || err?.message || "CarrierFinder overlay failed."
+        );
+      } finally {
+        if (carrierFinderSequenceRef.current === sequence) {
+          setCarrierFinderLoading(false);
+        }
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    active,
+    billing.canPropagation,
+    billing.loading,
+    carrierFinderEnabled,
+    center,
+    mapReady,
+  ]);
+
   const handleRun = useCallback(async () => {
     if (!center || loading) return;
     if (!billing.canPropagation) {
