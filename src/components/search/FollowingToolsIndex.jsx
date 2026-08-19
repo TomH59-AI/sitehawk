@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Radio, Eye, ShieldCheck, MapPin, FileSignature, Zap, ArrowRight } from "lucide-react";
+import { Radio, ShieldCheck, MapPin, FileSignature, Zap, ArrowRight } from "lucide-react";
 
 // Ordered continuation of the flow — each card navigates to its tool page.
 const TOOLS = [
