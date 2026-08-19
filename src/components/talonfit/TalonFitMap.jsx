@@ -4,7 +4,7 @@ import { loadPublicConfig } from "@/lib/publicConfig";
 import * as turf from "@turf/turf";
 import { createRoot } from "react-dom/client";
 import { base44 } from "@/api/base44Client";
-import { MousePointer2, Loader2, RotateCcw, Circle as CircleIcon } from "lucide-react";
+import { MousePointer2, Loader2, RotateCcw, Circle as CircleIcon, Radio } from "lucide-react";
 
 const FT_TO_M = 0.3048;
 
@@ -54,6 +54,181 @@ function makeRingFeature(anchor, radiusMiles) {
     return turf.circle([anchor.lon, anchor.lat], radiusMiles, { units: "miles", steps: 64 });
   } catch {
     return null;
+  }
+}
+
+const PROPAGATION_LAYER_IDS = [
+  "talonfit-prop-towers",
+  "talonfit-prop-opportunities-outline",
+  "talonfit-prop-opportunities",
+  "talonfit-prop-coverage-outline",
+  "talonfit-prop-coverage",
+  "talonfit-prop-coverage-raster",
+];
+
+const PROPAGATION_SOURCE_IDS = [
+  "talonfit-prop-towers",
+  "talonfit-prop-opportunities",
+  "talonfit-prop-coverage",
+  "talonfit-prop-coverage-raster",
+];
+
+function normalizePropagationBounds(bounds) {
+  let north;
+  let east;
+  let south;
+  let west;
+  if (Array.isArray(bounds)) {
+    [north, east, south, west] = bounds.map(Number);
+  } else if (bounds) {
+    north = Number(bounds.north);
+    east = Number(bounds.east);
+    south = Number(bounds.south);
+    west = Number(bounds.west);
+  }
+  return [north, east, south, west].every(Number.isFinite)
+    ? { north, east, south, west }
+    : null;
+}
+
+function propagationTowerCollection(towers = []) {
+  return {
+    type: "FeatureCollection",
+    features: towers
+      .map((tower) => {
+        const lat = Number(tower?.lat ?? tower?.latitude);
+        const lng = Number(tower?.lng ?? tower?.lon ?? tower?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return {
+          type: "Feature",
+          properties: {
+            structure_type: tower.structure_type || "Registered structure",
+            distance_miles: tower.distance_miles ?? null,
+            source: tower.source || "FCC ASR",
+          },
+          geometry: { type: "Point", coordinates: [lng, lat] },
+        };
+      })
+      .filter(Boolean),
+  };
+}
+
+function clearPropagationLayers(map) {
+  PROPAGATION_LAYER_IDS.forEach((id) => {
+    if (map.getLayer(id)) map.removeLayer(id);
+  });
+  PROPAGATION_SOURCE_IDS.forEach((id) => {
+    if (map.getSource(id)) map.removeSource(id);
+  });
+}
+
+function addPropagationLayer(map, layer, beforeId) {
+  if (beforeId) map.addLayer(layer, beforeId);
+  else map.addLayer(layer);
+}
+
+function addPropagationLayers(map, propagation) {
+  clearPropagationLayers(map);
+  if (!propagation) return;
+
+  const beforeId = map.getLayer("search-ring-fill") ? "search-ring-fill" : undefined;
+  const coverage = propagation.coverage || {};
+  const rasterBounds = normalizePropagationBounds(coverage?.raster?.bounds);
+  const rasterUrl = coverage?.raster?.url;
+
+  if (rasterBounds && rasterUrl) {
+    map.addSource("talonfit-prop-coverage-raster", {
+      type: "image",
+      url: rasterUrl,
+      coordinates: [
+        [rasterBounds.west, rasterBounds.north],
+        [rasterBounds.east, rasterBounds.north],
+        [rasterBounds.east, rasterBounds.south],
+        [rasterBounds.west, rasterBounds.south],
+      ],
+    });
+    addPropagationLayer(map, {
+      id: "talonfit-prop-coverage-raster",
+      type: "raster",
+      source: "talonfit-prop-coverage-raster",
+      paint: { "raster-opacity": 0.55, "raster-fade-duration": 0 },
+    }, beforeId);
+  }
+
+  if (coverage?.geometry) {
+    map.addSource("talonfit-prop-coverage", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        properties: coverage.properties || {},
+        geometry: coverage.geometry,
+      },
+    });
+    addPropagationLayer(map, {
+      id: "talonfit-prop-coverage",
+      type: "fill",
+      source: "talonfit-prop-coverage",
+      paint: {
+        "fill-color": "#22c55e",
+        "fill-opacity": rasterUrl ? 0.08 : 0.25,
+      },
+    }, beforeId);
+    addPropagationLayer(map, {
+      id: "talonfit-prop-coverage-outline",
+      type: "line",
+      source: "talonfit-prop-coverage",
+      paint: { "line-color": "#86efac", "line-width": 1.5, "line-opacity": 0.95 },
+    }, beforeId);
+  }
+
+  const opportunityZones =
+    propagation.opportunityZones ||
+    propagation.opportunity_zones ||
+    { type: "FeatureCollection", features: [] };
+  if (opportunityZones?.features?.length) {
+    map.addSource("talonfit-prop-opportunities", {
+      type: "geojson",
+      data: opportunityZones,
+    });
+    addPropagationLayer(map, {
+      id: "talonfit-prop-opportunities",
+      type: "fill",
+      source: "talonfit-prop-opportunities",
+      paint: {
+        "fill-color": [
+          "interpolate",
+          ["linear"],
+          ["coalesce", ["to-number", ["get", "score"]], 60],
+          60,
+          "#fbbf24",
+          100,
+          "#f97316",
+        ],
+        "fill-opacity": 0.5,
+      },
+    }, beforeId);
+    addPropagationLayer(map, {
+      id: "talonfit-prop-opportunities-outline",
+      type: "line",
+      source: "talonfit-prop-opportunities",
+      paint: { "line-color": "#fed7aa", "line-width": 0.9 },
+    }, beforeId);
+  }
+
+  const towers = propagationTowerCollection(propagation.towers || []);
+  if (towers.features.length) {
+    map.addSource("talonfit-prop-towers", { type: "geojson", data: towers });
+    addPropagationLayer(map, {
+      id: "talonfit-prop-towers",
+      type: "circle",
+      source: "talonfit-prop-towers",
+      paint: {
+        "circle-radius": 6,
+        "circle-color": "#a855f7",
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 1.5,
+      },
+    }, beforeId);
   }
 }
 
@@ -262,6 +437,7 @@ export default function TalonFitMap({
   solveResult,
   sarfPacket,
   zoningDecision,
+  propagationContext,
 }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
@@ -269,6 +445,7 @@ export default function TalonFitMap({
   const [smartCursor, setSmartCursor] = useState(false);
   const [hover, setHover] = useState(null);
   const [showFallZone, setShowFallZone] = useState(true);
+  const [showPropagation, setShowPropagation] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const markersRef = useRef([]);
@@ -514,6 +691,30 @@ export default function TalonFitMap({
     }
   }, [showFallZone]);
 
+  // A new Propagation Explorer run should be visible as soon as it enters TalonFit.
+  useEffect(() => {
+    if (propagationContext) setShowPropagation(true);
+  }, [propagationContext]);
+
+  // Draw the completed CloudRF/FCC result beneath TalonFit's own ring and tools.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return undefined;
+    try {
+      if (showPropagation && propagationContext) addPropagationLayers(map, propagationContext);
+      else clearPropagationLayers(map);
+    } catch (err) {
+      console.warn("TalonFit propagation overlay draw failed:", err);
+    }
+    return () => {
+      try {
+        if (mapRef.current === map) clearPropagationLayers(map);
+      } catch {
+        // The map may already be destroyed during page teardown.
+      }
+    };
+  }, [mapLoaded, propagationContext, showPropagation]);
+
   // Parcel click → solve → verdict popup, gated to points inside the 2-mile ring
   useEffect(() => {
     const map = mapRef.current;
@@ -701,6 +902,17 @@ export default function TalonFitMap({
         >
           <CircleIcon className="h-3.5 w-3.5" /> Fall Zone
         </button>
+        {propagationContext && (
+          <button
+            onClick={() => setShowPropagation((shown) => !shown)}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg transition-all ${
+              showPropagation ? "border-violet-400 bg-violet-500 text-white" : "border-white/15 bg-slate-900/85 text-white/80 hover:text-white"
+            }`}
+            title="Toggle CloudRF coverage, FCC towers, and RF opportunity zones"
+          >
+            <Radio className="h-3.5 w-3.5" /> RF Overlay
+          </button>
+        )}
         <button
           onClick={handleReset}
           className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-slate-900/85 px-2.5 py-1.5 text-[11px] font-semibold text-white/80 shadow-lg transition-all hover:text-white"
@@ -709,6 +921,22 @@ export default function TalonFitMap({
           <RotateCcw className="h-3.5 w-3.5" /> Reset Map
         </button>
       </div>
+
+      {propagationContext && (
+        <div className="absolute left-14 top-3 z-[1000] rounded-lg border border-violet-400/40 bg-slate-950/90 px-3 py-2 text-[11px] text-slate-200 shadow-xl backdrop-blur">
+          <div className="flex items-center gap-1.5 font-bold text-violet-300">
+            <Radio className="h-3.5 w-3.5" /> Propagation linked to TalonFit
+          </div>
+          <div className="mt-0.5 text-slate-400">
+            {String(propagationContext.carrier || "Carrier").toUpperCase()} · {Number(propagationContext.radius_miles || 1).toFixed(1)} mi · {propagationContext.towers?.length || 0} FCC towers · {(propagationContext.opportunityZones?.features || propagationContext.opportunity_zones?.features || []).length} opportunity zones
+          </div>
+          <div className="mt-1 flex gap-3 text-[10px] text-slate-300">
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-green-500" />Coverage</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-orange-400" />Opportunity</span>
+            <span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-500" />FCC tower</span>
+          </div>
+        </div>
+      )}
 
       {/* Smart cursor tooltip */}
       {smartCursor && hover?.result && (
