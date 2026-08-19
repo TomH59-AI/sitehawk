@@ -125,7 +125,7 @@ async function getAccessToken(): Promise<string> {
     signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) {
-    console.error("[copernicusRfLayer] token request failed", response.status);
+    console.error("[getSatelliteSnapshot] token request failed", response.status);
     throw new Error(`Copernicus authentication failed (${response.status})`);
   }
 
@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
       signal: AbortSignal.timeout(20_000),
     });
     if (!stacResponse.ok) {
-      console.error("[copernicusRfLayer] STAC request failed", stacResponse.status);
+      console.error("[getSatelliteSnapshot] STAC request failed", stacResponse.status);
       throw new Error(`Copernicus catalogue request failed (${stacResponse.status})`);
     }
     const stac = await stacResponse.json();
@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
     });
     if (!processResponse.ok) {
       const detail = (await processResponse.text()).slice(0, 500);
-      console.error("[copernicusRfLayer] Process API failed", processResponse.status, detail);
+      console.error("[getSatelliteSnapshot] Process API failed", processResponse.status, detail);
       throw new Error(`Copernicus image processing failed (${processResponse.status})`);
     }
 
@@ -282,7 +282,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Copernicus request failed";
-    console.error("[copernicusRfLayer]", message);
+    console.error("[getSatelliteSnapshot]", message);
     const status = /bbox|Zoom in|Date range|from must/.test(message) ? 400 : 502;
     return Response.json({ error: message }, { status });
   }
