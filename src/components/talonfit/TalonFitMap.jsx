@@ -423,6 +423,7 @@ function ProbePopupContent({ probe, hideSave, towerHeightFt, savedCount, onSave,
  * popup, auto-selected targets, and saved-site pins.
  */
 export default function TalonFitMap({
+  active = true,
   anchor,
   radiusMiles,
   probe,
@@ -576,6 +577,21 @@ export default function TalonFitMap({
       }
     };
   }, []);
+
+  // A Mapbox canvas rendered inside a hidden tab keeps a zero/stale size.
+  // Resize it as soon as TalonFit becomes visible after a Propagation handoff.
+  useEffect(() => {
+    if (!active || !mapRef.current) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const map = mapRef.current;
+      if (!map) return;
+      map.resize();
+      if (anchor) {
+        map.jumpTo({ center: [anchor.lon, anchor.lat], zoom: 15 });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [active, anchor?.lat, anchor?.lon]);
 
   // Fly to anchor changes (Set Ring → zoom 15) and refresh dynamic sources
   useEffect(() => {
