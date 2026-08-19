@@ -16,7 +16,12 @@ const SectionHeader = ({ children }) => (
 );
 
 function isPending(value) {
-  return value == null || value === "" || value === "Pending verification" || value === "Pending" || value === "—";
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return value == null || normalized === "" || normalized.startsWith("pending") || normalized === "—";
+}
+
+function firstResolved(...values) {
+  return values.find((value) => !isPending(value)) ?? null;
 }
 
 function formatUrl(url) {
@@ -91,41 +96,41 @@ export default function TalonFitDataPanel({
   };
 
   // ── Parcel values ──
-  const address = parcel.address || parcel.full_address || parcelDetails.address || null;
-  const apn = parcel.apn || parcel.parcel_number || parcel.parcel_id || parcelDetails.parcel_id || null;
-  const owner = parcel.owner_name || parcel.owner || parcelDetails.owner || null;
+  const address = firstResolved(parcel.address, parcel.full_address, parcelDetails.address);
+  const apn = firstResolved(parcel.apn, parcel.parcel_number, parcel.parcel_id, parcelDetails.parcel_id);
+  const owner = firstResolved(parcel.owner_name, parcel.owner, parcelDetails.owner);
   const acreageRaw = parcel.acreage ?? parcelDetails.acreage ?? null;
   const acreage = Number.isFinite(Number(acreageRaw)) && Number(acreageRaw) > 0 ? `${Number(acreageRaw).toFixed(2)} ac` : null;
-  const zoning =
-    parcel.zoning_classification ||
-    parcel.zoning ||
-    ord.zoning_district ||
-    parcelDetails.zoning ||
-    parcelDetails.zoning_classification ||
-    null;
-  const jurisdiction =
-    parcel.jurisdiction ||
-    ord._jurisdiction ||
-    ord.jurisdiction ||
-    parcel.city ||
-    parcel.county ||
-    parcelDetails.county ||
-    null;
+  const zoning = firstResolved(
+    parcel.zoning_classification,
+    parcel.zoning,
+    ord.zoning_district,
+    parcelDetails.zoning,
+    parcelDetails.zoning_classification
+  );
+  const jurisdiction = firstResolved(
+    parcel.jurisdiction,
+    ord._jurisdiction,
+    ord.jurisdiction,
+    parcel.city,
+    parcel.county,
+    parcelDetails.county
+  );
 
   // ── Constraint values ──
-  const fallZoneMult = calc.effective_fall_zone_mult ?? calc.effective_fall_zone_multiplier ?? null;
-  const distToProp = calc.distance_to_property_line_ft ?? null;
-  const nearestTower = calc.nearest_tower_distance_ft ?? calc.distance_to_nearest_existing_tower_ft ?? null;
-  const nearestStructure = calc.nearest_structure_distance_ft ?? calc.distance_to_nearest_external_structure_ft ?? null;
-  const maxBuildable = calc.max_buildable_height_ft ?? calc.maximum_buildable_height_ft ?? null;
-  const peLetter = calc.pe_letter_required;
-  const distFromCenter = calc.distance_from_ring_center_mi ?? calc.distance_from_ring_center_miles ?? null;
+  const fallZoneMult = firstResolved(calc.effective_fall_zone_mult, calc.effective_fall_zone_multiplier);
+  const distToProp = firstResolved(calc.distance_to_property_line_ft);
+  const nearestTower = firstResolved(calc.nearest_tower_distance_ft, calc.distance_to_nearest_existing_tower_ft);
+  const nearestStructure = firstResolved(calc.nearest_structure_distance_ft, calc.distance_to_nearest_external_structure_ft);
+  const maxBuildable = firstResolved(calc.max_buildable_height_ft, calc.maximum_buildable_height_ft);
+  const peLetter = typeof calc.pe_letter_required === "boolean" ? calc.pe_letter_required : null;
+  const distFromCenter = firstResolved(calc.distance_from_ring_center_mi, calc.distance_from_ring_center_miles);
 
   // ── Ordinance values ──
-  const heightLimit = ord.height_limit ?? ord.max_tower_height ?? ord.maximum_tower_height_ft ?? null;
-  const approvalPath = ord.approval_path ?? ord.permit_type ?? null;
-  const setbackRule = ord.setback_rule ?? ord.property_line_rule ?? null;
-  const ordinanceSource = ord.source ?? ord.ordinance_url ?? ord.ordinance_source_url ?? null;
+  const heightLimit = firstResolved(ord.height_limit, ord.max_tower_height, ord.maximum_tower_height_ft);
+  const approvalPath = firstResolved(ord.approval_path, ord.permit_type);
+  const setbackRule = firstResolved(ord.setback_rule, ord.property_line_rule);
+  const ordinanceSource = firstResolved(ord.source, ord.ordinance_url, ord.ordinance_source_url);
 
   const setbackDisplay =
     setbackRule == null
