@@ -74,6 +74,48 @@ function mergeCodeHawkRules(base: any, record: any) {
   };
 }
 
+function decisionNumber(value: any): number | null {
+  if (Number.isFinite(Number(value))) return Number(value);
+  const match = String(value ?? "").match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function mergePipelineZoningDecision(base: any, decision: any) {
+  if (!decision || typeof decision !== "object") return base;
+  const height = decisionNumber(decision.heightLimit);
+  const setback = decisionNumber(decision.setbacks);
+  const towerSeparation = decisionNumber(decision.towerSeparation);
+  const structureSeparation = decisionNumber(decision.structureSeparation);
+  const sourceUrl = decision.ordinanceUrl || base?.ordinance_source_url || null;
+  const hasPipelineRules = [height, setback, towerSeparation, structureSeparation].some((v) => v != null);
+
+  return {
+    ...(base || {}),
+    maximum_tower_height_ft: height ?? base?.maximum_tower_height_ft ?? null,
+    property_line_rule: {
+      ...(base?.property_line_rule || {}),
+      fixed_distance_ft: setback ?? base?.property_line_rule?.fixed_distance_ft ?? 0,
+      data_status: setback != null ? "verified" : base?.property_line_rule?.data_status || "missing",
+    },
+    tower_separation: {
+      ...(base?.tower_separation || {}),
+      required_distance_ft: towerSeparation ?? base?.tower_separation?.required_distance_ft ?? null,
+      data_status: towerSeparation != null ? "verified" : base?.tower_separation?.data_status || "missing",
+    },
+    structure_separation: {
+      ...(base?.structure_separation || {}),
+      required_distance_ft: structureSeparation ?? base?.structure_separation?.required_distance_ft ?? null,
+      data_status: structureSeparation != null ? "verified" : base?.structure_separation?.data_status || "missing",
+    },
+    approval_path: decision.conditionalUse || decision.specialPermits || base?.approval_path || null,
+    ordinance_source_url: sourceUrl,
+    ordinance_data_verified: Boolean(base?.ordinance_data_verified || (sourceUrl && hasPipelineRules)),
+    zoning_district: decision.zoningDistrict || base?.zoning_district || null,
+    _jurisdiction: decision.jurisdiction || base?._jurisdiction || null,
+    _pipeline_zoning_decision: decision,
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -122,6 +164,10 @@ Deno.serve(async (req) => {
         console.warn("TelecomOrdinance registry lookup failed:", e?.message || String(e));
       }
     }
+
+    // The resolved Site Search zoning packet is the final in-app overlay. It
+    // supplements live registry data without inventing values for missing fields.
+    if (body.zoning_decision) rules = mergePipelineZoningDecision(rules, body.zoning_decision);
 
     if (!parcel) {
       return Response.json({
