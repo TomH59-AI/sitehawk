@@ -514,7 +514,7 @@ export default function TalonFit() {
             min="50"
             max="500"
             value={heightFt}
-            onChange={(e) => setHeightFt(e.target.value)}
+            onChange={(e) => setHeightFt(Number(e.target.value))}
             className="w-32 rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-xs text-slate-100"
           />
         </div>
