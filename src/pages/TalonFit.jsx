@@ -87,6 +87,7 @@ export default function TalonFit() {
   const [propagationContext, setPropagationContext] = useState(null);
   const [siteLoading, setSiteLoading] = useState(false);
   const [siteError, setSiteError] = useState("");
+  const [siteAnalysisNonce, setSiteAnalysisNonce] = useState(0);
   const siteAnalysisRequestRef = useRef(0);
 
   const nextLetter = saved.length < MAX_SAVED ? LETTERS[saved.length] : null;
@@ -116,7 +117,7 @@ export default function TalonFit() {
     setSiteError("");
     const timer = window.setTimeout(async () => {
       try {
-        const { data } = await invokeTalonfitSolve({
+        const response = await invokeTalonfitSolve({
           lat: anchor.lat,
           lon: anchor.lon,
           center_lat: anchor.lat,
@@ -129,6 +130,8 @@ export default function TalonFit() {
           zoning_decision: activeZoningDecision,
         });
         if (siteAnalysisRequestRef.current !== requestId) return;
+        const data = response?.data ?? response;
+        if (!data) throw new Error("The TalonFit service returned an empty response. Try the site again.");
         setSolveResult(data);
       } catch (e) {
         if (siteAnalysisRequestRef.current !== requestId) return;
@@ -139,7 +142,7 @@ export default function TalonFit() {
     }, 200);
 
     return () => window.clearTimeout(timer);
-  }, [anchor?.lat, anchor?.lon]);
+  }, [anchor?.lat, anchor?.lon, siteAnalysisNonce]);
 
   const handleSetCenter = useCallback(() => {
     const lat = parseFloat(centerLat);
@@ -156,6 +159,7 @@ export default function TalonFit() {
     setSolveResult(null);
     setPropagationContext(null);
     setSiteError("");
+    setSiteAnalysisNonce((value) => value + 1);
   }, [centerLat, centerLon]);
 
   // ── Auto-select 3 targets: solve at 3 points around the ring ──
