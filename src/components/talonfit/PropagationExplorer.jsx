@@ -885,7 +885,7 @@ export default function PropagationExplorer({
         <div className="mb-4">
           <div className="flex items-center gap-2 text-cyan-300">
             <Radio className="h-5 w-5" />
-            <span className="text-xs font-bold uppercase tracking-[0.2em]">RF Intelligence</span>
+            <span className="text-xs font-bold uppercase tracking-[0.2em]">Siting IQ™</span>
           </div>
           <h2 className="mt-1 text-lg font-bold">Propagation Explorer</h2>
           <p className="mt-1 text-xs leading-5 text-slate-400">
