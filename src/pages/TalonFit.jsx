@@ -387,6 +387,8 @@ export default function TalonFit() {
             heightFt={heightFt}
             onReset={handleReset}
             solveResult={solveResult}
+            sarfPacket={sarfPacket}
+            zoningDecision={zoningDecision}
           />
 
           {/* ── Saved targets tray — bottom of map, always visible ── */}
