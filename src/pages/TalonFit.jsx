@@ -484,6 +484,7 @@ export default function TalonFit() {
         />
         <div className="relative h-full flex-1">
           <TalonFitMap
+            active={activeView === "talonfit"}
             anchor={anchor}
             radiusMiles={RADIUS_MILES}
             probe={probe}
