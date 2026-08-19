@@ -73,27 +73,32 @@ export async function fetchParcel(lat: number, lon: number, apiKey: string) {
       latitude: String(lat), longitude: String(lon), radius, limit: "20",
       includeUnassignedAddress: "true",
     })}`;
-    const r = await fetchWithTimeout(url, { headers: { Authorization: apiKey } }, 2500);
-    if (!r.ok) { if (r.status !== 404) console.error("Realie HTTP", r.status); continue; }
-    const data = await r.json().catch(() => null);
-    const list = Array.isArray(data?.properties) ? data.properties
-      : Array.isArray(data?.data) ? data.data
-      : data?.property ? [data.property] : [];
-    if (!list.length) continue;
-    const p = list.find((c: any) => c?.geometry && polygonCheck(c.geometry, { latitude: lat, longitude: lon })?.inside) || list[0];
-    return {
-      parcel_id: String(p.parcelId || p.parcelNumber || p.apn || "unknown"),
-      address: p.address || p.fullAddress || p.situsAddress || null,
-      jurisdiction: [p.city || p.situsCity || p.county, p.state].filter(Boolean).join(", ") || null,
-      zoning_classification: p.zoningCode || p.zoning || null,
-      standardized_zoning_type: p.zoningType || p.standardizedZoningType || null,
-      standardized_zoning_subtype: p.zoningSubtype || p.standardizedZoningSubtype || null,
-      geometry: p.geometry || null,
-      owner: p.ownerName || p.owner || null,
-      acreage: p.lotSizeAcres ?? p.acres ?? p.acreage ?? null,
-      county: p.county || null,
-      state: p.state || null,
-    };
+    try {
+      const r = await fetchWithTimeout(url, { headers: { Authorization: apiKey } }, 2500);
+      if (!r.ok) { if (r.status !== 404) console.error("Realie HTTP", r.status); continue; }
+      const data = await r.json().catch(() => null);
+      const list = Array.isArray(data?.properties) ? data.properties
+        : Array.isArray(data?.data) ? data.data
+        : data?.property ? [data.property] : [];
+      if (!list.length) continue;
+      const p = list.find((c: any) => c?.geometry && polygonCheck(c.geometry, { latitude: lat, longitude: lon })?.inside) || list[0];
+      return {
+        parcel_id: String(p.parcelId || p.parcelNumber || p.apn || "unknown"),
+        address: p.address || p.fullAddress || p.situsAddress || null,
+        jurisdiction: [p.city || p.situsCity || p.county, p.state].filter(Boolean).join(", ") || null,
+        zoning_classification: p.zoningCode || p.zoning || null,
+        standardized_zoning_type: p.zoningType || p.standardizedZoningType || null,
+        standardized_zoning_subtype: p.zoningSubtype || p.standardizedZoningSubtype || null,
+        geometry: p.geometry || null,
+        owner: p.ownerName || p.owner || null,
+        acreage: p.lotSizeAcres ?? p.acres ?? p.acreage ?? null,
+        county: p.county || null,
+        state: p.state || null,
+        parcel_source: "Realie",
+      };
+    } catch (error) {
+      console.warn(`Realie radius ${radius} unavailable:`, error?.message || String(error));
+    }
   }
   return await fetchFloridaCadastralParcel(lat, lon);
 }
