@@ -4,6 +4,7 @@ import { base44 } from "@/api/base44Client";
 import MailOrdersHero from "@/components/mailorders/MailOrdersHero";
 import PostcardCampaignLauncher from "@/components/mailorders/PostcardCampaignLauncher";
 import PostcardOrderHistory from "@/components/mailorders/PostcardOrderHistory";
+import PostcardTemplatesPanel from "@/components/mailorders/PostcardTemplatesPanel";
 
 export default function MailOrders() {
   const [records, setRecords] = useState([]);
@@ -16,5 +17,5 @@ export default function MailOrders() {
     setLoading(false);
   }, []);
   useEffect(() => { load(); }, [load]);
-  return <div className="space-y-6"><MailOrdersHero />{loading ? <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div> : <><PostcardCampaignLauncher records={records} onRefresh={load} /><PostcardOrderHistory orders={orders} /></>}</div>;
+  return <div className="space-y-6"><MailOrdersHero />{loading ? <div className="flex justify-center py-16"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div> : <><PostcardCampaignLauncher records={records} onRefresh={load} /><PostcardTemplatesPanel /><PostcardOrderHistory orders={orders} /></>}</div>;
 }

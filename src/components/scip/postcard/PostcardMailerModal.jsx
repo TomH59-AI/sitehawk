@@ -4,9 +4,25 @@ import { sendPostcardMailers } from "@/functions/sendPostcardMailers";
 import { draftHawkBotLetter } from "@/functions/draftHawkBotLetter";
 import {
   X, Send, Loader2, CheckCircle2, AlertTriangle, MapPin, Wand2, PenLine,
-  ShieldCheck, Eye, Plus, ImagePlus,
+  ShieldCheck, Eye, Plus, ImagePlus, FileText,
 } from "lucide-react";
 import PostcardPreview from "./PostcardPreview";
+
+const MERGE_SUBSTITUTIONS = (r, sender) => ({
+  "{{owner_name}}": r.owner_name || "Property Owner",
+  "{{parcel_address}}": r.parcel_address || "your property",
+  "{{mailing_address}}": r.mailing_address || "",
+  "{{sender_name}}": sender.name || sender.company || "",
+  "{{sender_company}}": sender.company || "",
+  "{{sender_phone}}": sender.phone || "",
+  "{{sender_email}}": sender.email || "",
+});
+
+function applyMergeFields(body, recipient, sender) {
+  if (!body) return "";
+  const subs = MERGE_SUBSTITUTIONS(recipient, sender);
+  return Object.entries(subs).reduce((acc, [k, v]) => acc.replaceAll(k, v), body);
+}
 
 const TARGET_LABELS = ["Target A", "Target B", "Target C"];
 
@@ -39,6 +55,37 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
   const [tone, setTone] = useState("friendly");
   const [drafting, setDrafting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+
+  // Load saved postcard templates (default is pre-selected).
+  useEffect(() => {
+    (async () => {
+      try {
+        const rows = await base44.entities.PostcardTemplate.list("-updated_date", 50);
+        setTemplates(rows || []);
+        const def = (rows || []).find((t) => t.is_default);
+        if (def) {
+          setSelectedTemplateId(def.id);
+          setMessage(def.body || "");
+          setTone(def.tone || "friendly");
+        }
+      } catch { /* ignore */ } finally {
+        setTemplatesLoading(false);
+      }
+    })();
+  }, []);
+
+  const applyTemplate = (templateId) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const t = templates.find((x) => x.id === templateId);
+    if (t) {
+      setMessage(t.body || "");
+      setTone(t.tone || tone);
+    }
+  };
 
   const [phase, setPhase] = useState("setup"); // setup | verifying | confirm | sending | error
   const [verified, setVerified] = useState(null); // verified recipients from backend
@@ -272,6 +319,27 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
                 </div>
               </div>
 
+              {/* Saved template selector */}
+              <div>
+                <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">Saved Template (optional)</p>
+                {templatesLoading ? (
+                  <div className="text-xs text-muted-foreground flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading templates…</div>
+                ) : templates.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">No saved templates yet. Draft with Brian below or create reusable templates in the Mail Orders tab.</div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <select value={selectedTemplateId} onChange={(e) => applyTemplate(e.target.value)}
+                      className="min-w-0 flex-1 rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                      <option value="">— None (draft fresh) —</option>
+                      {templates.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}{t.is_default ? " (default)" : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
               {/* HawkBot draft */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -301,7 +369,7 @@ export default function PostcardMailerModal({ record, onClose, onSent }) {
                 <button onClick={() => setShowPreview((v) => !v)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
                   <Eye className="w-4 h-4" /> {showPreview ? "Hide" : "Show"} postcard preview
                 </button>
-                {showPreview && <div className="mt-3"><PostcardPreview recipient={previewRecip} sender={sender} message={message} /></div>}
+                {showPreview && <div className="mt-3"><PostcardPreview recipient={previewRecip} sender={sender} message={applyMergeFields(message, previewRecip, sender)} /></div>}
               </div>
 
               {/* Verify + price */}
