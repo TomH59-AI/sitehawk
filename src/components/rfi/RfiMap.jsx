@@ -342,6 +342,62 @@ export default function RfiMap({
     );
   }, [loadCopernicusForView]);
 
+  // ── FAA OE/AAA / Part 77 screening at the map center ───────────────────────
+  const loadOEAAAForView = useCallback(async (map) => {
+    if (!map || !oeaaaEnabledRef.current) return;
+    const center = map.getCenter();
+    const requestId = ++oeaaaRequestRef.current;
+    setLoadingOEAAA(true);
+    setOEAAAMeta(null);
+
+    try {
+      const { data } = await oeaaaAirspaceAnalysis({
+        lat: center.lat,
+        lng: center.lng,
+        radiusMiles: 3,
+      });
+      if (requestId !== oeaaaRequestRef.current || !oeaaaEnabledRef.current) return;
+      if (!data || data.error) throw new Error(data?.error || "FAA screening returned no data.");
+
+      map.getSource("rfi-oeaaa-surfaces")?.setData(data.part77Surfaces || EMPTY_FC);
+      map.getSource("rfi-oeaaa-hazards")?.setData(data.hazardZones || EMPTY_FC);
+      map.getSource("rfi-oeaaa-airports")?.setData({
+        type: "FeatureCollection",
+        features: (data.nearestAirports || [])
+          .filter((airport) => Number.isFinite(airport.lng) && Number.isFinite(airport.lat))
+          .map((airport) => ({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [airport.lng, airport.lat] },
+            properties: {
+              id: airport.id || "",
+              name: airport.name || "Airport",
+              type: airport.type || "",
+              distanceMiles: airport.distanceMiles,
+            },
+          })),
+      });
+      setOEAAAMeta({
+        summary: data.summary,
+        nearestAirports: data.nearestAirports || [],
+        surfaceCount: data.part77Surfaces?.features?.length || 0,
+      });
+    } catch (e) {
+      if (requestId !== oeaaaRequestRef.current) return;
+      setOEAAAMeta({ notice: e.message || "FAA screening failed to load." });
+      toast.error(e.message || "FAA screening failed to load.");
+    } finally {
+      if (requestId === oeaaaRequestRef.current) setLoadingOEAAA(false);
+    }
+  }, []);
+
+  const scheduleOEAAALoad = useCallback((map, immediate = false) => {
+    if (oeaaaTimerRef.current) window.clearTimeout(oeaaaTimerRef.current);
+    oeaaaTimerRef.current = window.setTimeout(
+      () => loadOEAAAForView(map),
+      immediate ? 0 : 500
+    );
+  }, [loadOEAAAForView]);
+
   // ── Apply carrier/band/tech filters to the tower source ─────────────────────
   const applyTowerFilter = useCallback(() => {
     const map = mapRef.current;
@@ -382,6 +438,34 @@ export default function RfiMap({
     if (map.getLayer("rfi-copernicus")) map.setLayoutProperty("rfi-copernicus", "visibility", "visible");
     scheduleCopernicusLoad(map, true);
   }, [layers.copernicus, satelliteMode, ready, scheduleCopernicusLoad]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const layerIds = [
+      "rfi-oeaaa-surfaces-fill",
+      "rfi-oeaaa-surfaces-outline",
+      "rfi-oeaaa-hazards-fill",
+      "rfi-oeaaa-airports",
+    ];
+    if (!layers.oeaaa) {
+      oeaaaRequestRef.current += 1;
+      if (oeaaaTimerRef.current) window.clearTimeout(oeaaaTimerRef.current);
+      layerIds.forEach((id) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+      });
+      map.getSource("rfi-oeaaa-surfaces")?.setData(EMPTY_FC);
+      map.getSource("rfi-oeaaa-hazards")?.setData(EMPTY_FC);
+      map.getSource("rfi-oeaaa-airports")?.setData(EMPTY_FC);
+      setLoadingOEAAA(false);
+      setOEAAAMeta(null);
+      return;
+    }
+    layerIds.forEach((id) => {
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible");
+    });
+    scheduleOEAAALoad(map, true);
+  }, [layers.oeaaa, ready, scheduleOEAAALoad]);
 
   // ── Base-map switch — Mapbox base or a USGS raster overlay on top of it ────
   useEffect(() => {
