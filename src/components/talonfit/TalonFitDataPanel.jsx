@@ -33,10 +33,10 @@ function formatUrl(url) {
 function sourceLabel(source, defaultName) {
   if (!source) return `${defaultName}: awaiting site analysis`;
   if (source.status === "connected" || source.status === "verified") {
-    const count = Number(source.count);
+    const count = Number(source.records ?? source.count);
     return Number.isFinite(count) ? `${defaultName}: connected (${count})` : `${defaultName}: connected`;
   }
-  if (source.status === "no_parcel") return `${defaultName}: no parcel at coordinate`;
+  if (source.status === "no_parcel" || source.status === "no_match") return `${defaultName}: no parcel at coordinate`;
   if (source.status === "waiting") return `${defaultName}: waiting for parcel`;
   return `${defaultName}: source unavailable`;
 }
