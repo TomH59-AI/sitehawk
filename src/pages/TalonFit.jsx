@@ -12,6 +12,24 @@ const RADIUS_MILES = 2;
 const MAX_SAVED = 3;
 const LETTERS = ["D", "E", "F"];
 
+async function invokeTalonfitSolve(payload, timeoutMs = 25000) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(
+      () => reject(new Error("Live TalonFit sources took too long to respond. Try the site again.")),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([
+      base44.functions.invoke("talonfitAiSolve", payload),
+      timeout,
+    ]);
+  } finally {
+    if (timer) window.clearTimeout(timer);
+  }
+}
+
 // Coordinate-bearing packets are reusable only when they belong to the
 // exact site currently centered in TalonFit.
 function packetMatchesSite(packet, anchor) {
@@ -98,7 +116,7 @@ export default function TalonFit() {
     setSiteError("");
     const timer = window.setTimeout(async () => {
       try {
-        const { data } = await base44.functions.invoke("talonfitAiSolve", {
+        const { data } = await invokeTalonfitSolve({
           lat: anchor.lat,
           lon: anchor.lon,
           center_lat: anchor.lat,
@@ -149,7 +167,7 @@ export default function TalonFit() {
     const results = await Promise.all(
       points.map(async (pt, _i) => {
         try {
-          const { data } = await base44.functions.invoke("talonfitAiSolve", {
+          const { data } = await invokeTalonfitSolve({
             lat: pt.lat,
             lon: pt.lon,
             center_lat: anchor.lat,
@@ -184,7 +202,7 @@ export default function TalonFit() {
     if (!anchor) return;
     setProbe({ lat, lon, solving: true, solve: null });
     try {
-      const { data } = await base44.functions.invoke("talonfitAiSolve", {
+      const { data } = await invokeTalonfitSolve({
         lat,
         lon,
         center_lat: anchor.lat,
