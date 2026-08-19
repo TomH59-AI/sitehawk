@@ -165,7 +165,7 @@ function addRingLayers(map, lat, lon, radiusMiles) {
   return ring;
 }
 
-function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
+function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady, onSarfComplete }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
@@ -256,6 +256,17 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
       const geoKey = `${lat},${lon},${radiusMiles}`;
       if (mapRef.current && lastKeyRef.current === geoKey) {
         placeMarker(mapRef.current);
+        const ring = buildCircle(lat, lon, radiusMiles);
+        onSarfComplete?.({
+          jurisdiction: null,
+          zoningDistrict: null,
+          ordinanceUrl: null,
+          parcelApn: null,
+          parcelAddress: null,
+          coordinates: { lat, lng: lon },
+          sarfMapSnapshot: ring,
+          sarfConfidenceScore: "map_verified",
+        });
         onReady?.();
         return;
       }
@@ -356,6 +367,18 @@ function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady }) {
           { padding: 60, duration: 0 }
         );
         lastKeyRef.current = geoKey;
+        // SARF owns the pipeline emitter. Zoning enriches this packet in Section 2;
+        // TalonFit only consumes the resolved decision and never creates SARF data.
+        onSarfComplete?.({
+          jurisdiction: null,
+          zoningDistrict: null,
+          ordinanceUrl: null,
+          parcelApn: null,
+          parcelAddress: null,
+          coordinates: { lat, lng: lon },
+          sarfMapSnapshot: ring,
+          sarfConfidenceScore: "map_verified",
+        });
         onReady?.();
 
         // Realie parcel boundaries + zoning classifications inside the ring —
