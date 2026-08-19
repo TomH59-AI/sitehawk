@@ -41,7 +41,11 @@ test("normalizes lit buildings, telco points, and route geometry", () => {
     "Point",
     "Point",
   ]);
-  assert.equal(geojson.features[1].properties.status, "on-net");
+  assert.equal(geojson.features[0].properties.status, "unknown");
+  assert.equal(geojson.features[1].properties.network_access, "on-net");
+  assert.equal(geojson.features[1].properties.source, "carrierfinder");
+  assert.equal(geojson.features[1].properties._cf_geometry_valid, true);
+  assert.equal(geojson.features[1].id, "site-1");
   assert.equal("telco_telconumber" in geojson.features[2].properties, false);
 });
 
@@ -55,6 +59,8 @@ test("drops malformed coordinates and returns only whitelisted metadata", () => 
   assert.equal(geojson.features.length, 1);
 
   const metadata = safeFeatureMetadata(geojson.features[0]);
-  assert.equal(metadata.operator, "Good Point");
-  assert.equal("secret_contact" in metadata, false);
+  assert.equal(metadata.feature_type, "node");
+  assert.equal(metadata.properties.operator, "Good Point");
+  assert.deepEqual(metadata.raw, {});
+  assert.equal("secret_contact" in metadata.properties, false);
 });
