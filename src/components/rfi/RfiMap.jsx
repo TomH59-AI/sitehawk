@@ -33,7 +33,6 @@ export default function RfiMap({
   const [loadingTowers, setLoadingTowers] = useState(false);
   const [loadingCopernicus, setLoadingCopernicus] = useState(false);
   const [copernicusMeta, setCopernicusMeta] = useState(null);
-  const [drawing, setDrawing] = useState(false);
   const [towerCount, setTowerCount] = useState(0);
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
   const [baseLayer, setBaseLayer] = useState("usgs_imagery_topo");
@@ -200,7 +199,6 @@ export default function RfiMap({
       mapRef.current?.remove?.();
       mapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Load towers for the current viewport ────────────────────────────────────
@@ -225,7 +223,6 @@ export default function RfiMap({
     } finally {
       setLoadingTowers(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Copernicus viewport imagery ─────────────────────────────────────────────
@@ -359,7 +356,6 @@ export default function RfiMap({
     if (!map) return;
     const c = map.getCenter();
     const activeCarrier = [...filters.carriers][0] || "VZW";
-    setDrawing(true);
     onDrawingChange?.(true);
     try {
       const { data } = await cloudRFCoveragePolygon({
@@ -384,7 +380,6 @@ export default function RfiMap({
     } catch (e) {
       toast.error(e?.response?.data?.error || e.message || "Coverage modeling failed.");
     } finally {
-      setDrawing(false);
       onDrawingChange?.(false);
     }
   }, [filters, onDrawingChange]);
