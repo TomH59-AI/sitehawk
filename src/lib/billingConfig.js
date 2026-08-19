@@ -13,6 +13,7 @@ export const TIERS = {
     lease_site_cap: 0,
     hawk_law: false,
     carrier_overlay: false,
+    propagation_daily_quota: 0,
     unlimited: false,
   },
   hawk_site: {
@@ -25,6 +26,7 @@ export const TIERS = {
     lease_site_cap: 5,
     hawk_law: false,
     carrier_overlay: false,
+    propagation_daily_quota: 0,
     unlimited: false,
   },
   hawk_site_law: {
@@ -37,6 +39,7 @@ export const TIERS = {
     lease_site_cap: 5,
     hawk_law: true,
     carrier_overlay: false,
+    propagation_daily_quota: 0,
     unlimited: false,
   },
   hawk_vision: {
@@ -49,6 +52,7 @@ export const TIERS = {
     lease_site_cap: 25,
     hawk_law: true,
     carrier_overlay: true,
+    propagation_daily_quota: 10,
     unlimited: false,
   },
   hawk_vision_law: {
@@ -61,6 +65,7 @@ export const TIERS = {
     lease_site_cap: 25,
     hawk_law: true,
     carrier_overlay: true,
+    propagation_daily_quota: 25,
     unlimited: false,
   },
   hawk_command: {
@@ -72,6 +77,7 @@ export const TIERS = {
     lease_site_cap: Infinity,
     hawk_law: true,
     carrier_overlay: true,
+    propagation_daily_quota: Infinity,
     unlimited: true,
   },
 };
@@ -113,6 +119,7 @@ export const GATE_UPGRADE = {
   hawk_law: { free: "hawk_site_law", hawk_site: "hawk_site_law", hawk_vision: "hawk_vision_law" },
   lease_site: { free: "hawk_site", hawk_site: "hawk_vision", hawk_site_law: "hawk_vision_law" },
   carrier_overlay: { free: "hawk_vision", hawk_site: "hawk_vision", hawk_site_law: "hawk_vision_law" },
+  propagation: { free: "hawk_vision", hawk_site: "hawk_vision", hawk_site_law: "hawk_vision_law", hawk_vision: "hawk_command", hawk_vision_law: "hawk_command" },
   photo_3d: { free: "hawk_vision", hawk_site: "hawk_vision", hawk_site_law: "hawk_vision_law" },
 };
 
