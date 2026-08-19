@@ -25,16 +25,46 @@ function formatUrl(url) {
   return url.startsWith("http") ? url : `https://${url}`;
 }
 
+function sourceLabel(source, defaultName) {
+  if (!source) return `${defaultName}: awaiting site analysis`;
+  if (source.status === "connected" || source.status === "verified") {
+    const count = Number(source.count);
+    return Number.isFinite(count) ? `${defaultName}: connected (${count})` : `${defaultName}: connected`;
+  }
+  if (source.status === "no_parcel") return `${defaultName}: no parcel at coordinate`;
+  if (source.status === "waiting") return `${defaultName}: waiting for parcel`;
+  return `${defaultName}: source unavailable`;
+}
+
 /**
  * TalonFitDataPanel — persistent dark sidebar that keeps parcel, zoning,
  * and TalonFit™ constraint data on screen after a probe.
  */
-export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, towerHeightFt, lat, lon, saved }) {
+export default function TalonFitDataPanel({
+  solveResult,
+  isOpen,
+  onToggle,
+  towerHeightFt,
+  lat,
+  lon,
+  saved,
+  loading = false,
+  error = "",
+}) {
   const calc = solveResult?.calculated_result || {};
   const parcel = solveResult?.parcel || {};
   const parcelDetails = solveResult?.parcel_details || {};
   const ordRaw = solveResult?.ordinance || solveResult?.ordinance_rules || {};
   const ord = ordRaw || {};
+  const dataSources = solveResult?.data_sources || {};
+  const hasCoordinates = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
+  const unavailableText = !hasCoordinates
+    ? "Set site coordinates"
+    : loading
+    ? "Loading live data…"
+    : error
+    ? "Connected source unavailable"
+    : "Not returned by source";
 
   const ht = towerHeightFt || 199;
 
@@ -66,8 +96,21 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
   const owner = parcel.owner_name || parcel.owner || parcelDetails.owner || null;
   const acreageRaw = parcel.acreage ?? parcelDetails.acreage ?? null;
   const acreage = Number.isFinite(Number(acreageRaw)) && Number(acreageRaw) > 0 ? `${Number(acreageRaw).toFixed(2)} ac` : null;
-  const zoning = parcel.zoning || ord.zoning_district || parcelDetails.zoning_classification || null;
-  const jurisdiction = parcel.jurisdiction || parcel.city || parcel.county || parcelDetails.county || null;
+  const zoning =
+    parcel.zoning_classification ||
+    parcel.zoning ||
+    ord.zoning_district ||
+    parcelDetails.zoning ||
+    parcelDetails.zoning_classification ||
+    null;
+  const jurisdiction =
+    parcel.jurisdiction ||
+    ord._jurisdiction ||
+    ord.jurisdiction ||
+    parcel.city ||
+    parcel.county ||
+    parcelDetails.county ||
+    null;
 
   // ── Constraint values ──
   const fallZoneMult = calc.effective_fall_zone_mult ?? calc.effective_fall_zone_multiplier ?? null;
@@ -89,30 +132,45 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
       ? null
       : typeof setbackRule === "string"
       ? setbackRule
-      : setbackRule.rule || setbackRule.description || setbackRule.fixed_distance_ft != null
-      ? `${setbackRule.fixed_distance_ft} ft${setbackRule.rule ? ` · ${setbackRule.rule}` : ""}`
-      : null;
+      : [
+          setbackRule.fixed_distance_ft != null ? `${setbackRule.fixed_distance_ft} ft` : null,
+          setbackRule.rule || setbackRule.description || null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || null;
 
   const ordinanceUrl = formatUrl(ordinanceSource);
 
-  // ── Pending items ──
-  const pendingItems = [];
-  if (isPending(address)) pendingItems.push("Parcel address");
-  if (isPending(apn)) pendingItems.push("APN / parcel number");
-  if (isPending(owner)) pendingItems.push("Owner name");
-  if (isPending(acreage)) pendingItems.push("Acreage");
-  if (isPending(zoning)) pendingItems.push("Zoning classification");
-  if (isPending(jurisdiction)) pendingItems.push("Jurisdiction");
-  if (isPending(fallZoneMult)) pendingItems.push("Fall zone multiplier");
-  if (isPending(distToProp)) pendingItems.push("Distance to property line");
-  if (isPending(nearestTower)) pendingItems.push("Nearest existing tower");
-  if (isPending(nearestStructure)) pendingItems.push("Nearest external structure");
-  if (isPending(maxBuildable)) pendingItems.push("Max buildable height");
-  if (isPending(peLetter)) pendingItems.push("PE letter requirement");
-  if (isPending(heightLimit)) pendingItems.push("Zoning height limit");
-  if (isPending(approvalPath)) pendingItems.push("Approval path");
-  if (isPending(setbackDisplay)) pendingItems.push("Setback rule");
-  if (isPending(ordinanceSource)) pendingItems.push("Ordinance source");
+  // ── Honest source gaps after a completed analysis ──
+  const sourceGaps = [];
+  if (solveResult && !loading && isPending(address)) sourceGaps.push("Parcel address was not returned");
+  if (solveResult && !loading && isPending(apn)) sourceGaps.push("APN was not returned");
+  if (solveResult && !loading && isPending(owner)) sourceGaps.push("Owner name was not returned");
+  if (solveResult && !loading && isPending(zoning)) sourceGaps.push("Zoning classification was not returned");
+  if (solveResult && !loading && isPending(jurisdiction)) sourceGaps.push("Jurisdiction was not returned");
+  if (solveResult && !loading && isPending(ordinanceSource)) sourceGaps.push("Ordinance source was not returned");
+
+  const analysisTone = error
+    ? "border-red-700 bg-red-950"
+    : loading
+    ? "border-cyan-700 bg-cyan-950"
+    : solveResult
+    ? "border-emerald-700 bg-emerald-950"
+    : "border-slate-700 bg-slate-950";
+  const analysisTitle = !hasCoordinates
+    ? "Enter coordinates to start TalonFit"
+    : loading
+    ? "Running live site enrichment…"
+    : error
+    ? "Site source connection needs attention"
+    : solveResult
+    ? "Live TalonFit enrichment complete"
+    : "Ready for site coordinates";
+  const analysisDetail = !hasCoordinates
+    ? "The map and all sources will use the site coordinates you enter."
+    : error
+    ? error
+    : "Two-mile analysis centered on the entered coordinates.";
 
   if (!isOpen) {
     return (
@@ -147,7 +205,7 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
             Search Center
           </div>
           <div className="text-slate-200 text-xs font-mono">
-            {lat ? `${lat.toFixed(6)}, ${lon.toFixed(6)}` : "No coordinates set"}
+            {hasCoordinates ? `${Number(lat).toFixed(6)}, ${Number(lon).toFixed(6)}` : "No coordinates set"}
           </div>
           <div className="text-slate-400 text-[10px] mt-0.5">
             Tower: {towerHeightFt || 199} ft · Ring: 2 mi · Targets: {saved?.length || 0}/3
@@ -155,22 +213,25 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 pb-4">
-          {/* Section 1 — FAA / Height Status */}
-          <div className="mt-3 rounded-md border border-emerald-700 bg-emerald-950 px-3 py-2">
-            <div className="flex items-center gap-2 text-sm font-bold text-emerald-300">
-              <span>✅</span>
-              <span>{ht} ft — Below 200 ft FAA threshold</span>
+          {/* Section 1 — Live analysis status */}
+          <div className={`mt-3 rounded-md border px-3 py-2 ${analysisTone}`}>
+            <div className="flex items-center gap-2 text-sm font-bold text-white">
+              <span>{loading ? "◌" : error ? "!" : solveResult ? "✓" : "◎"}</span>
+              <span>{analysisTitle}</span>
             </div>
-            <div className="mt-0.5 text-[10px] text-emerald-400/80">
-              No Form 7460-1 required · No ASR registration required
+            <div className="mt-0.5 text-[10px] text-slate-300">
+              {analysisDetail}
+            </div>
+            <div className="mt-1 text-[10px] text-slate-400">
+              Proposed height: {ht} ft
             </div>
           </div>
 
           {/* Section 2 — Parcel */}
           <SectionHeader>Parcel</SectionHeader>
-          <Row label="Address" value={address || "Pending verification"} />
-          <Row label="APN" value={apn || "Pending verification"} />
-          <Row label="Owner" value={owner || "Pending verification"} />
+          <Row label="Address" value={address || unavailableText} />
+          <Row label="APN" value={apn || unavailableText} />
+          <Row label="Owner" value={owner || unavailableText} />
 
           {/* Skip-Trace Contact Lookup */}
           <div className="px-3 pb-2">
@@ -241,28 +302,28 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
             )}
           </div>
 
-          <Row label="Acreage" value={acreage || "Pending verification"} />
-          <Row label="Zoning" value={zoning || "Pending verification"} />
-          <Row label="Jurisdiction" value={jurisdiction || "—"} />
+          <Row label="Acreage" value={acreage || unavailableText} />
+          <Row label="Zoning" value={zoning || unavailableText} />
+          <Row label="Jurisdiction" value={jurisdiction || unavailableText} />
 
           {/* Section 3 — TalonFit™ Constraints */}
           <SectionHeader>TalonFit™ Constraints</SectionHeader>
-          <Row label="Fall zone multiplier" value={fallZoneMult != null ? `${fallZoneMult}x` : "Pending"} />
-          <Row label="Distance to property line" value={distToProp != null ? `${distToProp} ft` : "Pending verification"} />
-          <Row label="Nearest existing tower" value={nearestTower != null ? `${nearestTower} ft` : "Pending verification"} />
-          <Row label="Nearest ext. structure" value={nearestStructure != null ? `${nearestStructure} ft` : "Pending verification"} />
-          <Row label="Max buildable height" value={maxBuildable != null ? `${maxBuildable} ft` : "Pending verification"} />
+          <Row label="Fall zone multiplier" value={fallZoneMult != null ? `${fallZoneMult}x` : unavailableText} />
+          <Row label="Distance to property line" value={distToProp != null ? `${distToProp} ft` : unavailableText} />
+          <Row label="Nearest existing tower" value={nearestTower != null ? `${nearestTower} ft` : unavailableText} />
+          <Row label="Nearest ext. structure" value={nearestStructure != null ? `${nearestStructure} ft` : unavailableText} />
+          <Row label="Max buildable height" value={maxBuildable != null ? `${maxBuildable} ft` : unavailableText} />
           <Row
             label="PE letter required"
-            value={peLetter === true ? "Yes" : peLetter === false ? "No" : "Pending"}
+            value={peLetter === true ? "Yes" : peLetter === false ? "No" : unavailableText}
           />
-          <Row label="Distance from ring center" value={distFromCenter != null ? `${distFromCenter} mi` : "—"} />
+          <Row label="Distance from ring center" value={distFromCenter != null ? `${distFromCenter} mi` : unavailableText} />
 
           {/* Section 4 — Zoning Registry */}
           <SectionHeader>Zoning Registry</SectionHeader>
-          <Row label="Height limit" value={heightLimit != null ? `${heightLimit} ft` : "Pending verification"} />
-          <Row label="Approval path" value={approvalPath || "Pending verification"} />
-          <Row label="Setback rule" value={setbackDisplay || "Pending verification"} />
+          <Row label="Height limit" value={heightLimit != null ? `${heightLimit} ft` : unavailableText} />
+          <Row label="Approval path" value={approvalPath || unavailableText} />
+          <Row label="Setback rule" value={setbackDisplay || unavailableText} />
           <div className="flex justify-between gap-3 py-1 text-[11px]">
             <span className="text-slate-400 shrink-0">Ordinance source</span>
             {ordinanceUrl ? (
@@ -275,19 +336,29 @@ export default function TalonFitDataPanel({ solveResult, isOpen, onToggle, tower
                 View source
               </a>
             ) : (
-              <span className="text-right text-white font-medium truncate pl-2">Pending verification</span>
+              <span className="text-right text-white font-medium truncate pl-2">{unavailableText}</span>
             )}
           </div>
 
-          {/* Section 5 — Pending Verification */}
-          {pendingItems.length > 0 && (
+          {/* Section 5 — Connected integrations */}
+          <SectionHeader>Connected Sources</SectionHeader>
+          <div className="mt-1 rounded-md border border-slate-700 bg-slate-950/60 px-2.5 py-2 space-y-1">
+            <div className="text-[10px] text-slate-300">{sourceLabel(dataSources.parcel, "Realie parcel")}</div>
+            <div className="text-[10px] text-slate-300">{sourceLabel(dataSources.ordinance, "SiteHawk ordinance")}</div>
+            <div className="text-[10px] text-slate-300">{sourceLabel(dataSources.towers, "FCC ASR / OpenCellID")}</div>
+            <div className="text-[10px] text-slate-300">{sourceLabel(dataSources.structures, "OSM structures")}</div>
+            <div className="text-[10px] text-slate-300">{sourceLabel(dataSources.wetlands, "USFWS wetlands")}</div>
+            <div className="text-[10px] text-slate-300">{sourceLabel(dataSources.water, "OSM water")}</div>
+          </div>
+
+          {sourceGaps.length > 0 && (
             <>
-              <SectionHeader>Pending Verification</SectionHeader>
+              <SectionHeader>Source Gaps</SectionHeader>
               <div className="mt-1 rounded-md border border-amber-700/50 bg-amber-950/40 px-2.5 py-2">
                 <div className="flex items-start gap-2 text-[11px] text-amber-300">
-                  <span className="shrink-0">⚠️</span>
+                  <span className="shrink-0">ℹ</span>
                   <div className="space-y-0.5">
-                    {pendingItems.map((item, i) => (
+                    {sourceGaps.map((item, i) => (
                       <div key={i} className="text-amber-200/90">• {item}</div>
                     ))}
                   </div>
