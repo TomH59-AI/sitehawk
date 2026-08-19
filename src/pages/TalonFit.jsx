@@ -103,6 +103,67 @@ export default function TalonFit() {
     setAutoLoading(false);
   }, [anchor, heightFt]);
 
+  // ── SARF → Zoning Packet Emitter ──
+  // Builds a zoning packet from the resolved probe data and sends it to the
+  // JurisdictionZoningCache (the app-wide ZoningRegistry) via action "save".
+  // Fires automatically once a probe resolves with jurisdiction + zoning data.
+  const emitSarfPacket = useCallback(async (solveData, probeLat, probeLon) => {
+    const parcel = solveData?.parcel || {};
+    const ordinance = solveData?.ordinance_rules || solveData?.ordinance || {};
+    const calc = solveData?.calculated_result || {};
+
+    const jurisdiction = parcel.jurisdiction || "";
+    const zoningDistrict = parcel.zoning_classification || ordinance.zoning_district || "";
+    const ordinanceUrl = ordinance.ordinance_source_url || "";
+    const parcelApn = parcel.parcel_id || parcel.apn || "";
+    const parcelAddress = parcel.address || "";
+
+    // Guard — never emit a packet without the three load-bearing fields
+    if (!jurisdiction || !zoningDistrict || !parcelApn) return;
+
+    const zoningPacket = {
+      jurisdiction,
+      zoningDistrict,
+      ordinanceUrl,
+      parcelApn,
+      parcelAddress,
+      coordinates: { lat: probeLat, lng: probeLon },
+      sarfConfidenceScore: ordinance.ordinance_data_verified === true ? "verified" : "unverified",
+    };
+
+    // Map the packet into the JurisdictionZoningCache save payload
+    const report = {
+      tower_specifics: {
+        maximum_tower_height: { value: ordinance.maximum_tower_height_ft ?? calc.maximum_buildable_height_ft ?? "" },
+        stealth_required: { value: ordinance.stealth_required ? "Yes" : "No" },
+        required_collocations: { value: ordinance.collocation_required ? "Yes" : "No" },
+        residential_separation: { value: ordinance.residential_separation?.required_distance_ft ?? "" },
+        tower_separation: { value: ordinance.tower_separation?.required_distance_ft ?? "" },
+        fall_zone_requirements: { value: ordinance.fall_zone_ft ?? calc.effective_fall_zone_multiplier ?? "" },
+        measured_from_base_or_center: { value: ordinance.property_line_rule?.rule ?? ordinance.setback_rule ?? "" },
+        ldc_section_references: { value: ordinance.ordinance_section ?? "" },
+      },
+      zoning_overview: {
+        property_zoning_district: { value: zoningDistrict },
+        zoning_process: { value: ordinance.approval_path ?? ordinance.permit_type ?? "" },
+      },
+    };
+
+    try {
+      await base44.functions.invoke("jurisdictionZoningCache", {
+        action: "save",
+        lat: probeLat,
+        lon: probeLon,
+        zoning_district: zoningDistrict,
+        report,
+        zone_code: zoningDistrict,
+        raw_response: zoningPacket,
+      });
+    } catch (e) {
+      console.warn("SARF packet emit failed:", e?.message || String(e));
+    }
+  }, []);
+
   // ── Probe: single-click on map → solve ──
   const handleProbe = useCallback(async ({ lat, lon }) => {
     if (!anchor) return;
@@ -128,6 +189,10 @@ export default function TalonFit() {
         agentThinking: true,
         agentAnalysis: null,
       });
+
+      // SARF → ZoningRegistry: emit the zoning packet now that the probe resolved
+      emitSarfPacket(data, cp.latitude, cp.longitude);
+
       // Agent analysis — the WHY behind the numbers
       invokeTalonfitAgent({
         lat: cp.latitude,
@@ -154,7 +219,7 @@ export default function TalonFit() {
     } catch (e) {
       setProbe({ lat, lon, solving: false, solve: null, error: e?.message || "Solver failed" });
     }
-  }, [anchor, heightFt, saved.length]);
+  }, [anchor, heightFt, saved.length, emitSarfPacket]);
 
   // ── Save: from the Save button in the verdict popup ──
   // Creates a ScipRecord for APPROVED sites so they enter the SCIP pipeline.
