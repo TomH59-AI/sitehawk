@@ -306,6 +306,47 @@ export default function RfiMap({
           map.on("mouseenter", "rfi-oeaaa-airports", () => { map.getCanvas().style.cursor = "pointer"; });
           map.on("mouseleave", "rfi-oeaaa-airports", () => { map.getCanvas().style.cursor = ""; });
 
+          const environmentalPopup = new window.mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            offset: 10,
+          });
+          const bindEnvironmentalHover = (layerId, renderHTML) => {
+            map.on("mousemove", layerId, (event) => {
+              const properties = event.features?.[0]?.properties || {};
+              map.getCanvas().style.cursor = "help";
+              environmentalPopup
+                .setLngLat(event.lngLat)
+                .setHTML(renderHTML(properties))
+                .addTo(map);
+            });
+            map.on("mouseleave", layerId, () => {
+              map.getCanvas().style.cursor = "";
+              environmentalPopup.remove();
+            });
+          };
+
+          bindEnvironmentalHover("env-wetlands-fill", (properties) =>
+            '<div style="font-family:sans-serif;font-size:12px;line-height:1.5">' +
+            "<b>" + escapeHTML(properties.WETLAND_TYPE || "Wetland") + "</b><br/>" +
+            "Acres: " + escapeHTML(properties.ACRES ?? "N/A") + "<br/>" +
+            '<span style="opacity:.65">' + escapeHTML(properties.OFFICIAL_WETLAND_TYPE || "USFWS NWI") + "</span></div>"
+          );
+          const hydrologyTooltip = (properties) =>
+            '<div style="font-family:sans-serif;font-size:12px;line-height:1.5">' +
+            "<b>" + escapeHTML(properties.HYDRO_TYPE || "Hydrology feature") + "</b><br/>" +
+            "Name: " + escapeHTML(properties.GNIS_NAME || "Unnamed") +
+            '<br/><span style="opacity:.65">USGS NHD</span></div>';
+          bindEnvironmentalHover("env-hydrology-fill", hydrologyTooltip);
+          bindEnvironmentalHover("env-hydrology-outline", hydrologyTooltip);
+          bindEnvironmentalHover("env-floodzones-fill", (properties) =>
+            '<div style="font-family:sans-serif;font-size:12px;line-height:1.5">' +
+            "<b>Flood Zone: " + escapeHTML(properties.FLOOD_ZONE || "Unknown") + "</b><br/>" +
+            "SFHA: " + escapeHTML(properties.SFHA_TF || "N/A") + "<br/>" +
+            "Base Flood Elevation: " + escapeHTML(properties.BFE ?? "N/A") +
+            '<br/><span style="opacity:.65">FEMA NFHL</span></div>'
+          );
+
           setReady(true);
           loadTowersForView(map);
           // Embedded in the growing pipeline page, the container often has no
