@@ -92,7 +92,7 @@ import HawkLawSessionDetail from './pages/hawklaw/HawkLawSessionDetail';
 import HawkLawClauses from './pages/hawklaw/HawkLawClauses';
 import HawkLawHistory from './pages/hawklaw/HawkLawHistory';
 import FiberLayersAdmin from './pages/FiberLayersAdmin';
-import RfiEngine from './pages/RfiEngine';
+import SitingIQ from './pages/SitingIQ';
 import ZoningVerifier from './pages/ZoningVerifier';
 import CodeHawk from './pages/CodeHawk';
 import AnthemNetScip from './pages/AnthemNetScip';
@@ -180,8 +180,8 @@ const AuthenticatedApp = () => {
         {/* Legacy path — the feasibility dashboard now lives on TalonFit™ */}
         <Route path="/sitesitter" element={<Navigate to="/talonfit" replace />} />
         <Route path="/hawkbolt" element={<Navigate to="/talonfit" replace />} />
-        {/* RF Intelligence Engine — standalone nationwide RF map module */}
-        <Route path="/rfi-engine" element={<RfiEngine />} />
+        {/* Siting IQ™ — unified environmental, RF, terrain, and airspace intelligence */}
+        <Route path="/rfi-engine" element={<SitingIQ />} />
         {/* Hawk Zoning Verifier — AI agent for zoning accuracy checks */}
         <Route path="/zoning-verifier" element={<ZoningVerifier />} />
         {/* CodeHawk — the Ordinance Hunter, reconnected. Registry-first recall,
