@@ -1,5 +1,12 @@
 import { CARRIERS, BANDS, TECHNOLOGIES } from "./rfiConfig";
 
+const SATELLITE_MODES = [
+  { code: "true_color", label: "True Color" },
+  { code: "ndvi", label: "NDVI" },
+  { code: "swir", label: "SWIR" },
+  { code: "sar", label: "S1 SAR" },
+];
+
 // RFI Engine filter controls — carrier / band / technology selectors + layer
 // visibility toggles for towers, coverage, and dead zones. Rendered inside the
 // left control panel (no map-overlay positioning of its own).
@@ -19,7 +26,10 @@ function Chip({ active, onClick, children, color }) {
   );
 }
 
-export default function RfiFilters({ filters, setFilters, layers, setLayers, onDrawCoverage, drawing }) {
+export default function RfiFilters({
+  filters, setFilters, layers, setLayers, onDrawCoverage, drawing,
+  satelliteMode, setSatelliteMode,
+}) {
   const toggleSet = (key, val) => {
     setFilters((f) => {
       const next = new Set(f[key]);
@@ -36,7 +46,30 @@ export default function RfiFilters({ filters, setFilters, layers, setLayers, onD
           <Chip active={layers.towers} onClick={() => setLayers((l) => ({ ...l, towers: !l.towers }))} color="#0ea5e9">Towers</Chip>
           <Chip active={layers.coverage} onClick={() => setLayers((l) => ({ ...l, coverage: !l.coverage }))} color="#22c55e">Coverage</Chip>
           <Chip active={layers.deadzones} onClick={() => setLayers((l) => ({ ...l, deadzones: !l.deadzones }))} color="#64748b">Dead Zones</Chip>
+          <Chip active={layers.copernicus} onClick={() => setLayers((l) => ({ ...l, copernicus: !l.copernicus }))} color="#06b6d4">Copernicus</Chip>
         </div>
+        {layers.copernicus && (
+          <div className="mt-2 rounded-lg border border-cyan-400/20 bg-cyan-400/5 p-2">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200/80">
+              Satellite rendering
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {SATELLITE_MODES.map((mode) => (
+                <Chip
+                  key={mode.code}
+                  active={satelliteMode === mode.code}
+                  onClick={() => setSatelliteMode(mode.code)}
+                  color="#0891b2"
+                >
+                  {mode.label}
+                </Chip>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[10px] leading-snug text-white/40">
+              Updates after the map stops moving. Zoom 7+ for useful imagery.
+            </p>
+          </div>
+        )}
       </div>
 
       <div>
@@ -74,7 +107,7 @@ export default function RfiFilters({ filters, setFilters, layers, setLayers, onD
         {drawing ? "Modeling coverage…" : "Model coverage at map center"}
       </button>
       <p className="text-[10px] text-white/40 leading-snug">
-        Coverage &amp; dead zones are modeled on demand (CloudRF) for the current map center. Towers load live for the visible area.
+        Coverage &amp; dead zones are modeled on demand (CloudRF). Towers and optional Copernicus satellite context follow the visible area.
       </p>
     </div>
   );
