@@ -71,6 +71,11 @@ export default function RfiFilters({
                   <span>{hazardBand} RISK</span>
                   <span>{environmentalData.hazard.score} / 100</span>
                 </div>
+                {environmentalData.hazard.provisional && (
+                  <div className="mt-0.5 text-[8px] font-medium uppercase tracking-wide opacity-70">
+                    Provisional · one or more federal sources unavailable
+                  </div>
+                )}
                 {environmentalData.hazard.reasons?.length > 0 && (
                   <p className="mt-1 text-[9px] leading-snug opacity-80">
                     {environmentalData.hazard.reasons.join("; ")}.
