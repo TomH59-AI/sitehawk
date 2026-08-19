@@ -35,7 +35,7 @@ export default function RfiControlPanel({
   const set = (key) => (val) => setOverlays((prev) => ({ ...prev, [key]: val }));
 
   return (
-    <aside className="h-full w-full lg:w-72 shrink-0 rounded-2xl border border-white/10 bg-slate-900 text-white shadow-sm overflow-hidden flex flex-col">
+    <aside className="w-full lg:w-72 shrink-0 rounded-2xl border border-white/10 bg-slate-900 text-white shadow-sm overflow-hidden flex flex-col">
       <div className="h-1.5 w-full bg-gradient-to-r from-primary to-emerald-500" />
       <div className="p-4 overflow-y-auto min-h-0">
         <div
