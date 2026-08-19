@@ -4,6 +4,7 @@ import { loadPublicConfig } from "@/lib/publicConfig";
 import { rfiTowersInBBox } from "@/functions/rfiTowersInBBox";
 import { cloudRFCoveragePolygon } from "@/functions/cloudRFCoveragePolygon";
 import { getSatelliteSnapshot } from "@/functions/getSatelliteSnapshot";
+import { oeaaaAirspaceAnalysis } from "@/functions/oeaaaAirspaceAnalysis";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import RfiLegend from "./RfiLegend";
@@ -33,6 +34,8 @@ export default function RfiMap({
   const [loadingTowers, setLoadingTowers] = useState(false);
   const [loadingCopernicus, setLoadingCopernicus] = useState(false);
   const [copernicusMeta, setCopernicusMeta] = useState(null);
+  const [loadingOEAAA, setLoadingOEAAA] = useState(false);
+  const [oeaaaMeta, setOEAAAMeta] = useState(null);
   const [towerCount, setTowerCount] = useState(0);
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
   const [baseLayer, setBaseLayer] = useState("usgs_imagery_topo");
@@ -40,8 +43,12 @@ export default function RfiMap({
   const copernicusTimerRef = useRef(null);
   const copernicusRequestRef = useRef(0);
   const copernicusEnabledRef = useRef(!!layers.copernicus);
+  const oeaaaTimerRef = useRef(null);
+  const oeaaaRequestRef = useRef(0);
+  const oeaaaEnabledRef = useRef(!!layers.oeaaa);
   const satelliteModeRef = useRef(satelliteMode);
   copernicusEnabledRef.current = !!layers.copernicus;
+  oeaaaEnabledRef.current = !!layers.oeaaa;
   satelliteModeRef.current = satelliteMode;
 
   const allTowers = useRef([]);
@@ -93,6 +100,43 @@ export default function RfiMap({
           map.addSource("rfi-towers", { type: "geojson", data: EMPTY_FC });
           map.addSource("rfi-coverage", { type: "geojson", data: EMPTY_FC });
           map.addSource("rfi-deadzones", { type: "geojson", data: EMPTY_FC });
+          map.addSource("rfi-oeaaa-surfaces", { type: "geojson", data: EMPTY_FC });
+          map.addSource("rfi-oeaaa-hazards", { type: "geojson", data: EMPTY_FC });
+          map.addSource("rfi-oeaaa-airports", { type: "geojson", data: EMPTY_FC });
+
+          map.addLayer({
+            id: "rfi-oeaaa-surfaces-fill",
+            type: "fill",
+            source: "rfi-oeaaa-surfaces",
+            layout: { visibility: "none" },
+            paint: { "fill-color": "#d946ef", "fill-opacity": 0.16 },
+          });
+          map.addLayer({
+            id: "rfi-oeaaa-surfaces-outline",
+            type: "line",
+            source: "rfi-oeaaa-surfaces",
+            layout: { visibility: "none" },
+            paint: { "line-color": "#f0abfc", "line-width": 2 },
+          });
+          map.addLayer({
+            id: "rfi-oeaaa-hazards-fill",
+            type: "fill",
+            source: "rfi-oeaaa-hazards",
+            layout: { visibility: "none" },
+            paint: { "fill-color": "#ef4444", "fill-opacity": 0.24 },
+          });
+          map.addLayer({
+            id: "rfi-oeaaa-airports",
+            type: "circle",
+            source: "rfi-oeaaa-airports",
+            layout: { visibility: "none" },
+            paint: {
+              "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, 4, 10, 8],
+              "circle-color": "#fbbf24",
+              "circle-stroke-color": "#111827",
+              "circle-stroke-width": 2,
+            },
+          });
 
           // Coverage fill — signal-strength ramp (spec).
           map.addLayer({
@@ -177,6 +221,7 @@ export default function RfiMap({
           loadTowersForView(map);
           updateDeclination();
           if (copernicusEnabledRef.current) scheduleCopernicusLoad(map);
+          if (oeaaaEnabledRef.current) scheduleOEAAALoad(map);
         });
         map.on("error", (ev) => console.error("[RFI map]", ev?.error?.message || ev));
 
@@ -195,7 +240,9 @@ export default function RfiMap({
     return () => {
       cancelled = true;
       copernicusRequestRef.current += 1;
+      oeaaaRequestRef.current += 1;
       if (copernicusTimerRef.current) window.clearTimeout(copernicusTimerRef.current);
+      if (oeaaaTimerRef.current) window.clearTimeout(oeaaaTimerRef.current);
       mapRef.current?.remove?.();
       mapRef.current = null;
     };
