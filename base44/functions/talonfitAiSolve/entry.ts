@@ -202,6 +202,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Re-apply after any on-demand ordinance hunt so the resolved parent-page
+    // decision is the final normalized input handed to the deterministic solver.
+    if (body.zoning_decision) rules = mergePipelineZoningDecision(rules, body.zoning_decision);
+
     const input = {
       solver_version: SOLVER_VERSION,
       candidate_point: { latitude: lat, longitude: lon },
