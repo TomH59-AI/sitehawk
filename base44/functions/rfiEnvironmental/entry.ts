@@ -179,6 +179,49 @@ async function fetchFloodZones(lat, lng, radiusMeters) {
   };
 }
 
+function computeEnvironmentalScore({ wetlands, hydrology, floodZones }) {
+  let score = 0;
+  const reasons = [];
+
+  if ((wetlands.features || []).length > 0) {
+    score += 35;
+    reasons.push("wetlands mapped within the screening radius");
+  }
+
+  if ((hydrology.features || []).length > 0) {
+    score += 20;
+    reasons.push("mapped rivers, streams, lakes, ponds, or water areas nearby");
+  }
+
+  const zones = (floodZones.features || [])
+    .map((feature) => String(feature.properties?.FLOOD_ZONE || "").toUpperCase())
+    .filter(Boolean);
+  const highRiskFlood = zones.some((zone) => ["A", "AE", "VE"].includes(zone));
+  const lowerRiskFlood = zones.includes("X");
+
+  if (highRiskFlood) {
+    score += 35;
+    reasons.push("FEMA Zone A, AE, or VE mapped within the screening radius");
+  } else if (lowerRiskFlood) {
+    score += 15;
+    reasons.push("FEMA Zone X mapped within the screening radius");
+  }
+
+  score = Math.min(score, 100);
+  let band = "VERY LOW";
+  if (score >= 80) band = "SEVERE";
+  else if (score >= 60) band = "HIGH";
+  else if (score >= 40) band = "MODERATE";
+  else if (score >= 20) band = "LOW";
+
+  return {
+    score,
+    band,
+    reasons,
+    methodology: "Wetlands 35 points; hydrology 20; FEMA A/AE/VE 35 or Zone X 15; capped at 100.",
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -216,11 +259,13 @@ Deno.serve(async (req) => {
     const wetlands = results[0].status === "fulfilled" ? results[0].value : EMPTY_FC;
     const hydrology = results[1].status === "fulfilled" ? results[1].value : EMPTY_FC;
     const floodZones = results[2].status === "fulfilled" ? results[2].value : EMPTY_FC;
+    const hazard = computeEnvironmentalScore({ wetlands, hydrology, floodZones });
 
     return Response.json({
       wetlands,
       hydrology,
       floodZones,
+      hazard,
       metadata: {
         radiusMiles,
         center: { lat, lng },
