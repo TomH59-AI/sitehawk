@@ -253,6 +253,32 @@ export default function Section3Targets({
     });
   };
 
+  // Use the final values visible in the editable Target A/B/C table when the
+  // user sends a site to Hawk Tracker, including any corrections made after
+  // the parcel search completed.
+  const targetForTracker = (colIdx) => {
+    const target = targets[colIdx];
+    if (!target) return null;
+    const coordinateParts = String(grid.coordinates?.[colIdx] || "")
+      .split(",")
+      .map((part) => Number(part.trim()));
+    const hasEditedCoordinates = coordinateParts.length === 2
+      && coordinateParts.every(Number.isFinite);
+
+    return {
+      ...target,
+      owner_name: grid.owner_name?.[colIdx] ?? target.owner_name ?? "",
+      parcel_address: grid.parcel_address?.[colIdx] ?? target.parcel_address ?? "",
+      apn: grid.apn?.[colIdx] ?? target.apn ?? "",
+      acreage: grid.acreage?.[colIdx] ?? target.acreage ?? null,
+      zoning_classification: grid.zoning_classification?.[colIdx] ?? target.zoning_classification ?? "",
+      mailing_address: grid.mailing_address?.[colIdx] ?? target.mailing_address ?? "",
+      fema_risk_factor: grid.fema_risk_factor?.[colIdx] ?? target.fema_risk_factor ?? "",
+      latitude: hasEditedCoordinates ? coordinateParts[0] : target.latitude,
+      longitude: hasEditedCoordinates ? coordinateParts[1] : target.longitude,
+    };
+  };
+
   const runPipeline = useCallback(async () => {
     setLoading(true);
     setNoData(false);
@@ -670,7 +696,7 @@ export default function Section3Targets({
                       <PushToTrackerButton
                         ringName={ringName}
                         targetLabel={COLS[colIdx]}
-                        target={targets[colIdx]}
+                        target={targetForTracker(colIdx)}
                         searchRingCenter={searchRingCenter}
                       />
                       <ExportTargetJsonButton
