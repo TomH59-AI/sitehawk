@@ -8,7 +8,7 @@ import ImportWizard from "../components/tracker/import/ImportWizard";
 import TrackerSheet from "../components/tracker/TrackerSheet";
 import TrackerTasks from "../components/tracker/TrackerTasks";
 import { MILESTONES, TRACKER_GREEN } from "@/lib/hawkTracker";
-import { appendTrackerRow } from "@/lib/trackerSheet";
+import { TRACKER_SHEET_EVENT } from "@/lib/trackerSheet";
 
 // Hawk Tracker — 18 gates and an exit. Sites + per-gate milestone rows +
 // the Friday-call weekly report.
@@ -43,8 +43,19 @@ export default function HawkTracker() {
     await base44.entities.HawkTrackerMilestone.bulkCreate(
       MILESTONES.map((m) => ({ tracker_site_id: site.id, milestone: m.key, status: "pending" }))
     );
-    // Drop the new site straight into the in-app Site Candidate Tracker grid.
-    appendTrackerRow([site.site_name, "", "", "", "", "", site.jurisdiction || ""]);
+    // Keep manually created milestone sites in the same durable, per-user
+    // spreadsheet that receives targets selected in Site Search.
+    const existingRows = await base44.entities.FollowUpTracker.filter({ site_name: site.site_name });
+    if (!existingRows?.length) {
+      await base44.entities.FollowUpTracker.create({
+        site_name: site.site_name,
+        jurisdiction: site.jurisdiction || "",
+        latitude: site.latitude ?? null,
+        longitude: site.longitude ?? null,
+        status: "New Lead",
+      });
+    }
+    window.dispatchEvent(new Event(TRACKER_SHEET_EVENT));
     setSaving(false);
     setShowForm(false);
     setTab("tracker");
