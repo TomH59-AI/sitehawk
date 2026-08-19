@@ -358,6 +358,113 @@ function addExplorerLayers(
     });
   }
 
+  if (carrierFinderGeojson) {
+    const rawFeatures = Array.isArray(carrierFinderGeojson.features)
+      ? carrierFinderGeojson.features
+      : [];
+    const runFeatures = carrierFinderLayers?.runs
+      ? rawFeatures.filter((feature) =>
+          feature?.geometry?.type === "LineString" ||
+          feature?.geometry?.type === "MultiLineString"
+        )
+      : [];
+    const pointFeatures = carrierFinderLayers?.points
+      ? rawFeatures.filter((feature) => feature?.geometry?.type === "Point")
+      : [];
+
+    map.addSource("cf-runs", {
+      type: "geojson",
+      data: featureCollection(runFeatures),
+    });
+    map.addLayer({
+      id: "cf-runs",
+      type: "line",
+      source: "cf-runs",
+      paint: {
+        "line-color": [
+          "match",
+          ["get", "status"],
+          "active", "#22c55e",
+          "planned", "#f97316",
+          "retired", "#94a3b8",
+          "#06b6d4",
+        ],
+        "line-width": 3,
+        "line-opacity": 0.9,
+      },
+    });
+    map.addLayer({
+      id: "cf-runs-highlight",
+      type: "line",
+      source: "cf-runs",
+      filter: ["==", ["get", "_cf_geometry_valid"], false],
+      paint: {
+        "line-color": "#f59e0b",
+        "line-width": 4,
+        "line-dasharray": [1.5, 1.5],
+      },
+    });
+
+    map.addSource("cf-points", {
+      type: "geojson",
+      data: featureCollection(pointFeatures),
+      cluster: true,
+      clusterMaxZoom: 16,
+      clusterRadius: 36,
+    });
+    map.addLayer({
+      id: "cf-points-cluster",
+      type: "circle",
+      source: "cf-points",
+      filter: ["has", "point_count"],
+      paint: {
+        "circle-color": "#0f766e",
+        "circle-radius": [
+          "step",
+          ["get", "point_count"],
+          14,
+          10,
+          18,
+          50,
+          23,
+        ],
+        "circle-stroke-color": "#ccfbf1",
+        "circle-stroke-width": 2,
+      },
+    });
+    map.addLayer({
+      id: "cf-points-cluster-count",
+      type: "symbol",
+      source: "cf-points",
+      filter: ["has", "point_count"],
+      layout: {
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-size": 11,
+      },
+      paint: { "text-color": "#ffffff" },
+    });
+    map.addLayer({
+      id: "cf-points",
+      type: "circle",
+      source: "cf-points",
+      filter: ["!", ["has", "point_count"]],
+      paint: {
+        "circle-radius": 6,
+        "circle-color": [
+          "match",
+          ["get", "network_access"],
+          "on-net", "#22c55e",
+          "near-net", "#facc15",
+          "#14b8a6",
+        ],
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 1.5,
+      },
+    });
+
+    bindCarrierFinderInteractions(map, onCarrierFinderClick);
+  }
+
   map.addSource("prop-center", {
     type: "geojson",
     data: turf.point([center.lng, center.lat]),
@@ -447,6 +554,17 @@ export default function PropagationExplorer({
         map.addControl(new window.mapboxgl.NavigationControl(), "top-right");
         map.addControl(new window.mapboxgl.ScaleControl({ unit: "imperial" }), "bottom-right");
         map.on("click", (event) => {
+          const carrierFinderLayerIds = [
+            "cf-runs",
+            "cf-points",
+            "cf-points-cluster",
+          ].filter((layerId) => map.getLayer(layerId));
+          if (
+            carrierFinderLayerIds.length &&
+            map.queryRenderedFeatures(event.point, { layers: carrierFinderLayerIds }).length
+          ) {
+            return;
+          }
           const next = { lat: event.lngLat.lat, lng: event.lngLat.lng };
           setCenter(next);
           setResult(null);
