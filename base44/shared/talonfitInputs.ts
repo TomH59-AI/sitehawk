@@ -68,6 +68,10 @@ async function fetchFloridaCadastralParcel(lat: number, lon: number) {
 }
 
 export async function fetchParcel(lat: number, lon: number, apiKey: string) {
+  // Start the state parcel fallback in parallel. When Realie is slow or has no
+  // match, Florida users should not wait for three serial retries before the
+  // exact-coordinate cadastral lookup even begins.
+  const stateFallback = fetchFloridaCadastralParcel(lat, lon);
   for (const radius of ["0.15", "0.5", "1"]) {
     const url = `${REALIE_LOCATION}?${new URLSearchParams({
       latitude: String(lat), longitude: String(lon), radius, limit: "20",
@@ -100,7 +104,7 @@ export async function fetchParcel(lat: number, lon: number, apiKey: string) {
       console.warn(`Realie radius ${radius} unavailable:`, error?.message || String(error));
     }
   }
-  return await fetchFloridaCadastralParcel(lat, lon);
+  return await stateFallback;
 }
 
 /** Ordinance rules in solver shape. Absent values stay null with status "missing". */
