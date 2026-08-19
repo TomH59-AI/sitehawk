@@ -880,7 +880,7 @@ export default function TalonFitMap({
 
   return (
     <div className="relative w-full h-full">
-      <div ref={mapContainer} className="absolute inset-0" />
+      <div ref={mapContainer} className="h-full w-full" />
 
       {/* 2D / 3D toggle */}
       <button
