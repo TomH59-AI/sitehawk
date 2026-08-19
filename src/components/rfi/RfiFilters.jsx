@@ -47,7 +47,18 @@ export default function RfiFilters({
           <Chip active={layers.coverage} onClick={() => setLayers((l) => ({ ...l, coverage: !l.coverage }))} color="#22c55e">Coverage</Chip>
           <Chip active={layers.deadzones} onClick={() => setLayers((l) => ({ ...l, deadzones: !l.deadzones }))} color="#64748b">Dead Zones</Chip>
           <Chip active={layers.copernicus} onClick={() => setLayers((l) => ({ ...l, copernicus: !l.copernicus }))} color="#06b6d4">Copernicus</Chip>
+          <Chip active={layers.oeaaa} onClick={() => setLayers((l) => ({ ...l, oeaaa: !l.oeaaa }))} color="#d946ef">FAA OE/AAA</Chip>
         </div>
+        {layers.oeaaa && (
+          <div className="mt-2 rounded-lg border border-fuchsia-400/20 bg-fuchsia-400/5 p-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-200/80">
+              FAA Part 77 screening
+            </div>
+            <p className="mt-1 text-[10px] leading-snug text-white/50">
+              Screens a 3-mile radius at the map center. Magenta shows generalized notice-criteria areas; red shows intersections. Screening only—not an FAA determination.
+            </p>
+          </div>
+        )}
         {layers.copernicus && (
           <div className="mt-2 rounded-lg border border-cyan-400/20 bg-cyan-400/5 p-2">
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200/80">
@@ -107,7 +118,7 @@ export default function RfiFilters({
         {drawing ? "Modeling coverage…" : "Model coverage at map center"}
       </button>
       <p className="text-[10px] text-white/40 leading-snug">
-        Coverage &amp; dead zones are modeled on demand (CloudRF). Towers and optional Copernicus satellite context follow the visible area.
+        Coverage &amp; dead zones are modeled on demand (CloudRF). Towers, Copernicus context, and optional FAA screening follow the visible area.
       </p>
     </div>
   );
