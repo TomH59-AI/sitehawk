@@ -766,16 +766,18 @@ export default function RfiMap({
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
-      {(loadingTowers || loadingCopernicus || loadingOEAAA || !ready) && (
+      {(loadingTowers || loadingCopernicus || loadingOEAAA || loadingEnvironmental || !ready) && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full bg-slate-900/85 text-white text-xs px-3 py-1.5 shadow-lg">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           {!ready
             ? "Loading RF map…"
-            : loadingOEAAA
-              ? "Screening FAA airspace…"
-              : loadingCopernicus
-                ? "Rendering Copernicus imagery…"
-                : "Loading towers…"}
+            : loadingEnvironmental
+              ? "Loading environmental intelligence…"
+              : loadingOEAAA
+                ? "Screening FAA airspace…"
+                : loadingCopernicus
+                  ? "Rendering Copernicus imagery…"
+                  : "Loading towers…"}
         </div>
       )}
       {ready && (
