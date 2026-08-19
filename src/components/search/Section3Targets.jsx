@@ -20,7 +20,6 @@ import { Lock, MapPinned, Sparkles, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import HawkFlightSpinner from "./HawkFlightSpinner";
-import { base44 } from "@/api/base44Client";
 import { scipBestParcels } from "@/functions/scipBestParcels";
 import ComplianceCell from "./section3/ComplianceCell";
 import PushTargetCrmButton from "./section3/PushTargetCrmButton";
@@ -220,7 +219,6 @@ export default function Section3Targets({
       setSelectedCol(col);
       setTimeout(() => emitLeadRef.current?.(col), 0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targets, generatedLabels]);
 
   // ── SEQUENTIAL LADDER (A → B → C) ──────────────────────────────────────────
