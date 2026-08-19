@@ -856,6 +856,15 @@ export default function PropagationExplorer({
   const selectedCarrier = CARRIERS.find((item) => item.value === carrier);
   const usage = result?.usage;
   const opportunityCount = result?.opportunityZones?.features?.length || 0;
+  const carrierFinderFeatures = carrierFinderGeojson?.features || [];
+  const carrierFinderRunCount = carrierFinderFeatures.filter(
+    (feature) =>
+      feature?.geometry?.type === "LineString" ||
+      feature?.geometry?.type === "MultiLineString"
+  ).length;
+  const carrierFinderPointCount = carrierFinderFeatures.filter(
+    (feature) => feature?.geometry?.type === "Point"
+  ).length;
 
   return (
     <div className="flex h-full min-h-0 bg-slate-950 text-slate-100">
@@ -953,6 +962,107 @@ export default function PropagationExplorer({
             )}
           </div>
 
+          <div className="rounded-lg border border-teal-500/25 bg-teal-500/5 p-3">
+            <button
+              type="button"
+              onClick={handleCarrierFinderToggle}
+              aria-pressed={carrierFinderEnabled}
+              className="flex w-full items-center justify-between gap-3 text-left"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <Cable className="h-4 w-4 shrink-0 text-teal-300" />
+                <span>
+                  <span className="block text-xs font-bold text-slate-100">
+                    CarrierFinder overlay
+                  </span>
+                  <span className="block text-[10px] text-slate-400">
+                    Propagation Map only · 2-mile lookup area
+                  </span>
+                </span>
+              </span>
+              <span
+                className={`relative h-5 w-9 shrink-0 rounded-full transition ${
+                  carrierFinderEnabled ? "bg-teal-500" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${
+                    carrierFinderEnabled ? "left-[18px]" : "left-0.5"
+                  }`}
+                />
+              </span>
+            </button>
+
+            {carrierFinderEnabled && (
+              <div className="mt-3 space-y-2 border-t border-teal-500/15 pt-3">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCarrierFinderLayers((layers) => ({
+                        ...layers,
+                        runs: !layers.runs,
+                      }))
+                    }
+                    className={`flex flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[10px] font-bold ${
+                      carrierFinderLayers.runs
+                        ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200"
+                        : "border-slate-700 text-slate-500"
+                    }`}
+                  >
+                    <Network className="h-3 w-3" />
+                    Runs {carrierFinderRunCount}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCarrierFinderLayers((layers) => ({
+                        ...layers,
+                        points: !layers.points,
+                      }))
+                    }
+                    className={`flex flex-1 items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-[10px] font-bold ${
+                      carrierFinderLayers.points
+                        ? "border-teal-400/40 bg-teal-500/15 text-teal-200"
+                        : "border-slate-700 text-slate-500"
+                    }`}
+                  >
+                    <Cable className="h-3 w-3" />
+                    Points {carrierFinderPointCount}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-400">
+                  <span>
+                    {carrierFinderLoading
+                      ? "Loading secure overlay…"
+                      : carrierFinderCacheHit
+                        ? "15-minute cache hit"
+                        : carrierFinderGeojson
+                          ? "Live CarrierFinder result"
+                          : "No lookup made"}
+                  </span>
+                  {carrierFinderQuota && (
+                    <span className="font-mono text-teal-300">
+                      {carrierFinderQuota.used}/{carrierFinderQuota.limit} calls
+                    </span>
+                  )}
+                </div>
+
+                {carrierFinderError && (
+                  <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[10px] leading-4 text-amber-200">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>{carrierFinderError}</span>
+                  </div>
+                )}
+
+                <p className="text-[9px] leading-4 text-slate-500">
+                  Off by default. Credentials stay in Base44; cached views do not consume a new CarrierFinder API call.
+                </p>
+              </div>
+            )}
+          </div>
+
           {(error || mapError) && (
             <div className="flex gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-200">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -1008,6 +1118,13 @@ export default function PropagationExplorer({
             <Legend color="#f97316" label="Opportunity zone" />
             <Legend color="#a855f7" label="FCC / registered tower" dot />
             <Legend color="#06b6d4" label="Selected center" dot />
+            {carrierFinderEnabled && (
+              <>
+                <Legend color="#22c55e" label="CarrierFinder active / on-net" />
+                <Legend color="#f97316" label="CarrierFinder planned run" />
+                <Legend color="#14b8a6" label="CarrierFinder network point" dot />
+              </>
+            )}
           </div>
 
           <p className="text-[10px] leading-4 text-slate-500">
@@ -1021,6 +1138,12 @@ export default function PropagationExplorer({
         {!center && (
           <div className="pointer-events-none absolute left-1/2 top-6 z-10 -translate-x-1/2 rounded-full border border-cyan-500/30 bg-slate-950/90 px-4 py-2 text-xs text-cyan-100 shadow-xl">
             Click anywhere on the map to choose a propagation center
+          </div>
+        )}
+        {carrierFinderEnabled && carrierFinderLoading && !loading && (
+          <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2 rounded-lg border border-teal-400/30 bg-slate-950/90 px-3 py-2 text-xs text-teal-200 shadow-xl">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Loading CarrierFinder overlay…
           </div>
         )}
         {loading && (
