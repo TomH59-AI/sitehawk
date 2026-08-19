@@ -376,6 +376,32 @@ export default function TalonFit() {
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
+        <div className="flex shrink-0 rounded-lg border border-slate-700 bg-slate-950 p-0.5">
+          <button
+            type="button"
+            onClick={() => setActiveView("talonfit")}
+            className={`rounded-md px-3 py-1 text-xs font-bold transition ${
+              activeView === "talonfit"
+                ? "bg-cyan-600 text-white"
+                : "text-slate-400 hover:text-slate-100"
+            }`}
+          >
+            TalonFit Analysis
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveView("propagation")}
+            className={`rounded-md px-3 py-1 text-xs font-bold transition ${
+              activeView === "propagation"
+                ? "bg-violet-600 text-white"
+                : "text-slate-400 hover:text-slate-100"
+            }`}
+          >
+            Propagation Explorer
+          </button>
+        </div>
+        {activeView === "talonfit" ? (
+          <>
         <div>
           <label className="block text-[10px] uppercase tracking-wide text-slate-400">Latitude</label>
           <input
@@ -427,10 +453,17 @@ export default function TalonFit() {
           </button>
         </div>
         {error && <span className="ml-auto text-xs text-red-400">{error}</span>}
+          </>
+        ) : (
+          <div className="ml-auto text-xs text-slate-400">
+            CloudRF coverage · FCC towers · RF opportunity zones
+          </div>
+        )}
       </div>
 
       {/* ── Data panel + map — the map is the entire experience ── */}
-      <div style={{ height: "calc(100vh - 48px)" }} className="flex">
+      <div style={{ height: "calc(100vh - 48px)" }} className="relative">
+        <div className={activeView === "talonfit" ? "flex h-full" : "hidden h-full"}>
         <TalonFitDataPanel
           solveResult={solveResult}
           towerHeightFt={heightFt}
@@ -500,6 +533,16 @@ export default function TalonFit() {
               );
             })}
           </div>
+        </div>
+        </div>
+        <div className={activeView === "propagation" ? "h-full" : "hidden h-full"}>
+          <PropagationExplorer
+            active={activeView === "propagation"}
+            initialCenter={anchor}
+            towerHeightFt={heightFt}
+            onRunTalonFit={handleRunTalonFitFromPropagation}
+            onSaveScip={handleSavePropagationToScip}
+          />
         </div>
       </div>
     </div>
