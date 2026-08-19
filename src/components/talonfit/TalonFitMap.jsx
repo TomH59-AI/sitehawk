@@ -8,6 +8,24 @@ import { MousePointer2, Loader2, RotateCcw, Circle as CircleIcon, Radio } from "
 
 const FT_TO_M = 0.3048;
 
+async function invokeSmartCursorSolve(payload, timeoutMs = 20000) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(
+      () => reject(new Error("Parcel analysis timed out. Move the cursor and try again.")),
+      timeoutMs,
+    );
+  });
+  try {
+    return await Promise.race([
+      base44.functions.invoke("talonfitAiSolve", payload),
+      timeout,
+    ]);
+  } finally {
+    if (timer) window.clearTimeout(timer);
+  }
+}
+
 function markerColor(decision) {
   if (decision === "APPROVED") return "#16a34a";
   if (decision === "REJECTED") return "#dc2626";
@@ -807,7 +825,7 @@ export default function TalonFitMap({
     const reqId = ++smartCursorReqRef.current;
     setHover({ px: pt, solving: true, point: { lat, lon }, result: null });
     try {
-      const { data } = await base44.functions.invoke("talonfitAiSolve", {
+      const { data } = await invokeSmartCursorSolve({
         lat,
         lon,
         center_lat: anchor.lat,
