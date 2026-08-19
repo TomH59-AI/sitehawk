@@ -181,7 +181,8 @@ const AuthenticatedApp = () => {
         <Route path="/sitesitter" element={<Navigate to="/talonfit" replace />} />
         <Route path="/hawkbolt" element={<Navigate to="/talonfit" replace />} />
         {/* Siting IQ™ — unified environmental, RF, terrain, and airspace intelligence */}
-        <Route path="/rfi-engine" element={<SitingIQ />} />
+        <Route path="/siting-iq" element={<SitingIQ />} />
+        <Route path="/rfi-engine" element={<Navigate to="/siting-iq" replace />} />
         {/* Hawk Zoning Verifier — AI agent for zoning accuracy checks */}
         <Route path="/zoning-verifier" element={<ZoningVerifier />} />
         {/* CodeHawk — the Ordinance Hunter, reconnected. Registry-first recall,
