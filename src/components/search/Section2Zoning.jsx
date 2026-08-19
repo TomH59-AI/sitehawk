@@ -147,7 +147,7 @@ function countTags(cells) {
   return c;
 }
 
-export default function Section2Zoning({ unlocked, active, lat, lon, candidate, sarfPacket, onRun, onComplete, onData, onZoningResolved, onClear }) {
+export default function Section2Zoning({ unlocked, active, lat, lon, candidate, sarfPacket = null, onRun, onComplete, onData, onZoningResolved = null, onClear }) {
   const [cells, setCells] = useState(emptyCells);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
