@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import TalonFitMap from "@/components/talonfit/TalonFitMap";
 import TalonFitDataPanel from "@/components/talonfit/TalonFitDataPanel";
+import PropagationExplorer from "@/components/talonfit/PropagationExplorer";
 import { invokeTalonfitAgent } from "@/lib/talonfitAgent";
 import { usePipeline } from "@/lib/PipelineContext";
 
@@ -52,6 +53,7 @@ export default function TalonFit() {
   const [error, setError] = useState("");
   const [solveResult, setSolveResult] = useState(null);
   const [panelOpen, setPanelOpen] = useState(true);
+  const [activeView, setActiveView] = useState("talonfit");
 
   const nextLetter = saved.length < MAX_SAVED ? LETTERS[saved.length] : null;
 
@@ -299,6 +301,68 @@ export default function TalonFit() {
     setError("");
     setSolveResult(null);
   }, []);
+
+  const handleRunTalonFitFromPropagation = useCallback(({ lat, lng }) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    setCenterLat(String(lat));
+    setCenterLon(String(lng));
+    setAnchor({ lat, lon: lng, label: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
+    setProbe(null);
+    setAutoTargets([]);
+    setSaved([]);
+    setSolveResult(null);
+    setError("");
+    setActiveView("talonfit");
+  }, []);
+
+  const handleSavePropagationToScip = useCallback(async (propagation) => {
+    const user = await base44.auth.me();
+    if (!user) throw new Error("Sign in to save this RF view.");
+    const lat = Number(propagation?.center?.lat);
+    const lng = Number(propagation?.center?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new Error("Propagation center is missing.");
+    }
+
+    const radius = Number(propagation.radius_miles) || 1;
+    const today = new Date().toISOString().slice(0, 10);
+    return base44.entities.ScipRecord.create({
+      description: `Propagation Explorer RF view · ${propagation.carrier || "carrier"} · ${radius.toFixed(1)} mi`,
+      agent_name: user.full_name || "SiteHawk User",
+      agent_phone: user.phone || "",
+      agent_email: user.email || "",
+      submittal_date: today,
+      site_name: `RF-${String(propagation.carrier || "carrier").toUpperCase()}-${lat.toFixed(5)},${lng.toFixed(5)}`,
+      latitude: lat,
+      longitude: lng,
+      search_radius: radius <= 0.5 ? "0.50" : "1.00",
+      sarf_height: Number(propagation.height_ft) || Number(heightFt) || 199,
+      parcel_targets: [],
+      active_target_index: 0,
+      rf_enrichment: {
+        "0": {
+          target_index: 0,
+          target_lat: lat,
+          target_lon: lng,
+          radius_miles: radius,
+          tower_height_ft: Number(propagation.height_ft) || Number(heightFt) || 199,
+          generated_at: propagation.generated_at || new Date().toISOString(),
+          run_id: propagation.run_id || null,
+          carrier: propagation.carrier || null,
+          tower_source: propagation.tower_source || "FCC ASR",
+          towers: propagation.towers || [],
+          opportunity_zones: propagation.opportunityZones || { type: "FeatureCollection", features: [] },
+          coverage: {
+            geometry: propagation.coverage?.geometry || null,
+            properties: propagation.coverage?.properties || {},
+            png_url: propagation.coverage?.raster?.url || null,
+            bounds: propagation.coverage?.raster?.bounds || null,
+          },
+        },
+      },
+      status: "draft",
+    });
+  }, [heightFt]);
 
   return (
     <div className="flex w-full flex-col">
