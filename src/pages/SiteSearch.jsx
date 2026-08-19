@@ -31,7 +31,7 @@ import { runQuietLookups } from "@/lib/quietLookup";
 
 export default function SiteSearch() {
   const { toast } = useToast();
-  const { setActiveStep, setCompletedSteps } = usePipeline();
+  const { setActiveStep, setCompletedSteps, patchSession } = usePipeline();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -64,6 +64,9 @@ export default function SiteSearch() {
   // Full Section 2 zoning result — carries CUP / PE-letter / fall-zone / setback
   // relief posture down to Section 3's target selector.
   const [zoningResult, setZoningResult] = useState(null);
+  // Explicit packets for the SARF → Zoning Registry → TalonFit handoff.
+  const [sarfPacket, setSarfPacket] = useState(null);
+  const [zoningDecision, setZoningDecision] = useState(null);
   // Target A (lead site candidate) emitted by Section 3 — unlocks Section 4.
   const [targetA, setTargetA] = useState(null);
   // ALL three targets from Section 3 (additive) — feed the isolated B/C lanes.
@@ -428,6 +431,10 @@ export default function SiteSearch() {
             lon={sarfLon}
             radiusMiles={sarfRadius}
             agentName={sarfAgent}
+            onSarfComplete={(packet) => {
+              setSarfPacket(packet);
+              patchSession({ center: packet.coordinates, params: searchParams, sarfPacket: packet });
+            }}
             onReady={() => { setLoading(false); setSarfReady(true); }}
           />
         </div>
@@ -461,9 +468,20 @@ export default function SiteSearch() {
           lat={Number(searchCenter.lat)}
           lon={Number(searchCenter.lon)}
           candidate={{ latitude: Number(searchCenter.lat), longitude: Number(searchCenter.lon) }}
+          sarfPacket={sarfPacket}
           onRun={() => setPipelineStep("zoning")}
           onComplete={() => setZoningReady(true)}
-          onData={(data) => { mergeSectionData(data); if (data?.zoning) setZoningResult(data); }}
+          onData={(data) => {
+            mergeSectionData(data);
+            if (data?.zoning) {
+              setZoningResult(data);
+              patchSession({ zoningResult: data });
+            }
+          }}
+          onZoningResolved={(decision) => {
+            setZoningDecision(decision);
+            patchSession({ zoningDecision: decision });
+          }}
         />
         </div>
       )}
@@ -572,6 +590,7 @@ export default function SiteSearch() {
           searchCoords={searchCoords}
           targets={targets}
           addTarget={addTarget}
+          zoningDecision={zoningDecision}
         />
       )}
 
