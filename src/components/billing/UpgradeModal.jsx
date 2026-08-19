@@ -3,7 +3,7 @@
  * Props:
  *   open: bool
  *   onClose: fn
- *   gate: "scip_quota" | "hawk_law" | "lease_site" | "carrier_overlay"
+ *   gate: "scip_quota" | "hawk_law" | "lease_site" | "carrier_overlay" | "propagation"
  *   message: string
  *   upgradeTo: tier key string
  *   currentTier: tier key string
@@ -14,13 +14,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { TIERS } from "@/lib/billingConfig";
 import { hawkBillingCheckout } from "@/functions/hawkBillingCheckout";
-import { ArrowRight, Zap, Lock, TrendingUp } from "lucide-react";
+import { ArrowRight, Zap, Lock, Radio, TrendingUp } from "lucide-react";
 
 const GATE_LABELS = {
   scip_quota: { icon: TrendingUp, title: "SCIP Quota Reached" },
   hawk_law: { icon: Lock, title: "Hawk Law Access Required" },
   lease_site: { icon: TrendingUp, title: "Lease Site Limit Reached" },
   carrier_overlay: { icon: Lock, title: "Carrier Overlay Restricted" },
+  propagation: { icon: Radio, title: "Propagation Capacity Required" },
 };
 
 const GATE_UNLOCK_TEXT = {
@@ -28,6 +29,7 @@ const GATE_UNLOCK_TEXT = {
   hawk_law: "Full Hawk Law toolkit: triage, review, redline, brief, export",
   lease_site: "More lease site capacity",
   carrier_overlay: "Carrier overlay records in Comp Library",
+  propagation: "CloudRF coverage, FCC tower intelligence, and RF opportunity zones",
 };
 
 export default function UpgradeModal({ open, onClose, gate, message, upgradeTo, currentTier }) {
