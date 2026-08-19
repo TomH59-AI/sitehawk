@@ -115,7 +115,7 @@ export const PAGE_GUIDES = [
   },
   {
     path: "/rfi-engine",
-    title: "RF Intelligence Engine",
+    title: "Siting IQ™",
     guide: `Nationwide RF map: existing towers in view, filters by operator/type, overlays, search box, and compass. Common asks: "find towers near my site" → search the address, towers load in the visible map area.`,
   },
   {
