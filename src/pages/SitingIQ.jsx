@@ -95,7 +95,7 @@ export default function SitingIQ() {
         {mapViewMode === "expanded" && (
           <DraggablePanel
             defaultPos={{ x: 20, y: 80 }}
-            className="h-[calc(100%-6rem)] w-72 max-h-[44rem]"
+            className="h-[calc(100%-6rem)] w-72 max-h-[44rem] [&>aside]:h-full"
           >
             {controlPanel}
           </DraggablePanel>
