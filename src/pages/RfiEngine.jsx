@@ -12,7 +12,7 @@ export default function RfiEngine() {
     bands: new Set(["Low-Band", "Mid-Band", "C-Band", "mmWave"]),
     techs: new Set(["5G NR", "LTE", "UMTS", "GSM", "CDMA"]),
   });
-  const [layers, setLayers] = useState({ towers: true, coverage: true, deadzones: true, copernicus: false });
+  const [layers, setLayers] = useState({ towers: true, coverage: true, deadzones: true, copernicus: false, oeaaa: false });
   const [satelliteMode, setSatelliteMode] = useState("true_color");
   const [drawing, setDrawing] = useState(false);
   const drawCoverageRef = useRef(null);
