@@ -120,6 +120,76 @@ export default function RfiMap({
           map.addSource("rfi-oeaaa-surfaces", { type: "geojson", data: EMPTY_FC });
           map.addSource("rfi-oeaaa-hazards", { type: "geojson", data: EMPTY_FC });
           map.addSource("rfi-oeaaa-airports", { type: "geojson", data: EMPTY_FC });
+          map.addSource("env-wetlands", { type: "geojson", data: EMPTY_FC });
+          map.addSource("env-hydrology", { type: "geojson", data: EMPTY_FC });
+          map.addSource("env-floodzones", { type: "geojson", data: EMPTY_FC });
+
+          map.addLayer({
+            id: "env-wetlands-fill",
+            type: "fill",
+            source: "env-wetlands",
+            layout: { visibility: "none" },
+            paint: {
+              "fill-color": [
+                "match", ["get", "WETLAND_TYPE"],
+                "Freshwater Emergent", "#00b3b3",
+                "Freshwater Forested", "#008080",
+                "Freshwater Shrub", "#009999",
+                "Estuarine", "#3399ff",
+                "Marine", "#0066cc",
+                "Riverine", "#66ccff",
+                "Lacustrine", "#99ddff",
+                "Freshwater Pond", "#22d3ee",
+                "#00cccc",
+              ],
+              "fill-opacity": 0.45,
+            },
+          });
+          map.addLayer({
+            id: "env-wetlands-outline",
+            type: "line",
+            source: "env-wetlands",
+            layout: { visibility: "none" },
+            paint: { "line-color": "#004d4d", "line-width": 1 },
+          });
+          map.addLayer({
+            id: "env-hydrology-fill",
+            type: "fill",
+            source: "env-hydrology",
+            layout: { visibility: "none" },
+            paint: { "fill-color": "#4da6ff", "fill-opacity": 0.35 },
+          });
+          map.addLayer({
+            id: "env-hydrology-outline",
+            type: "line",
+            source: "env-hydrology",
+            layout: { visibility: "none" },
+            paint: { "line-color": "#0066cc", "line-width": 1.5 },
+          });
+          map.addLayer({
+            id: "env-floodzones-fill",
+            type: "fill",
+            source: "env-floodzones",
+            layout: { visibility: "none" },
+            paint: {
+              "fill-color": [
+                "match", ["get", "FLOOD_ZONE"],
+                "A", "#ff6666",
+                "AE", "#ff3333",
+                "VE", "#cc0000",
+                "X", "#ffcc99",
+                "#ff9999",
+              ],
+              "fill-opacity": 0.45,
+            },
+          });
+          map.addLayer({
+            id: "env-floodzones-outline",
+            type: "line",
+            source: "env-floodzones",
+            layout: { visibility: "none" },
+            paint: { "line-color": "#990000", "line-width": 1 },
+          });
 
           map.addLayer({
             id: "rfi-oeaaa-surfaces-fill",
