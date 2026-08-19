@@ -12,8 +12,60 @@ const REALIE_LOCATION = "https://app.realie.ai/api/public/property/location/";
 const ZONING_LOOKUP_URL = "https://skpxeouvikzgsaurkohf.supabase.co/functions/v1/zoning-lookup";
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const NWI_QUERY_URL = "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0/query";
+const FL_CADASTRAL_URL = "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0/query";
 
 import { polygonCheck } from "./talonfitAiSolver.ts";
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 7000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchFloridaCadastralParcel(lat: number, lon: number) {
+  // The FDOR layer supplied in the TalonFit prototype is a reliable parcel
+  // fallback for Florida. It never supplies or guesses zoning/ordinance rules.
+  if (lat < 24.3 || lat > 31.1 || lon < -87.8 || lon > -79.7) return null;
+  const params = new URLSearchParams({
+    where: "1=1",
+    geometry: `${lon},${lat}`,
+    geometryType: "esriGeometryPoint",
+    inSR: "4326",
+    outSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    outFields: "PARCEL_ID,OWN_NAME,PHY_ADDR1,PHY_CITY,PHY_ZIPCD,LND_SQFOOT,DOR_UC",
+    returnGeometry: "true",
+    f: "geojson",
+  });
+  try {
+    const response = await fetchWithTimeout(`${FL_CADASTRAL_URL}?${params}`, {}, 4500);
+    if (!response.ok) return null;
+    const data = await response.json().catch(() => null);
+    const feature = data?.features?.[0];
+    if (!feature) return null;
+    const p = feature.properties || {};
+    return {
+      parcel_id: String(p.PARCEL_ID || "unknown"),
+      address: [p.PHY_ADDR1, p.PHY_CITY, "FL", p.PHY_ZIPCD].filter(Boolean).join(", ") || null,
+      jurisdiction: [p.PHY_CITY, "FL"].filter(Boolean).join(", ") || null,
+      zoning_classification: null,
+      standardized_zoning_type: null,
+      standardized_zoning_subtype: null,
+      geometry: feature.geometry || null,
+      owner: p.OWN_NAME || null,
+      acreage: Number.isFinite(Number(p.LND_SQFOOT)) ? Number((Number(p.LND_SQFOOT) / 43560).toFixed(2)) : null,
+      county: null,
+      state: "FL",
+      parcel_source: "Florida DOR cadastral fallback",
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function fetchParcel(lat: number, lon: number, apiKey: string) {
   for (const radius of ["0.15", "0.5", "1"]) {
@@ -21,7 +73,7 @@ export async function fetchParcel(lat: number, lon: number, apiKey: string) {
       latitude: String(lat), longitude: String(lon), radius, limit: "20",
       includeUnassignedAddress: "true",
     })}`;
-    const r = await fetch(url, { headers: { Authorization: apiKey } });
+    const r = await fetchWithTimeout(url, { headers: { Authorization: apiKey } }, 2500);
     if (!r.ok) { if (r.status !== 404) console.error("Realie HTTP", r.status); continue; }
     const data = await r.json().catch(() => null);
     const list = Array.isArray(data?.properties) ? data.properties
@@ -43,13 +95,13 @@ export async function fetchParcel(lat: number, lon: number, apiKey: string) {
       state: p.state || null,
     };
   }
-  return null;
+  return await fetchFloridaCadastralParcel(lat, lon);
 }
 
 /** Ordinance rules in solver shape. Absent values stay null with status "missing". */
 export async function fetchOrdinanceRules(lat: number, lon: number) {
   let o: any = null, meta: any = {};
-  const r = await fetch(`${ZONING_LOOKUP_URL}?lat=${lat}&lon=${lon}`);
+  const r = await fetchWithTimeout(`${ZONING_LOOKUP_URL}?lat=${lat}&lon=${lon}`, {}, 6000);
   if (r.ok) {
     const d = await r.json().catch(() => null);
     meta = d || {};
@@ -107,11 +159,11 @@ export async function fetchOrdinanceRules(lat: number, lon: number) {
 }
 
 async function overpass(query: string) {
-  const r = await fetch(OVERPASS_URL, {
+  const r = await fetchWithTimeout(OVERPASS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `data=${encodeURIComponent(query)}`,
-  });
+  }, 7000);
   if (!r.ok) { console.error("Overpass HTTP", r.status); return null; }
   return await r.json().catch(() => null);
 }
@@ -153,7 +205,7 @@ export async function fetchWetlandFeatures(lat: number, lon: number, radiusM = 1
     where: "1=1", geometry: envelope, geometryType: "esriGeometryEnvelope", inSR: "4326", outSR: "4326",
     spatialRel: "esriSpatialRelIntersects", outFields: "WETLAND_TYPE,ATTRIBUTE,ACRES", returnGeometry: "true", f: "geojson",
   });
-  const r = await fetch(`${NWI_QUERY_URL}?${params}`);
+  const r = await fetchWithTimeout(`${NWI_QUERY_URL}?${params}`, {}, 6500);
   if (!r.ok) { console.error("NWI HTTP", r.status); return { available: false, collection: { type: "FeatureCollection", features: [] } }; }
   const data = await r.json().catch(() => null);
   const features = Array.isArray(data?.features) ? data.features.map((f: any) => ({
@@ -187,7 +239,7 @@ export async function fetchExistingTowers(lat: number, lon: number, token: strin
   const dLon = radiusKm / (111.32 * Math.cos((lat * Math.PI) / 180));
   const url = `https://opencellid.org/cell/getInArea?key=${encodeURIComponent(token)}`
     + `&BBOX=${lat - dLat},${lon - dLon},${lat + dLat},${lon + dLon}&format=json&limit=200`;
-  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  const r = await fetchWithTimeout(url, { headers: { Accept: "application/json" } }, 6000);
   const text = await r.text();
   let data: any = null;
   try { data = JSON.parse(text); } catch { return { available: false, towers: [] }; }
