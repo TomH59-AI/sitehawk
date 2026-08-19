@@ -12,16 +12,31 @@ function cleanString(value, maxLength = 160) {
   return text ? text.slice(0, maxLength) : null;
 }
 
-function normalizeStatus(record = {}) {
-  const code = cleanString(record.xnet_code || record.status || "", 40)?.toLowerCase() || "";
-  const description = cleanString(record.xnet_description || record.network_status || "", 80)?.toLowerCase() || "";
-  if (code === "o" || /on[- ]?net|lit/.test(code) || /on[- ]?net|lit/.test(description)) return "on-net";
-  if (code === "n" || /near[- ]?net/.test(code) || /near[- ]?net/.test(description)) return "near-net";
-  if (/planned|proposed|future/.test(code) || /planned|proposed|future/.test(description)) return "planned";
+function normalizeRunStatus(record = {}) {
+  const status = cleanString(record.status || record.network_status || "", 80)?.toLowerCase() || "";
+  if (/active|in.?service|operational|lit/.test(status)) return "active";
+  if (/planned|proposed|future|construction/.test(status)) return "planned";
+  if (/retired|inactive|decommissioned|abandoned/.test(status)) return "retired";
   return "unknown";
 }
 
-function safeProperties(record = {}, index = 0, featureType = "point") {
+function normalizeNetworkAccess(record = {}) {
+  const code = cleanString(record.xnet_code || "", 40)?.toLowerCase() || "";
+  const description = cleanString(record.xnet_description || "", 80)?.toLowerCase() || "";
+  if (code === "o" || /on[- ]?net|lit/.test(code) || /on[- ]?net|lit/.test(description)) return "on-net";
+  if (code === "n" || /near[- ]?net/.test(code) || /near[- ]?net/.test(description)) return "near-net";
+  return "unknown";
+}
+
+function normalizeNodeType(record = {}) {
+  const raw = cleanString(record.node_type || record.kind || record.type || "", 64)?.toLowerCase() || "";
+  if (/pop|central.?office/.test(raw)) return "POP";
+  if (/handoff/.test(raw)) return "handoff";
+  if (/splice/.test(raw)) return "splice";
+  return "other";
+}
+
+function safeProperties(record = {}, index = 0, featureType = "node") {
   const operator = cleanString(
     record.operator || record.carriername || record.carrier || record.owner || record.provider
   );
@@ -30,18 +45,29 @@ function safeProperties(record = {}, index = 0, featureType = "point") {
     : operator
       ? [operator]
       : [];
+  const id =
+    cleanString(record.id || record.site_id || record.route_id || record.clli, 96) ||
+    `cf-${featureType}-${index}`;
   return {
-    id: cleanString(record.id || record.site_id || record.route_id || record.clli, 96) || `cf-${featureType}-${index}`,
+    id,
     feature_type: featureType,
-    kind: cleanString(record.kind || record.type || (featureType === "run" ? "fiber_run" : "lit_building"), 64),
+    kind: cleanString(
+      record.kind || record.type || (featureType === "run" ? "fiber_run" : "lit_building"),
+      64
+    ),
     operator,
     carrier_list: carriers,
     capacity_gbps: finite(record.capacity_gbps || record.capacity || record.bandwidth_gbps),
-    status: normalizeStatus(record),
+    status: featureType === "run" ? normalizeRunStatus(record) : "unknown",
+    network_access: featureType === "node" ? normalizeNetworkAccess(record) : null,
+    node_type: featureType === "node" ? normalizeNodeType(record) : null,
     label: cleanString(
       record.label || [record.street, record.city, record.state].filter(Boolean).join(", ")
     ),
-    source: "CarrierFinder",
+    last_updated: cleanString(record.last_updated || record.updated_at, 48),
+    source: "carrierfinder",
+    _cf_geometry_valid: true,
+    _cf_geometry_warnings: null,
   };
 }
 
@@ -102,10 +128,12 @@ function normalizeRoutes(raw) {
     const type = geometryType === "MultiLineString" || Array.isArray(coordinates?.[0]?.[0])
       ? "MultiLineString"
       : "LineString";
+    const properties = safeProperties(record.properties || record, index, "run");
     return {
       type: "Feature",
+      id: properties.id,
       geometry: { type, coordinates },
-      properties: safeProperties(record.properties || record, index, "run"),
+      properties,
     };
   }).filter(Boolean);
 }
@@ -122,10 +150,12 @@ function normalizePoints(raw, offset = 0) {
       ]
     );
     if (!coordinates) return null;
+    const properties = safeProperties(props, offset + index, "node");
     return {
       type: "Feature",
+      id: properties.id,
       geometry: { type: "Point", coordinates },
-      properties: safeProperties(props, offset + index, "point"),
+      properties,
     };
   }).filter(Boolean);
 }
@@ -146,10 +176,12 @@ function normalizeTelcoPoint(raw, index) {
     label: ["Central Office", raw.telco_co_city].filter(Boolean).join(" — "),
     status: "unknown",
   };
+  const properties = safeProperties(record, index, "node");
   return {
     type: "Feature",
+    id: properties.id,
     geometry: { type: "Point", coordinates },
-    properties: safeProperties(record, index, "point"),
+    properties,
   };
 }
 
@@ -167,19 +199,30 @@ export function normalizeCarrierFinderGeoJson(litResponse = {}, telcoResponse = 
 export function safeFeatureMetadata(feature) {
   if (!feature || feature.type !== "Feature" || !feature.properties) return null;
   const properties = feature.properties;
+  const featureType = properties.feature_type === "run" ? "run" : "node";
   return {
     id: cleanString(properties.id, 96),
-    feature_type: properties.feature_type === "run" ? "run" : "point",
-    kind: cleanString(properties.kind, 64),
-    operator: cleanString(properties.operator),
-    carrier_list: Array.isArray(properties.carrier_list)
-      ? properties.carrier_list.map((value) => cleanString(value, 80)).filter(Boolean).slice(0, 20)
-      : [],
-    capacity_gbps: finite(properties.capacity_gbps),
-    status: ["on-net", "near-net", "planned", "unknown"].includes(properties.status)
-      ? properties.status
-      : "unknown",
-    label: cleanString(properties.label),
-    source: "CarrierFinder",
+    feature_type: featureType,
+    properties: {
+      kind: cleanString(properties.kind, 64),
+      operator: cleanString(properties.operator),
+      carrier_list: Array.isArray(properties.carrier_list)
+        ? properties.carrier_list.map((value) => cleanString(value, 80)).filter(Boolean).slice(0, 20)
+        : [],
+      capacity_gbps: finite(properties.capacity_gbps),
+      status: ["active", "planned", "retired", "unknown"].includes(properties.status)
+        ? properties.status
+        : "unknown",
+      network_access: ["on-net", "near-net", "unknown"].includes(properties.network_access)
+        ? properties.network_access
+        : "unknown",
+      node_type: cleanString(properties.node_type, 32),
+      label: cleanString(properties.label),
+      last_updated: cleanString(properties.last_updated, 48),
+      source: "carrierfinder",
+      _cf_geometry_valid: properties._cf_geometry_valid !== false,
+      _cf_geometry_warnings: cleanString(properties._cf_geometry_warnings, 240),
+    },
+    raw: {},
   };
 }
