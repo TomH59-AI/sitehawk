@@ -147,7 +147,7 @@ function countTags(cells) {
   return c;
 }
 
-export default function Section2Zoning({ unlocked, active, lat, lon, candidate, onRun, onComplete, onData, onClear }) {
+export default function Section2Zoning({ unlocked, active, lat, lon, candidate, sarfPacket, onRun, onComplete, onData, onZoningResolved, onClear }) {
   const [cells, setCells] = useState(emptyCells);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -256,6 +256,30 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
           },
         },
       });
+
+      // Resolve the SARF packet into the normalized zoning decision consumed by
+      // TalonFit. Realie/FCC-backed fields already arrive through the sanctioned
+      // zoning report and solver registries; missing values remain explicitly null.
+      onZoningResolved?.({
+        jurisdiction: jur?.label || val(zo.zoning_jurisdiction) || sarfPacket?.jurisdiction || null,
+        zoningDistrict: val(zo.property_zoning_district) || jur?.zone_code || sarfPacket?.zoningDistrict || null,
+        ordinanceUrl: report?._registry?.source_url || sarfPacket?.ordinanceUrl || null,
+        coordinates: sarfPacket?.coordinates || { lat, lng: lon },
+        sarfMapSnapshot: sarfPacket?.sarfMapSnapshot || null,
+        sarfConfidenceScore: sarfPacket?.sarfConfidenceScore || "unverified",
+        heightLimit: val(tw.maximum_tower_height),
+        setbacks: val(tw.residential_separation),
+        conditionalUse: val(zo.cup_or_special_exception) || val(zo.zoning_process),
+        specialPermits: val(zo.zoning_process),
+        waterExclusion: true,
+        towerSeparation: val(tw.tower_separation),
+        structureSeparation: val(tw.residential_separation),
+        peLetterRequirement: val(tw.pe_letter) || val(zo.pe_self_certification),
+        bindingConstraint: val(tw.fall_zone_requirements),
+        ordinanceTextSnapshot: report || null,
+        source: res.data?.zoneomics?.ok ? "zoneomics" : "realie_or_ai",
+        conflict: res.data?.zoning_district_conflict || null,
+      });
       if (report) toast.success("Zoning ordinance provisions loaded.");
       else toast.warning("No zoning data found — manual entry required.");
       setDone(true);
@@ -268,7 +292,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
       setLoading(false);
       onComplete?.();
     }
-  }, [lat, lon, candidate, onComplete, generate]);
+  }, [lat, lon, candidate, sarfPacket, onComplete, onData, onZoningResolved, generate]);
 
   // Fire EXACTLY once when this step becomes active (pipelineStep === "zoning").
   useEffect(() => {
