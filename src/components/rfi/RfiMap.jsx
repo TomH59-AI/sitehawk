@@ -590,7 +590,10 @@ export default function RfiMap({
         </div>
       )}
       {ready && layers.copernicus && copernicusMeta && (
-        <div className="absolute top-16 right-4 z-10 max-w-64 rounded-lg border border-cyan-300/20 bg-slate-900/85 px-3 py-2 text-[10px] text-white/70 shadow-lg backdrop-blur">
+        <div
+          className="absolute right-4 z-10 max-w-64 rounded-lg border border-cyan-300/20 bg-slate-900/85 px-3 py-2 text-[10px] text-white/70 shadow-lg backdrop-blur"
+          style={{ top: layers.oeaaa ? "16rem" : "4rem" }}
+        >
           {copernicusMeta.notice ? copernicusMeta.notice : (
             <>
               <div className="font-semibold uppercase tracking-wide text-cyan-200">Copernicus · {String(copernicusMeta.mode || "").replaceAll("_", " ")}</div>
@@ -605,7 +608,7 @@ export default function RfiMap({
         </div>
       )}
       {ready && layers.oeaaa && oeaaaMeta && (
-        <div className="absolute bottom-4 right-4 z-10 w-[min(22rem,calc(100%-2rem))] rounded-xl border border-fuchsia-300/20 bg-slate-950/90 px-3.5 py-3 text-xs text-white/75 shadow-xl backdrop-blur">
+        <div className="absolute top-16 right-4 z-10 w-[min(22rem,calc(100%-2rem))] rounded-xl border border-fuchsia-300/20 bg-slate-950/90 px-3.5 py-3 text-xs text-white/75 shadow-xl backdrop-blur">
           {oeaaaMeta.notice ? (
             <div>{oeaaaMeta.notice}</div>
           ) : (
