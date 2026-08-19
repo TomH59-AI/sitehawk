@@ -359,6 +359,9 @@ Deno.serve(async (req) => {
         (candidate) => String(candidate?.properties?.id || "") === featureId
       );
       const metadata = safeFeatureMetadata(feature);
+      if (metadata) {
+        metadata.last_fetched = cached.fetched_at || now.toISOString();
+      }
       if (!metadata) {
         await base44.asServiceRole.entities.CarrierFinderLookupLog.update(requestLog.id, {
           status: "rejected",
