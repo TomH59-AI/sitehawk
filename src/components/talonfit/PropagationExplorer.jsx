@@ -3,9 +3,11 @@ import * as turf from "@turf/turf";
 import {
   AlertTriangle,
   ArrowRight,
+  Cable,
   CheckCircle2,
   Crosshair,
   Loader2,
+  Network,
   Radio,
   Save,
 } from "lucide-react";
@@ -27,6 +29,11 @@ const CARRIERS = [
 ];
 
 const MAP_LAYERS = [
+  "cf-points-cluster-count",
+  "cf-points-cluster",
+  "cf-points",
+  "cf-runs-highlight",
+  "cf-runs",
   "prop-center",
   "prop-towers",
   "prop-opportunities-outline",
@@ -39,6 +46,8 @@ const MAP_LAYERS = [
 ];
 
 const MAP_SOURCES = [
+  "cf-points",
+  "cf-runs",
   "prop-center",
   "prop-towers",
   "prop-opportunities",
@@ -78,6 +87,121 @@ function normalizeBounds(bounds) {
     : null;
 }
 
+function carrierFinderBbox(center) {
+  // The backend enforces a 2-mile diagonal. This 1.98-mile box leaves a
+  // rounding margin while keeping the overlay centered on the RF analysis.
+  const halfDiagonalMiles = 0.99;
+  const halfSideMiles = halfDiagonalMiles / Math.sqrt(2);
+  const dLat = halfSideMiles / 69;
+  const cosLat = Math.max(0.2, Math.cos((center.lat * Math.PI) / 180));
+  const dLng = halfSideMiles / (69.172 * cosLat);
+  return [
+    center.lng - dLng,
+    center.lat - dLat,
+    center.lng + dLng,
+    center.lat + dLat,
+  ];
+}
+
+function featureCollection(features = []) {
+  return { type: "FeatureCollection", features };
+}
+
+function carrierFinderPopupContent({ metadata, loading = false, error = "" }) {
+  const root = document.createElement("div");
+  root.style.minWidth = "210px";
+  root.style.maxWidth = "280px";
+  root.style.color = "#0f172a";
+  root.style.fontFamily = "ui-sans-serif, system-ui, sans-serif";
+
+  const title = document.createElement("div");
+  title.style.fontWeight = "800";
+  title.style.fontSize = "13px";
+  title.style.marginBottom = "6px";
+  title.textContent = loading
+    ? "Loading CarrierFinder details…"
+    : error
+      ? "CarrierFinder"
+      : metadata?.properties?.operator || metadata?.properties?.label || "CarrierFinder feature";
+  root.appendChild(title);
+
+  if (loading || error) {
+    const message = document.createElement("div");
+    message.style.fontSize = "12px";
+    message.style.color = error ? "#b91c1c" : "#475569";
+    message.textContent = error || "Loading…";
+    root.appendChild(message);
+    return root;
+  }
+
+  const properties = metadata?.properties || {};
+  const rows = [
+    ["Type", metadata?.feature_type === "run" ? "Fiber run" : properties.node_type || "Network point"],
+    ["Status", metadata?.feature_type === "run" ? properties.status : properties.network_access],
+    ["Capacity", properties.capacity_gbps != null ? `${properties.capacity_gbps} Gbps` : null],
+    ["Carriers", Array.isArray(properties.carrier_list) ? properties.carrier_list.join(", ") : null],
+    ["Location", properties.label],
+    ["Updated", properties.last_updated],
+  ].filter(([, value]) => value);
+
+  rows.forEach(([label, value]) => {
+    const row = document.createElement("div");
+    row.style.fontSize = "11px";
+    row.style.lineHeight = "1.45";
+    const strong = document.createElement("strong");
+    strong.textContent = `${label}: `;
+    row.appendChild(strong);
+    row.appendChild(document.createTextNode(String(value)));
+    root.appendChild(row);
+  });
+
+  if (properties._cf_geometry_valid === false) {
+    const warning = document.createElement("div");
+    warning.style.marginTop = "6px";
+    warning.style.fontSize = "11px";
+    warning.style.color = "#b45309";
+    warning.textContent = properties._cf_geometry_warnings || "CarrierFinder geometry needs review.";
+    root.appendChild(warning);
+  }
+
+  const source = document.createElement("div");
+  source.style.marginTop = "7px";
+  source.style.fontSize = "10px";
+  source.style.color = "#64748b";
+  source.textContent = "Source: CarrierFinder";
+  root.appendChild(source);
+  return root;
+}
+
+function bindCarrierFinderInteractions(map, onFeatureClick) {
+  if (map.__sitehawkCarrierFinderBound) return;
+  map.__sitehawkCarrierFinderBound = true;
+
+  ["cf-runs", "cf-points"].forEach((layerId) => {
+    map.on("click", layerId, (event) => {
+      const feature = event.features?.[0];
+      if (feature) onFeatureClick(feature, event.lngLat);
+    });
+    map.on("mouseenter", layerId, () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", layerId, () => {
+      map.getCanvas().style.cursor = "";
+    });
+  });
+
+  map.on("click", "cf-points-cluster", (event) => {
+    const feature = event.features?.[0];
+    const clusterId = feature?.properties?.cluster_id;
+    const source = map.getSource("cf-points");
+    if (clusterId == null || !source?.getClusterExpansionZoom) return;
+    source.getClusterExpansionZoom(clusterId, (error, zoom) => {
+      if (error) return;
+      map.easeTo({ center: feature.geometry.coordinates, zoom });
+    });
+  });
+}
+
 function towerCollection(towers = []) {
   return {
     type: "FeatureCollection",
@@ -105,7 +229,15 @@ function clearExplorerLayers(map) {
   });
 }
 
-function addExplorerLayers(map, center, radiusMiles, result) {
+function addExplorerLayers(
+  map,
+  center,
+  radiusMiles,
+  result,
+  carrierFinderGeojson,
+  carrierFinderLayers,
+  onCarrierFinderClick
+) {
   clearExplorerLayers(map);
 
   const radius = turf.circle([center.lng, center.lat], radiusMiles, {
