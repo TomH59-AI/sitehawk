@@ -5,6 +5,7 @@ import { rfiTowersInBBox } from "@/functions/rfiTowersInBBox";
 import { cloudRFCoveragePolygon } from "@/functions/cloudRFCoveragePolygon";
 import { getSatelliteSnapshot } from "@/functions/getSatelliteSnapshot";
 import { oeaaaAirspaceAnalysis } from "@/functions/oeaaaAirspaceAnalysis";
+import { rfiEnvironmental } from "@/functions/rfiEnvironmental";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import RfiLegend from "./RfiLegend";
@@ -36,6 +37,7 @@ export default function RfiMap({
   onRegisterDrawCoverage,
   onDrawingChange,
   satelliteMode = "true_color",
+  onEnvironmentalData,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -46,6 +48,7 @@ export default function RfiMap({
   const [copernicusMeta, setCopernicusMeta] = useState(null);
   const [loadingOEAAA, setLoadingOEAAA] = useState(false);
   const [oeaaaMeta, setOEAAAMeta] = useState(null);
+  const [loadingEnvironmental, setLoadingEnvironmental] = useState(false);
   const [towerCount, setTowerCount] = useState(0);
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
   const [baseLayer, setBaseLayer] = useState("usgs_imagery_topo");
@@ -56,9 +59,13 @@ export default function RfiMap({
   const oeaaaTimerRef = useRef(null);
   const oeaaaRequestRef = useRef(0);
   const oeaaaEnabledRef = useRef(!!layers.oeaaa);
+  const environmentalTimerRef = useRef(null);
+  const environmentalRequestRef = useRef(0);
+  const environmentalEnabledRef = useRef(!!layers.environmental);
   const satelliteModeRef = useRef(satelliteMode);
   copernicusEnabledRef.current = !!layers.copernicus;
   oeaaaEnabledRef.current = !!layers.oeaaa;
+  environmentalEnabledRef.current = !!layers.environmental;
   satelliteModeRef.current = satelliteMode;
 
   const allTowers = useRef([]);
