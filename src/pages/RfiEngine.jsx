@@ -12,7 +12,8 @@ export default function RfiEngine() {
     bands: new Set(["Low-Band", "Mid-Band", "C-Band", "mmWave"]),
     techs: new Set(["5G NR", "LTE", "UMTS", "GSM", "CDMA"]),
   });
-  const [layers, setLayers] = useState({ towers: true, coverage: true, deadzones: true, copernicus: false, oeaaa: false });
+  const [layers, setLayers] = useState({ towers: true, coverage: true, deadzones: true, copernicus: false, oeaaa: false, environmental: false });
+  const [environmentalData, setEnvironmentalData] = useState(null);
   const [satelliteMode, setSatelliteMode] = useState("true_color");
   const [drawing, setDrawing] = useState(false);
   const drawCoverageRef = useRef(null);
@@ -29,6 +30,7 @@ export default function RfiEngine() {
           layers={layers} setLayers={setLayers}
           onDrawCoverage={handleDrawCoverage} drawing={drawing}
           satelliteMode={satelliteMode} setSatelliteMode={setSatelliteMode}
+          environmentalData={environmentalData}
         />
         <div className="relative flex-1 rounded-2xl overflow-hidden border border-white/10 shadow-sm">
           <RfiMap
@@ -38,6 +40,7 @@ export default function RfiEngine() {
             onRegisterDrawCoverage={registerDrawCoverage}
             onDrawingChange={setDrawing}
             satelliteMode={satelliteMode}
+            onEnvironmentalData={setEnvironmentalData}
           />
         </div>
       </div>
