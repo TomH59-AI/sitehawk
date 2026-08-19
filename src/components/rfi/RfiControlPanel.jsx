@@ -38,12 +38,16 @@ export default function RfiControlPanel({
     <aside className="w-full lg:w-72 shrink-0 rounded-2xl border border-white/10 bg-slate-900 text-white shadow-sm overflow-hidden flex flex-col">
       <div className="h-1.5 w-full bg-gradient-to-r from-primary to-emerald-500" />
       <div className="p-4 overflow-y-auto min-h-0">
-        <div className="flex items-center gap-2 mb-1">
+        <div
+          data-drag-handle
+          className="flex cursor-grab items-center gap-2 mb-1 active:cursor-grabbing"
+          title="Drag this panel when the map is expanded"
+        >
           <Radio className="h-4 w-4 text-primary" />
-          <h2 className="font-heading text-base">My Overlays</h2>
+          <h2 className="font-heading text-base">Siting IQ™ — Patent Pending</h2>
         </div>
-        <p className="text-xs text-white/50 mb-4">
-          Toggle your saved sites and search rings on top of the national map.
+        <p className="text-xs leading-relaxed text-white/50 mb-4">
+          The industry’s first unified environmental, RF, and airspace siting engine.
         </p>
 
         <div className="space-y-2">
@@ -68,7 +72,7 @@ export default function RfiControlPanel({
         <div className="mt-5 pt-4 border-t border-white/10">
           <div className="flex items-center gap-2 mb-3">
             <SlidersHorizontal className="h-4 w-4 text-primary" />
-            <h2 className="font-heading text-base">RF Filters</h2>
+            <h2 className="font-heading text-base">Siting IQ™ Layers</h2>
           </div>
           <RfiFilters
             filters={filters} setFilters={setFilters}
