@@ -1,6 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.41';
 import {
-  findOptimalTowerPoint, buildCandidateSave, SOLVER_VERSION,
+  findOptimalTowerPoint, solveTalonFit, buildCandidateSave, SOLVER_VERSION,
   MAX_RING_RADIUS_MILES, MAX_RING_RADIUS_FEET, MINIMUM_HEIGHT_FT,
 } from '../../shared/talonfitAiSolver.ts';
 import {
@@ -327,7 +327,12 @@ Deno.serve(async (req) => {
       },
     };
 
-    const optimized = findOptimalTowerPoint(input);
+    // Normal site and Smart Cursor analysis must grade the exact coordinate
+    // supplied by the user. Parcel-wide optimization is opt-in for dedicated
+    // auto-selection workflows so the solver never silently moves the site.
+    const optimized = body.optimize_within_parcel === true
+      ? findOptimalTowerPoint(input)
+      : { point: input.candidate_point, result: solveTalonFit(input), evaluated_count: 1 };
     const result = optimized.result;
     const optimalPoint = optimized.point;
     const savedCount = Number(body.saved_count) || 0;
