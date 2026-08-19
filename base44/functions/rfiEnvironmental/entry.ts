@@ -42,7 +42,7 @@ function normalizeWetlandType(rawType, attribute) {
 
 async function fetchGeoJson(url, params, label) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), 10000);
   try {
     const response = await fetch(`${url}?${params}`, {
       headers: { Accept: "application/geo+json, application/json" },
@@ -265,7 +265,11 @@ Deno.serve(async (req) => {
       wetlands,
       hydrology,
       floodZones,
-      hazard,
+      hazard: {
+        ...hazard,
+        provisional: failures.length > 0,
+        unavailableSources: failures.map((failure) => failure.dataset),
+      },
       metadata: {
         radiusMiles,
         center: { lat, lng },
