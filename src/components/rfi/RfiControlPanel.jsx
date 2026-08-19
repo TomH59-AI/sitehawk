@@ -29,6 +29,7 @@ export default function RfiControlPanel({
   filters, setFilters,
   layers, setLayers,
   onDrawCoverage, drawing,
+  satelliteMode, setSatelliteMode,
 }) {
   const set = (key) => (val) => setOverlays((prev) => ({ ...prev, [key]: val }));
 
@@ -72,6 +73,7 @@ export default function RfiControlPanel({
             filters={filters} setFilters={setFilters}
             layers={layers} setLayers={setLayers}
             onDrawCoverage={onDrawCoverage} drawing={drawing}
+            satelliteMode={satelliteMode} setSatelliteMode={setSatelliteMode}
           />
         </div>
       </div>
