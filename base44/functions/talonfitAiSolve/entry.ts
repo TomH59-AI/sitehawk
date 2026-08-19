@@ -116,6 +116,43 @@ function mergePipelineZoningDecision(base: any, decision: any) {
   };
 }
 
+async function fetchTowerSources(base44: any, lat: number, lon: number) {
+  try {
+    const response = await base44.functions.invoke("towerSiterNearbyTowers", {
+      lat,
+      lon,
+      radius_miles: MAX_RING_RADIUS_MILES,
+    });
+    const data = response?.data ?? response;
+    if (!data?.error && Array.isArray(data?.towers)) {
+      return {
+        available: true,
+        source: data.source || "FCC ASR",
+        towers: data.towers
+          .map((tower: any) => ({
+            ...tower,
+            latitude: Number(tower.latitude ?? tower.lat),
+            longitude: Number(tower.longitude ?? tower.lon),
+          }))
+          .filter((tower: any) => Number.isFinite(tower.latitude) && Number.isFinite(tower.longitude)),
+      };
+    }
+  } catch (error) {
+    console.warn("FCC ASR tower lookup unavailable:", error?.message || String(error));
+  }
+
+  const fallback = await fetchExistingTowers(
+    lat,
+    lon,
+    Deno.env.get("UNWIREDLABS_TOKEN") || "",
+    MAX_RING_RADIUS_MILES * 1.60934,
+  ).catch(() => ({ available: false, towers: [] }));
+  return {
+    ...fallback,
+    source: fallback.available ? "OpenCellID / Unwired Labs" : "Tower source unavailable",
+  };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -136,7 +173,7 @@ Deno.serve(async (req) => {
       fetchWaterFeatures(lat, lon).catch(() => ({ available: false, collection: { type: "FeatureCollection", features: [] } })),
       fetchWetlandFeatures(lat, lon).catch(() => ({ available: false, collection: { type: "FeatureCollection", features: [] } })),
       fetchMappedStructures(lat, lon).catch(() => ({ available: false, structures: [] })),
-      fetchExistingTowers(lat, lon, Deno.env.get("UNWIREDLABS_TOKEN") || "").catch(() => ({ available: false, towers: [] })),
+      fetchTowerSources(base44, lat, lon),
     ]);
     let rules = initialRules;
 
@@ -180,6 +217,14 @@ Deno.serve(async (req) => {
           binding_constraint: "No parcel of record",
           reasons: ["No parcel record was returned by Realie at this coordinate — there is nothing to site on."],
           missing_information: ["parcel record (Realie)"],
+        },
+        data_sources: {
+          parcel: { name: "Realie", status: "no_match" },
+          ordinance: { name: "SiteHawk Ordinance Registry", status: "not_run" },
+          towers: { name: towers.source || "FCC ASR", status: towers.available ? "connected" : "unavailable", records: towers.towers?.length || 0 },
+          structures: { name: "OpenStreetMap", status: structures.available ? "connected" : "unavailable", records: structures.structures?.length || 0 },
+          wetlands: { name: "USFWS NWI", status: wetlands.available ? "connected" : "unavailable", records: wetlands.collection?.features?.length || 0 },
+          water: { name: "OpenStreetMap", status: water.available ? "connected" : "unavailable", records: water.collection?.features?.length || 0 },
         },
         candidate_save: { slot: "D", save_allowed: false, double_click_required: true, maximum_saved_candidates: 3 },
       });
@@ -272,6 +317,18 @@ Deno.serve(async (req) => {
       parcel_details: { owner: parcel.owner, acreage: parcel.acreage, county: parcel.county, state: parcel.state, zoning: parcel.zoning_classification },
       ordinance_summary: rules?._summary || null,
       calculated_result: result,
+      data_sources: {
+        parcel: { name: "Realie", status: "connected", records: 1 },
+        ordinance: {
+          name: "SiteHawk Ordinance Registry + CodeHawk",
+          status: rules?.ordinance_data_verified ? "verified" : rules ? "connected" : "unavailable",
+          source_url: rules?.ordinance_source_url || null,
+        },
+        towers: { name: towers.source || "FCC ASR", status: towers.available ? "connected" : "unavailable", records: towers.towers?.length || 0 },
+        structures: { name: "OpenStreetMap", status: structures.available ? "connected" : "unavailable", records: structures.structures?.length || 0 },
+        wetlands: { name: "USFWS NWI", status: wetlands.available ? "connected" : "unavailable", records: wetlands.collection?.features?.length || 0 },
+        water: { name: "OpenStreetMap", status: water.available ? "connected" : "unavailable", records: water.collection?.features?.length || 0 },
+      },
       candidate_save: candidateSave,
       solved_at: new Date().toISOString(),
     });
