@@ -260,6 +260,8 @@ export default function TalonFitMap({
   heightFt,
   onReset,
   solveResult,
+  sarfPacket,
+  zoningDecision,
 }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
@@ -562,7 +564,8 @@ export default function TalonFitMap({
   }, [smartCursor, heightFt, anchor, saved.length]);
 
   const doSolve = useCallback(async (lat, lon, pt) => {
-    if (!anchor) return;
+    const zoning = zoningDecision || solveResult?.ordinance_rules || null;
+    if (!anchor || !zoning) return;
     const reqId = ++smartCursorReqRef.current;
     setHover({ px: pt, solving: true, point: { lat, lon }, result: null });
     try {
@@ -575,6 +578,8 @@ export default function TalonFitMap({
         compound_width_ft: 100,
         compound_depth_ft: 100,
         saved_count: saved.length,
+        sarf_packet: sarfPacket,
+        zoning_decision: zoningDecision,
       });
       if (reqId !== smartCursorReqRef.current) return;
       setHover({ px: pt, solving: false, point: { lat, lon }, result: data });
@@ -582,7 +587,7 @@ export default function TalonFitMap({
       if (reqId !== smartCursorReqRef.current) return;
       setHover({ px: pt, solving: false, point: { lat, lon }, result: null, error: e?.message || "Solver failed" });
     }
-  }, [anchor, heightFt, saved.length]);
+  }, [anchor, heightFt, saved.length, sarfPacket, zoningDecision, solveResult]);
 
   // Smart cursor hover marker + popup
   useEffect(() => {
