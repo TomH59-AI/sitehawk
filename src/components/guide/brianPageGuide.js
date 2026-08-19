@@ -114,7 +114,7 @@ export const PAGE_GUIDES = [
     guide: `CloudRF coverage simulation: set transmitter location, height, frequency, and power in the sidebar, run the simulation, and view the coverage heatmap with a legend on the map.`,
   },
   {
-    path: "/rfi-engine",
+    path: "/siting-iq",
     title: "Siting IQ™",
     guide: `Nationwide RF map: existing towers in view, filters by operator/type, overlays, search box, and compass. Common asks: "find towers near my site" → search the address, towers load in the visible map area.`,
   },
