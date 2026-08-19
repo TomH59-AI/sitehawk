@@ -29,7 +29,7 @@ function escapeHTML(value) {
   })[character]);
 }
 
-// Nationwide RF Intelligence Engine map. Standalone — no pipeline coupling.
+// Siting IQ™ nationwide map. Standalone — no pipeline coupling.
 export default function RfiMap({
   overlays = { sites: true, rings: true },
   filters,
