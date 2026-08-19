@@ -18,7 +18,9 @@ const SESSION_STORE = "sitehawk:pipeline-session";
 const EMPTY_SESSION = {
   center: null,
   params: { radius_miles: 0.5, tower_height_ft: 150, agent_name: "", ring_name: "", compound_size: "100x100" },
+  sarfPacket: null,
   zoningResult: null,
+  zoningDecision: null,
   targets: [null, null, null],
   activeTarget: null,
   sectionData: {},
