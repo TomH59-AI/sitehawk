@@ -5,7 +5,7 @@ import { Radio, Eye, ShieldCheck, MapPin, FileSignature, Zap, ArrowRight } from 
 const TOOLS = [
   { path: "/talonfit", icon: Zap, label: "TalonFit® Map", desc: "AI spatial intelligence and deterministic tower-fit checks." },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "Zoning Verifier", desc: "Cross-check zoning findings and approval requirements." },
-  { path: "/rfi-engine", icon: Radio, label: "Siting IQ™", desc: "Unified environmental, RF, terrain, and airspace siting intelligence." },
+  { path: "/siting-iq", icon: Radio, label: "Siting IQ™", desc: "Unified environmental, RF, terrain, and airspace siting intelligence." },
   { path: "/hawk-tracker", icon: MapPin, label: "Hawk Tracker", desc: "Carry the selected site from outreach through build-out." },
   { path: "/hawk-law", icon: FileSignature, label: "HawkLease + Hawk Law", desc: "Evaluate lease economics and review agreement language." },
 ];
