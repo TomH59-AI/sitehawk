@@ -165,7 +165,7 @@ function addRingLayers(map, lat, lon, radiusMiles) {
   return ring;
 }
 
-function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady, onSarfComplete }) {
+function Section1SarfMap({ lat, lon, radiusMiles = 0.5, agentName, onReady, onSarfComplete = null }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
