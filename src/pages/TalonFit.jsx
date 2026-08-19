@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { base44 } from "@/api/base44Client";
@@ -11,6 +11,18 @@ import { usePipeline } from "@/lib/PipelineContext";
 const RADIUS_MILES = 2;
 const MAX_SAVED = 3;
 const LETTERS = ["D", "E", "F"];
+
+// Coordinate-bearing packets are reusable only when they belong to the
+// exact site currently centered in TalonFit.
+function packetMatchesSite(packet, anchor) {
+  if (!packet || !anchor) return false;
+  const coordinates = packet.coordinates || packet.center || {};
+  const lat = Number(coordinates.lat ?? coordinates.latitude);
+  const lon = Number(coordinates.lng ?? coordinates.lon ?? coordinates.longitude);
+  return Number.isFinite(lat) && Number.isFinite(lon)
+    && Math.abs(lat - anchor.lat) <= 0.0001
+    && Math.abs(lon - anchor.lon) <= 0.0001;
+}
 
 // Auto-select points: 3 points at 0.5mi from center, 120° apart
 function generateAutoPoints(lat, lon) {
@@ -55,8 +67,13 @@ export default function TalonFit() {
   const [panelOpen, setPanelOpen] = useState(true);
   const [activeView, setActiveView] = useState("talonfit");
   const [propagationContext, setPropagationContext] = useState(null);
+  const [siteLoading, setSiteLoading] = useState(false);
+  const [siteError, setSiteError] = useState("");
+  const siteAnalysisRequestRef = useRef(0);
 
   const nextLetter = saved.length < MAX_SAVED ? LETTERS[saved.length] : null;
+  const activeSarfPacket = packetMatchesSite(sarfPacket, anchor) ? sarfPacket : null;
+  const activeZoningDecision = packetMatchesSite(zoningDecision, anchor) ? zoningDecision : null;
 
   // Continue directly from the persisted Site Search pipeline when available.
   useEffect(() => {
@@ -67,6 +84,44 @@ export default function TalonFit() {
     setCenterLon(String(lon));
     setAnchor({ lat, lon, label: `${lat.toFixed(6)}, ${lon.toFixed(6)}` });
   }, [anchor, sarfPacket, zoningDecision]);
+
+  // Enrich the exact site coordinates as soon as the ring center is set.
+  useEffect(() => {
+    if (!anchor) {
+      setSiteLoading(false);
+      setSiteError("");
+      return undefined;
+    }
+
+    const requestId = ++siteAnalysisRequestRef.current;
+    setSiteLoading(true);
+    setSiteError("");
+    const timer = window.setTimeout(async () => {
+      try {
+        const { data } = await base44.functions.invoke("talonfitAiSolve", {
+          lat: anchor.lat,
+          lon: anchor.lon,
+          center_lat: anchor.lat,
+          center_lon: anchor.lon,
+          requested_height_ft: Number(heightFt) || 199,
+          compound_width_ft: 100,
+          compound_depth_ft: 100,
+          saved_count: saved.length,
+          sarf_packet: activeSarfPacket,
+          zoning_decision: activeZoningDecision,
+        });
+        if (siteAnalysisRequestRef.current !== requestId) return;
+        setSolveResult(data);
+      } catch (e) {
+        if (siteAnalysisRequestRef.current !== requestId) return;
+        setSiteError(e?.message || "Connected site sources could not be reached.");
+      } finally {
+        if (siteAnalysisRequestRef.current === requestId) setSiteLoading(false);
+      }
+    }, 200);
+
+    return () => window.clearTimeout(timer);
+  }, [anchor?.lat, anchor?.lon]);
 
   const handleSetCenter = useCallback(() => {
     const lat = parseFloat(centerLat);
@@ -82,6 +137,7 @@ export default function TalonFit() {
     setSaved([]);
     setSolveResult(null);
     setPropagationContext(null);
+    setSiteError("");
   }, [centerLat, centerLon]);
 
   // ── Auto-select 3 targets: solve at 3 points around the ring ──
@@ -102,8 +158,8 @@ export default function TalonFit() {
             compound_width_ft: 100,
             compound_depth_ft: 100,
             saved_count: 0,
-            sarf_packet: sarfPacket,
-            zoning_decision: zoningDecision,
+            sarf_packet: activeSarfPacket,
+            zoning_decision: activeZoningDecision,
           });
           const cp = data?.candidate_point || pt;
           const r = data?.calculated_result || {};
@@ -121,7 +177,7 @@ export default function TalonFit() {
     );
     setAutoTargets(results);
     setAutoLoading(false);
-  }, [anchor, heightFt, sarfPacket, zoningDecision]);
+  }, [anchor, heightFt, activeSarfPacket, activeZoningDecision]);
 
   // ── Probe: single-click on map → solve ──
   const handleProbe = useCallback(async ({ lat, lon }) => {
@@ -137,8 +193,8 @@ export default function TalonFit() {
         compound_width_ft: 100,
         compound_depth_ft: 100,
         saved_count: saved.length,
-        sarf_packet: sarfPacket,
-        zoning_decision: zoningDecision,
+        sarf_packet: activeSarfPacket,
+        zoning_decision: activeZoningDecision,
       });
       setSolveResult(data);
       const cp = data?.candidate_point || { latitude: lat, longitude: lon };
@@ -177,7 +233,7 @@ export default function TalonFit() {
     } catch (e) {
       setProbe({ lat, lon, solving: false, solve: null, error: e?.message || "Solver failed" });
     }
-  }, [anchor, heightFt, saved.length, sarfPacket, zoningDecision]);
+  }, [anchor, heightFt, saved.length, activeSarfPacket, activeZoningDecision]);
 
   // ── Save: from the Save button in the verdict popup ──
   // Creates a ScipRecord for APPROVED sites so they enter the SCIP pipeline.
@@ -263,9 +319,9 @@ export default function TalonFit() {
                 ordinance_verified: o.ordinance_data_verified === true,
                 agent_analysis: probe.agentAnalysis || "",
                 solved_at: new Date().toISOString(),
-                sarf_packet: sarfPacket,
-                zoning_decision: zoningDecision,
-                map_snapshot: sarfPacket?.sarfMapSnapshot || null,
+                sarf_packet: activeSarfPacket,
+                zoning_decision: activeZoningDecision,
+                map_snapshot: activeSarfPacket?.sarfMapSnapshot || null,
               },
             }],
             active_target_index: 0,
@@ -289,7 +345,7 @@ export default function TalonFit() {
     } finally {
       setSaving(false);
     }
-  }, [probe, saved.length, saving, heightFt, sarfPacket, zoningDecision]);
+  }, [probe, saved.length, saving, heightFt, activeSarfPacket, activeZoningDecision]);
 
   // ── Remove a saved target (tray × button) ──
   const handleRemoveSaved = useCallback((index) => {
@@ -479,6 +535,8 @@ export default function TalonFit() {
           lat={anchor?.lat}
           lon={anchor?.lon}
           saved={saved}
+          loading={siteLoading}
+          error={siteError}
           isOpen={panelOpen}
           onToggle={() => setPanelOpen((p) => !p)}
         />
@@ -497,9 +555,10 @@ export default function TalonFit() {
             heightFt={heightFt}
             onReset={handleReset}
             solveResult={solveResult}
-            sarfPacket={sarfPacket}
-            zoningDecision={zoningDecision}
+            sarfPacket={activeSarfPacket}
+            zoningDecision={activeZoningDecision}
             propagationContext={propagationContext}
+            onSmartCursorResult={setSolveResult}
           />
 
           {/* ── Saved targets tray — bottom of map, always visible ── */}
