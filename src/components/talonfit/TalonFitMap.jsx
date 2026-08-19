@@ -977,14 +977,16 @@ export default function TalonFitMap({
       )}
 
       {/* Smart cursor tooltip */}
-      {smartCursor && hover?.result && (
+      {smartCursor && hover && (
         <div
           className="pointer-events-none absolute z-[999] max-w-[220px] rounded-lg border border-white/15 bg-slate-900/95 px-2.5 py-1.5 text-[11px] text-white shadow-xl"
           style={{ left: (hover.px?.x ?? 0) + 14, top: (hover.px?.y ?? 0) + 14 }}
         >
           {hover.solving ? (
-            <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Solving…</span>
-          ) : (
+            <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Analyzing parcel…</span>
+          ) : hover.error ? (
+            <span className="text-red-300">{hover.error}</span>
+          ) : hover.result ? (
             <>
               <div className={`font-bold ${hover.result.calculated_result?.decision === "APPROVED" ? "text-green-400" : hover.result.calculated_result?.decision === "REJECTED" ? "text-red-400" : "text-amber-400"}`}>
                 {hover.result.calculated_result?.decision || "VERIFY"}
@@ -992,7 +994,7 @@ export default function TalonFitMap({
               </div>
               <div className="text-white/60">{hover.result.calculated_result?.binding_constraint || ""}</div>
             </>
-          )}
+          ) : null}
         </div>
       )}
     </div>
