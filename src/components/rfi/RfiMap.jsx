@@ -545,6 +545,47 @@ export default function RfiMap({
     );
   }, [loadOEAAAForView]);
 
+  // ── Unified environmental screening at the map center ──────────────────────
+  const loadEnvironmentalForView = useCallback(async (map) => {
+    if (!map || !environmentalEnabledRef.current) return;
+    const center = map.getCenter();
+    const requestId = ++environmentalRequestRef.current;
+    setLoadingEnvironmental(true);
+    onEnvironmentalData?.(null);
+
+    try {
+      const { data } = await rfiEnvironmental({
+        lat: center.lat,
+        lng: center.lng,
+        radiusMiles: 3,
+      });
+      if (requestId !== environmentalRequestRef.current || !environmentalEnabledRef.current) return;
+      if (!data || data.error) throw new Error(data?.error || "Environmental screening returned no data.");
+
+      map.getSource("env-wetlands")?.setData(data.wetlands || EMPTY_FC);
+      map.getSource("env-hydrology")?.setData(data.hydrology || EMPTY_FC);
+      map.getSource("env-floodzones")?.setData(data.floodZones || EMPTY_FC);
+      onEnvironmentalData?.(data);
+    } catch (error) {
+      if (requestId !== environmentalRequestRef.current) return;
+      map.getSource("env-wetlands")?.setData(EMPTY_FC);
+      map.getSource("env-hydrology")?.setData(EMPTY_FC);
+      map.getSource("env-floodzones")?.setData(EMPTY_FC);
+      onEnvironmentalData?.(null);
+      toast.error(error.message || "Environmental intelligence failed to load.");
+    } finally {
+      if (requestId === environmentalRequestRef.current) setLoadingEnvironmental(false);
+    }
+  }, [onEnvironmentalData]);
+
+  const scheduleEnvironmentalLoad = useCallback((map, immediate = false) => {
+    if (environmentalTimerRef.current) window.clearTimeout(environmentalTimerRef.current);
+    environmentalTimerRef.current = window.setTimeout(
+      () => loadEnvironmentalForView(map),
+      immediate ? 0 : 550
+    );
+  }, [loadEnvironmentalForView]);
+
   // ── Apply carrier/band/tech filters to the tower source ─────────────────────
   const applyTowerFilter = useCallback(() => {
     const map = mapRef.current;
