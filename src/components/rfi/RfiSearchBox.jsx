@@ -14,7 +14,7 @@ function parseCoords(raw) {
   return [lon, lat];
 }
 
-// Address / coordinates search for the RF Intelligence Engine. Accepts either a
+// Address / coordinates search for Siting IQ™. Accepts either a
 // raw "lat, lon" pair (jumps directly) or a place/address (Mapbox geocoding).
 export default function RfiSearchBox({ onGoTo }) {
   const [q, setQ] = useState("");
