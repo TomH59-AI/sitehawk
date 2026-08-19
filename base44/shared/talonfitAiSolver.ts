@@ -327,13 +327,36 @@ export function solveTalonFit(input: any) {
 export function findOptimalTowerPoint(input: any) {
   const geometry = input?.parcel?.geometry;
   const requested: Coord = input?.candidate_point;
+
+  // Structure/parcel overlap is invariant for every optimizer point. Classify
+  // it once here instead of repeating polygon-vs-polygon work for every grid
+  // candidate; dense OSM building areas otherwise make a single solve stall.
+  const mappedStructures = input?.spatial_constraints?.mapped_structures || [];
+  const preparedInput = mappedStructures.length
+    ? {
+        ...input,
+        spatial_constraints: {
+          ...input.spatial_constraints,
+          mapped_structures: mappedStructures.map((structure: any) => ({
+            ...structure,
+            intersects_selected_parcel:
+              typeof structure?.intersects_selected_parcel === "boolean"
+                ? structure.intersects_selected_parcel
+                : geometry
+                ? polygonsIntersect(structure.geometry, geometry)
+                : false,
+          })),
+        },
+      }
+    : input;
+
   const rings = polygonRings(geometry);
-  if (!rings.length) return { point: requested, result: solveTalonFit(input), evaluated_count: 1 };
+  if (!rings.length) return { point: requested, result: solveTalonFit(preparedInput), evaluated_count: 1 };
 
   const coords = rings.flat();
   const lons = coords.map((c: number[]) => Number(c[0])).filter(Number.isFinite);
   const lats = coords.map((c: number[]) => Number(c[1])).filter(Number.isFinite);
-  if (!lons.length || !lats.length) return { point: requested, result: solveTalonFit(input), evaluated_count: 1 };
+  if (!lons.length || !lats.length) return { point: requested, result: solveTalonFit(preparedInput), evaluated_count: 1 };
   const minLon = Math.min(...lons), maxLon = Math.max(...lons), minLat = Math.min(...lats), maxLat = Math.max(...lats);
   const candidates: Coord[] = [requested];
   const steps = 12;
@@ -350,13 +373,13 @@ export function findOptimalTowerPoint(input: any) {
   let best: any = null;
   const decisionRank: Record<string, number> = { APPROVED: 3, VERIFY: 2, REJECTED: 1 };
   for (const candidate of candidates) {
-    const result = solveTalonFit({ ...input, candidate_point: candidate });
+    const result = solveTalonFit({ ...preparedInput, candidate_point: candidate });
     const score = [decisionRank[result.decision] || 0, Number(result.maximum_buildable_height_ft) || 0, Number(result.distance_to_property_line_ft) || 0];
     if (!best || score[0] > best.score[0] || (score[0] === best.score[0] && (score[1] > best.score[1] || (score[1] === best.score[1] && score[2] > best.score[2])))) {
       best = { point: candidate, result, score };
     }
   }
-  return { point: best?.point || requested, result: best?.result || solveTalonFit(input), evaluated_count: candidates.length };
+  return { point: best?.point || requested, result: best?.result || solveTalonFit(preparedInput), evaluated_count: candidates.length };
 }
 
 /** Candidate save gate — GREEN APPROVED only, double-click, D/E/F, max three. */
