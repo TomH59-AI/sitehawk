@@ -167,6 +167,9 @@ export default function SiteSearch() {
     setScanError(null);
     setSarfReady(false);
     setZoningReady(false);
+    setSarfPacket(null);
+    setZoningDecision(null);
+    patchSession({ sarfPacket: null, zoningResult: null, zoningDecision: null });
     setTargetA(null);
     setAllTargets([null, null, null]);
     setPerchTargets([null, null, null]);
@@ -258,6 +261,9 @@ export default function SiteSearch() {
     setLoading(true);
     setSarfReady(false);
     setZoningReady(false);
+    setSarfPacket(null);
+    setZoningDecision(null);
+    patchSession({ sarfPacket: null, zoningResult: null, zoningDecision: null });
     setTargetA(null);
     setAllTargets([null, null, null]);
     setPerchTargets([null, null, null]);
@@ -296,6 +302,9 @@ export default function SiteSearch() {
     setLoading(true);
     setSarfReady(false);
     setZoningReady(false);
+    setSarfPacket(null);
+    setZoningDecision(null);
+    patchSession({ sarfPacket: null, zoningResult: null, zoningDecision: null });
     setTargetA(null);
     setAllTargets([null, null, null]);
     setLanesOpen({ B: false, C: false });
