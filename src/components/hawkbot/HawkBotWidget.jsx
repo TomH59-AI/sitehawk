@@ -42,7 +42,7 @@ Zoning Verifier (/zoning-verifier) — live zoning lookup: classification, permi
 
 CodeHawk (/codehawk) — municipal code analyzer. Upload or paste a zoning ordinance section. CodeHawk extracts tower height limits, setback requirements, the CUP/SUP permitting path, telecom facility definitions, and applicable state wireless siting law preemptions including Shot Clock rules under 47 U.S.C. § 332.
 
-RFI Engine (/rfi-engine) — generates formal Request for Information letters to property owners, specifying tower type, proposed lease terms, and carrier intent.
+Siting IQ™ (/siting-iq) — combines environmental, RF, terrain, tower, satellite, and FAA airspace screening on one interactive map.
 
 Pipeline (/pipeline) — CRM-style kanban for tracking site acquisition deals through stages: Prospect → Contacted → NDA → Lease Negotiation → Executed.
 
@@ -106,7 +106,7 @@ const HOW_TO_ANSWER = `SiteHawk is a full-stack wireless site acquisition platfo
 
 📋 CODEHAWK (/codehawk) — Municipal code analyzer. Paste or upload a zoning ordinance section. CodeHawk extracts tower height limits, setbacks, the CUP/SUP path, and Shot Clock applicability.
 
-📬 RFI ENGINE (/rfi-engine) — Generates formal outreach letters to property owners with proposed lease terms and carrier intent.
+⚡ SITING IQ™ (/siting-iq) — Combines environmental, RF, terrain, tower, satellite, and FAA airspace screening on one interactive map.
 
 📊 PIPELINE (/pipeline) — CRM kanban tracking deals from prospect through executed lease.
 
