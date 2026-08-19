@@ -140,7 +140,7 @@ export function useBilling() {
     canHawkLaw,
     canCarrierOverlay,
     canPropagation,
-    checkScipQuota:
+    checkScipQuota,
     checkLeaseSiteCap,
     checkHawkLaw,
     checkCarrierOverlay,
