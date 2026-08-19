@@ -18,6 +18,16 @@ import * as turf from "@turf/turf";
 
 const EMPTY_FC = { type: "FeatureCollection", features: [] };
 
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character]);
+}
+
 // Nationwide RF Intelligence Engine map. Standalone — no pipeline coupling.
 export default function RfiMap({
   overlays = { sites: true, rings: true },
@@ -202,6 +212,22 @@ export default function RfiMap({
           });
           map.on("mouseenter", "rfi-towers", () => { map.getCanvas().style.cursor = "pointer"; });
           map.on("mouseleave", "rfi-towers", () => { map.getCanvas().style.cursor = ""; });
+
+          map.on("click", "rfi-oeaaa-airports", (e) => {
+            const airport = e.features?.[0]?.properties || {};
+            const distance = Number(airport.distanceMiles);
+            new window.mapboxgl.Popup({ offset: 10 })
+              .setLngLat(e.lngLat)
+              .setHTML(
+                `<div style="font-family:sans-serif;font-size:12px;line-height:1.5">
+                  <b>${escapeHTML(airport.id || "Airport")}</b> · ${escapeHTML(airport.name || "")}<br/>
+                  ${Number.isFinite(distance) ? `${distance.toFixed(2)} miles from map center` : ""}
+                </div>`
+              )
+              .addTo(map);
+          });
+          map.on("mouseenter", "rfi-oeaaa-airports", () => { map.getCanvas().style.cursor = "pointer"; });
+          map.on("mouseleave", "rfi-oeaaa-airports", () => { map.getCanvas().style.cursor = ""; });
 
           setReady(true);
           loadTowersForView(map);
@@ -546,10 +572,16 @@ export default function RfiMap({
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
-      {(loadingTowers || loadingCopernicus || !ready) && (
+      {(loadingTowers || loadingCopernicus || loadingOEAAA || !ready) && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full bg-slate-900/85 text-white text-xs px-3 py-1.5 shadow-lg">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          {!ready ? "Loading RF map…" : loadingCopernicus ? "Rendering Copernicus imagery…" : "Loading towers…"}
+          {!ready
+            ? "Loading RF map…"
+            : loadingOEAAA
+              ? "Screening FAA airspace…"
+              : loadingCopernicus
+                ? "Rendering Copernicus imagery…"
+                : "Loading towers…"}
         </div>
       )}
       {ready && (
@@ -567,6 +599,45 @@ export default function RfiMap({
                   ? `Latest scene ${new Date(copernicusMeta.latestAcquisition).toLocaleDateString()}`
                   : "Viewport composite"}
                 {copernicusMeta.cloudCover != null ? ` · ${Number(copernicusMeta.cloudCover).toFixed(0)}% cloud` : ""}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {ready && layers.oeaaa && oeaaaMeta && (
+        <div className="absolute bottom-4 right-4 z-10 w-[min(22rem,calc(100%-2rem))] rounded-xl border border-fuchsia-300/20 bg-slate-950/90 px-3.5 py-3 text-xs text-white/75 shadow-xl backdrop-blur">
+          {oeaaaMeta.notice ? (
+            <div>{oeaaaMeta.notice}</div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-semibold uppercase tracking-wide text-fuchsia-200">
+                  FAA Part 77 Screening
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${oeaaaMeta.summary?.riskLevel === "HIGH" ? "bg-red-500/25 text-red-200" : "bg-emerald-500/20 text-emerald-200"}`}>
+                  {oeaaaMeta.summary?.riskLevel || "UNKNOWN"}
+                </span>
+              </div>
+              <p className="mt-1.5 leading-snug">{oeaaaMeta.summary?.notes}</p>
+              <div className="mt-2 border-t border-white/10 pt-2 text-[10px] text-white/55">
+                {oeaaaMeta.surfaceCount} screening zone{oeaaaMeta.surfaceCount === 1 ? "" : "s"} · {oeaaaMeta.nearestAirports.length} nearby airport{oeaaaMeta.nearestAirports.length === 1 ? "" : "s"} listed
+                {oeaaaMeta.nearestAirports.slice(0, 3).map((airport) => (
+                  <div key={airport.id || airport.name} className="mt-1 flex justify-between gap-3">
+                    <span className="truncate">{airport.id || "—"} · {airport.name}</span>
+                    <span className="shrink-0">{Number(airport.distanceMiles).toFixed(1)} mi</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 text-[10px]">
+                <span className="text-amber-200/80">Screening only—not an FAA determination.</span>
+                <a
+                  href={oeaaaMeta.summary?.officialPortalUrl || "https://oeaaa.faa.gov/"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 font-semibold text-fuchsia-200 hover:text-fuchsia-100"
+                >
+                  Verify with FAA ↗
+                </a>
               </div>
             </>
           )}
