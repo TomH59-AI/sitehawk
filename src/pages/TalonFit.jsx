@@ -259,6 +259,9 @@ export default function TalonFit() {
                 ordinance_verified: o.ordinance_data_verified === true,
                 agent_analysis: probe.agentAnalysis || "",
                 solved_at: new Date().toISOString(),
+                sarf_packet: sarfPacket,
+                zoning_decision: zoningDecision,
+                map_snapshot: sarfPacket?.sarfMapSnapshot || null,
               },
             }],
             active_target_index: 0,
@@ -282,7 +285,7 @@ export default function TalonFit() {
     } finally {
       setSaving(false);
     }
-  }, [probe, saved.length, saving, heightFt]);
+  }, [probe, saved.length, saving, heightFt, sarfPacket, zoningDecision]);
 
   // ── Remove a saved target (tray × button) ──
   const handleRemoveSaved = useCallback((index) => {
