@@ -1,12 +1,13 @@
 /**
- * PushToTrackerButton — adds/updates this target in the FollowUpTracker
- * when the subscriber selects a Target in Section 3. Also fires when a
- * mailer is sent (pass mailerSent=true to increment mailers_sent).
+ * PushToTrackerButton — adds/updates this selected target in the durable,
+ * per-user FollowUpTracker entity that powers the Hawk Tracker spreadsheet.
+ * Also fires when a mailer is sent (pass mailerSent=true to increment mailers_sent).
  */
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { ClipboardList, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { TRACKER_SHEET_EVENT } from "@/lib/trackerSheet";
 
 export default function PushToTrackerButton({
   ringName, targetLabel, target, searchRingCenter, mailerSent = false
@@ -52,11 +53,12 @@ export default function PushToTrackerButton({
 
       if (existing?.length) {
         await base44.entities.FollowUpTracker.update(existing[0].id, payload);
-        toast.success(`${targetLabel} updated in Follow-Up Tracker.`);
+        toast.success(`${targetLabel} updated in Hawk Tracker.`);
       } else {
         await base44.entities.FollowUpTracker.create(payload);
-        toast.success(`${targetLabel} added to Follow-Up Tracker.`);
+        toast.success(`${targetLabel} added to Hawk Tracker.`);
       }
+      window.dispatchEvent(new Event(TRACKER_SHEET_EVENT));
       setStatus("done");
     } catch (e) {
       console.error(e);
@@ -77,7 +79,7 @@ export default function PushToTrackerButton({
           : "border-border text-muted-foreground bg-secondary hover:border-emerald-400 hover:text-emerald-700 hover:bg-emerald-50"
         }
         disabled:opacity-60`}
-      title="Add this target to the Master Follow-Up Tracker"
+      title="Add this selected site to your Hawk Tracker spreadsheet"
     >
       {status === "saving" ? (
         <Loader2 className="w-3.5 h-3.5 animate-spin" />
