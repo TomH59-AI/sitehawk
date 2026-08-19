@@ -116,6 +116,21 @@ function mergePipelineZoningDecision(base: any, decision: any) {
   };
 }
 
+async function resolveWithin<T>(label: string, promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timer: number | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(`${label} timed out after ${timeoutMs}ms`);
+      resolve(fallback);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer != null) clearTimeout(timer);
+  }
+}
+
 async function fetchTowerSources(base44: any, lat: number, lon: number) {
   try {
     const response = await base44.functions.invoke("towerSiterNearbyTowers", {
@@ -167,13 +182,14 @@ Deno.serve(async (req) => {
     const realieKey = Deno.env.get("REALIE_API_KEY");
     if (!realieKey) return Response.json({ error: "REALIE_API_KEY not set" }, { status: 500 });
 
+    const emptyCollection = { type: "FeatureCollection", features: [] };
     const [parcel, initialRules, water, wetlands, structures, towers] = await Promise.all([
-      fetchParcel(lat, lon, realieKey).catch(() => null),
-      fetchOrdinanceRules(lat, lon).catch(() => null),
-      fetchWaterFeatures(lat, lon).catch(() => ({ available: false, collection: { type: "FeatureCollection", features: [] } })),
-      fetchWetlandFeatures(lat, lon).catch(() => ({ available: false, collection: { type: "FeatureCollection", features: [] } })),
-      fetchMappedStructures(lat, lon).catch(() => ({ available: false, structures: [] })),
-      fetchTowerSources(base44, lat, lon),
+      resolveWithin("Parcel source", fetchParcel(lat, lon, realieKey).catch(() => null), 13000, null),
+      resolveWithin("Ordinance lookup", fetchOrdinanceRules(lat, lon).catch(() => null), 7000, null),
+      resolveWithin("OSM water", fetchWaterFeatures(lat, lon).catch(() => ({ available: false, collection: emptyCollection })), 8000, { available: false, collection: emptyCollection }),
+      resolveWithin("USFWS wetlands", fetchWetlandFeatures(lat, lon).catch(() => ({ available: false, collection: emptyCollection })), 7500, { available: false, collection: emptyCollection }),
+      resolveWithin("OSM structures", fetchMappedStructures(lat, lon).catch(() => ({ available: false, structures: [] })), 8000, { available: false, structures: [] }),
+      resolveWithin("FCC tower lookup", fetchTowerSources(base44, lat, lon), 9000, { available: false, source: "FCC ASR / OpenCellID", towers: [] }),
     ]);
     let rules = initialRules;
 
@@ -187,9 +203,14 @@ Deno.serve(async (req) => {
         const normalized = rawJur.toUpperCase()
           .replace(/^(CITY OF|COUNTY OF|TOWN OF|VILLAGE OF)\s+/, "").trim();
         if (normalized) {
-          const records = await base44.asServiceRole.entities.TelecomOrdinance.filter({
-            jurisdiction_normalized: normalized, state: parcel.state,
-          }, "-last_verified_date", 1);
+          const records = await resolveWithin(
+            "TelecomOrdinance registry",
+            base44.asServiceRole.entities.TelecomOrdinance.filter({
+              jurisdiction_normalized: normalized, state: parcel.state,
+            }, "-last_verified_date", 1),
+            3500,
+            [],
+          );
           if (records?.length) {
             const rec = records[0];
             // Map field_citations to the shape mergeCodeHawkRules expects
@@ -219,7 +240,7 @@ Deno.serve(async (req) => {
           missing_information: ["parcel record (Realie)"],
         },
         data_sources: {
-          parcel: { name: "Realie", status: "no_match" },
+          parcel: { name: "Realie / state cadastral", status: "no_match" },
           ordinance: { name: "SiteHawk Ordinance Registry", status: "not_run" },
           towers: { name: towers.source || "FCC ASR", status: towers.available ? "connected" : "unavailable", records: towers.towers?.length || 0 },
           structures: { name: "OpenStreetMap", status: structures.available ? "connected" : "unavailable", records: structures.structures?.length || 0 },
@@ -239,7 +260,12 @@ Deno.serve(async (req) => {
       try {
         const jurisdiction = String(rules?._jurisdiction || parcel.jurisdiction || parcel.county || "").replace(new RegExp(`,?\\s*${parcel.state}$`, "i"), "").trim();
         if (jurisdiction) {
-          const hunted = await base44.functions.invoke("codehawkHunt", { jurisdiction, state: parcel.state, force_refresh: false });
+          const hunted = await resolveWithin(
+            "CodeHawk ordinance hunt",
+            base44.functions.invoke("codehawkHunt", { jurisdiction, state: parcel.state, force_refresh: false }),
+            6000,
+            null,
+          );
           if (hunted?.data?.record) rules = mergeCodeHawkRules(rules || {}, hunted.data.record);
         }
       } catch (error) {
@@ -318,7 +344,7 @@ Deno.serve(async (req) => {
       ordinance_summary: rules?._summary || null,
       calculated_result: result,
       data_sources: {
-        parcel: { name: "Realie", status: "connected", records: 1 },
+        parcel: { name: parcel.parcel_source || "Realie", status: "connected", records: 1 },
         ordinance: {
           name: "SiteHawk Ordinance Registry + CodeHawk",
           status: rules?.ordinance_data_verified ? "verified" : rules ? "connected" : "unavailable",
