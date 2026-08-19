@@ -15,19 +15,14 @@ import { TRACKER_SHEET_EVENT } from "@/lib/trackerSheet";
 export default function HawkTracker() {
   const [tab, setTab] = useState("tracker");
   const [sites, setSites] = useState([]);
-  const [milestones, setMilestones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    const [s, m] = await Promise.all([
-      base44.entities.HawkTrackerSite.list("-created_date", 500),
-      base44.entities.HawkTrackerMilestone.list("-updated_date", 2000),
-    ]);
+    const s = await base44.entities.HawkTrackerSite.list("-created_date", 500);
     setSites(s);
-    setMilestones(m);
     setLoading(false);
   }, []);
 
