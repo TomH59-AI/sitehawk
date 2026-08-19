@@ -177,28 +177,37 @@ function bindCarrierFinderInteractions(map, onFeatureClick) {
   if (map.__sitehawkCarrierFinderBound) return;
   map.__sitehawkCarrierFinderBound = true;
 
-  ["cf-runs", "cf-points"].forEach((layerId) => {
-    map.on("click", layerId, (event) => {
-      const feature = event.features?.[0];
-      if (feature) onFeatureClick(feature, event.lngLat);
-    });
-    map.on("mouseenter", layerId, () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", layerId, () => {
-      map.getCanvas().style.cursor = "";
-    });
-  });
+  map.on("click", (event) => {
+    const layerIds = [
+      "cf-points-cluster",
+      "cf-points",
+      "cf-runs",
+    ].filter((layerId) => map.getLayer(layerId));
+    if (!layerIds.length) return;
 
-  map.on("click", "cf-points-cluster", (event) => {
-    const feature = event.features?.[0];
+    const feature = map.queryRenderedFeatures(event.point, { layers: layerIds })?.[0];
+    if (!feature) return;
+
     const clusterId = feature?.properties?.cluster_id;
     const source = map.getSource("cf-points");
-    if (clusterId == null || !source?.getClusterExpansionZoom) return;
-    source.getClusterExpansionZoom(clusterId, (error, zoom) => {
-      if (error) return;
-      map.easeTo({ center: feature.geometry.coordinates, zoom });
-    });
+    if (clusterId != null && source?.getClusterExpansionZoom) {
+      source.getClusterExpansionZoom(clusterId, (error, zoom) => {
+        if (error) return;
+        map.easeTo({ center: feature.geometry.coordinates, zoom });
+      });
+      return;
+    }
+    onFeatureClick(feature, event.lngLat);
+  });
+
+  map.on("mousemove", (event) => {
+    const layerIds = ["cf-points-cluster", "cf-points", "cf-runs"]
+      .filter((layerId) => map.getLayer(layerId));
+    map.getCanvas().style.cursor =
+      layerIds.length &&
+      map.queryRenderedFeatures(event.point, { layers: layerIds }).length
+        ? "pointer"
+        : "";
   });
 }
 
