@@ -858,9 +858,13 @@ export default function PropagationExplorer({
   }, [billing, onSaveScip, openUpgrade, result, saving]);
 
   const handleTalonFit = useCallback(() => {
-    if (!center) return;
-    onRunTalonFit?.(center);
-  }, [center, onRunTalonFit]);
+    if (!center || !result) return;
+    onRunTalonFit?.({
+      lat: center.lat,
+      lng: center.lng,
+      propagation: result,
+    });
+  }, [center, onRunTalonFit, result]);
 
   const selectedCarrier = CARRIERS.find((item) => item.value === carrier);
   const usage = result?.usage;
