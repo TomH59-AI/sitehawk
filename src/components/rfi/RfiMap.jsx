@@ -3,6 +3,7 @@ import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { rfiTowersInBBox } from "@/functions/rfiTowersInBBox";
 import { cloudRFCoveragePolygon } from "@/functions/cloudRFCoveragePolygon";
+import { getSatelliteSnapshot } from "@/functions/getSatelliteSnapshot";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import RfiLegend from "./RfiLegend";
@@ -23,17 +24,26 @@ export default function RfiMap({
   layers,
   onRegisterDrawCoverage,
   onDrawingChange,
+  satelliteMode = "true_color",
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
   const [loadingTowers, setLoadingTowers] = useState(false);
+  const [loadingCopernicus, setLoadingCopernicus] = useState(false);
+  const [copernicusMeta, setCopernicusMeta] = useState(null);
   const [drawing, setDrawing] = useState(false);
   const [towerCount, setTowerCount] = useState(0);
   const [declination, setDeclination] = useState(magneticDeclination(39.5, -98.5));
   const [baseLayer, setBaseLayer] = useState("usgs_imagery_topo");
   const searchMarker = useRef(null);
+  const copernicusTimerRef = useRef(null);
+  const copernicusRequestRef = useRef(0);
+  const copernicusEnabledRef = useRef(!!layers.copernicus);
+  const satelliteModeRef = useRef(satelliteMode);
+  copernicusEnabledRef.current = !!layers.copernicus;
+  satelliteModeRef.current = satelliteMode;
 
   const allTowers = useRef([]);
 
@@ -164,7 +174,11 @@ export default function RfiMap({
           const c = map.getCenter();
           setDeclination(magneticDeclination(c.lat, c.lng));
         };
-        map.on("moveend", () => { loadTowersForView(map); updateDeclination(); });
+        map.on("moveend", () => {
+          loadTowersForView(map);
+          updateDeclination();
+          if (copernicusEnabledRef.current) scheduleCopernicusLoad(map);
+        });
         map.on("error", (ev) => console.error("[RFI map]", ev?.error?.message || ev));
 
         // Safety net — if the style never finishes loading (e.g. Mapbox tile
@@ -179,7 +193,13 @@ export default function RfiMap({
         if (!cancelled) setError(e.message || "Failed to load RF map.");
       }
     })();
-    return () => { cancelled = true; mapRef.current?.remove?.(); mapRef.current = null; };
+    return () => {
+      cancelled = true;
+      copernicusRequestRef.current += 1;
+      if (copernicusTimerRef.current) window.clearTimeout(copernicusTimerRef.current);
+      mapRef.current?.remove?.();
+      mapRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -208,6 +228,76 @@ export default function RfiMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Copernicus viewport imagery ─────────────────────────────────────────────
+  const loadCopernicusForView = useCallback(async (map) => {
+    if (!map || !copernicusEnabledRef.current) return;
+    if (map.getZoom() < 7) {
+      setCopernicusMeta({ notice: "Zoom to level 7 or closer to load Copernicus imagery." });
+      return;
+    }
+
+    const bounds = map.getBounds();
+    const bbox = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+    const requestId = ++copernicusRequestRef.current;
+    setLoadingCopernicus(true);
+    setCopernicusMeta(null);
+
+    try {
+      const { data } = await getSatelliteSnapshot({
+        bbox,
+        mode: satelliteModeRef.current,
+        width: 768,
+        height: 768,
+        max_cloud_coverage: 35,
+      });
+      if (requestId !== copernicusRequestRef.current || !copernicusEnabledRef.current) return;
+      if (!data?.success || !data?.image_data_url || !Array.isArray(data?.bounds)) {
+        throw new Error(data?.error || "Copernicus returned no imagery.");
+      }
+
+      const [west, south, east, north] = data.bounds;
+      const coordinates = [[west, north], [east, north], [east, south], [west, south]];
+      const source = map.getSource("rfi-copernicus");
+      if (source?.updateImage) {
+        source.updateImage({ url: data.image_data_url, coordinates });
+      } else {
+        map.addSource("rfi-copernicus", {
+          type: "image",
+          url: data.image_data_url,
+          coordinates,
+        });
+        map.addLayer({
+          id: "rfi-copernicus",
+          type: "raster",
+          source: "rfi-copernicus",
+          paint: { "raster-opacity": 0.78, "raster-fade-duration": 250 },
+        }, "rfi-coverage");
+      }
+      map.setLayoutProperty("rfi-copernicus", "visibility", "visible");
+      setCopernicusMeta({
+        mode: data.mode,
+        collection: data.collection,
+        latestAcquisition: data.latest_acquisition,
+        cloudCover: data.cloud_cover,
+        sceneCount: data.scene_count,
+      });
+    } catch (e) {
+      if (requestId !== copernicusRequestRef.current) return;
+      setCopernicusMeta({ notice: e.message || "Copernicus imagery failed to load." });
+      toast.error(e.message || "Copernicus imagery failed to load.");
+    } finally {
+      if (requestId === copernicusRequestRef.current) setLoadingCopernicus(false);
+    }
+  }, []);
+
+  const scheduleCopernicusLoad = useCallback((map, immediate = false) => {
+    if (copernicusTimerRef.current) window.clearTimeout(copernicusTimerRef.current);
+    copernicusTimerRef.current = window.setTimeout(
+      () => loadCopernicusForView(map),
+      immediate ? 0 : 650
+    );
+  }, [loadCopernicusForView]);
+
   // ── Apply carrier/band/tech filters to the tower source ─────────────────────
   const applyTowerFilter = useCallback(() => {
     const map = mapRef.current;
@@ -232,7 +322,22 @@ export default function RfiMap({
     vis("rfi-towers", layers.towers);
     vis("rfi-coverage", layers.coverage);
     vis("rfi-deadzones", layers.deadzones);
-  }, [layers, ready]);
+  }, [layers.towers, layers.coverage, layers.deadzones, ready]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    if (!layers.copernicus) {
+      copernicusRequestRef.current += 1;
+      if (copernicusTimerRef.current) window.clearTimeout(copernicusTimerRef.current);
+      if (map.getLayer("rfi-copernicus")) map.setLayoutProperty("rfi-copernicus", "visibility", "none");
+      setLoadingCopernicus(false);
+      setCopernicusMeta(null);
+      return;
+    }
+    if (map.getLayer("rfi-copernicus")) map.setLayoutProperty("rfi-copernicus", "visibility", "visible");
+    scheduleCopernicusLoad(map, true);
+  }, [layers.copernicus, satelliteMode, ready, scheduleCopernicusLoad]);
 
   // ── Base-map switch — Mapbox base or a USGS raster overlay on top of it ────
   useEffect(() => {
@@ -315,15 +420,30 @@ export default function RfiMap({
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
-      {(loadingTowers || !ready) && (
+      {(loadingTowers || loadingCopernicus || !ready) && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full bg-slate-900/85 text-white text-xs px-3 py-1.5 shadow-lg">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          {!ready ? "Loading RF map…" : "Loading towers…"}
+          {!ready ? "Loading RF map…" : loadingCopernicus ? "Rendering Copernicus imagery…" : "Loading towers…"}
         </div>
       )}
       {ready && (
         <div className="absolute top-4 left-14 z-10 rounded-full bg-slate-900/85 text-white text-xs px-3 py-1.5 shadow-lg">
           {towerCount > 0 ? `${towerCount} towers in view` : "Zoom in to load towers"}
+        </div>
+      )}
+      {ready && layers.copernicus && copernicusMeta && (
+        <div className="absolute top-16 right-4 z-10 max-w-64 rounded-lg border border-cyan-300/20 bg-slate-900/85 px-3 py-2 text-[10px] text-white/70 shadow-lg backdrop-blur">
+          {copernicusMeta.notice ? copernicusMeta.notice : (
+            <>
+              <div className="font-semibold uppercase tracking-wide text-cyan-200">Copernicus · {String(copernicusMeta.mode || "").replaceAll("_", " ")}</div>
+              <div>
+                {copernicusMeta.latestAcquisition
+                  ? `Latest scene ${new Date(copernicusMeta.latestAcquisition).toLocaleDateString()}`
+                  : "Viewport composite"}
+                {copernicusMeta.cloudCover != null ? ` · ${Number(copernicusMeta.cloudCover).toFixed(0)}% cloud` : ""}
+              </div>
+            </>
+          )}
         </div>
       )}
       {ready && <RfiLegend />}
