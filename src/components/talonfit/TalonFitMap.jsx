@@ -57,6 +57,19 @@ function makeRingFeature(anchor, radiusMiles) {
   }
 }
 
+function isInsideSearchRing(anchor, radiusMiles, lat, lon) {
+  if (!anchor || !Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+  try {
+    return turf.distance(
+      turf.point([anchor.lon, anchor.lat]),
+      turf.point([lon, lat]),
+      { units: "miles" },
+    ) <= radiusMiles;
+  } catch {
+    return false;
+  }
+}
+
 const PROPAGATION_LAYER_IDS = [
   "talonfit-prop-towers",
   "talonfit-prop-opportunities-outline",
@@ -439,6 +452,7 @@ export default function TalonFitMap({
   sarfPacket,
   zoningDecision,
   propagationContext,
+  onSmartCursorResult,
 }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
@@ -763,11 +777,18 @@ export default function TalonFitMap({
       const pt = e.point;
       const { lat, lng } = e.lngLat;
       if (smartCursorDebounceRef.current) clearTimeout(smartCursorDebounceRef.current);
+      if (!isInsideSearchRing(anchor, radiusMiles, lat, lng)) {
+        setHover(null);
+        map.getCanvas().style.cursor = "not-allowed";
+        return;
+      }
+      map.getCanvas().style.cursor = "crosshair";
       smartCursorDebounceRef.current = setTimeout(() => doSolve(lat, lng, pt), 700);
     };
 
     const handleMouseOut = () => {
       if (smartCursorDebounceRef.current) clearTimeout(smartCursorDebounceRef.current);
+      map.getCanvas().style.cursor = "";
     };
 
     map.on("mousemove", handleMove);
@@ -777,12 +798,12 @@ export default function TalonFitMap({
       map.off("mousemove", handleMove);
       map.off("mouseout", handleMouseOut);
       if (smartCursorDebounceRef.current) clearTimeout(smartCursorDebounceRef.current);
+      map.getCanvas().style.cursor = "";
     };
-  }, [smartCursor, heightFt, anchor, saved.length]);
+  }, [smartCursor, heightFt, anchor, radiusMiles, saved.length]);
 
   const doSolve = useCallback(async (lat, lon, pt) => {
-    const zoning = zoningDecision || solveResult?.ordinance_rules || null;
-    if (!anchor || !zoning) return;
+    if (!anchor || !isInsideSearchRing(anchor, radiusMiles, lat, lon)) return;
     const reqId = ++smartCursorReqRef.current;
     setHover({ px: pt, solving: true, point: { lat, lon }, result: null });
     try {
@@ -800,11 +821,12 @@ export default function TalonFitMap({
       });
       if (reqId !== smartCursorReqRef.current) return;
       setHover({ px: pt, solving: false, point: { lat, lon }, result: data });
+      onSmartCursorResult?.(data);
     } catch (e) {
       if (reqId !== smartCursorReqRef.current) return;
       setHover({ px: pt, solving: false, point: { lat, lon }, result: null, error: e?.message || "Solver failed" });
     }
-  }, [anchor, heightFt, saved.length, sarfPacket, zoningDecision, solveResult]);
+  }, [anchor, radiusMiles, heightFt, saved.length, sarfPacket, zoningDecision, onSmartCursorResult]);
 
   // Smart cursor hover marker + popup
   useEffect(() => {
@@ -905,9 +927,9 @@ export default function TalonFitMap({
           className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg transition-all ${
             smartCursor ? "border-cyan-400 bg-cyan-500 text-slate-900" : "border-white/15 bg-slate-900/85 text-white/80 hover:text-white"
           }`}
-          title="Smart Cursor — hover any parcel for an instant verdict"
+          title="Smart Cursor — evaluates only parcels inside the entered-coordinate 2-mile ring"
         >
-          <MousePointer2 className="h-3.5 w-3.5" /> Smart Cursor
+          <MousePointer2 className="h-3.5 w-3.5" /> Smart Cursor · 2 mi
         </button>
         <button
           onClick={() => setShowFallZone((s) => !s)}
