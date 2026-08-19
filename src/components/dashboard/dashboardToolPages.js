@@ -22,7 +22,7 @@ export const DASHBOARD_TOOL_PAGES = [
       { title: "SiteSitter™ Feasibility", description: "See every scored site ranked by allowable tower height.", to: "/sitesitter", icon: Eye },
       { title: "Zoning Verifier", description: "Review zoning findings and source confidence.", to: "/zoning-verifier", icon: ShieldCheck },
       { title: "CodeHawk", description: "Look up any jurisdiction's tower ordinance, cited to its code section.", to: "/codehawk", icon: Landmark },
-      { title: "RF Intelligence Engine", description: "Model and review RF coverage intelligence.", to: "/rfi-engine", icon: Radar },
+      { title: "Siting IQ™", description: "Review environmental, RF, terrain, and airspace siting intelligence.", to: "/rfi-engine", icon: Radar },
       { title: "Local Services Directory", description: "Find governing, utility, and backhaul contacts.", to: "/fiber-operators", icon: Network },
     ],
   },
