@@ -98,6 +98,8 @@ export default function TalonFit() {
             compound_width_ft: 100,
             compound_depth_ft: 100,
             saved_count: 0,
+            sarf_packet: sarfPacket,
+            zoning_decision: zoningDecision,
           });
           const cp = data?.candidate_point || pt;
           const r = data?.calculated_result || {};
@@ -115,7 +117,7 @@ export default function TalonFit() {
     );
     setAutoTargets(results);
     setAutoLoading(false);
-  }, [anchor, heightFt]);
+  }, [anchor, heightFt, sarfPacket, zoningDecision]);
 
   // ── Probe: single-click on map → solve ──
   const handleProbe = useCallback(async ({ lat, lon }) => {
@@ -131,6 +133,8 @@ export default function TalonFit() {
         compound_width_ft: 100,
         compound_depth_ft: 100,
         saved_count: saved.length,
+        sarf_packet: sarfPacket,
+        zoning_decision: zoningDecision,
       });
       setSolveResult(data);
       const cp = data?.candidate_point || { latitude: lat, longitude: lon };
