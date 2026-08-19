@@ -54,6 +54,7 @@ export default function TalonFit() {
   const [solveResult, setSolveResult] = useState(null);
   const [panelOpen, setPanelOpen] = useState(true);
   const [activeView, setActiveView] = useState("talonfit");
+  const [propagationContext, setPropagationContext] = useState(null);
 
   const nextLetter = saved.length < MAX_SAVED ? LETTERS[saved.length] : null;
 
@@ -80,6 +81,7 @@ export default function TalonFit() {
     setAutoTargets([]);
     setSaved([]);
     setSolveResult(null);
+    setPropagationContext(null);
   }, [centerLat, centerLon]);
 
   // ── Auto-select 3 targets: solve at 3 points around the ring ──
@@ -302,8 +304,15 @@ export default function TalonFit() {
     setSolveResult(null);
   }, []);
 
-  const handleRunTalonFitFromPropagation = useCallback(({ lat, lng }) => {
+  const handleRunTalonFitFromPropagation = useCallback((payload) => {
+    const propagation = payload?.propagation || payload;
+    const lat = Number(payload?.lat ?? propagation?.center?.lat);
+    const lng = Number(payload?.lng ?? payload?.lon ?? propagation?.center?.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const propagatedHeight = Number(propagation?.height_ft);
+    if (Number.isFinite(propagatedHeight)) setHeightFt(propagatedHeight);
+    setPropagationContext(propagation || null);
     setCenterLat(String(lat));
     setCenterLon(String(lng));
     setAnchor({ lat, lon: lng, label: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
@@ -489,6 +498,7 @@ export default function TalonFit() {
             solveResult={solveResult}
             sarfPacket={sarfPacket}
             zoningDecision={zoningDecision}
+            propagationContext={propagationContext}
           />
 
           {/* ── Saved targets tray — bottom of map, always visible ── */}
