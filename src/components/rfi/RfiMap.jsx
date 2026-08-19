@@ -366,6 +366,7 @@ export default function RfiMap({
           updateDeclination();
           if (copernicusEnabledRef.current) scheduleCopernicusLoad(map);
           if (oeaaaEnabledRef.current) scheduleOEAAALoad(map);
+          if (environmentalEnabledRef.current) scheduleEnvironmentalLoad(map);
         });
         map.on("error", (ev) => console.error("[RFI map]", ev?.error?.message || ev));
 
@@ -385,8 +386,10 @@ export default function RfiMap({
       cancelled = true;
       copernicusRequestRef.current += 1;
       oeaaaRequestRef.current += 1;
+      environmentalRequestRef.current += 1;
       if (copernicusTimerRef.current) window.clearTimeout(copernicusTimerRef.current);
       if (oeaaaTimerRef.current) window.clearTimeout(oeaaaTimerRef.current);
+      if (environmentalTimerRef.current) window.clearTimeout(environmentalTimerRef.current);
       mapRef.current?.remove?.();
       mapRef.current = null;
     };
