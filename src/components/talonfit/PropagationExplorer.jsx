@@ -518,10 +518,23 @@ export default function PropagationExplorer({
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [upgradeModal, setUpgradeModal] = useState(null);
+  const [carrierFinderEnabled, setCarrierFinderEnabled] = useState(false);
+  const [carrierFinderLayers, setCarrierFinderLayers] = useState({
+    runs: true,
+    points: true,
+  });
+  const [carrierFinderLoading, setCarrierFinderLoading] = useState(false);
+  const [carrierFinderError, setCarrierFinderError] = useState("");
+  const [carrierFinderGeojson, setCarrierFinderGeojson] = useState(null);
+  const [carrierFinderQuota, setCarrierFinderQuota] = useState(null);
+  const [carrierFinderCacheHit, setCarrierFinderCacheHit] = useState(false);
 
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const seededRef = useRef(Boolean(seededCenter));
+  const carrierFinderRequestRef = useRef(null);
+  const carrierFinderSequenceRef = useRef(0);
+  const carrierFinderClickRef = useRef(null);
 
   useEffect(() => {
     const next = normalizeCenter(initialCenter);
@@ -570,6 +583,7 @@ export default function PropagationExplorer({
           setResult(null);
           setSaveMessage("");
           setError("");
+          setCarrierFinderError("");
         });
         map.on("load", () => {
           if (!cancelled) setMapReady(true);
@@ -595,12 +609,28 @@ export default function PropagationExplorer({
     const map = mapRef.current;
     if (!mapReady || !map || !center) return;
     try {
-      addExplorerLayers(map, center, radiusMiles, result);
+      addExplorerLayers(
+        map,
+        center,
+        radiusMiles,
+        result,
+        carrierFinderEnabled ? carrierFinderGeojson : null,
+        carrierFinderLayers,
+        (feature, lngLat) => carrierFinderClickRef.current?.(feature, lngLat)
+      );
     } catch (err) {
       console.warn("Propagation Explorer layer draw failed:", err);
       setMapError(err?.message || "Map layers could not be drawn.");
     }
-  }, [center, mapReady, radiusMiles, result]);
+  }, [
+    carrierFinderEnabled,
+    carrierFinderGeojson,
+    carrierFinderLayers,
+    center,
+    mapReady,
+    radiusMiles,
+    result,
+  ]);
 
   useEffect(() => () => {
     mapRef.current?.remove?.();
