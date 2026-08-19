@@ -655,6 +655,38 @@ export default function RfiMap({
     scheduleOEAAALoad(map, true);
   }, [layers.oeaaa, ready, scheduleOEAAALoad]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const layerIds = [
+      "env-wetlands-fill",
+      "env-wetlands-outline",
+      "env-hydrology-fill",
+      "env-hydrology-outline",
+      "env-floodzones-fill",
+      "env-floodzones-outline",
+    ];
+
+    if (!layers.environmental) {
+      environmentalRequestRef.current += 1;
+      if (environmentalTimerRef.current) window.clearTimeout(environmentalTimerRef.current);
+      layerIds.forEach((id) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+      });
+      map.getSource("env-wetlands")?.setData(EMPTY_FC);
+      map.getSource("env-hydrology")?.setData(EMPTY_FC);
+      map.getSource("env-floodzones")?.setData(EMPTY_FC);
+      setLoadingEnvironmental(false);
+      onEnvironmentalData?.(null);
+      return;
+    }
+
+    layerIds.forEach((id) => {
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "visible");
+    });
+    scheduleEnvironmentalLoad(map, true);
+  }, [layers.environmental, onEnvironmentalData, ready, scheduleEnvironmentalLoad]);
+
   // ── Base-map switch — Mapbox base or a USGS raster overlay on top of it ────
   useEffect(() => {
     const map = mapRef.current;
