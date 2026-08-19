@@ -220,6 +220,18 @@
                 "type": "string",
                 "format": "date-time",
                 "description": "When the TalonFit solve ran for this target."
+              },
+              "sarf_packet": {
+                "type": "object",
+                "description": "SARF emitter packet used for this TalonFit decision."
+              },
+              "zoning_decision": {
+                "type": "object",
+                "description": "Resolved zoning registry decision injected into the solver."
+              },
+              "map_snapshot": {
+                "type": "object",
+                "description": "GeoJSON snapshot of the SARF search ring at save time."
               }
             }
           }
