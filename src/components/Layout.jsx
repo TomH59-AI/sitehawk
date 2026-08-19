@@ -40,7 +40,7 @@ const BASE_NAV = [
   { header: "MORE TOOLS" },
   { path: "/talonfit", icon: Zap, label: "⚡ TalonFit™ Site Analysis" },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡 Zoning Verifier" },
-  { path: "/rfi-engine", icon: Radio, label: "📡 RF Intelligence" },
+  { path: "/rfi-engine", icon: Radio, label: "⚡ Siting IQ™ — Patent Pending" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
   { header: "ACCOUNT" },
