@@ -1,0 +1,111 @@
+{
+  "name": "CarrierFinderLookupLog",
+  "type": "object",
+  "description": "Private CarrierFinder request, quota, and API-call audit log. Used to enforce the app-wide 500-call monthly ceiling and per-user request throttling.",
+  "properties": {
+    "lookup_id": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "user_email": {
+      "type": "string"
+    },
+    "tier_at_time": {
+      "type": "string"
+    },
+    "month_key": {
+      "type": "string"
+    },
+    "minute_key": {
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "geojson",
+        "metadata",
+        "carrierfinder_litbuildings",
+        "carrierfinder_telcoinfo"
+      ]
+    },
+    "request_count": {
+      "type": "boolean"
+    },
+    "api_call": {
+      "type": "boolean"
+    },
+    "cache_hit": {
+      "type": "boolean"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "success",
+        "partial",
+        "error",
+        "rejected"
+      ]
+    },
+    "bbox": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "feature_count": {
+      "type": "number"
+    },
+    "error_code": {
+      "type": "string"
+    },
+    "logged_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "lookup_id",
+    "user_id",
+    "month_key",
+    "action",
+    "request_count",
+    "api_call",
+    "status",
+    "logged_at"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
