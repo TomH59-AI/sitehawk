@@ -22,6 +22,8 @@ import { CRITICAL_FIELDS, completenessScore, countyEquivalentLabel } from '../..
 import { processJurisdiction } from '../../shared/codehawkRun.ts';
 import { lookupNotionOrdinance } from '../../shared/notionOrdinanceLookup.ts';
 import { supervisedResponse } from '../../shared/siteHawkSupervisor.ts';
+import { scrapeJurisdictionFromNotion, zoningMcpConfigured } from '../../shared/zoningScraperMcp.ts';
+import { getJurisdictionRecord, overlayJurisdictionPanels } from '../../shared/jurisdictionPanels.ts';
 
 // ─── CodeHawk inline upgrade ────────────────────────────────────────────────
 // The subscriber's SCIP must come back with the zoning section filled, every
@@ -41,6 +43,13 @@ const CODEHAWK_BUDGET_MS = 45000;
 // Escalation budget for the SECOND hunt, which only fires when the first one
 // wrote nothing. A miss used to end the hunt right there and ship a thin report.
 const CODEHAWK_RETRY_BUDGET_MS = 40000;
+
+// Zoning-library (Notion -> MCP scraper -> Base44) budget. A single-jurisdiction
+// scrape runs ~45-75s depending on how many URLs the folder holds for it, so it
+// gets its own slice of the 120s platform ceiling and hard-stops well short of
+// it. ZONING_MCP_DEADLINE_MS is measured from requestStart, not from the call.
+const ZONING_MCP_BUDGET_MS = 70000;
+const ZONING_MCP_DEADLINE_MS = 95000;
 
 function withBudget(promise, ms) {
   return Promise.race([
@@ -939,9 +948,66 @@ Deno.serve(async (req) => {
     // Hunt whatever we would actually cite: the jurisdiction whose record we
     // matched (to fill its gaps), else the named city, else the county. Never
     // the bare county name — that reads as a city to the matcher.
+    // STEP 3b — the Jurisdiction entity: the SCIP zoning template itself
+    // (contacts, fees, timeframes, site-plan and building-permit procedure)
+    // filled from the Notion "The United States Zoning URL" library by
+    // zoningScraperIngest. TelecomOrdinance carries the numbers; this carries
+    // the other three panels, which nothing else in this pipeline fills.
+    let jurisdictionRecord = null;
+    let jurisdictionRecordLabel = null;
+    for (const candidateJurisdiction of [ordinanceJurisdiction, city, countyLabel].filter(Boolean)) {
+      const hit = await getJurisdictionRecord(base44, geo.state_code, candidateJurisdiction).catch(() => null);
+      if (hit) {
+        jurisdictionRecord = hit;
+        jurisdictionRecordLabel = candidateJurisdiction;
+        break;
+      }
+    }
+
     const huntJurisdiction = ordinanceJurisdiction || city || countyLabel;
     const needsUpgrade = !ordinance || completenessScore(ordinance) < CRITICAL_FIELDS.length;
     const shouldHunt = needsUpgrade && Boolean(huntJurisdiction) && Boolean(geo.state_code);
+
+    // STEP 4c — ZONING LIBRARY AUTO-FETCH.
+    // The backend has no ordinance for this jurisdiction (or only a thin one)
+    // and no SCIP template row. Before falling back to inference, go get the
+    // real thing: the Zoning Scraper MCP reads this jurisdiction's rows out of
+    // the Notion "The United States Zoning URL" folder, scrapes each official
+    // page, and writes Jurisdiction + TelecomOrdinance back into Base44. The
+    // re-read below then feeds the panels from OUR data instead of a guess.
+    //
+    // Budgeted against the platform's 120s ceiling and run alongside the
+    // gap-fill, so it costs no extra wall clock in the common case. If the
+    // budget expires the Railway job keeps going and ingests on its own — the
+    // next SCIP for this jurisdiction is a straight backend hit.
+    const scrapeTargets = [];
+    for (const j of [huntJurisdiction, city, countyLabel]) {
+      if (!j) continue;
+      const k = String(j).toUpperCase();
+      if (!scrapeTargets.some((o) => String(o).toUpperCase() === k)) scrapeTargets.push(j);
+      if (scrapeTargets.length === 2) break;
+    }
+    const backendZoningMissing = needsUpgrade || !jurisdictionRecord;
+    const shouldScrapeNotion =
+      backendZoningMissing &&
+      scrapeTargets.length > 0 &&
+      Boolean(geo.state_code) &&
+      zoningMcpConfigured(secrets);
+
+    async function scrapeZoningLibrary() {
+      for (const target of scrapeTargets) {
+        const elapsed = Date.now() - requestStart;
+        const budgetMs = Math.min(ZONING_MCP_BUDGET_MS, ZONING_MCP_DEADLINE_MS - elapsed);
+        if (budgetMs < 15000) return { action: 'skipped', reason: 'out_of_budget' };
+        const res = await scrapeJurisdictionFromNotion(secrets, {
+          jurisdiction: target,
+          state: geo.state_code,
+          budgetMs,
+        });
+        if (res?.action !== 'no_notion_rows') return { ...res, target };
+      }
+      return { action: 'no_notion_rows' };
+    }
 
     const huntCreds = {
       oxylabs_username: secrets.get('OXYLABS_USERNAME'),
@@ -990,10 +1056,29 @@ Deno.serve(async (req) => {
       return last;
     }
 
-    const [llmReport, huntResult] = await Promise.all([
+    const [llmReport, huntResult, scrapeResult] = await Promise.all([
       llmExtractReport(base44, llmCtx),
       shouldHunt ? huntWithEscalation() : Promise.resolve(null),
+      shouldScrapeNotion ? scrapeZoningLibrary() : Promise.resolve(null),
     ]);
+
+    // The scraper writes straight into Base44, so a successful run means both
+    // backend sources may have changed under us. Re-read them before the
+    // overlays rather than shipping the miss we started with.
+    if (scrapeResult?.action === 'ingested') {
+      const wroteFor = scrapeResult.jurisdiction || scrapeResult.target;
+      const freshOrdinance = await getTelecomOrdinance(base44, geo.state_code, wroteFor).catch(() => null);
+      if (freshOrdinance) {
+        ordinance = freshOrdinance;
+        ordinanceJurisdiction = ordinanceJurisdiction || wroteFor;
+      }
+      const freshJurisdiction = await getJurisdictionRecord(base44, geo.state_code, wroteFor).catch(() => null);
+      if (freshJurisdiction) {
+        jurisdictionRecord = freshJurisdiction;
+        jurisdictionRecordLabel = wroteFor;
+      }
+      console.log(`[ZONING LIBRARY] ${wroteFor}, ${geo.state_code} — ordinance=${freshOrdinance ? 'yes' : 'no'} template=${freshJurisdiction ? 'yes' : 'no'}`);
+    }
 
     // Re-read the registry only if CodeHawk actually wrote something. Read back
     // the jurisdiction the escalation LANDED on, which may not be the one pass 1
@@ -1054,6 +1139,17 @@ Deno.serve(async (req) => {
       if (!sec) continue;
       report[sec] = report[sec] || {};
       report[sec][field] = row(value, 'Zoneomics', 'high');
+    }
+
+    // STEP 5a-lib — SiteHawk Zoning Library overlay (the Jurisdiction entity).
+    // Ranked above Zoneomics and the gap-fill because it is our own researched
+    // template with a source URL per jurisdiction, and BELOW the TelecomOrdinance
+    // registry, which is the cited numeric authority the compliance math uses.
+    // In practice this is what fills Site Plan Overview and Building Permit
+    // Information — panels the registry has no columns for.
+    const libraryFieldsWritten = overlayJurisdictionPanels(report, jurisdictionRecord, row);
+    if (libraryFieldsWritten) {
+      console.log(`[ZONING LIBRARY] overlaid ${libraryFieldsWritten} SCIP fields from ${jurisdictionRecord.name}, ${jurisdictionRecord.state}`);
     }
 
     // STEP 5b (AUTHORITATIVE) — SiteHawk Registry overlay.
