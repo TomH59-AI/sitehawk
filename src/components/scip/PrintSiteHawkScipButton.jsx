@@ -3,6 +3,7 @@ import { Printer, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { loadPublicConfig } from "@/lib/publicConfig";
 import { base44 } from "@/api/base44Client";
+import { ensureScipQcPass } from "@/lib/scipQcGate";
 import { nearestAirportFromDirectory } from "@/functions/nearestAirportFromDirectory";
 import { cellTowerLookup } from "@/functions/cellTowerLookup";
 import SiteHawkScipDoc from "@/components/scip/sitehawk/SiteHawkScipDoc";
@@ -114,8 +115,10 @@ export default function PrintSiteHawkScipButton({ scipId, scip, variant = "toolb
   const build = async () => {
     setBuilding(true);
     try {
-      const s = scip || (await base44.entities.ScipRecord.get(scipId));
+      let s = scip || (await base44.entities.ScipRecord.get(scipId));
       if (!s) throw new Error("SCIP record not found");
+      const qc = await ensureScipQcPass(s, { repairAllowed: true });
+      s = qc.record || s;
 
       const cfg = await loadPublicConfig();
       const token = cfg.mapboxAccessToken;
