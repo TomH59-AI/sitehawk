@@ -16,6 +16,7 @@
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
 import { renderBookWorkbook } from "../../shared/scipBookWorkbook.ts";
 import { applyQcFills } from "../../shared/scipQcFields.ts";
+import { supervisedResponse } from "../../shared/siteHawkSupervisor.ts";
 
 // ── Small helpers ───────────────────────────────────────────────────────────
 const tbd = (v: unknown, label = "TBD"): string => {
@@ -342,11 +343,17 @@ export default async function (req: Request): Promise<Response> {
     const { file_uri } = await base44.asServiceRole.integrations.Core.UploadPrivateFile({ file });
     const { signed_url } = await base44.asServiceRole.integrations.Core.CreateFileSignedUrl({ file_uri });
 
-    return Response.json({
+    const proposedResult = {
       ok: true, filename, signed_url,
       bytes: bytes.byteLength,
       images_embedded: embedded, images_missing: missing,
-    });
+    };
+    return await supervisedResponse({
+      original_user_request: 'Generate the requested SiteHawk SCIP workbook.',
+      proposed_action: 'Release the private signed download for the generated SCIP workbook.',
+      supporting_evidence: { normalized_record: normalized, images_embedded: embedded, images_missing: missing },
+      risk_level: 'high',
+    }, proposedResult);
   } catch (e) {
     return Response.json({ error: String((e as Error)?.message || e) }, { status: 500 });
   }

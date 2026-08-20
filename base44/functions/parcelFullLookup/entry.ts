@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { fetchFloridaParcelCrosscheck } from '../../shared/floridaParcelCrosscheck.ts';
+import { supervisedResponse } from '../../shared/siteHawkSupervisor.ts';
 
 /**
  * parcelFullLookup — unified parcel + zoning + ordinance + FEMA enrichment.
@@ -364,7 +365,7 @@ export default async function(req) {
     // ─── Light depth: stop here ───
     if (enrich_depth === "light") {
       sources.calls_skipped.push("extractTelecomOrdinance", "jurisdiction_entity", "femaFloodLookup", "skipTrace");
-      return Response.json({
+      const proposedResult = {
         ok: true,
         lookup_id: `pfl_${new Date().toISOString()}`,
         enrich_depth: "light",
@@ -376,7 +377,13 @@ export default async function(req) {
         fema: null,
         contact: { _status: "skipped" },
         _meta: { duration_ms: Date.now() - t0, ...sources },
-      });
+      };
+      return await supervisedResponse({
+        original_user_request: `Look up the parcel at ${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}.`,
+        proposed_action: 'Release a light Realie parcel and zoning lookup.',
+        supporting_evidence: { realie: realieRes, zoning_source: zoneoRes, fdor: fdorRes, sources },
+        risk_level: 'high',
+      }, proposedResult);
     }
 
     // ─── Stage 2: full enrichment in parallel ───
@@ -552,7 +559,7 @@ export default async function(req) {
       duration_ms,
     };
 
-    return Response.json({
+    const proposedResult = {
       _regression,
       ok: true,
       lookup_id: `pfl_${new Date().toISOString()}`,
@@ -571,7 +578,13 @@ export default async function(req) {
         fallbacks: sources.fallbacks,
         errors: sources.errors,
       },
-    });
+    };
+    return await supervisedResponse({
+      original_user_request: `Look up and enrich the parcel at ${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}.`,
+      proposed_action: 'Release the full parcel, zoning, ordinance, FEMA, and optional contact result.',
+      supporting_evidence: { realie: realieRes, zoning_source: zoneoRes, fdor: fdorRes, ordinance: ordRes, fema_source: femaRes, sources },
+      risk_level: include_skip_trace ? 'privacy-sensitive' : 'high',
+    }, proposedResult);
   } catch (error) {
     console.log(`[ERROR] parcelFullLookup: ${error.message}`);
     return Response.json({ error: error.message, _meta: { duration_ms: Date.now() - t0 } }, { status: 500 });

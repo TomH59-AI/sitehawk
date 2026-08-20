@@ -21,6 +21,7 @@ import { findOrdinance } from '../../shared/telecomOrdinance.ts';
 import { CRITICAL_FIELDS, completenessScore, countyEquivalentLabel } from '../../shared/codehawk.ts';
 import { processJurisdiction } from '../../shared/codehawkRun.ts';
 import { lookupNotionOrdinance } from '../../shared/notionOrdinanceLookup.ts';
+import { supervisedResponse } from '../../shared/siteHawkSupervisor.ts';
 
 // ─── CodeHawk inline upgrade ────────────────────────────────────────────────
 // The subscriber's SCIP must come back with the zoning section filled, every
@@ -627,7 +628,13 @@ Deno.serve(async (req) => {
     const cached = await getCachedZoning(base44, siteKey).catch(() => null);
     if (cached?.report) {
       console.log(`[ZONING CACHE] HIT site=${siteKey} — reused, no source calls`);
-      return Response.json({ ...cached.report, cached: true });
+      const proposedResult = { ...cached.report, cached: true };
+      return await supervisedResponse({
+        original_user_request: `Resolve zoning and permitting requirements at ${Number(lat).toFixed(6)}, ${Number(lon).toFixed(6)}.`,
+        proposed_action: 'Release the cached zoning and permit report.',
+        supporting_evidence: { cached_report: cached.report, cache_fetched_at: cached.fetched_at },
+        risk_level: 'high',
+      }, proposedResult);
     }
 
     // STEP 1 — MapBox reverse-geocode (FCC fallback for any gaps).
@@ -715,7 +722,12 @@ Deno.serve(async (req) => {
       await putCachedZoning(base44, siteKey, geo.state_code, reusedPayload, jurisdictionMeta).catch((e) =>
         console.log(`[ZONING CACHE] site write failed ${siteKey}: ${e?.message}`)
       );
-      return Response.json(reusedPayload);
+      return await supervisedResponse({
+        original_user_request: `Resolve zoning and permitting requirements at ${Number(lat).toFixed(6)}, ${Number(lon).toFixed(6)}.`,
+        proposed_action: 'Release zoning and permit panels reused from the jurisdiction cache.',
+        supporting_evidence: { jurisdiction_cache: jurisdictionHit.report, parcel: realie, geo },
+        risk_level: 'high',
+      }, reusedPayload);
     }
 
     let ordinance = null;
@@ -1160,7 +1172,12 @@ Deno.serve(async (req) => {
       console.log(`[ZONING CACHE] write failed site=${siteKey}: ${e?.message}`)
     );
 
-    return Response.json(responsePayload);
+    return await supervisedResponse({
+      original_user_request: `Resolve zoning and permitting requirements at ${Number(lat).toFixed(6)}, ${Number(lon).toFixed(6)}.`,
+      proposed_action: 'Release the assembled zoning and permit report.',
+      supporting_evidence: { registry, notion_ordinance: notionOrdinance, realie, geo, source_summary: responsePayload.sources_used },
+      risk_level: 'high',
+    }, responsePayload);
   } catch (error) {
     console.error('generateZoningPermitReport error:', error?.message || error);
     return Response.json({ error: error?.message || String(error) }, { status: 500 });

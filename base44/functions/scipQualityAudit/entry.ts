@@ -1,5 +1,6 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.38';
 import { auditScipRecord } from '../../shared/scipAudit.ts';
+import { supervisedResponse } from '../../shared/siteHawkSupervisor.ts';
 
 // SCIP Quality Audit — deterministic pre-print checks for a ScipRecord.
 // The check engine lives in shared/scipAudit.ts (also used by the
@@ -19,7 +20,12 @@ Deno.serve(async (req) => {
 
     const result = auditScipRecord(rec);
     console.log(`scipQualityAudit: ${result.site_name || scip_record_id} → ${result.verdict} (${result.counts.critical}C/${result.counts.warning}W/${result.counts.info}I) for ${user.email}`);
-    return Response.json(result);
+    return await supervisedResponse({
+      original_user_request: 'Audit this SCIP record for delivery readiness.',
+      proposed_action: 'Release the deterministic SCIP quality-audit verdict.',
+      supporting_evidence: { scip_record_id, audit_counts: result.counts, audit_issues: result.issues },
+      risk_level: 'high',
+    }, result);
   } catch (error) {
     console.error('scipQualityAudit error:', error?.message ?? error);
     return Response.json({ error: String(error?.message ?? error) }, { status: 500 });

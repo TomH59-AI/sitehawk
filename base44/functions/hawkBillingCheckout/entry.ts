@@ -5,6 +5,7 @@
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 import Stripe from 'npm:stripe@14.21.0';
+import { supervisedResponse } from '../../shared/siteHawkSupervisor.ts';
 
 const PRICE_TO_TIER = {
   "price_1TksEIIE4fOP88RJtkkAJpF3": "hawk_site",
@@ -59,7 +60,17 @@ Deno.serve(async (req) => {
       },
     });
 
-    return Response.json({ url: session.url });
+    return await supervisedResponse({
+      original_user_request: 'Create a subscription checkout for the selected SiteHawk price.',
+      proposed_action: 'Release a Stripe-hosted subscription checkout URL; no charge occurs until the authenticated user confirms in Stripe Checkout.',
+      supporting_evidence: {
+        authenticated_user_confirmed_by_click: true,
+        selected_price_id: price_id,
+        mapped_tier: PRICE_TO_TIER[price_id] || 'hawk_site',
+        stripe_session_id: session.id,
+      },
+      risk_level: 'financial',
+    }, { url: session.url });
   } catch (error) {
     console.error('[hawkBillingCheckout] error:', error.message);
     return Response.json({ error: error.message }, { status: 500 });

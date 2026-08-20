@@ -7,6 +7,7 @@ import {
   fetchParcel, fetchOrdinanceRules, fetchWaterFeatures, fetchWetlandFeatures,
   fetchMappedStructures, fetchExistingTowers,
 } from '../../shared/talonfitInputs.ts';
+import { supervisedResponse } from '../../shared/siteHawkSupervisor.ts';
 
 /**
  * talonfitAiSolve — TalonFit-AI-1.0 point solve.
@@ -228,7 +229,7 @@ Deno.serve(async (req) => {
     if (body.zoning_decision) rules = mergePipelineZoningDecision(rules, body.zoning_decision);
 
     if (!parcel) {
-      return Response.json({
+      const proposedResult = {
         solver_version: SOLVER_VERSION,
         candidate_point: { latitude: lat, longitude: lon },
         calculated_result: {
@@ -248,7 +249,13 @@ Deno.serve(async (req) => {
           water: { name: "OpenStreetMap", status: water.available ? "connected" : "unavailable", records: water.collection?.features?.length || 0 },
         },
         candidate_save: { slot: "D", save_allowed: false, double_click_required: true, maximum_saved_candidates: 3 },
-      });
+      };
+      return await supervisedResponse({
+        original_user_request: `Evaluate tower feasibility at ${lat.toFixed(6)}, ${lon.toFixed(6)}.`,
+        proposed_action: 'Release a TalonFit rejection because no parcel record was found.',
+        supporting_evidence: proposedResult.data_sources,
+        risk_level: 'high',
+      }, proposedResult);
     }
 
     // CodeHawk on-demand hunt — only fires when BOTH the TelecomOrdinance
@@ -340,7 +347,7 @@ Deno.serve(async (req) => {
 
     console.log(`SiteSitter ${result.decision} requested=${lat},${lon} optimal=${optimalPoint.latitude},${optimalPoint.longitude} max=${result.maximum_buildable_height_ft} bind=${result.binding_constraint}`);
 
-    return Response.json({
+    const proposedResult = {
       ...input,
       requested_point: { latitude: lat, longitude: lon },
       candidate_point: optimalPoint,
@@ -362,7 +369,13 @@ Deno.serve(async (req) => {
       },
       candidate_save: candidateSave,
       solved_at: new Date().toISOString(),
-    });
+    };
+    return await supervisedResponse({
+      original_user_request: `Evaluate tower feasibility at ${lat.toFixed(6)}, ${lon.toFixed(6)}.`,
+      proposed_action: 'Release the TalonFit feasibility decision and maximum buildable height.',
+      supporting_evidence: { parcel: proposedResult.parcel, ordinance_rules: proposedResult.ordinance_rules, spatial_constraints: proposedResult.spatial_constraints, data_sources: proposedResult.data_sources },
+      risk_level: 'high',
+    }, proposedResult);
   } catch (error) {
     console.error("talonfitAiSolve error:", error.message);
     return Response.json({ error: error.message }, { status: 500 });

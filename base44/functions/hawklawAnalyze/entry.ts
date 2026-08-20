@@ -14,6 +14,7 @@
 // Output (JSON): the analysis object (also persisted on the record)
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.25';
+import { supervisedResponse } from '../../shared/siteHawkSupervisor.ts';
 
 const MODEL = 'claude_opus_4_8';
 const MAX_LEASE_CHARS = 180_000;
@@ -109,7 +110,13 @@ Deno.serve(async (req) => {
 
     // already completed for THIS side — return stored analysis, no re-spend
     if (rec?.status === 'completed' && rec?.side === side && rec?.analysis) {
-      return Response.json({ ...rec.analysis, served_from_cache: true });
+      const cachedResult = { ...rec.analysis, served_from_cache: true };
+      return await supervisedResponse({
+        original_user_request: `Analyze this telecom lease from the ${side} perspective.`,
+        proposed_action: 'Release cached HawkLaw lease analysis.',
+        supporting_evidence: { lease_text: String(leaseText).slice(0, MAX_LEASE_CHARS), side, disclaimer_acknowledged: disclaimerAck },
+        risk_level: 'legal',
+      }, cachedResult);
     }
 
     // ---- freeze side + mark analyzing ----
@@ -147,7 +154,13 @@ Deno.serve(async (req) => {
       });
     } catch (_e) { /* still return */ }
 
-    return Response.json({ ...analysis, served_from_cache: false });
+    const proposedResult = { ...analysis, served_from_cache: false };
+    return await supervisedResponse({
+      original_user_request: `Analyze this telecom lease from the ${side} perspective.`,
+      proposed_action: 'Release newly generated HawkLaw lease analysis.',
+      supporting_evidence: { lease_text: String(leaseText).slice(0, MAX_LEASE_CHARS), side, disclaimer_acknowledged: disclaimerAck },
+      risk_level: 'legal',
+    }, proposedResult);
   } catch (err) {
     console.error('hawklawAnalyze error:', err);
     return Response.json({ error: String(err?.message ?? err) }, { status: 500 });
