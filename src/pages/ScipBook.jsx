@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { ArrowLeft, Printer, Loader2, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { scipBookQc } from "@/functions/scipBookQc";
+import { ensureScipQcPass, isScipQcPass } from "@/lib/scipQcGate";
 import BookPropertyPage from "@/components/scipbook/BookPropertyPage";
 import BookMapPage from "@/components/scipbook/BookMapPage";
 import BookQcPanel from "@/components/scipbook/BookQcPanel";
@@ -72,32 +72,17 @@ export default function ScipBook() {
   };
 
   const printCompletedBook = async () => {
-    const missing = collectMissingFields(record);
     setPreparingPrint(true);
     try {
-      const t = record.parcel_targets?.[record.active_target_index || 0] || {};
-      const res = await scipBookQc({
-        scip_id: record.id,
-        missing,
-        context: {
-          site_name: record.site_name,
-          latitude: t.latitude ?? record.latitude,
-          longitude: t.longitude ?? record.longitude,
-          address: t.parcel_address || null,
-          county: record.county || null,
-          state: record.state || null,
-          jurisdiction: record.zoning_jurisdiction || null,
-        },
-      });
-      const completed = res.data?.record;
-      if (!completed) throw new Error("Gemini did not return the completed SCIP");
-      const remaining = collectMissingFields(completed);
-      if (remaining.length) throw new Error(`${remaining.length} required SCIP field(s) remain incomplete`);
+      const result = await ensureScipQcPass(record, { repairAllowed: true });
+      const completed = result.record;
+      if (!completed) throw new Error("OpenRouter QC did not return the audited SCIP");
       setRecord(completed);
-      toast.success("Gemini verified every response — opening print preview");
+      toast.success("OpenRouter QC passed — opening print preview");
       setTimeout(() => window.print(), 150);
     } catch (error) {
-      toast.error(error?.response?.data?.error || error.message || "Gemini could not complete the SCIP");
+      if (error.qcRecord) setRecord(error.qcRecord);
+      toast.error(error?.response?.data?.error || error.message || "OpenRouter QC blocked printing");
     } finally {
       setPreparingPrint(false);
     }
@@ -118,13 +103,13 @@ export default function ScipBook() {
             <button onClick={printCompletedBook} disabled={preparingPrint}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60"
               style={{ background: "#0f2a43" }}>
-              {preparingPrint ? <Loader2 className="w-4 h-4 animate-spin" /> : collectMissingFields(record).length ? <Sparkles className="w-4 h-4" /> : <Printer className="w-4 h-4" />}
-              {preparingPrint ? "Gemini completing responses…" : "Print Full SCIP"}
+              {preparingPrint ? <Loader2 className="w-4 h-4 animate-spin" /> : isScipQcPass(record) ? <Printer className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+              {preparingPrint ? "OpenRouter checking and repairing…" : "Print Full SCIP"}
             </button>
           </div>
         </div>
 
-        {/* Gemini QC gate — must be complete before delivery */}
+        {/* OpenRouter QC + repair gate — PASS is required before delivery */}
         <div className="no-print mb-4">
           <BookQcPanel record={record} onUpdate={setRecord} />
         </div>
