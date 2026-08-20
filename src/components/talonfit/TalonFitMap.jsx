@@ -922,24 +922,22 @@ export default function TalonFitMap({
     <div className="relative w-full h-full">
       <div ref={mapContainer} className="h-full w-full" />
 
-      {/* 2D / 3D toggle */}
-      <button
-        onClick={() => {
-          const next = !is3D;
-          setIs3D(next);
-          mapRef.current?.easeTo({
-            pitch: next ? 60 : 0,
-            bearing: next ? -20 : 0,
-            duration: 800,
-          });
-        }}
-        className="absolute top-3 right-3 z-10 px-3 py-1.5 text-xs font-bold bg-slate-900/90 text-cyan-400 border border-cyan-500/40 rounded hover:bg-slate-800 transition-colors"
-      >
-        {is3D ? "2D" : "3D"}
-      </button>
-
-      {/* Map control buttons */}
-      <div className="absolute right-3 top-14 z-[1000] flex flex-col items-end gap-1.5">
+      {/* Primary map controls — compact top row preserves the map as the main view */}
+      <div className="absolute right-3 top-3 z-[1000] flex items-center gap-1.5">
+        <button
+          onClick={() => {
+            const next = !is3D;
+            setIs3D(next);
+            mapRef.current?.easeTo({
+              pitch: next ? 60 : 0,
+              bearing: next ? -20 : 0,
+              duration: 800,
+            });
+          }}
+          className="rounded-lg border border-cyan-500/40 bg-slate-900/90 px-2.5 py-1.5 text-[11px] font-bold text-cyan-400 shadow-lg transition-colors hover:bg-slate-800"
+        >
+          {is3D ? "2D" : "3D"}
+        </button>
         <button
           onClick={() => { setSmartCursor((s) => !s); if (smartCursor) setHover(null); }}
           className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg transition-all ${
@@ -958,6 +956,10 @@ export default function TalonFitMap({
         >
           <CircleIcon className="h-3.5 w-3.5" /> Fall Zone
         </button>
+      </div>
+
+      {/* Secondary map controls */}
+      <div className="absolute right-3 top-12 z-[1000] flex flex-col items-end gap-1.5">
         {propagationContext && (
           <button
             onClick={() => setShowPropagation((shown) => !shown)}
