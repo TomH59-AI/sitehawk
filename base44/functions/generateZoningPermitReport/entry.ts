@@ -48,8 +48,14 @@ const CODEHAWK_RETRY_BUDGET_MS = 40000;
 // scrape runs ~45-75s depending on how many URLs the folder holds for it, so it
 // gets its own slice of the 120s platform ceiling and hard-stops well short of
 // it. ZONING_MCP_DEADLINE_MS is measured from requestStart, not from the call.
-const ZONING_MCP_BUDGET_MS = 70000;
-const ZONING_MCP_DEADLINE_MS = 95000;
+const ZONING_MCP_BUDGET_MS = 55000;
+const ZONING_MCP_DEADLINE_MS = 60000;
+
+// How long a scraped jurisdiction is trusted before we would go back to Notion
+// for it. Ordinances change on a timescale of years; re-scraping a jurisdiction
+// every time a SCIP misses the panel cache would burn 55s and a Railway job for
+// data we already hold.
+const ZONING_LIBRARY_FRESH_MS = 180 * 24 * 60 * 60 * 1000;
 
 function withBudget(promise, ms) {
   return Promise.race([
@@ -987,14 +993,24 @@ Deno.serve(async (req) => {
       if (!scrapeTargets.some((o) => String(o).toUpperCase() === k)) scrapeTargets.push(j);
       if (scrapeTargets.length === 2) break;
     }
-    const backendZoningMissing = needsUpgrade || !jurisdictionRecord;
+    // needsUpgrade is deliberately NOT the trigger: it demands all six
+    // CRITICAL_FIELDS, and most ordinances are simply silent on tower-to-tower
+    // separation and PE fall-zone relief, so it is true for nearly every
+    // jurisdiction we already hold. Scrape when the backend genuinely has
+    // nothing to say about this jurisdiction, or when what it holds is stale.
+    const libraryAge = jurisdictionRecord?.last_researched_at
+      ? Date.now() - new Date(jurisdictionRecord.last_researched_at).getTime()
+      : Infinity;
+    const libraryStale = !(libraryAge < ZONING_LIBRARY_FRESH_MS);
+    const backendZoningMissing = (!ordinance && !jurisdictionRecord) || (!jurisdictionRecord && needsUpgrade);
     const shouldScrapeNotion =
-      backendZoningMissing &&
+      (backendZoningMissing || (jurisdictionRecord && libraryStale)) &&
       scrapeTargets.length > 0 &&
       Boolean(geo.state_code) &&
       zoningMcpConfigured(secrets);
 
     async function scrapeZoningLibrary() {
+      let last = null;
       for (const target of scrapeTargets) {
         const elapsed = Date.now() - requestStart;
         const budgetMs = Math.min(ZONING_MCP_BUDGET_MS, ZONING_MCP_DEADLINE_MS - elapsed);
@@ -1004,9 +1020,13 @@ Deno.serve(async (req) => {
           state: geo.state_code,
           budgetMs,
         });
-        if (res?.action !== 'no_notion_rows') return { ...res, target };
+        // 'error' is transient (a Railway 502, a timeout) — keep escalating to
+        // the other governing body while there is budget. Only a definitive
+        // answer ends the loop.
+        if (res?.action && res.action !== 'no_notion_rows' && res.action !== 'error') return { ...res, target };
+        last = res ? { ...res, target } : last;
       }
-      return { action: 'no_notion_rows' };
+      return last || { action: 'no_notion_rows' };
     }
 
     const huntCreds = {
@@ -1059,7 +1079,9 @@ Deno.serve(async (req) => {
     const [llmReport, huntResult, scrapeResult] = await Promise.all([
       llmExtractReport(base44, llmCtx),
       shouldHunt ? huntWithEscalation() : Promise.resolve(null),
-      shouldScrapeNotion ? scrapeZoningLibrary() : Promise.resolve(null),
+      shouldScrapeNotion
+        ? withBudget(scrapeZoningLibrary(), Math.max(0, ZONING_MCP_DEADLINE_MS - (Date.now() - requestStart)))
+        : Promise.resolve(null),
     ]);
 
     // The scraper writes straight into Base44, so a successful run means both
@@ -1329,8 +1351,14 @@ Deno.serve(async (req) => {
     // The registry note is checked too, so the answer stays stable on later runs
     // without re-hunting the same dead end.
     const registrySaysUnincorporated = /^Un-Incorporated Jurisdiction/i.test(registry?.extraction_notes || '');
+    // A Jurisdiction row counts as ordinance content too: upsertTelecomOrdinance
+    // skips writing when it finds no NUMERIC tower rules, so a jurisdiction can
+    // have a real code section, approval path and contacts in the zoning library
+    // while the numeric registry is still empty. Declaring it un-incorporated on
+    // that basis would overwrite cited data with "no code was adopted".
     const haveOrdinanceContent = Boolean(
-      registry && (completenessScore(registry) > 0 || registry.permit_type || registry.setback_rule)
+      (registry && (completenessScore(registry) > 0 || registry.permit_type || registry.setback_rule)) ||
+        (jurisdictionRecord && (jurisdictionRecord.ldc_section_reference || jurisdictionRecord.zoning_process || jurisdictionRecord.max_tower_height_ft != null))
     );
 
     if ((huntResult?.action === 'no_local_code' || registrySaysUnincorporated) && !haveOrdinanceContent) {
