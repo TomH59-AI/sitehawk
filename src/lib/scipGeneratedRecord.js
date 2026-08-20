@@ -85,8 +85,17 @@ export async function waitForScipQc(base44, id, timeoutMs = 120000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const record = await base44.entities.ScipRecord.get(id);
-    if (record?.book_qc?.print_ready) return record;
+    if (record?.book_qc?.ran_at) {
+      if (
+        record.book_qc.status === "PASS"
+        && record.book_qc.release_allowed === true
+        && record.book_qc.print_ready === true
+      ) return record;
+      const error = new Error(record.book_qc.summary || "OpenRouter QC completed, but release remains blocked.");
+      error.qcRecord = record;
+      throw error;
+    }
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
-  throw new Error("Gemini quality check did not finish; printing remains locked.");
+  throw new Error("OpenRouter quality-control run did not finish; release remains locked.");
 }
