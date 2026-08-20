@@ -1,15 +1,15 @@
 {
-  "description": "Immediately runs Gemini quality control after a SCIP record is created, fills every incomplete response with verified data or a human-verification disclosure, and unlocks the final report for printing.",
+  "description": "Immediately runs OpenRouter GPT-5.6 Sol quality control and evidence-backed repair after a SCIP record is created. It applies only validated repairs, reruns the full deterministic audit, and permits printing only on PASS.",
   "definition": {
     "document": {
       "dsl": "1.0.0",
-      "name": "gemini_qc_on_new_scip",
+      "name": "openrouter_qc_repair_on_new_scip",
       "version": "1.0",
       "namespace": "base44"
     },
     "do": [
       {
-        "run_gemini_qc": {
+        "run_openrouter_qc": {
           "call": "invoke_backend_function",
           "with": {
             "function_name": "scipBookQc",
@@ -19,8 +19,8 @@
           },
           "then": "end",
           "x-base44": {
-            "title": "Run Gemini SCIP QC",
-            "description": "Complete and unlock report"
+            "title": "Run OpenRouter SCIP QC + Repair",
+            "description": "Repair, re-audit, and gate release"
           }
         }
       }
@@ -36,5 +36,5 @@
       "entity_name": "ScipRecord"
     }
   },
-  "name": "Gemini QC on New SCIP"
+  "name": "OpenRouter QC + Repair on New SCIP"
 }
