@@ -1,4 +1,5 @@
 import { Printer } from "lucide-react";
+import { toast } from "sonner";
 
 // Triggers the browser print dialog scoped to the SCIP content area.
 // Uses a print stylesheet injected on demand — no extra packages required.
@@ -23,8 +24,12 @@ function ensurePrintStyles() {
   document.head.appendChild(style);
 }
 
-export default function PrintSCIPButton() {
+export default function PrintSCIPButton({ releaseAllowed = false }) {
   const handlePrint = () => {
+    if (!releaseAllowed) {
+      toast.error("This legacy share has no OpenRouter QC release manifest, so printing is locked.");
+      return;
+    }
     ensurePrintStyles();
     window.print();
   };
