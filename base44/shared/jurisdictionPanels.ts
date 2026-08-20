@@ -112,6 +112,18 @@ export function overlayJurisdictionPanels(report: any, j: any, row: (v: any, s: 
   const zp = splitZoningProcess(j.zoning_process);
   const fz = splitFallZone(j.fall_zone_requirements);
 
+  // Four columns on the Jurisdiction entity carry SCHEMA DEFAULTS —
+  // stealth_required:false, residential_separation_unit:'ft',
+  // tower_separation_unit:'ft', measured_from:'base' — so every row has them
+  // whether or not anyone read them out of an ordinance. Printing a default
+  // into a SCIP panel states a rule the code may never have set. The units are
+  // safe (distance() drops them when their value is null); these two are not.
+  //   stealth: only 'Yes' is evidence — a false is indistinguishable from the default.
+  //   measured_from: meaningless without a separation to measure, so require one.
+  const hasSeparation = j.residential_separation != null || j.tower_separation != null;
+  const stealth = j.stealth_required === true ? 'Yes' : null;
+  const measuredFrom = hasSeparation ? j.measured_from : null;
+
   // ── ZONING OVERVIEW ──
   put('zoning_overview', 'zoning_jurisdiction', j.zoning_jurisdiction || j.name);
   put('zoning_overview', 'zoning_contact_information', contact(j.zoning_contact_name, j.zoning_contact_email, j.zoning_contact_phone));
@@ -127,11 +139,11 @@ export function overlayJurisdictionPanels(report: any, j: any, row: (v: any, s: 
   // ── TOWER SPECIFICS ──
   put('tower_specifics', 'ldc_section_references', j.ldc_section_reference);
   put('tower_specifics', 'maximum_tower_height', j.max_tower_height_ft != null ? `${j.max_tower_height_ft} ft` : null);
-  put('tower_specifics', 'stealth_required', yn(j.stealth_required));
+  put('tower_specifics', 'stealth_required', stealth);
   put('tower_specifics', 'required_collocations', j.required_collocations != null ? `${j.required_collocations}` : null);
   put('tower_specifics', 'residential_separation', distance(j.residential_separation, j.residential_separation_unit));
   put('tower_specifics', 'tower_separation', distance(j.tower_separation, j.tower_separation_unit));
-  put('tower_specifics', 'measured_from_base_or_center', j.measured_from);
+  put('tower_specifics', 'measured_from_base_or_center', measuredFrom);
   put('tower_specifics', 'fall_zone_requirements', fz.fallZone || (j.fall_zone_ft != null ? `${j.fall_zone_ft} ft` : null));
   put('tower_specifics', 'pe_letter', fz.peLetter);
   put('tower_specifics', 'special_tower_landscaping', yn(j.special_tower_landscaping));
