@@ -111,9 +111,9 @@ export default function Layout() {
     : [];
 
   const navItems = [
-    ...BASE_NAV.slice(0, 17), // flow header + the 16 numbered site-acquisition steps
+    ...BASE_NAV.slice(0, 18), // flow header + the numbered site-acquisition steps
     ...(isAdmin ? [{ header: "ADMIN" }, ...adminExtra] : []),
-    ...BASE_NAV.slice(17),
+    ...BASE_NAV.slice(18),
   ];
 
   const handleLogout = () => {
