@@ -1,6 +1,6 @@
 {
   "name": "Auto-Audit on SCIP Submit",
-  "description": "When a SCIP's status changes to \"submitted\", automatically runs the quality audit and emails the verdict to the record owner.",
+  "description": "When a SCIP is marked submitted, OpenRouter QC + Repair runs again. PASS retains submitted; REVIEW_REQUIRED or FAIL returns the record to draft and emails the evidence-backed verdict.",
   "trigger": {
     "condition": "${ ((.trigger.changed_fields | index(\"status\") != null) and (.trigger.data.status == \"submitted\")) }",
     "config": {
