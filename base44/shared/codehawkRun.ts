@@ -14,6 +14,8 @@ import {
   buildRecordPatch,
   completenessScore,
   discoverSourceCandidates,
+  fetchCensusHint,
+  fetchMunicodeTelecomByClientId,
   extractOrdinanceFields,
   fetchCachedOrdinanceText,
   fetchOrdinanceSource,
@@ -103,11 +105,46 @@ async function resolveSource(base44, { jurisdiction, state, existing, counters, 
     }
   }
 
+  // Tier 0.5 — the platform census. If platformCensus has already established
+  // WHERE this jurisdiction's code lives, route straight there instead of
+  // spending the budget on LLM source discovery. Municode clients are read
+  // through the free public API (no scraping at all); other censused platforms
+  // get their known URL tried directly. Any miss falls through unchanged.
+  const census = await fetchCensusHint(jurisdiction, state, creds).catch(() => null);
+  if (census?.platform === 'municode' && census.client_id) {
+    const viaApi = await fetchMunicodeTelecomByClientId(census.client_id, census.url);
+    if (viaApi.ok && isUsableSource(viaApi)) {
+      counters.census_hits = (counters.census_hits || 0) + 1;
+      return {
+        ...viaApi,
+        signal: towerSignal(viaApi.text),
+        tried: [{ url: census.url || `municode:client:${census.client_id}`, ok: true, method: 'municode_api' }],
+        governance: null,
+      };
+    }
+  } else if (census?.url) {
+    const viaCensus = await fetchOrdinanceSource(base44, census.url, counters, creds, false);
+    if (isUsableSource(viaCensus)) {
+      counters.census_hits = (counters.census_hits || 0) + 1;
+      return {
+        ...viaCensus,
+        signal: viaCensus.file_url ? 8 : towerSignal(viaCensus.text),
+        tried: [{ url: census.url, ok: true, method: viaCensus.method }],
+        governance: null,
+      };
+    }
+  }
+
   const discovery = await discoverSourceCandidates(base44, jurisdiction, state, 4);
   const candidates = discovery.candidates;
   // Keep the known-good URL in the running as a fallback the renderer can retry.
   if (existing?.source_url && !candidates.some((c) => c.url === existing.source_url)) {
     candidates.push({ url: existing.source_url, publisher: 'registry', section_hint: existing.section_ref || '' });
+  }
+  // The census URL too — a JS-heavy code page that failed the direct try above
+  // is exactly what the renderer escalation exists for.
+  if (census?.url && !candidates.some((c) => c.url === census.url)) {
+    candidates.push({ url: census.url, publisher: census.platform || 'census', section_hint: '' });
   }
   const resolved = await resolveBestSource(base44, candidates, counters, creds);
   return { ...resolved, governance: discovery.governance };
