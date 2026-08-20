@@ -30,7 +30,7 @@ function ensurePrintStyles() {
   document.head.appendChild(style);
 }
 
-export default function ScipPrintSelector({ sections, scipRecord = null, onQcRecord }) {
+export default function ScipPrintSelector({ sections, scipRecord = null, onQcRecord = null }) {
   // selected defaults all ON so the full package prints unless the user opts out.
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState(() => {
