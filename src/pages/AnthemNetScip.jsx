@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
 import { loadPublicConfig } from "@/lib/publicConfig";
+import { ensureScipQcPass } from "@/lib/scipQcGate";
 import { carrierFinderFiber } from "@/functions/carrierFinderFiber";
 import { Printer, ArrowLeft, Loader2, AlertTriangle, Camera } from "lucide-react";
+import { toast } from "sonner";
 import AnthemNetTable from "../components/scip/anthemnet/AnthemNetTable";
 import { buildAnthemNet } from "../components/scip/anthemnet/anthemNetData";
 
@@ -26,6 +28,7 @@ export default function AnthemNetScip() {
   const [loading, setLoading] = useState(true);
   const [mapboxToken, setMapboxToken] = useState(null);
   const [fiber, setFiber] = useState(null);
+  const [printing, setPrinting] = useState(false);
   const styleRef = useRef(null);
 
   useEffect(() => {
@@ -45,14 +48,25 @@ export default function AnthemNetScip() {
       .catch(() => {});
   }, [record]);
 
-  const handlePrint = () => {
-    if (!styleRef.current) {
-      const el = document.createElement("style");
-      el.innerHTML = PRINT_CSS;
-      document.head.appendChild(el);
-      styleRef.current = el;
+  const handlePrint = async () => {
+    setPrinting(true);
+    try {
+      const qc = await ensureScipQcPass(record, { repairAllowed: true });
+      if (qc.record) setRecord(qc.record);
+      if (!styleRef.current) {
+        const el = document.createElement("style");
+        el.innerHTML = PRINT_CSS;
+        document.head.appendChild(el);
+        styleRef.current = el;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      window.print();
+    } catch (error) {
+      if (error.qcRecord) setRecord(error.qcRecord);
+      toast.error(error.message || "OpenRouter QC blocked printing");
+    } finally {
+      setPrinting(false);
     }
-    window.print();
   };
 
   if (loading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -68,8 +82,8 @@ export default function AnthemNetScip() {
         <button onClick={() => navigate(`/scip/${record.id}`)} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" /> Back to SCIP
         </button>
-        <button onClick={handlePrint} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90">
-          <Printer className="w-4 h-4" /> Print / Save PDF
+        <button onClick={handlePrint} disabled={printing} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+          {printing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />} {printing ? "Running OpenRouter QC…" : "Print / Save PDF"}
         </button>
       </div>
 
