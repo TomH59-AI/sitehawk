@@ -57,8 +57,12 @@ function normalizeName(name, state) {
     .trim();
 }
 
+// Municode's library slugs keep periods ("st._petersburg", "st._tammany_parish")
+// but replace spaces with underscores. Stripping the period would 404 every
+// "St." jurisdiction. The ClientID is the authoritative key either way — this
+// URL is the human-clickable/renderer-fallback form.
 const municodeSlug = (name) =>
-  clean(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  clean(name).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9._-]/g, '').replace(/^_+|_+$/g, '');
 
 async function fetchJson(url, timeoutMs = 20000) {
   const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs) });
