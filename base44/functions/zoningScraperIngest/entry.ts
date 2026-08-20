@@ -26,6 +26,8 @@
 //   TelecomOrdinance       numeric tower rules for SiteHawk's compliance math
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.40';
 import { secrets } from 'base44:runtime';
+import { normalizeJurisdiction as sharedNormalizeJurisdiction } from '../../shared/telecomOrdinance.ts';
+import { countyWordPattern } from '../../shared/codehawk.ts';
 
 const STATE_CODES = {
   ALABAMA: 'AL', ALASKA: 'AK', ARIZONA: 'AZ', ARKANSAS: 'AR', CALIFORNIA: 'CA', COLORADO: 'CO',
@@ -46,13 +48,13 @@ function toStateCode(value) {
   return STATE_CODES[s] || s.slice(0, 2);
 }
 
-const COUNTY_WORD = /\b(county|parish)\b/i;
-
+// The readers (findOrdinance) key on shared/telecomOrdinance's normalizer. A
+// private copy here stripped COUNTY but not PARISH or "BOROUGH OF", so an
+// Orleans Parish scrape was keyed 'ORLEANS PARISH' while every reader looked for
+// 'ORLEANS' — a duplicate row, and a nondeterministic answer afterwards.
 function normalizeJurisdiction(name) {
-  return String(name || '')
-    .toUpperCase()
+  return sharedNormalizeJurisdiction(String(name || ''))
     .replace(/\b(CITY|TOWN|VILLAGE|TOWNSHIP|CHARTER TOWNSHIP)\s+OF\s+/g, '')
-    .replace(/\bCOUNTY\b/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -283,7 +285,12 @@ function summarizePolygon(geometry) {
 function countyFromSources(name, sources) {
   if (/\bcounty\b/i.test(name)) return name;
   const AUTH = /permit|zoning|planning|telecom|wireless|communication|tower|map|gis|fee|site plan|authority|split|inspection|code|ordinance|contact|assess/i;
-  const hit = (sources || []).map((s) => cleanStr(s.authority_level)).find((a) => a && !AUTH.test(a) && a.split(' ').length <= 3);
+  // Only a label that looks like a place name — a stray "Land Development"
+  // would otherwise be filed as "Land Development County".
+  const PLACE = /^[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,2}$/;
+  const hit = (sources || [])
+    .map((s) => cleanStr(s.authority_level))
+    .find((a) => a && !AUTH.test(a) && a.split(' ').length <= 3 && PLACE.test(a));
   return hit ? (/\bcounty\b/i.test(hit) ? hit : `${hit} County`) : null;
 }
 
@@ -440,7 +447,14 @@ async function upsertTelecomOrdinance(base44, jurisdiction, state, x, fields, ci
     collocation_required: fields.required_collocations !== null ? fields.required_collocations > 0 : null,
     source_url: sourceUrl,
     section_ref: fields.ldc_section_reference,
-    field_citations: citations?.length ? Object.fromEntries(citations.filter((c) => c?.field).map((c) => [c.field, { source_url: c.source_url, quote: c.quote }])) : null,
+    field_citations: citations?.length
+      ? Object.fromEntries(
+          citations
+            .filter((c) => c?.field)
+            .slice(0, 50)
+            .map((c) => [c.field, { source_url: c.source_url, quote: cleanStr(c.quote)?.slice(0, 500) || null }]),
+        )
+      : null,
     verification_status: 'unverified',
     last_source_method: 'mcp-zoning-scraper',
     review_required: (x?.confidence || 'low') !== 'high',
@@ -460,7 +474,8 @@ async function upsertTelecomOrdinance(base44, jurisdiction, state, x, fields, ci
   // alone let a COUNTY scrape overwrite the CITY row of the same name (it did:
   // Alachua County's ordinance landed on the city of Alachua's record). Match on
   // the string AND on county-ness, the same test findOrdinance uses for reads.
-  const wantCounty = COUNTY_WORD.test(jurisdiction);
+  const countyWord = countyWordPattern(state);
+  const wantCounty = countyWord.test(jurisdiction);
   const variants = wantCounty
     ? [jurisdiction_normalized, `${jurisdiction_normalized} COUNTY`]
     : [jurisdiction_normalized];
@@ -474,7 +489,7 @@ async function upsertTelecomOrdinance(base44, jurisdiction, state, x, fields, ci
       candidates.push(r);
     }
   }
-  const match = candidates.find((r) => COUNTY_WORD.test(r.jurisdiction || '') === wantCounty) || null;
+  const match = candidates.find((r) => countyWord.test(r.jurisdiction || '') === wantCounty) || null;
 
   if (match) {
     // Keep whichever key convention that row already uses — rewriting it would
@@ -560,10 +575,28 @@ export default async function (req) {
     // tables from the same run let them disagree about the same jurisdiction.
     // Merged means the numeric registry can only ever improve.
     const mergedFields = { ...fields };
-    for (const [key, value] of Object.entries(jur.merged || {})) {
+    // Value+unit travel together. Backfilling them independently could pair this
+    // run's "300" (a percentage whose unit failed to parse) with a previous
+    // run's 'ft' and write 300 ft into the compliance math instead of 300% of
+    // tower height. Same for tower separation and its measured-from basis.
+    const PAIRED = [
+      ['residential_separation', 'residential_separation_unit'],
+      ['tower_separation', 'tower_separation_unit'],
+    ];
+    const pairedKeys = new Set(PAIRED.flat());
+    const merged = jur.merged || {};
+    for (const [key, value] of Object.entries(merged)) {
+      if (pairedKeys.has(key)) continue;
       if (key in mergedFields && (mergedFields[key] === null || mergedFields[key] === undefined)) {
         mergedFields[key] = value;
       }
+    }
+    for (const [valueKey, unitKey] of PAIRED) {
+      const haveThisRun = mergedFields[valueKey] !== null && mergedFields[valueKey] !== undefined;
+      if (haveThisRun) continue;
+      if (merged[valueKey] === null || merged[valueKey] === undefined) continue;
+      mergedFields[valueKey] = merged[valueKey];
+      mergedFields[unitKey] = merged[unitKey] ?? null;
     }
     const ord = await upsertTelecomOrdinance(base44, jurisdiction, state, extraction, mergedFields, citations, primaryUrl, runId, nowIso);
 
