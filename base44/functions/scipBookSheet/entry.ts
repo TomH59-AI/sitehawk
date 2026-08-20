@@ -27,6 +27,13 @@ export default async function (req: Request): Promise<Response> {
     }
     const record = await base44.entities.ScipRecord.get(String(scip_id));
     if (!record) return Response.json({ error: "ScipRecord not found" }, { status: 404 });
+    if (
+      record.book_qc?.status !== "PASS"
+      || record.book_qc?.release_allowed !== true
+      || record.book_qc?.print_ready !== true
+    ) {
+      return Response.json({ error: "OpenRouter QC PASS is required; Google Sheet/PDF release remains locked" }, { status: 409 });
+    }
 
     const { accessToken } = await base44.asServiceRole.connectors.getConnection("googlesheets");
     const H = { Authorization: `Bearer ${accessToken}` };
