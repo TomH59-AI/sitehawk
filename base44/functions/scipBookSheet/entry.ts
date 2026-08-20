@@ -10,7 +10,7 @@
 // INPUT (POST JSON): { scip_id, sections, map_pages }
 //   sections / map_pages come from the frontend's scipBookData builders so the
 //   Sheet, the in-app SCIP Book, and the xlsx workbook share ONE mapping
-//   (including Gemini QC overlay values).
+//   (including OpenRouter QC + Repair values with provenance).
 // OUTPUT: { ok, gsheet: { spreadsheet_id, url, pdf_url, synced_at } }
 import { createClientFromRequest } from "npm:@base44/sdk@0.8.40";
 import { renderBookWorkbook } from "../../shared/scipBookWorkbook.ts";
