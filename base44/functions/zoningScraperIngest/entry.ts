@@ -401,10 +401,13 @@ async function upsertJurisdiction(base44, name, state, fields, meta) {
   const patch = compact({ name, state, ...fields, ...meta });
   if (existing.length) {
     await svc.update(existing[0].id, patch);
-    return { id: existing[0].id, action: 'updated', fields_written: Object.keys(patch).length };
+    // The merged row — what this jurisdiction is now known to be, this run's
+    // findings on top of every previous run's. Returned so the ordinance row can
+    // be derived from it rather than from this run's extraction alone.
+    return { id: existing[0].id, action: 'updated', fields_written: Object.keys(patch).length, merged: { ...existing[0], ...patch } };
   }
   const rec = await svc.create(patch);
-  return { id: rec.id, action: 'created', fields_written: Object.keys(patch).length };
+  return { id: rec.id, action: 'created', fields_written: Object.keys(patch).length, merged: { ...patch, id: rec.id } };
 }
 
 async function upsertTelecomOrdinance(base44, jurisdiction, state, x, fields, citations, sourceUrl, runId, nowIso) {
@@ -550,7 +553,19 @@ export default async function (req) {
     };
 
     const jur = await upsertJurisdiction(base44, jurisdiction, state, fields, meta);
-    const ord = await upsertTelecomOrdinance(base44, jurisdiction, state, extraction, fields, citations, primaryUrl, runId, nowIso);
+
+    // Feed the ordinance row from the MERGED template, not from this run's
+    // extraction. Re-reading a 400-page Municode article is lossy — one pass
+    // finds a 200 ft height limit, the next does not — and deriving the two
+    // tables from the same run let them disagree about the same jurisdiction.
+    // Merged means the numeric registry can only ever improve.
+    const mergedFields = { ...fields };
+    for (const [key, value] of Object.entries(jur.merged || {})) {
+      if (key in mergedFields && (mergedFields[key] === null || mergedFields[key] === undefined)) {
+        mergedFields[key] = value;
+      }
+    }
+    const ord = await upsertTelecomOrdinance(base44, jurisdiction, state, extraction, mergedFields, citations, primaryUrl, runId, nowIso);
 
     const filledCount = Object.values(fields).filter((v) => v !== null).length;
     console.log(`zoningScraperIngest: ${jurisdiction}, ${state} — ${filledCount} SCIP fields, confidence=${extraction?.confidence}`);
