@@ -350,8 +350,8 @@ export default function GenerateScipButton({
         console.warn("[SCIP] narrative synthesis failed:", e);
         rec.professional = null;
       }
-      // Persist first: the entity-create automation immediately starts Gemini QC.
-      // The final report stays locked until that workflow marks it print-ready.
+      // Persist first: the entity-create automation starts OpenRouter QC + repair.
+      // Delivery and printing remain locked until the final manifest is PASS.
       const savedScip = await base44.entities.ScipRecord.create(toScipRecord(rec));
       onGenerated?.(rec.targetA.label || "Target A");
 
@@ -366,15 +366,30 @@ export default function GenerateScipButton({
         county: rec.county,
         state: rec.state,
       }).catch((e) => console.warn("[ZAPIER] webhook failed:", e?.message));
-      if (tierSel) {
-        zapierScipDelivery({ tier: tierSel.tier, branding: tierSel.branding, record: rec })
-          .then(() => toast.success(`${tierSel.tier === "basic" ? "Hawk Basic" : tierSel.tier === "premier" ? "Hawk Premier" : "Hawk Enterprise"} SCIP sent to Zapier for delivery.`))
-          .catch((e) => console.warn("[ZAPIER] SCIP delivery failed:", e?.message));
-      }
 
-      await waitForScipQc(base44, savedScip.id);
-      toast.success("Gemini verified every SCIP response — final report is ready");
-      navigate(`/scip/${savedScip.id}/book`);
+      try {
+        await waitForScipQc(base44, savedScip.id);
+        if (tierSel) {
+          try {
+            await zapierScipDelivery({ tier: tierSel.tier, branding: tierSel.branding, record: rec });
+            const tierName = tierSel.tier === "basic" ? "Hawk Basic" : tierSel.tier === "premier" ? "Hawk Premier" : "Hawk Enterprise";
+            toast.success(tierName + " SCIP passed QC and was sent to Zapier for delivery.");
+          } catch (deliveryError) {
+            console.warn("[ZAPIER] SCIP delivery failed:", deliveryError?.message);
+            toast.error("QC passed, but Zapier delivery failed. The SCIP remains saved for retry.");
+          }
+        } else {
+          toast.success("OpenRouter QC passed — final report is ready");
+        }
+      } catch (qcError) {
+        if (qcError.qcRecord) {
+          toast.warning("SCIP saved as a draft — OpenRouter QC requires review before release.");
+          navigate("/scip/" + savedScip.id + "/book");
+          return;
+        }
+        throw qcError;
+      }
+      navigate("/scip/" + savedScip.id + "/book");
     } catch (err) {
       console.error(err);
       toast.error("Could not build the SCIP. Try regenerating the pipeline maps.");
