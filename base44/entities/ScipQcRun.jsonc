@@ -1,0 +1,240 @@
+{
+  "type": "object",
+  "description": "Append-only SiteHawk SCIP quality-control and repair manifest produced by OpenRouter GPT-5.6 Sol with ZDR. Each run records evidence-backed auto-repairs, unresolved items, source/artifact hashes, and the exact release decision.",
+  "properties": {
+    "scip_record_id": {
+      "type": "string",
+      "description": "ScipRecord audited by this run."
+    },
+    "candidate_id": {
+      "type": "string",
+      "description": "Active candidate identifier or parcel ID at audit time."
+    },
+    "qc_run_id": {
+      "type": "string",
+      "description": "Unique immutable quality-control run identifier."
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "AUDIT_ONLY",
+        "REPAIR_ALLOWED"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "REVIEW_REQUIRED",
+        "FAIL"
+      ]
+    },
+    "repair_status": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "AUTO_REPAIRED",
+        "REPAIR_FAILED",
+        "HUMAN_REQUIRED"
+      ]
+    },
+    "release_allowed": {
+      "type": "boolean",
+      "default": false
+    },
+    "summary": {
+      "type": "string"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "checked_by": {
+      "type": "string"
+    },
+    "ruleset_version": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "source_versions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "artifact_hashes": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "REVIEW_REQUIRED",
+              "FAIL"
+            ]
+          },
+          "severity": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "observed": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "repairs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "repair_id": {
+            "type": "string"
+          },
+          "field_key": {
+            "type": "string"
+          },
+          "target_path": {
+            "type": "string"
+          },
+          "policy": {
+            "type": "string",
+            "enum": [
+              "SOURCE_COPY",
+              "DETERMINISTIC_DERIVATION",
+              "USER_REQUIRED",
+              "HUMAN_REVIEW",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "APPLIED",
+              "REJECTED",
+              "HUMAN_REQUIRED"
+            ]
+          },
+          "previous_value": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "applied_value": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          },
+          "source_url": {
+            "type": "string"
+          },
+          "source_title": {
+            "type": "string"
+          },
+          "source_quote": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "validated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "manual_review_reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "scip_record_id",
+    "qc_run_id",
+    "mode",
+    "status",
+    "repair_status",
+    "release_allowed",
+    "checked_at",
+    "ruleset_version",
+    "model"
+  ],
+  "rls": {
+    "create": {
+      "created_by": "{{user.email}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  },
+  "name": "ScipQcRun"
+}
