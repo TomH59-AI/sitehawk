@@ -1,10 +1,20 @@
 import { CARRIERS, CARRIER_COLORS, BAND_RAMP, SIGNAL_RAMP, DEADZONE_COLOR } from "./rfiConfig";
+import { GripVertical } from "lucide-react";
 
 // RFI Engine map legend — carrier colors, frequency-band stroke ramp, coverage
-// signal-strength ramp, and the dead-zone swatch.
+// signal-strength ramp, and the dead-zone swatch. Draggable by its header so
+// it never blocks the map.
 export default function RfiLegend() {
   return (
-    <div className="absolute bottom-4 left-40 z-10 w-60 rounded-xl border border-white/10 bg-slate-900/85 backdrop-blur text-white p-3 space-y-3 text-xs shadow-2xl">
+    <div className="w-60 rounded-xl border border-white/10 bg-slate-900/85 backdrop-blur text-white p-3 space-y-3 text-xs shadow-2xl">
+      <div
+        data-drag-handle
+        className="flex items-center gap-1.5 font-heading font-bold text-[11px] tracking-wide uppercase text-white/70 cursor-grab active:cursor-grabbing select-none"
+      >
+        <GripVertical className="h-3 w-3 opacity-50" />
+        Legend
+      </div>
+
       <div>
         <div className="font-heading font-bold text-[11px] tracking-wide uppercase text-white/70 mb-1.5">Carrier (tower fill)</div>
         <div className="grid grid-cols-2 gap-1">

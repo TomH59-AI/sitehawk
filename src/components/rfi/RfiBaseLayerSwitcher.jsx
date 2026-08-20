@@ -1,11 +1,17 @@
 import { BASE_LAYERS } from "./rfiConfig";
+import { GripVertical } from "lucide-react";
 
 // Base-map switcher for the RFI Engine — flips the base between Mapbox Dark and
 // the free USGS National Map raster services. RF layers always stay on top.
+// Draggable by its header so it never blocks the map.
 export default function RfiBaseLayerSwitcher({ baseLayer, onChange }) {
   return (
-    <div className="absolute bottom-4 left-4 z-10 rounded-xl border border-white/10 bg-slate-900/85 backdrop-blur text-white p-2 shadow-2xl">
-      <div className="font-heading font-bold text-[10px] tracking-wide uppercase text-white/60 px-1 mb-1.5">
+    <div className="rounded-xl border border-white/10 bg-slate-900/85 backdrop-blur text-white p-2 shadow-2xl">
+      <div
+        data-drag-handle
+        className="flex items-center gap-1.5 font-heading font-bold text-[10px] tracking-wide uppercase text-white/60 px-1 mb-1.5 cursor-grab active:cursor-grabbing select-none"
+      >
+        <GripVertical className="h-3 w-3 opacity-50" />
         Base Map
       </div>
       <div className="flex flex-col gap-1">

@@ -13,6 +13,7 @@ import RfiSearchBox from "./RfiSearchBox";
 import RfiCompass from "./RfiCompass";
 import RfiBaseLayerSwitcher from "./RfiBaseLayerSwitcher";
 import RfiOverlays from "./RfiOverlays";
+import DraggablePanel from "@/components/DraggablePanel";
 import { CARRIER_COLORS, DEADZONE_COLOR, CARRIER_PRESET_KEY, BASE_LAYERS, USGS_ATTRIBUTION } from "./rfiConfig";
 import { magneticDeclination } from "@/lib/magneticDeclination";
 import * as turf from "@turf/turf";
@@ -842,8 +843,16 @@ export default function RfiMap({
           )}
         </div>
       )}
-      {ready && <RfiLegend />}
-      {ready && <RfiBaseLayerSwitcher baseLayer={baseLayer} onChange={setBaseLayer} />}
+      {ready && (
+        <DraggablePanel defaultPos={{ x: 16, y: 16 }} className="z-20">
+          <RfiBaseLayerSwitcher baseLayer={baseLayer} onChange={setBaseLayer} />
+        </DraggablePanel>
+      )}
+      {ready && (
+        <DraggablePanel defaultPos={{ x: 160, y: 16 }} className="z-20">
+          <RfiLegend />
+        </DraggablePanel>
+      )}
       {ready && <RfiSearchBox onGoTo={handleGoTo} />}
       {ready && <RfiCompass declination={declination} />}
       {ready && <RfiOverlays map={mapRef.current} ready={ready} show={overlays} />}
