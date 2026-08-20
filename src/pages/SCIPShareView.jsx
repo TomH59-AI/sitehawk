@@ -57,7 +57,7 @@ export default function SCIPShareView() {
         </div>
         <div className="flex items-center gap-2">
           <ShareToLinkedInButton />
-          <PrintSCIPButton />
+          <PrintSCIPButton releaseAllowed={snap.qc_status === "PASS" && snap.release_allowed === true} />
         </div>
       </div>
 
