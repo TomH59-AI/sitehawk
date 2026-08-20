@@ -46,6 +46,8 @@ function toStateCode(value) {
   return STATE_CODES[s] || s.slice(0, 2);
 }
 
+const COUNTY_WORD = /\b(county|parish)\b/i;
+
 function normalizeJurisdiction(name) {
   return String(name || '')
     .toUpperCase()
@@ -449,13 +451,34 @@ async function upsertTelecomOrdinance(base44, jurisdiction, state, x, fields, ci
   if (filled === 0) return { action: 'skipped', reason: 'no tower rules found' };
   payload.completeness_score = Math.round((filled / numericKeys.length) * 100);
 
-  let existing = await svc.filter({ jurisdiction_normalized, state });
-  if (!existing.length && /\bCOUNTY\b/i.test(jurisdiction)) {
-    existing = await svc.filter({ jurisdiction_normalized: `${jurisdiction_normalized} COUNTY`, state });
+  // The registry holds BOTH key conventions from earlier harvests — some county
+  // rows are keyed 'ALACHUA', others 'ALACHUA COUNTY' — and a county and a city
+  // of the same name both normalize to the same string. Matching on the string
+  // alone let a COUNTY scrape overwrite the CITY row of the same name (it did:
+  // Alachua County's ordinance landed on the city of Alachua's record). Match on
+  // the string AND on county-ness, the same test findOrdinance uses for reads.
+  const wantCounty = COUNTY_WORD.test(jurisdiction);
+  const variants = wantCounty
+    ? [jurisdiction_normalized, `${jurisdiction_normalized} COUNTY`]
+    : [jurisdiction_normalized];
+  const seen = new Set();
+  const candidates = [];
+  for (const variant of variants) {
+    const rows = await svc.filter({ jurisdiction_normalized: variant, state });
+    for (const r of rows || []) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      candidates.push(r);
+    }
   }
-  if (existing.length) {
-    await svc.update(existing[0].id, payload);
-    return { id: existing[0].id, action: 'updated', completeness_score: payload.completeness_score };
+  const match = candidates.find((r) => COUNTY_WORD.test(r.jurisdiction || '') === wantCounty) || null;
+
+  if (match) {
+    // Keep whichever key convention that row already uses — rewriting it would
+    // orphan every reader that matched it under the old one.
+    const { jurisdiction_normalized: _drop, ...rest } = payload;
+    await svc.update(match.id, rest);
+    return { id: match.id, action: 'updated', completeness_score: payload.completeness_score };
   }
   const rec = await svc.create(payload);
   return { id: rec.id, action: 'created', completeness_score: payload.completeness_score };
