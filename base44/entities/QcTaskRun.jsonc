@@ -1,0 +1,119 @@
+{
+  "name": "QcTaskRun",
+  "type": "object",
+  "description": "Append-only evidence manifest for each app-wide SiteHawk task review.",
+  "properties": {
+    "qc_run_id": {
+      "type": "string"
+    },
+    "task_key": {
+      "type": "string"
+    },
+    "task_family": {
+      "type": "string"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "policy_version": {
+      "type": "integer"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "REVIEW_REQUIRED",
+        "FAIL"
+      ]
+    },
+    "released": {
+      "type": "boolean",
+      "default": false
+    },
+    "repair_status": {
+      "type": "string",
+      "enum": [
+        "NONE",
+        "AUTO_REPAIRED",
+        "REPAIR_FAILED",
+        "HUMAN_REQUIRED"
+      ],
+      "default": "NONE"
+    },
+    "attempt": {
+      "type": "integer",
+      "default": 1
+    },
+    "duration_ms": {
+      "type": "number"
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "repairs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "retry_same_input": {
+      "type": "boolean",
+      "default": false
+    },
+    "input_hash": {
+      "type": "string"
+    },
+    "output_hash": {
+      "type": "string"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "checked_by": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "qc_run_id",
+    "task_key",
+    "task_family",
+    "source_hash",
+    "policy_version",
+    "status",
+    "released",
+    "checked_at"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
