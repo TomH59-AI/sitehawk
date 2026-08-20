@@ -1469,6 +1469,29 @@ Deno.serve(async (req) => {
       sources_used: {
         telecom_ordinance: !!registry,
         notion: notionOrdinance ? { matched: true, page_url: notionOrdinance.page_url || null } : { matched: false },
+        // The SCIP zoning template pulled from our own Jurisdiction entity, and
+        // whether this run had to go fetch it out of the Notion URL library first.
+        zoning_library: {
+          matched: !!jurisdictionRecord,
+          jurisdiction: jurisdictionRecord?.name || null,
+          fields_written: libraryFieldsWritten,
+          last_researched_at: jurisdictionRecord?.last_researched_at || null,
+        },
+        zoning_scraper: shouldScrapeNotion
+          ? {
+              ran: true,
+              action: scrapeResult?.action || 'no_result_in_budget',
+              jurisdiction: scrapeResult?.jurisdiction || scrapeResult?.target || null,
+              job_id: scrapeResult?.job_id || null,
+            }
+          : {
+              ran: false,
+              reason: !zoningMcpConfigured(secrets)
+                ? 'mcp_not_configured'
+                : backendZoningMissing
+                  ? 'no_jurisdiction_resolved'
+                  : 'backend_zoning_present',
+            },
         codehawk: shouldHunt
           ? { ran: true, action: huntResult?.action || 'no_result_in_budget', fields_written: huntResult?.fields_written || [] }
           : { ran: false, reason: ordinance ? 'registry_already_complete' : 'no_jurisdiction_resolved' },
