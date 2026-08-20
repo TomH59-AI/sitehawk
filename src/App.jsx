@@ -93,7 +93,6 @@ import HawkLawClauses from './pages/hawklaw/HawkLawClauses';
 import HawkLawHistory from './pages/hawklaw/HawkLawHistory';
 import FiberLayersAdmin from './pages/FiberLayersAdmin';
 import SitingIQ from './pages/SitingIQ';
-import ZoningVerifier from './pages/ZoningVerifier';
 import CodeHawk from './pages/CodeHawk';
 import AnthemNetScip from './pages/AnthemNetScip';
 import FiberOperators from './pages/FiberOperators';
@@ -183,8 +182,6 @@ const AuthenticatedApp = () => {
         {/* Siting IQ™ — unified environmental, RF, terrain, and airspace intelligence */}
         <Route path="/siting-iq" element={<SitingIQ />} />
         <Route path="/rfi-engine" element={<Navigate to="/siting-iq" replace />} />
-        {/* Hawk Zoning Verifier — AI agent for zoning accuracy checks */}
-        <Route path="/zoning-verifier" element={<ZoningVerifier />} />
         {/* CodeHawk — the Ordinance Hunter, reconnected. Registry-first recall,
             coordinated hunt on a miss, processing dashboard and admin review queue.
             The old /ordinance-hunter link now lands here instead of HawkDocs, which

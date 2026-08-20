@@ -39,7 +39,6 @@ const BASE_NAV = [
   { path: "/government-forms", icon: Landmark, label: "16 · Government Forms" },
   { header: "MORE TOOLS" },
   { path: "/talonfit", icon: Zap, label: "⚡ TalonFit™ Site Analysis" },
-  { path: "/zoning-verifier", icon: ShieldCheck, label: "🛡 Zoning Verifier" },
   { path: "/siting-iq", icon: Radio, label: "Siting IQ™ — Patent Pending" },
   { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
