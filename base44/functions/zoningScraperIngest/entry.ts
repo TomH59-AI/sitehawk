@@ -243,6 +243,38 @@ STRICT RULES:
 ${blocks.join('\n\n')}`;
 }
 
+// A full county boundary is megabytes of GeoJSON — far past Base44's field-size
+// cap, and the old `.slice(0, 50000)` guard just produced invalid JSON. What the
+// registry actually needs from a boundary is its extent, so store that: bbox,
+// centroid and vertex count, small enough to always fit.
+function summarizePolygon(geometry) {
+  if (!geometry || typeof geometry !== 'object') return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, n = 0;
+  const walk = (node) => {
+    if (!Array.isArray(node)) return;
+    if (typeof node[0] === 'number' && typeof node[1] === 'number') {
+      const [x, y] = node;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+      n += 1;
+      return;
+    }
+    for (const child of node) walk(child);
+  };
+  walk(geometry.coordinates);
+  if (!n || !Number.isFinite(minX)) return null;
+  const r = (v) => Math.round(v * 1e6) / 1e6;
+  return JSON.stringify({
+    type: geometry.type || 'Polygon',
+    bbox: [r(minX), r(minY), r(maxX), r(maxY)],
+    centroid: [r((minX + maxX) / 2), r((minY + maxY) / 2)],
+    vertices: n,
+    source: 'nominatim',
+  });
+}
+
 // ---------- upserts ----------
 // In the Notion table, Michigan township rows carry the COUNTY name in the
 // "Authority Level" column (e.g. Byron Township | Kent). Recover it for the registry.
@@ -262,7 +294,7 @@ async function upsertRegistry(base44, name, state, polygon, sources) {
     jurisdiction_type: jurisdictionType(name),
     county: countyFromSources(name, sources),
     active: true,
-    boundary_reference: polygon ? JSON.stringify(polygon).slice(0, 50000) : null,
+    boundary_reference: summarizePolygon(polygon),
   });
   if (existing.length) {
     await svc.update(existing[0].id, patch);

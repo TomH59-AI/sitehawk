@@ -150,7 +150,17 @@ export async function scrapeJurisdictionFromNotion(
       const status = await call(url, token, 'getScraperStatus', { job_id: jobId }, 20000).catch(() => null);
       if (status?.status === 'done') {
         const s = status.summary || {};
-        console.log(`[ZONING MCP] job ${jobId} done — ingested ${s.ingested_ok || 0}, urls ok ${s.urls_scraped_ok || 0}/${(s.urls_scraped_ok || 0) + (s.urls_failed || 0)}`);
+        const landed = Number(s.ingested_ok || 0) > 0;
+        console.log(`[ZONING MCP] job ${jobId} done — ingested ${s.ingested_ok || 0}/${s.processed || 0}, urls ok ${s.urls_scraped_ok || 0}/${(s.urls_scraped_ok || 0) + (s.urls_failed || 0)}`);
+        // A finished job is not the same as data in the backend: the scrape can
+        // succeed and the Base44 write still be rejected. Only report 'ingested'
+        // when something actually landed, so the caller does not re-read and
+        // silently overlay nothing.
+        if (!landed) {
+          const why = (status.recent || []).map((r: any) => r.ingest_error).filter(Boolean)[0] || 'ingest wrote nothing';
+          console.error(`[ZONING MCP] job ${jobId} scraped but did NOT land: ${String(why).slice(0, 300)}`);
+          return { action: 'ingest_failed', job_id: jobId, jurisdiction: probe.matched, summary: s, error: why };
+        }
         return { action: 'ingested', job_id: jobId, jurisdiction: probe.matched, summary: s, recent: status.recent || [] };
       }
       if (status?.status === 'failed') {
