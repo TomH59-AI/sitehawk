@@ -39,8 +39,8 @@ const BASE_NAV = [
   { path: "/government-forms", icon: Landmark, label: "16 · Government Forms" },
   { path: "/siting-iq", icon: Radio, label: "17 · Siting IQ™" },
   { path: "/talonfit", icon: Zap, label: "18 · TalonFit™" },
+  { path: "/hawk-tracker", icon: MapPin, label: "19 · Hawk Tracker" },
   { header: "MORE TOOLS" },
-  { path: "/hawk-tracker", icon: MapPin, label: "🗺️ Hawk Tracker" },
   { path: "/mail-orders", icon: Mail, label: "📮 Mail Orders" },
   { header: "ACCOUNT" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },
@@ -111,9 +111,9 @@ export default function Layout() {
     : [];
 
   const navItems = [
-    ...BASE_NAV.slice(0, 18), // flow header + the numbered site-acquisition steps
+    ...BASE_NAV.slice(0, 19), // flow header + the numbered site-acquisition steps
     ...(isAdmin ? [{ header: "ADMIN" }, ...adminExtra] : []),
-    ...BASE_NAV.slice(18),
+    ...BASE_NAV.slice(19),
   ];
 
   const handleLogout = () => {
