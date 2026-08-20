@@ -248,7 +248,7 @@ async function getCachedZoning(base44, siteKey) {
   return { ...hit, report: { ...hit.report, report: juris.report.report } };
 }
 
-async function putCachedZoning(base44, siteKey, stateCode, payload, jurisdictionMeta) {
+async function putCachedZoning(base44, siteKey, stateCode, payload, jurisdictionMeta, opts = {}) {
   const write = async (normalized, data) => {
     const existing = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: normalized });
     // Carry user overrides forward. A subscriber's hand-typed correction is the
@@ -278,7 +278,13 @@ async function putCachedZoning(base44, siteKey, stateCode, payload, jurisdiction
       fetched_at: now,
       last_verified_at: now,
       // Thin panels are recorded but NOT published — see the panel quality gate.
-      status: panelsArePublishable(payload.report) ? 'published' : 'partial',
+      // forcePartial covers a third case: the zoning-library scrape was still
+      // running (or its write was rejected) when this report was assembled. The
+      // real data lands seconds later; publishing this run would pin the
+      // inference-built version in front of it for the full 30-day TTL.
+      status: opts.forcePartial
+        ? 'partial'
+        : panelsArePublishable(payload.report) ? 'published' : 'partial',
       source_name: 'telecom_ordinances + web',
     });
   }
@@ -1531,9 +1537,13 @@ Deno.serve(async (req) => {
     };
 
     // Panels cached once per jurisdiction; site row keeps the site-specific half.
-    await putCachedZoning(base44, siteKey, geo.state_code, responsePayload, jurisdictionMeta).catch((e) =>
-      console.log(`[ZONING CACHE] write failed site=${siteKey}: ${e?.message}`)
-    );
+    const scrapeStillLanding = scrapeResult?.action === 'running' || scrapeResult?.action === 'ingest_failed';
+    if (scrapeStillLanding) {
+      console.log(`[ZONING CACHE] holding ${jurisdictionKey} partial — zoning-library scrape ${scrapeResult.action}, real data lands after this response`);
+    }
+    await putCachedZoning(base44, siteKey, geo.state_code, responsePayload, jurisdictionMeta, {
+      forcePartial: scrapeStillLanding,
+    }).catch((e) => console.log(`[ZONING CACHE] write failed site=${siteKey}: ${e?.message}`));
 
     return await supervisedResponse({
       original_user_request: `Resolve zoning and permitting requirements at ${Number(lat).toFixed(6)}, ${Number(lon).toFixed(6)}.`,
