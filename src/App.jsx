@@ -105,6 +105,7 @@ import TargetsPage from './pages/pipeline/TargetsPage';
 import TargetMapsPage from './pages/pipeline/TargetMapsPage';
 import GovernmentForms from './pages/GovernmentForms';
 import CodeBrowser from './pages/CodeBrowser';
+import QcControlCenter from './pages/QcControlCenter';
 
 import SplashScreen from './components/SplashScreen';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
@@ -163,6 +164,7 @@ const AuthenticatedApp = () => {
         <Route path="/hubspot" element={<Navigate to="/hawk-tracker" replace />} />
         <Route path="/subscriber-crm" element={<SubscriberCRM />} />
         <Route path="/usage-analytics" element={<UsageAnalytics />} />
+        <Route path="/qc-control" element={<QcControlCenter />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
         <Route path="/mail-analytics" element={<MailAnalytics />} />
         <Route path="/scip" element={<SCIPPreview />} />
