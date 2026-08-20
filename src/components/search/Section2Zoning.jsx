@@ -35,6 +35,7 @@ import SourceBadge, { normalizeSource } from "./section2/SourceBadge";
 import NZACrossCheckCard from "./section2/NZACrossCheckCard";
 import SectionClearButton from "./SectionClearButton";
 import { generateZoningPermitReport } from "@/functions/generateZoningPermitReport";
+import { promoteZoningEdit } from "@/functions/promoteZoningEdit";
 import { useScipPaywall } from "@/lib/scipPaywall";
 import ScipUpgradeModal from "@/components/billing/ScipUpgradeModal";
 
@@ -130,7 +131,7 @@ function reportToCells(report, prev) {
 }
 
 function countTags(cells) {
-  const c = { ordinance: 0, zoneomics: 0, realie: 0, ai: 0, manual: 0 };
+  const c = { ordinance: 0, zoneomics: 0, realie: 0, ai: 0, shared: 0, manual: 0 };
   for (const p of PANELS) {
     for (const [, key] of p.rows) {
       const tag = cells[p.section][key].tag;
@@ -141,6 +142,8 @@ function countTags(cells) {
       else if (tag === "verified") c.zoneomics++;
       else if (tag === "parcel") c.realie++;
       else if (tag === "ai") c.ai++;
+      // Inherited from another subscriber's confirmed edit — real coverage, not a gap.
+      else if (tag === "shared") c.shared++;
       else c.manual++; // manual + manual edit both count as user-supplied gaps
     }
   }
@@ -167,12 +170,50 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
   // returns 402 / upgrade_required, the upgrade modal appears and routes to plans.
   const { generate, quota, clearQuota } = useScipPaywall();
 
+  // Tracks which cells changed since their last commit, so blurring a field the
+  // user only tabbed through does not fire a write.
+  const dirtyRef = useRef(new Set());
+
   const handleChange = (section, key, val) => {
+    dirtyRef.current.add(`${section}.${key}`);
     setCells((prev) => ({
       ...prev,
       [section]: { ...prev[section], [key]: { value: val, tag: "manual edit" } },
     }));
   };
+
+  // Commit on blur / Enter — never on keystroke. Promotes the confirmed value to
+  // the jurisdiction so the NEXT subscriber who runs zoning here inherits it
+  // instead of researching it again. Fire-and-forget by design: the user's edit
+  // is already in local state, so a promotion failure must never cost them work
+  // or block the SCIP.
+  const commitEdit = useCallback(
+    async (section, key, val) => {
+      const cellKey = `${section}.${key}`;
+      if (!dirtyRef.current.has(cellKey)) return;
+      dirtyRef.current.delete(cellKey);
+
+      const state = jurisdiction?.state_code;
+      const governing = jurisdiction?.governing_label;
+      if (!state || !governing) return; // nothing resolved to file this against
+
+      try {
+        await promoteZoningEdit({
+          state,
+          jurisdiction: governing,
+          jurisdiction_type: jurisdiction?.governing_type || "unknown",
+          jurisdiction_key: jurisdiction?.key || null,
+          section,
+          field: key,
+          value: val,
+          source_url: registry?.source_url || null,
+        });
+      } catch (e) {
+        console.warn("promoteZoningEdit failed — edit kept locally:", e?.message);
+      }
+    },
+    [jurisdiction, registry]
+  );
 
   const runLookup = useCallback(async (preserveEdits = false) => {
     setLoading(true);
@@ -399,6 +440,7 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
               Ordinance: {counts.ordinance ? `✓ ${counts.ordinance} fields` : "—"}
               {" | "}Realie: {counts.realie ? `✓ ${counts.realie} fields` : "—"}
               {" | "}AI: {counts.ai} fields
+              {counts.shared ? `${" | "}Team: ${counts.shared} fields` : ""}
               {" | "}Manual: {counts.manual} fields
             </div>
           </div>
@@ -486,6 +528,8 @@ export default function Section2Zoning({ unlocked, active, lat, lon, candidate, 
                             type="text"
                             value={cell.value}
                             onChange={(e) => handleChange(panel.section, key, e.target.value)}
+                            onBlur={(e) => commitEdit(panel.section, key, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                             placeholder="—"
                             className="flex-1 py-2.5 text-sm bg-transparent outline-none focus:bg-blue-50 dark:focus:bg-blue-950/30"
                           />
