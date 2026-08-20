@@ -41,7 +41,10 @@ function toolText(rpc: any): any {
   }
 }
 
+const STATUS_TIMEOUT_MS = 20000;
+
 async function call(url: string, token: string, name: string, args: any, timeoutMs = 30000): Promise<any> {
+  if (timeoutMs <= 0) throw new Error(`MCP ${name}: no budget left`);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -83,15 +86,16 @@ export async function notionHasZoningSources(
   secrets: any,
   jurisdiction: string,
   state: string,
+  timeoutMs = 25000,
 ): Promise<{ ok: boolean; matched: string | null; urls: number; error?: string }> {
-  const token = secrets.get('ZONING_MCP_TOKEN');
-  if (!token) return { ok: false, matched: null, urls: 0, error: 'ZONING_MCP_TOKEN not configured' };
-  const url = secrets.get('ZONING_MCP_URL') || DEFAULT_URL;
   try {
+    const token = secrets.get('ZONING_MCP_TOKEN');
+    if (!token) return { ok: false, matched: null, urls: 0, error: 'ZONING_MCP_TOKEN not configured' };
+    const url = secrets.get('ZONING_MCP_URL') || DEFAULT_URL;
     // Match on the bare name — Notion stores "Calhoun County", callers may pass
     // "Calhoun County" or "Calhoun"; the scraper does a substring match.
     const needle = String(jurisdiction || '').replace(/\b(county|parish|borough|city|town|village|charter township|township)\b/gi, '').trim();
-    const out = await call(url, token, 'listZoningSources', { state, jurisdiction: needle || jurisdiction, limit: 5 }, 25000);
+    const out = await call(url, token, 'listZoningSources', { state, jurisdiction: needle || jurisdiction, limit: 5 }, timeoutMs);
     const groups = out?.selected || [];
     const exact = groups.find((g: any) => String(g.jurisdiction || '').toLowerCase() === String(jurisdiction || '').toLowerCase()) || groups[0];
     if (!exact) return { ok: false, matched: null, urls: 0 };
@@ -115,24 +119,29 @@ export async function scrapeJurisdictionFromNotion(
   secrets: any,
   opts: { jurisdiction: string; state: string; budgetMs?: number },
 ): Promise<any> {
-  const token = secrets.get('ZONING_MCP_TOKEN');
-  if (!token) return { action: 'not_configured' };
-  const url = secrets.get('ZONING_MCP_URL') || DEFAULT_URL;
   const deadline = Date.now() + Math.max(15000, opts.budgetMs ?? 60000);
+  const left = () => deadline - Date.now();
 
   try {
-    const probe = await notionHasZoningSources(secrets, opts.jurisdiction, opts.state);
+    // Read inside the try: a throwing secrets provider must not reject into the
+    // caller's Promise.all and take down a report that would have shipped.
+    const token = secrets.get('ZONING_MCP_TOKEN');
+    if (!token) return { action: 'not_configured' };
+    const url = secrets.get('ZONING_MCP_URL') || DEFAULT_URL;
+
+    const probe = await notionHasZoningSources(secrets, opts.jurisdiction, opts.state, Math.min(25000, left()));
     if (!probe.ok || !probe.matched) {
       console.log(`[ZONING MCP] no Notion rows for ${opts.jurisdiction}, ${opts.state}${probe.error ? ` (${probe.error})` : ''}`);
       return { action: 'no_notion_rows', error: probe.error || null };
     }
 
+    if (left() <= STATUS_TIMEOUT_MS) return { action: 'skipped', reason: 'out_of_budget_after_probe' };
     const started = await call(
       url,
       token,
       'runScraper',
       { state: opts.state, jurisdiction: probe.matched, limit: 1 },
-      25000,
+      Math.min(25000, left()),
     );
     if (started?.ok === false) {
       // A run is already in flight (one job at a time on the box) — fall through
@@ -145,9 +154,11 @@ export async function scrapeJurisdictionFromNotion(
 
     console.log(`[ZONING MCP] job ${jobId} scraping ${probe.matched}, ${opts.state} (${probe.urls} Notion URLs)`);
 
-    while (Date.now() < deadline) {
+    // Only start an iteration we can actually finish: sleep + status call must
+    // both fit, or the function returns well past the budget it was given.
+    while (left() > POLL_INTERVAL_MS + STATUS_TIMEOUT_MS) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-      const status = await call(url, token, 'getScraperStatus', { job_id: jobId }, 20000).catch(() => null);
+      const status = await call(url, token, 'getScraperStatus', { job_id: jobId }, Math.min(STATUS_TIMEOUT_MS, left())).catch(() => null);
       if (status?.status === 'done') {
         const s = status.summary || {};
         const landed = Number(s.ingested_ok || 0) > 0;
