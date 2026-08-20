@@ -192,7 +192,7 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id" element={<ScipDetail />} />
         {/* SCIP Document Studio — new report suite; legacy SCIP form stays untouched */}
         <Route path="/scip/:id/studio" element={<ScipStudio />} />
-        {/* SCIP Book — client-facing page-by-page SCIP with print + Gemini QC */}
+        {/* SCIP Book — client-facing page-by-page SCIP with OpenRouter QC + evidence-backed repair */}
         <Route path="/scip/:id/book" element={<ScipBook />} />
         <Route path="/scip/:id/hawk" element={<HawkScip />} />
         {/* AnthemNet-format SCIP — auto-populated carrier submittal package */}
