@@ -53,7 +53,8 @@ Deno.serve(async (req) => {
 
     const updated = await base44.entities.ScipStudioDoc.update(doc.id, {
       quality_gate: qualityRow(doc, manifest),
-      doc_status: manifest.status === "PASS" ? "qc_passed" : "draft",
+      // A configured QC PASS moves the Studio to human review; it is not legal or engineering approval.
+      doc_status: manifest.status === "PASS" ? "review" : "draft",
     });
     const fills = (manifest.repairs || [])
       .filter((repair: any) => repair.status === "APPLIED")
