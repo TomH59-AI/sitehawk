@@ -8,7 +8,7 @@ import BookPropertyPage from "@/components/scipbook/BookPropertyPage";
 import BookMapPage from "@/components/scipbook/BookMapPage";
 import BookQcPanel from "@/components/scipbook/BookQcPanel";
 import BookSheetExport from "@/components/scipbook/BookSheetExport";
-import { buildMapPages, collectMissingFields } from "@/components/scipbook/scipBookData";
+import { buildMapPages } from "@/components/scipbook/scipBookData";
 
 const PRINT_CSS = `
 @page { size: Letter; margin: 0; }
