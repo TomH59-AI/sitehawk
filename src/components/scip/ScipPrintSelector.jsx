@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Printer } from "lucide-react";
+import { Printer, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { ensureScipQcPass } from "@/lib/scipQcGate";
 
 // Section-aware Print SCIP control for the SCIP Preview page.
 // All sections start SELECTED; deselect any to exclude it from the printout.
@@ -28,8 +30,9 @@ function ensurePrintStyles() {
   document.head.appendChild(style);
 }
 
-export default function ScipPrintSelector({ sections }) {
+export default function ScipPrintSelector({ sections, scipRecord = null, onQcRecord }) {
   // selected defaults all ON so the full package prints unless the user opts out.
+  const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState(() => {
     const m = {};
     sections.forEach((s) => { m[s.id] = true; });
@@ -44,15 +47,29 @@ export default function ScipPrintSelector({ sections }) {
     return m;
   });
 
-  const handlePrint = () => {
-    ensurePrintStyles();
-    // Apply hidden class to deselected section wrappers right before printing.
-    sections.forEach((s) => {
-      const el = document.querySelector(`[data-scip-section="${s.id}"]`);
-      if (!el) return;
-      el.classList.toggle("scip-section-hidden", !selected[s.id]);
-    });
-    window.print();
+  const handlePrint = async () => {
+    if (!scipRecord?.id) {
+      toast.error("This legacy preview is not a saved QC-backed SCIP. Generate and open the saved SCIP before printing.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const qc = await ensureScipQcPass(scipRecord, { repairAllowed: true });
+      if (qc.record) onQcRecord?.(qc.record);
+      ensurePrintStyles();
+      // Apply hidden class to deselected section wrappers right before printing.
+      sections.forEach((s) => {
+        const el = document.querySelector(`[data-scip-section="${s.id}"]`);
+        if (!el) return;
+        el.classList.toggle("scip-section-hidden", !selected[s.id]);
+      });
+      window.print();
+    } catch (error) {
+      if (error.qcRecord) onQcRecord?.(error.qcRecord);
+      toast.error(error.message || "OpenRouter QC blocked printing");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const selectedCount = sections.filter((s) => selected[s.id]).length;
@@ -82,10 +99,10 @@ export default function ScipPrintSelector({ sections }) {
         </div>
         <button
           onClick={handlePrint}
-          disabled={selectedCount === 0}
+          disabled={selectedCount === 0 || busy}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm transition-all shadow-md disabled:opacity-50"
         >
-          <Printer className="w-4 h-4" /> Print SCIP{selectedCount > 0 ? ` · ${selectedCount} section${selectedCount !== 1 ? "s" : ""}` : ""}
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />} {busy ? "Running OpenRouter QC…" : `Print SCIP${selectedCount > 0 ? ` · ${selectedCount} section${selectedCount !== 1 ? "s" : ""}` : ""}`}
         </button>
       </div>
     </div>
