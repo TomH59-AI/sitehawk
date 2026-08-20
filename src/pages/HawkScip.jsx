@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { base44 } from "@/api/base44Client";
+import { ensureScipQcPass } from "@/lib/scipQcGate";
 import { Printer, Download, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { HAWK } from "../components/scip/hawkScipBrand";
@@ -29,19 +30,34 @@ export default function HawkScip() {
     base44.entities.ScipRecord.get(id).then(setRecord).catch(() => setRecord(null)).finally(() => setLoading(false));
   }, [id]);
 
-  function handlePrint() {
-    if (!styleRef.current) {
-      const el = document.createElement("style");
-      el.innerHTML = PRINT_CSS;
-      document.head.appendChild(el);
-      styleRef.current = el;
+  async function handlePrint() {
+    setBusy(true);
+    try {
+      const qc = await ensureScipQcPass(record, { repairAllowed: true });
+      if (qc.record) setRecord(qc.record);
+      if (!styleRef.current) {
+        const el = document.createElement("style");
+        el.innerHTML = PRINT_CSS;
+        document.head.appendChild(el);
+        styleRef.current = el;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      window.print();
+    } catch (error) {
+      if (error.qcRecord) setRecord(error.qcRecord);
+      toast.error(error.message || "OpenRouter QC blocked printing");
+    } finally {
+      setBusy(false);
     }
-    window.print();
   }
 
   async function handleExportPdf() {
     setBusy(true);
     try {
+      const qc = await ensureScipQcPass(record, { repairAllowed: true });
+      const approvedRecord = qc.record || record;
+      if (qc.record) setRecord(qc.record);
+      await new Promise((resolve) => setTimeout(resolve, 100));
       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([import("jspdf"), import("html2canvas")]);
       const pages = document.querySelectorAll("#hawk-scip-doc .page");
       const pdf = new jsPDF({ unit: "in", format: "letter" });
@@ -50,9 +66,10 @@ export default function HawkScip() {
         if (i > 0) pdf.addPage();
         pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, 8.5, 11);
       }
-      pdf.save(`HawkSCIP_${(record.site_name || "site").replace(/\s+/g, "_")}_${record.submittal_date}.pdf`);
-    } catch {
-      toast.error("PDF export failed");
+      pdf.save(`HawkSCIP_${(approvedRecord.site_name || "site").replace(/\s+/g, "_")}_${approvedRecord.submittal_date}.pdf`);
+    } catch (error) {
+      if (error.qcRecord) setRecord(error.qcRecord);
+      toast.error(error.message || "OpenRouter QC blocked PDF export");
     } finally {
       setBusy(false);
     }
@@ -69,7 +86,7 @@ export default function HawkScip() {
             <ArrowLeft className="w-4 h-4" /> Back to SCIP
           </button>
           <div className="flex items-center gap-2 flex-wrap">
-            <Btn icon={Printer} label="Print Hawk SCIP" onClick={handlePrint} />
+            <Btn icon={Printer} label="Print Hawk SCIP" onClick={handlePrint} busy={busy} />
             <Btn icon={Download} label="Download PDF" onClick={handleExportPdf} busy={busy} />
           </div>
         </div>
