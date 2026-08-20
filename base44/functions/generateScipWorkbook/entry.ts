@@ -313,12 +313,20 @@ export default async function (req: Request): Promise<Response> {
     const body = (await req.json().catch(() => ({}))) ?? {};
     let normalized;
     if (body.record && typeof body.record === "object") {
+      const qc = body.record.book_qc;
+      if (qc?.status !== "PASS" || qc?.release_allowed !== true || qc?.print_ready !== true) {
+        return Response.json({ error: "OpenRouter QC PASS is required; workbook release remains locked" }, { status: 409 });
+      }
       normalized = normalize(body.record, false);
     } else if (body.scipId) {
       const rec = await base44.entities.ScipRecord.get(String(body.scipId));
       if (!rec) return Response.json({ error: "ScipRecord not found" }, { status: 404 });
-      if (!rec.book_qc?.print_ready) {
-        return Response.json({ error: "Gemini QC is not complete; printing remains locked" }, { status: 409 });
+      if (
+        rec.book_qc?.status !== "PASS"
+        || rec.book_qc?.release_allowed !== true
+        || rec.book_qc?.print_ready !== true
+      ) {
+        return Response.json({ error: "OpenRouter QC PASS is required; workbook release remains locked" }, { status: 409 });
       }
       normalized = normalize(rec, true);
     } else {
