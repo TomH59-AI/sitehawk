@@ -1,99 +1,118 @@
 import { useState } from "react";
-import { Sparkles, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Wrench, Loader2, CheckCircle2, AlertTriangle, ShieldX } from "lucide-react";
 import { toast } from "sonner";
-import { scipBookQc } from "@/functions/scipBookQc";
+import { runScipQc, isScipQcPass } from "@/lib/scipQcGate";
 import { collectMissingFields, collectMissingMaps } from "./scipBookData";
 
-// Gemini quality-control panel — finds every blank field in the SCIP Book,
-// asks Gemini to fill what it can verify from public sources, and lists what
-// still needs a human or a pipeline run before delivery.
 export default function BookQcPanel({ record, onUpdate }) {
   const [running, setRunning] = useState(false);
+  const [manifest, setManifest] = useState(null);
   const missingFields = collectMissingFields(record);
   const missingMaps = collectMissingMaps(record);
   const qc = record?.book_qc || null;
-  const complete = missingFields.length === 0 && missingMaps.length === 0;
+  const complete = isScipQcPass(record)
+    && missingFields.length === 0
+    && missingMaps.length === 0;
+  const status = manifest?.status || qc?.status || "NOT_RUN";
 
   async function runQc() {
     setRunning(true);
     try {
-      const t = record.parcel_targets?.[record.active_target_index || 0] || {};
-      const res = await scipBookQc({
-        scip_id: record.id,
-        missing: missingFields,
-        context: {
-          site_name: record.site_name,
-          latitude: t.latitude ?? record.latitude,
-          longitude: t.longitude ?? record.longitude,
-          address: t.parcel_address || null,
-          county: record.county || null,
-          state: record.state || null,
-          jurisdiction: record.zoning_jurisdiction || null,
-        },
-      });
-      if (res.data?.record) onUpdate(res.data.record);
-      toast.success(`Gemini QC complete — ${Object.keys(res.data?.book_qc?.filled || {}).length} response(s) completed`);
-      return res.data?.record || record;
+      const result = await runScipQc(record, { repairAllowed: true });
+      if (result.record) onUpdate?.(result.record);
+      setManifest(result.qc_manifest || null);
+      const repaired = Number(result.book_qc?.repaired_field_count || 0);
+      if (result.qc_manifest?.status === "PASS") {
+        toast.success("OpenRouter QC passed" + (repaired ? " — " + repaired + " item(s) repaired" : ""));
+      } else {
+        toast.warning("QC " + (result.qc_manifest?.status || "blocked") + " — release remains locked");
+      }
+      return result.record || record;
     } catch (err) {
-      toast.error(err?.response?.data?.error || "Gemini QC failed — try again");
+      toast.error(err?.response?.data?.error || err.message || "OpenRouter QC failed — release remains locked");
     } finally {
       setRunning(false);
     }
   }
 
+  const StatusIcon = status === "PASS"
+    ? CheckCircle2
+    : status === "FAIL"
+      ? ShieldX
+      : AlertTriangle;
+  const statusColor = status === "PASS"
+    ? "text-green-600"
+    : status === "FAIL"
+      ? "text-red-600"
+      : "text-amber-500";
+
   return (
     <div className="rounded-xl border bg-white p-4" style={{ borderColor: "#c8d4de" }}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          {complete ? (
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
-          ) : (
-            <AlertTriangle className="w-5 h-5 text-amber-500" />
-          )}
+          <StatusIcon className={"w-5 h-5 " + statusColor} />
           <div>
             <p className="text-sm font-bold" style={{ color: "#0f2a43" }}>
-              {complete ? "SCIP complete — ready to deliver" : `${missingFields.length} blank field(s) · ${missingMaps.length} missing map(s)`}
+              {complete
+                ? "QC PASS — SCIP release authorized"
+                : status.replaceAll("_", " ") + " · " + missingFields.length + " unresolved field(s) · " + missingMaps.length + " missing map(s)"}
             </p>
             <p className="text-[11px] text-slate-500">
-              Gemini QC fills blanks it can verify from public sources — nothing is fabricated. Missing maps are generated from the SCIP pipeline sections.
+              OpenRouter checks, repairs evidence-backed blanks, reruns deterministic QC, and keeps release locked until every mandatory check passes.
             </p>
           </div>
         </div>
         <button
           onClick={runQc}
-          disabled={running || missingFields.length === 0}
+          disabled={running}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
           style={{ background: "#1d6fb8" }}
         >
-          {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          Run Gemini QC
+          {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wrench className="w-4 h-4" />}
+          {running ? "Checking and repairing…" : "Run OpenRouter QC + Repair"}
         </button>
       </div>
 
       {qc && (
         <div className="mt-3 pt-3 border-t text-[11px] space-y-2" style={{ borderColor: "#e4ebf1" }}>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-500">
+            {qc.qc_run_id && <span>Run: {qc.qc_run_id}</span>}
+            <span>Repairs: {qc.repaired_field_count || 0}</span>
+            <span>Remaining: {qc.remaining_blank_count ?? missingFields.length}</span>
+          </div>
           {qc.summary && <p className="text-slate-600">{qc.summary}</p>}
+          {(manifest?.blockers || qc.blockers)?.length > 0 && (
+            <FindingList title="Release blockers:" items={manifest?.blockers || qc.blockers} color="text-red-600" />
+          )}
           {qc.needs_human?.length > 0 && (
-            <div>
-              <p className="font-semibold text-amber-600 mb-1">Needs human input before delivery:</p>
-              <ul className="list-disc pl-5 space-y-0.5 text-slate-600">
-                {qc.needs_human.map((n) => (
-                  <li key={n.key || n.label}>{n.label}{n.why ? ` — ${n.why}` : ""}</li>
-                ))}
-              </ul>
-            </div>
+            <FindingList
+              title="Human review still required:"
+              items={qc.needs_human.map((item) => item.why || item.label || String(item))}
+              color="text-amber-600"
+            />
           )}
         </div>
       )}
 
       {missingMaps.length > 0 && (
         <div className="mt-3 pt-3 border-t text-[11px]" style={{ borderColor: "#e4ebf1" }}>
-          <p className="font-semibold text-slate-600 mb-1">Map exhibits still to generate (via SCIP pipeline):</p>
+          <p className="font-semibold text-slate-600 mb-1">Map exhibits still to generate:</p>
           <ul className="list-disc pl-5 space-y-0.5 text-slate-500">
-            {missingMaps.map((m) => <li key={`${m.page}-${m.label}`}>{m.label}</li>)}
+            {missingMaps.map((item) => <li key={item.page + "-" + item.label}>{item.label}</li>)}
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+function FindingList({ title, items, color }) {
+  return (
+    <div>
+      <p className={"font-semibold mb-1 " + color}>{title}</p>
+      <ul className="list-disc pl-5 space-y-0.5 text-slate-600">
+        {items.map((item, index) => <li key={index + "-" + item}>{item}</li>)}
+      </ul>
     </div>
   );
 }
