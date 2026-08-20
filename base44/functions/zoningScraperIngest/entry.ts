@@ -244,14 +244,23 @@ ${blocks.join('\n\n')}`;
 }
 
 // ---------- upserts ----------
-async function upsertRegistry(base44, name, state, polygon) {
+// In the Notion table, Michigan township rows carry the COUNTY name in the
+// "Authority Level" column (e.g. Byron Township | Kent). Recover it for the registry.
+function countyFromSources(name, sources) {
+  if (/\bcounty\b/i.test(name)) return name;
+  const AUTH = /permit|zoning|planning|telecom|wireless|communication|tower|map|gis|fee|site plan|authority|split|inspection|code|ordinance|contact|assess/i;
+  const hit = (sources || []).map((s) => cleanStr(s.authority_level)).find((a) => a && !AUTH.test(a) && a.split(' ').length <= 3);
+  return hit ? (/\bcounty\b/i.test(hit) ? hit : `${hit} County`) : null;
+}
+
+async function upsertRegistry(base44, name, state, polygon, sources) {
   const svc = base44.asServiceRole.entities.JurisdictionRegistry;
   const existing = await svc.filter({ name, state });
   const patch = compact({
     name,
     state,
     jurisdiction_type: jurisdictionType(name),
-    county: /\bcounty\b/i.test(name) ? name : null,
+    county: countyFromSources(name, sources),
     active: true,
     boundary_reference: polygon ? JSON.stringify(polygon).slice(0, 50000) : null,
   });
@@ -297,7 +306,14 @@ function flattenExtraction(x) {
   const t = x?.tower_specifics || {};
   const sp = x?.site_plan_overview || {};
   const bp = x?.building_permit_information || {};
-  return {
+  // Booleans/enums are easy for the model to "default" (stealth_required=false,
+  // measured_from=base) without any source. Only keep them when the model also
+  // produced a citation for that field, or when a companion value is present.
+  const cited = new Set((Array.isArray(x?.citations) ? x.citations : []).map((c) => String(c?.field || '').trim()).filter(Boolean));
+  const boolIfCited = (v, field) => (cited.has(field) ? cleanBool(v) : null);
+  const resSep = cleanNum(t.residential_separation);
+  const twrSep = cleanNum(t.tower_separation);
+  const out = {
     // Zoning overview
     zoning_jurisdiction: cleanStr(z.zoning_jurisdiction),
     zoning_contact_name: cleanStr(z.zoning_contact_name),
@@ -309,17 +325,17 @@ function flattenExtraction(x) {
     // Tower specifics
     ldc_section_reference: cleanStr(t.ldc_section_reference),
     max_tower_height_ft: cleanNum(t.max_tower_height_ft),
-    stealth_required: cleanBool(t.stealth_required),
+    stealth_required: boolIfCited(t.stealth_required, 'stealth_required'),
     required_collocations: cleanNum(t.required_collocations),
-    residential_separation: cleanNum(t.residential_separation),
-    residential_separation_unit: cleanEnum(t.residential_separation_unit, ['ft', 'pct', 'multiple']),
-    tower_separation: cleanNum(t.tower_separation),
-    tower_separation_unit: cleanEnum(t.tower_separation_unit, ['ft', 'pct', 'multiple']),
-    measured_from: cleanEnum(t.measured_from, ['base', 'center']),
+    residential_separation: resSep,
+    residential_separation_unit: resSep !== null ? cleanEnum(t.residential_separation_unit, ['ft', 'pct', 'multiple']) : null,
+    tower_separation: twrSep,
+    tower_separation_unit: twrSep !== null ? cleanEnum(t.tower_separation_unit, ['ft', 'pct', 'multiple']) : null,
+    measured_from: (resSep !== null || twrSep !== null || cited.has('measured_from')) ? cleanEnum(t.measured_from, ['base', 'center']) : null,
     setback_ft: cleanNum(t.setback_ft),
     fall_zone_ft: cleanNum(t.fall_zone_ft),
     fall_zone_requirements: [cleanStr(t.fall_zone_requirements), cleanStr(t.pe_letter_fall_zone_setback_relief) && `PE letter relief: ${cleanStr(t.pe_letter_fall_zone_setback_relief)}`].filter(Boolean).join(' | ') || null,
-    special_tower_landscaping: cleanBool(t.special_tower_landscaping),
+    special_tower_landscaping: boolIfCited(t.special_tower_landscaping, 'special_tower_landscaping'),
     // Site plan
     site_plan_jurisdiction: cleanStr(sp.site_plan_jurisdiction),
     site_plan_contact_name: cleanStr(sp.site_plan_contact_name),
@@ -327,8 +343,8 @@ function flattenExtraction(x) {
     site_plan_contact_phone: cleanStr(sp.site_plan_contact_phone),
     site_plan_fees: cleanStr(sp.site_plan_fees),
     site_plan_timeframe: cleanStr(sp.site_plan_timeframe),
-    existing_site_plan_to_amend: cleanBool(sp.existing_site_plan_to_amend),
-    concurrent_to_zoning_or_bp: cleanBool(sp.concurrent_to_zoning_or_bp),
+    existing_site_plan_to_amend: boolIfCited(sp.existing_site_plan_to_amend, 'existing_site_plan_to_amend'),
+    concurrent_to_zoning_or_bp: boolIfCited(sp.concurrent_to_zoning_or_bp, 'concurrent_to_zoning_or_bp'),
     site_plan_submittal_deadlines: cleanStr(sp.site_plan_submittal_deadlines),
     site_plan_submission_format: cleanEnum(sp.site_plan_submission_format, ['electronic', 'hard_copy', 'both']),
     // Building permit
@@ -336,12 +352,13 @@ function flattenExtraction(x) {
     building_dept_contact_name: cleanStr(bp.building_dept_contact_name),
     building_dept_contact_email: cleanStr(bp.building_dept_contact_email),
     building_dept_contact_phone: cleanStr(bp.building_dept_contact_phone),
-    gc_must_submit: cleanBool(bp.gc_must_submit),
+    gc_must_submit: boolIfCited(bp.gc_must_submit, 'gc_must_submit'),
     building_permit_fees: cleanStr(bp.building_permit_fees),
     building_permit_timeframe: cleanStr(bp.building_permit_timeframe),
-    bond_required: cleanBool(bp.bond_required),
-    e911_address_assigned: cleanBool(bp.e911_address_assigned),
+    bond_required: boolIfCited(bp.bond_required, 'bond_required'),
+    e911_address_assigned: boolIfCited(bp.e911_address_assigned, 'e911_address_assigned'),
   };
+  return out;
 }
 
 async function upsertJurisdiction(base44, name, state, fields, meta) {
@@ -381,7 +398,7 @@ async function upsertTelecomOrdinance(base44, jurisdiction, state, x, fields, ci
     tower_separation_ft: toFt(fields.tower_separation, fields.tower_separation_unit, fields.max_tower_height_ft),
     permit_type: cleanStr(t.permit_type),
     setback_rule: cleanStr(t.setback_rule),
-    pe_fall_zone_allowed: cleanBool(t.pe_fall_zone_allowed),
+    pe_fall_zone_allowed: citations?.some((c) => c?.field === 'pe_fall_zone_allowed') ? cleanBool(t.pe_fall_zone_allowed) : null,
     stealth_required: fields.stealth_required,
     collocation_required: fields.required_collocations !== null ? fields.required_collocations > 0 : null,
     source_url: sourceUrl,
@@ -444,7 +461,7 @@ export default async function (req) {
     const runId = cleanStr(body.run_id) || `mcp-zoning-scraper:${nowIso}`;
     const base44 = createClientFromRequest(req);
 
-    const registry = await upsertRegistry(base44, jurisdiction, state, body.polygon);
+    const registry = await upsertRegistry(base44, jurisdiction, state, body.polygon, sources);
     const resources = await upsertResources(base44, registry.id, sources, nowIso);
 
     const withText = sources.filter((s) => s.ok && s.text.length > 200);
