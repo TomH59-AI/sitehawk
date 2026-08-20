@@ -133,6 +133,7 @@ export default function ScipDetail() {
     setBusy(true);
     try {
       const qc = await ensureScipQcPass(record, { repairAllowed: true });
+      const approvedRecord = qc.record || record;
       if (qc.record) setRecord(qc.record);
       await new Promise((resolve) => setTimeout(resolve, 100));
       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
@@ -146,10 +147,11 @@ export default function ScipDetail() {
         if (i > 0) pdf.addPage();
         pdf.addImage(img, "PNG", 0, 0, 8.5, 11);
       }
-      const name = `SCIP_${(record.site_name || "site").replace(/\s+/g, "_")}_${record.submittal_date}.pdf`;
+      const name = `SCIP_${(approvedRecord.site_name || "site").replace(/\s+/g, "_")}_${approvedRecord.submittal_date}.pdf`;
       pdf.save(name);
     } catch (err) {
-      toast.error("PDF export failed");
+      if (err.qcRecord) setRecord(err.qcRecord);
+      toast.error(err.message || "OpenRouter QC blocked PDF export");
     } finally {
       setBusy(false);
     }
