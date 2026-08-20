@@ -1,0 +1,82 @@
+{
+  "name": "QcChangeState",
+  "type": "object",
+  "description": "Per-family source fingerprint and validation state. A code or schema change automatically makes the family stale.",
+  "properties": {
+    "task_family": {
+      "type": "string"
+    },
+    "current_source_hash": {
+      "type": "string"
+    },
+    "validated_source_hash": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "VALIDATED",
+        "MONITORING",
+        "BLOCKED",
+        "ADMIN_REVIEW"
+      ],
+      "default": "MONITORING"
+    },
+    "pass_count": {
+      "type": "integer",
+      "default": 0
+    },
+    "fail_count": {
+      "type": "integer",
+      "default": 0
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
+    "detected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "validated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "validated_by": {
+      "type": "string"
+    },
+    "admin_notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "task_family",
+    "current_source_hash",
+    "status"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
