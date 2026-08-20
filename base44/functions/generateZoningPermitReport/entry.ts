@@ -152,6 +152,39 @@ function panelsArePublishable(report) {
   return panelStrength(report) >= PANEL_PUBLISH_THRESHOLD;
 }
 
+// ─── User overrides ──────────────────────────────────────────────────────────
+// Corrections a subscriber typed by hand in Section 2, written by
+// promoteZoningEdit and stored on the jurisdiction row OUTSIDE the panels so a
+// fresh source run cannot clobber them. They cover every row on the sheet,
+// including the ones the ordinance registry has no column for (fees, contacts,
+// submittal deadlines). Applied LAST, above every machine source — a human who
+// phoned the planning department outranks an inference.
+async function getJurisdictionOverrides(base44, key) {
+  if (!key) return null;
+  const rows = await base44.asServiceRole.entities.JurisdictionZoningCache
+    .filter({ jurisdiction_name_normalized: key })
+    .catch(() => null);
+  return rows?.[0]?.report?.user_overrides || null;
+}
+
+function applyUserOverrides(report, overrides) {
+  if (!report || !overrides) return report;
+  for (const [sec, fields] of Object.entries(overrides)) {
+    if (!fields || typeof fields !== 'object') continue;
+    report[sec] = report[sec] || {};
+    for (const [key, cell] of Object.entries(fields)) {
+      const v = clean(cell?.value);
+      if (!v) continue;
+      report[sec][key] = {
+        value: v,
+        source: cell.source || 'SiteHawk User (manual)',
+        confidence: cell.confidence || 'medium',
+      };
+    }
+  }
+  return report;
+}
+
 function jurisdictionCacheKey(stateCode, jurisdictionName, type) {
   const norm = String(jurisdictionName || '')
     .toLowerCase()
@@ -203,8 +236,15 @@ async function getCachedZoning(base44, siteKey) {
 async function putCachedZoning(base44, siteKey, stateCode, payload, jurisdictionMeta) {
   const write = async (normalized, data) => {
     const existing = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: normalized });
-    if (existing?.[0]) await base44.asServiceRole.entities.JurisdictionZoningCache.update(existing[0].id, data);
-    else await base44.asServiceRole.entities.JurisdictionZoningCache.create(data);
+    // Carry user overrides forward. A subscriber's hand-typed correction is the
+    // one part of this row a fresh source run must never overwrite — without
+    // this, every re-query silently threw away the research they paid for.
+    const carried = existing?.[0]?.report?.user_overrides;
+    const merged = carried && data?.report
+      ? { ...data, report: { ...data.report, user_overrides: carried } }
+      : data;
+    if (existing?.[0]) await base44.asServiceRole.entities.JurisdictionZoningCache.update(existing[0].id, merged);
+    else await base44.asServiceRole.entities.JurisdictionZoningCache.create(merged);
   };
 
   const key = jurisdictionMeta?.key || null;
@@ -808,7 +848,7 @@ Deno.serve(async (req) => {
         coordinates: { lat, lon },
         geo,
         llm_engine: 'cached',
-        report: jurisdictionHit.report.report,
+        report: applyUserOverrides(jurisdictionHit.report.report, jurisdictionHit.report.user_overrides),
         jurisdiction: {
           state_code: geo.state_code,
           state_name: geo.state_name,
@@ -1268,6 +1308,13 @@ Deno.serve(async (req) => {
         [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
         'Realie', 'medium'
       );
+    }
+
+    // Applied LAST so nothing downstream can overwrite a value a human confirmed.
+    const userOverrides = await getJurisdictionOverrides(base44, jurisdictionKey).catch(() => null);
+    if (userOverrides) {
+      applyUserOverrides(report, userOverrides);
+      console.log(`[ZONING] applied ${Object.values(userOverrides).reduce((n, s) => n + Object.keys(s || {}).length, 0)} user override(s) for ${jurisdictionKey}`);
     }
 
     console.log(
