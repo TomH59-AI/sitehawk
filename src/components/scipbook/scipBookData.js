@@ -1,6 +1,6 @@
 // SCIP Book — maps a ScipRecord onto the NEWSCIP_812026 template:
 // page 1 = Property Data field sheet, pages 2–8 = paired map exhibits.
-// Blank fields overlay values from record.book_qc.filled (Gemini QC).
+// Blank fields overlay only evidence-backed values accepted by the OpenRouter QC + Repair gate.
 
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -215,7 +215,7 @@ export function buildMapPages(record) {
   ];
 }
 
-// Blank text fields (for the Gemini QC run) and missing map exhibits.
+// Blank text fields for OpenRouter QC + Repair and missing map exhibits.
 export function collectMissingFields(record) {
   const out = [];
   for (const s of buildPropertySections(record)) {
