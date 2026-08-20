@@ -7,7 +7,7 @@ import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import HawkVoiceAssistant from "./guide/HawkVoiceAssistant";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ShieldCheck, Network, Zap, Map, Target, Landmark, FileText, FileCode } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ShieldCheck, Network, Zap, Map, Target, Landmark, FileText, FileCode, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -51,7 +51,18 @@ export default function Layout() {
   const location = useLocation();
   const { logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("sh_sidebar_collapsed") === "1"; } catch { return false; }
+  });
   const { theme, toggle } = useTheme();
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("sh_sidebar_collapsed", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  };
   const [isAdmin, setIsAdmin] = useState(() => {
     try { return localStorage.getItem("sh_is_admin") === "1"; } catch { return false; }
   });
@@ -138,7 +149,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex bg-background font-body pb-[env(safe-area-inset-bottom)]">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 border-r border-border bg-sidebar fixed inset-y-0 left-0 z-30">
+      <aside className={`hidden lg:flex flex-col border-r border-border bg-sidebar fixed inset-y-0 left-0 z-30 transition-all duration-300 ${sidebarCollapsed ? "w-0 overflow-hidden border-r-0" : "w-64"}`}>
         <div className="p-6 border-b border-border">
           <Link to="/" className="flex items-center gap-3">
             <HawkIcon size={40} />
@@ -292,8 +303,18 @@ export default function Layout() {
         </div>
       )}
 
+      {/* Sidebar collapse/expand toggle — visible on every page */}
+      <button
+        onClick={toggleSidebar}
+        title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className={`hidden lg:flex fixed top-1/2 -translate-y-1/2 z-40 h-12 w-6 items-center justify-center rounded-r-lg border border-l-0 border-border bg-sidebar text-sidebar-foreground/70 shadow-md transition-all duration-300 hover:bg-sidebar-accent hover:text-sidebar-foreground ${sidebarCollapsed ? "left-0" : "left-64"}`}
+      >
+        {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+      </button>
+
       {/* Main Content */}
-      <main className="flex-1 min-w-0 overflow-x-hidden lg:ml-64 pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 flex flex-col min-h-screen">
+      <main className={`flex-1 min-w-0 overflow-x-hidden pt-[calc(4rem+env(safe-area-inset-top))] lg:pt-0 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 flex flex-col min-h-screen transition-all duration-300 ${sidebarCollapsed ? "lg:ml-0" : "lg:ml-64"}`}>
         <HistoryNavigation />
         <div className="px-3 py-4 md:p-8 max-w-7xl mx-auto w-full min-w-0 flex-1">
           <AppErrorBoundary>
