@@ -467,6 +467,148 @@ export async function fetchCachedOrdinanceText(jurisdiction, state, creds) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Tier 0.5 — the platform census (national_jurisdictions / scrape_queue)
+ *
+ * platformCensus stamps each jurisdiction with the codifier that publishes
+ * its code (municode / amlegal / unlisted) plus a direct URL — and for
+ * Municode, the ClientID. Reading it here means a censused jurisdiction
+ * skips LLM source discovery entirely: Municode clients are read through
+ * the free public API, AmLegal clients get their known URL tried directly.
+ * The census is a hint, never a verdict — any miss falls through to the
+ * normal discovery fan-out unchanged.
+ * ------------------------------------------------------------------ */
+
+export async function fetchCensusHint(jurisdiction, state, creds) {
+  const base = String(creds?.supabase_url || '').replace(/^['"\\\s]+/, '').replace(/\/+$/, '');
+  const key = creds?.supabase_key;
+  if (!base || !key) return null;
+  const headers = { apikey: key, Authorization: `Bearer ${key}` };
+  const stateCode = String(state || '').toUpperCase();
+  const wantsCounty = countyWordPattern(stateCode).test(String(jurisdiction || ''));
+  const norm = normalizeJurisdiction(jurisdiction);
+  if (!norm) return null;
+
+  try {
+    if (wantsCounty) {
+      const res = await fetch(
+        `${base}/rest/v1/national_jurisdictions?select=scrape_platform,municode_url,ordinance_url,municode_client_id,county_name` +
+          `&state_abbr=eq.${stateCode}&county_name=ilike.${encodeURIComponent('%' + norm + '%')}&limit=5`,
+        { headers, signal: AbortSignal.timeout(10000) }
+      );
+      if (!res.ok) return null;
+      const rows = (await res.json()) || [];
+      const hit = rows.find((r) => normalizeJurisdiction(r.county_name) === norm) || null;
+      if (!hit || !hit.scrape_platform || hit.scrape_platform === 'unlisted') return null;
+      return {
+        platform: hit.scrape_platform,
+        url: hit.municode_url || hit.ordinance_url || null,
+        client_id: hit.municode_client_id || null,
+      };
+    }
+    const res = await fetch(
+      `${base}/rest/v1/scrape_queue?select=scrape_platform,ordinance_url,municode_client_id,jurisdiction` +
+        `&state=eq.${stateCode}&jurisdiction=ilike.${encodeURIComponent('%' + norm + '%')}&limit=5`,
+      { headers, signal: AbortSignal.timeout(10000) }
+    );
+    if (!res.ok) return null;
+    const rows = (await res.json()) || [];
+    const hit = rows.find(
+      (r) => normalizeJurisdiction(r.jurisdiction) === norm && !countyWordPattern(stateCode).test(String(r.jurisdiction || ''))
+    ) || null;
+    if (!hit || !hit.scrape_platform || hit.scrape_platform === 'unlisted') return null;
+    return {
+      platform: hit.scrape_platform,
+      url: hit.ordinance_url || null,
+      client_id: hit.municode_client_id || null,
+    };
+  } catch {
+    return null; // the census is an optimization — never let it break a hunt
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Municode public API reader — telecom sections by ClientID
+ *
+ * When the census knows the Municode ClientID, the telecom sections can be
+ * read straight from api.municode.com: no rendering, no proxy, no LLM. This
+ * is the same strategy municodeTelecomFetch uses interactively, condensed
+ * for the hunt path. Returns a source-shaped object so isUsableSource and
+ * the extraction pipeline treat it exactly like any fetched page.
+ * ------------------------------------------------------------------ */
+
+const MUNICODE_API_BASE = 'https://api.municode.com';
+const MUNICODE_SEARCH_TERMS = ['telecommunications tower', 'wireless facility', 'communication tower', 'antenna'];
+
+async function municodeApiGet(path, params) {
+  const url = new URL(`${MUNICODE_API_BASE}${path}`);
+  if (params) for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
+  const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error(`municode ${path} -> ${r.status}`);
+  return r.json();
+}
+
+function municodeHtmlToText(h) {
+  let t = String(h || '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(?:p|div)[^>]*>/gi, '\n')
+    .replace(/<[^>]+>/g, '');
+  for (const [e, c] of [['&nbsp;', ' '], ['&amp;', '&'], ['&lt;', '<'], ['&gt;', '>'], ['&#8217;', "'"], ['&#8220;', '"'], ['&#8221;', '"']]) {
+    t = t.split(e).join(c);
+  }
+  return t.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+export async function fetchMunicodeTelecomByClientId(clientId, sourceUrl) {
+  try {
+    const prods = await municodeApiGet(`/Products/clientId/${clientId}`);
+    const products = [];
+    for (const p of prods ?? []) {
+      try {
+        const job = await municodeApiGet(`/Jobs/latest/${p.ProductID}`);
+        products.push({ pid: p.ProductID, jid: job.Id });
+      } catch { /* product with no published job */ }
+    }
+    if (!products.length) return { ok: false, reason: 'municode_no_products' };
+
+    const parts = [];
+    const seen = new Set();
+    for (const { pid, jid } of products) {
+      if (parts.length >= 8) break;
+      for (const term of MUNICODE_SEARCH_TERMS) {
+        if (parts.length >= 8) break;
+        let hits = [];
+        try {
+          const data = await municodeApiGet('/search', {
+            searchText: term, clientId, contentTypeId: 'CODES', searchMode: 'CLIENTMODE',
+          });
+          hits = data?.Hits ?? [];
+        } catch { continue; }
+        for (const hit of hits) {
+          if (parts.length >= 8) break;
+          const nid = hit.NodeId;
+          if (!nid || seen.has(nid)) continue;
+          seen.add(nid);
+          try {
+            const data = await municodeApiGet('/CodesContent', { productId: pid, jobId: jid, nodeId: nid });
+            const text = (data?.Docs ?? [])
+              .filter((d) => d.Content)
+              .map((d) => (d.Title ? `=== ${d.Title} ===\n${municodeHtmlToText(d.Content)}` : municodeHtmlToText(d.Content)))
+              .join('\n\n');
+            if (text.length > 200) parts.push(text.slice(0, 40000));
+          } catch { /* single node failed — keep going */ }
+        }
+      }
+    }
+
+    const text = parts.join('\n\n\n');
+    if (text.length < 500) return { ok: false, reason: 'municode_no_telecom_sections' };
+    return { ok: true, method: 'municode_api', text, chars: text.length, url: sourceUrl || '' };
+  } catch (e) {
+    return { ok: false, reason: `municode_api_error: ${e?.message || e}` };
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * Source discovery — the parallel research fan-out
  * ------------------------------------------------------------------ */
 
