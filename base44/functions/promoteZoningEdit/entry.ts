@@ -123,7 +123,11 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'section and field are required' }, { status: 400 });
     }
 
-    const key = jurisdictionCacheKey(state, jurisdiction, jurisdictionType);
+    // Prefer the key the report was actually built under (returned as
+    // jurisdiction.key). Recomputing it here from a bare county name would miss
+    // the row entirely — the report keys counties as 'oklahoma county', not
+    // 'oklahoma'. Recomputation stays only as a fallback for older clients.
+    const key = clean(body.jurisdiction_key) || jurisdictionCacheKey(state, jurisdiction, jurisdictionType);
     if (!key) return Response.json({ ok: false, skipped: 'no_cache_key' });
 
     const now = new Date().toISOString();
