@@ -1,0 +1,114 @@
+{
+  "name": "QcPolicy",
+  "type": "object",
+  "description": "Administrator-controlled, versioned task-family contract for SiteHawk adaptive quality control.",
+  "properties": {
+    "task_family": {
+      "type": "string"
+    },
+    "version": {
+      "type": "integer",
+      "default": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "VALIDATED",
+        "MONITORING",
+        "BLOCKED",
+        "ADMIN_REVIEW"
+      ],
+      "default": "VALIDATED"
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "default": "medium"
+    },
+    "ai_review_mode": {
+      "type": "string",
+      "enum": [
+        "ALWAYS",
+        "ON_ANOMALY",
+        "ON_CHANGE"
+      ],
+      "default": "ON_CHANGE"
+    },
+    "auto_retry_idempotent": {
+      "type": "boolean",
+      "default": true
+    },
+    "max_retries": {
+      "type": "integer",
+      "default": 1
+    },
+    "required_output_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "protected_fact_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "repairable_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy_notes": {
+      "type": "string"
+    },
+    "validated_source_hash": {
+      "type": "string"
+    },
+    "updated_reason": {
+      "type": "string"
+    },
+    "updated_by_admin": {
+      "type": "string"
+    },
+    "policy_updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "task_family",
+    "version",
+    "status",
+    "risk_level",
+    "ai_review_mode"
+  ],
+  "rls": {
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "read": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
