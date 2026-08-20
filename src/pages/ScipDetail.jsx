@@ -5,7 +5,6 @@ import { generateSarfMap } from "@/functions/generateSarfMap";
 import { Printer, Download, RefreshCw, Copy, Loader2, ArrowLeft, FileText, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
-import { resolveScipActiveTarget } from "@/lib/scipTarget";
 import { ensureScipQcPass } from "@/lib/scipQcGate";
 import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
 import HawkZoningPermitting from "../components/skywave/HawkZoningPermitting";
@@ -300,7 +299,7 @@ export default function ScipDetail() {
   );
 }
 
-function ToolbarBtn({ icon: Icon, label, onClick, busy }) {
+function ToolbarBtn({ icon: Icon, label, onClick, busy = false }) {
   return (
     <button onClick={onClick} disabled={busy}
       className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-white disabled:opacity-50"
