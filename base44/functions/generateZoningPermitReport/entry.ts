@@ -855,6 +855,13 @@ Deno.serve(async (req) => {
           county_name: geo.county_name,
           city_name: city || null,
           label: [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
+          // The exact governing body and cache key this report was built under.
+          // Returned so a manual edit can be filed against the SAME key rather
+          // than a recomputed one — a county row keyed 'oklahoma county' would
+          // never be found by a UI that recomputed it from the bare county name.
+          governing_label: jurisdictionLabel,
+          governing_type: jurisdictionType,
+          key: jurisdictionKey,
         },
         zoneomics: {
           ok: !!zoneomics?.ok,
@@ -1334,6 +1341,9 @@ Deno.serve(async (req) => {
         county_name: geo.county_name,
         city_name: city || null,
         label: [city, geo.county_name, geo.state_code].filter(Boolean).join(', '),
+        governing_label: jurisdictionLabel,
+        governing_type: jurisdictionType,
+        key: jurisdictionKey,
       },
       zoneomics: {
         ok: !!zoneomics?.ok,
