@@ -6,6 +6,7 @@ import { Printer, Download, RefreshCw, Copy, Loader2, ArrowLeft, FileText, Layer
 import { toast } from "sonner";
 import { SKYWAVE } from "@/lib/skywave";
 import { resolveScipActiveTarget } from "@/lib/scipTarget";
+import { ensureScipQcPass } from "@/lib/scipQcGate";
 import ScipPrintDoc from "../components/skywave/ScipPrintDoc";
 import HawkZoningPermitting from "../components/skywave/HawkZoningPermitting";
 import HawkParcelTargets from "../components/skywave/HawkParcelTargets";
@@ -73,9 +74,20 @@ export default function ScipDetail() {
     }
   }
 
-  function handlePrint() {
-    ensurePrintStyles();
-    window.print();
+  async function handlePrint() {
+    setBusy(true);
+    try {
+      const qc = await ensureScipQcPass(record, { repairAllowed: true });
+      if (qc.record) setRecord(qc.record);
+      ensurePrintStyles();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      window.print();
+    } catch (error) {
+      if (error.qcRecord) setRecord(error.qcRecord);
+      toast.error(error.message || "OpenRouter QC blocked printing");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function handleRegenerate() {
@@ -120,6 +132,9 @@ export default function ScipDetail() {
   async function handleExportPdf() {
     setBusy(true);
     try {
+      const qc = await ensureScipQcPass(record, { repairAllowed: true });
+      if (qc.record) setRecord(qc.record);
+      await new Promise((resolve) => setTimeout(resolve, 100));
       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
         import("jspdf"), import("html2canvas"),
       ]);
@@ -239,7 +254,7 @@ export default function ScipDetail() {
 
         {/* SCIP Quality Auditor — pre-print quality gate (not printed) */}
         <div className="mb-5 no-print">
-          <ScipQualityAuditor record={record} />
+          <ScipQualityAuditor record={record} onUpdate={setRecord} />
         </div>
 
         {/* Local Governing Authorities & Area Profile — auto-populated from the
