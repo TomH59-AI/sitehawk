@@ -107,7 +107,7 @@ function ensurePrintStyles() {
 // renders the SAME print modal used by Generate SCIP — so a saved SCIP prints on
 // the exact template you designed. Static maps are rebuilt as Mapbox Static
 // Images so they always print. `scipId` loads the record; `scip` passes it in.
-export default function PrintSiteHawkScipButton({ scipId, scip, variant = "toolbar" }) {
+export default function PrintSiteHawkScipButton({ scipId = null, scip = null, variant = "toolbar" }) {
   const [open, setOpen] = useState(false);
   const [building, setBuilding] = useState(false);
   const [record, setRecord] = useState(null);
