@@ -38,6 +38,9 @@ import { supervisedResponse } from '../../shared/siteHawkSupervisor.ts';
 // This path can only ADD to the report. It never blocks, never empties a field,
 // and never fails the SCIP.
 const CODEHAWK_BUDGET_MS = 45000;
+// Escalation budget for the SECOND hunt, which only fires when the first one
+// wrote nothing. A miss used to end the hunt right there and ship a thin report.
+const CODEHAWK_RETRY_BUDGET_MS = 40000;
 
 function withBudget(promise, ms) {
   return Promise.race([
@@ -106,6 +109,49 @@ async function getTelecomOrdinance(base44, stateCode, jurisdiction) {
 // jurisdiction it came from.
 const ZONING_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+// ─── Panel quality gate ──────────────────────────────────────────────────────
+// A report that came back mostly "NEEDS RESEARCH" is a FAILED run, not a result.
+// Publishing it froze the failure for 30 days: every later run for that
+// jurisdiction was a cache hit with codehawk.ran=false, so the jurisdiction
+// could never heal itself no matter how many users hit it. Thin panels are
+// still written (so a retry storm cannot re-bill the paid sources) but under
+// status 'partial' with a short TTL, and they are never SERVED — the next run
+// re-hunts and overwrites them.
+const ZONING_CACHE_PARTIAL_TTL_MS = 6 * 60 * 60 * 1000;
+
+// A report that answers fewer than this many critical rows tells a site
+// acquisition agent nothing they did not already know.
+const PANEL_PUBLISH_THRESHOLD = 3;
+
+const PANEL_CRITICAL_ROWS = [
+  ['tower_specifics', 'maximum_tower_height'],
+  ['tower_specifics', 'fall_zone_requirements'],
+  ['tower_specifics', 'residential_separation'],
+  ['tower_specifics', 'tower_separation'],
+  ['tower_specifics', 'ldc_section_references'],
+  ['zoning_overview', 'zoning_process'],
+];
+
+const PLACEHOLDER_CELL = /^\s*(NEEDS RESEARCH|NEEDS_HUMAN_REVIEW|TBD|UNVERIFIED|N\/?A|UNKNOWN|PENDING)\b/i;
+
+function cellIsReal(cell) {
+  const v = clean(cell?.value);
+  return Boolean(v) && !PLACEHOLDER_CELL.test(v);
+}
+
+// How many of the critical rows this report actually answers (0-6).
+function panelStrength(report) {
+  if (!report) return 0;
+  return PANEL_CRITICAL_ROWS.filter(([sec, key]) => cellIsReal(report?.[sec]?.[key])).length;
+}
+
+// An explicitly unzoned jurisdiction is a COMPLETE answer, not a thin one —
+// "no code adopted" is the correct, cacheable result for that land.
+function panelsArePublishable(report) {
+  if (report?._unincorporated) return true;
+  return panelStrength(report) >= PANEL_PUBLISH_THRESHOLD;
+}
+
 function jurisdictionCacheKey(stateCode, jurisdictionName, type) {
   const norm = String(jurisdictionName || '')
     .toLowerCase()
@@ -117,14 +163,24 @@ function jurisdictionCacheKey(stateCode, jurisdictionName, type) {
   return `${String(stateCode || 'NA').toUpperCase()}|${type || 'unknown'}|${norm}`;
 }
 
-const zoningCacheFresh = (row) =>
-  Boolean(row?.fetched_at) && Date.now() - new Date(row.fetched_at).getTime() <= ZONING_CACHE_TTL_MS;
+const zoningCacheFresh = (row) => {
+  if (!row?.fetched_at) return false;
+  const ttl = row.status === 'partial' ? ZONING_CACHE_PARTIAL_TTL_MS : ZONING_CACHE_TTL_MS;
+  return Date.now() - new Date(row.fetched_at).getTime() <= ttl;
+};
 
 async function getJurisdictionPanels(base44, key) {
   if (!key) return null;
   const rows = await base44.asServiceRole.entities.JurisdictionZoningCache.filter({ jurisdiction_name_normalized: key });
   const hit = rows?.[0];
   if (!hit || !zoningCacheFresh(hit) || !hit.report?.report) return null;
+  // Never serve a husk. A row that failed the quality gate exists only as a
+  // rate limiter — it must not short-circuit the hunt that could fill it.
+  const strength = panelStrength(hit.report.report);
+  if (!panelsArePublishable(hit.report.report)) {
+    console.log(`[ZONING CACHE] REJECT thin panels ${key} (${strength}/${PANEL_CRITICAL_ROWS.length} critical rows) — re-hunting`);
+    return null;
+  }
   return hit;
 }
 
@@ -166,7 +222,8 @@ async function putCachedZoning(base44, siteKey, stateCode, payload, jurisdiction
       source_url: payload.report?._registry?.source_url || null,
       fetched_at: now,
       last_verified_at: now,
-      status: 'published',
+      // Thin panels are recorded but NOT published — see the panel quality gate.
+      status: panelsArePublishable(payload.report) ? 'published' : 'partial',
       source_name: 'telecom_ordinances + web',
     });
   }
@@ -303,6 +360,41 @@ async function getRealieParcel(lat, lon, address) {
     } catch (_) { return null; }
   }
   return null;
+}
+
+// ─── STEP 3b: Regrid parcel fallback ────────────────────────────────────────
+// Realie returns nothing for a large share of coordinates outside its strongest
+// counties, which left Property Zoning District / Future Land Use / Current Use
+// permanently blank on the deliverable even where the parcel is well mapped.
+// Regrid is already licensed for this app (regrid_coverage_reports carries a
+// schema-coverage row for 3,229 counties), so chain it before giving up.
+// Realie keeps parcel IDENTITY when it answered; Regrid only fills the blanks.
+async function getRegridParcel(lat, lon) {
+  const token = Deno.env.get('REGRID_API_TOKEN');
+  if (!token) return null;
+  const res = await fetchJsonWithTimeout(
+    `https://app.regrid.com/api/v2/parcels/point?lat=${lat}&lon=${lon}&token=${encodeURIComponent(token)}`,
+    { headers: { Accept: 'application/json' } },
+    12000
+  );
+  const feature = res?.data?.parcels?.features?.[0];
+  const f = feature?.properties?.fields;
+  if (!f) return null;
+  return {
+    parcel_id: clean(f.parcelnumb) || null,
+    owner_name: clean(f.owner) || null,
+    address: clean(f.address) || null,
+    city: clean(f.scity) || null,
+    county: clean(f.county) || null,
+    state: clean(f.state2) || null,
+    land_use: clean(f.usedesc || f.lbcs_activity_desc || f.zoning_description) || null,
+    acreage: f.gisacre ?? f.ll_gisacre ?? null,
+    zoning: clean(f.zoning) || null,
+    zoning_description: clean(f.zoning_description) || null,
+    zoning_overlay: clean(f.zoning_subtype) || null,
+    special_district: null,
+    geometry: feature.geometry || null,
+  };
 }
 
 // ─── STEP 2: Zoneomics paid zoneDetail (PRIMARY zoning + telecom controls) ──
@@ -641,7 +733,7 @@ Deno.serve(async (req) => {
     // Zoneomics paid API is DISABLED (banned). zoneomics resolves to a no-op.
     // STEP 2 — telecom_ordinances Supabase. STEP 3 — Realie cross-check.
     const candidateAddress = candidate?.parcel_address || candidate?.address || null;
-    const [mb, fcc, zoneomics, realie] = await Promise.all([
+    const [mb, fcc, zoneomics, realieRaw] = await Promise.all([
       mapboxReverseGeocode(lat, lon).catch(() => null),
       getGeoContext(lat, lon).catch(() => ({})),
       getZoneomics(lat, lon).catch((e) => ({ ok: false, http_status: 0, error: e?.message, fields: {} })),
@@ -652,6 +744,34 @@ Deno.serve(async (req) => {
       state_name: mb?.state_name || fcc?.state_name || null,
       county_name: mb?.county_name || fcc?.county_name || null,
     };
+
+    // STEP 3b — Regrid fallback. Fires when Realie missed entirely, or answered
+    // without a zoning district (the common case, and the reason the three
+    // Property rows on ZONING OVERVIEW sat blank on otherwise-good reports).
+    let realie = realieRaw;
+    let parcelSource = realie ? 'Realie' : null;
+    if (!realie || !clean(realie.zoning)) {
+      const rg = await getRegridParcel(lat, lon).catch(() => null);
+      if (rg) {
+        if (!realie) {
+          realie = rg;
+          parcelSource = 'Regrid';
+        } else {
+          const gainedZoning = !clean(realie.zoning) && Boolean(clean(rg.zoning));
+          realie = {
+            ...realie,
+            zoning: realie.zoning || rg.zoning,
+            zoning_description: realie.zoning_description || rg.zoning_description,
+            zoning_overlay: realie.zoning_overlay || rg.zoning_overlay,
+            land_use: realie.land_use || rg.land_use,
+            acreage: realie.acreage || rg.acreage,
+            geometry: realie.geometry || rg.geometry,
+          };
+          if (gainedZoning) parcelSource = 'Realie + Regrid';
+        }
+        console.log(`[PARCEL] Regrid fallback used at ${lat},${lon} → source=${parcelSource} zoning=${realie.zoning || '—'}`);
+      }
+    }
 
     const city = zoneomics?.city_name || mb?.city_name || realie?.city || null;
 
@@ -776,32 +896,69 @@ Deno.serve(async (req) => {
     const needsUpgrade = !ordinance || completenessScore(ordinance) < CRITICAL_FIELDS.length;
     const shouldHunt = needsUpgrade && Boolean(huntJurisdiction) && Boolean(geo.state_code);
 
+    const huntCreds = {
+      oxylabs_username: secrets.get('OXYLABS_USERNAME'),
+      oxylabs_password: secrets.get('OXYLABS_PASSWORD'),
+      scrapfly_key: secrets.get('SCRAPFLY_API_KEY'),
+      supabase_url: secrets.get('HAWK_SUPABASE_URL'),
+      supabase_key: secrets.get('HAWK_SUPABASE_SERVICE_ROLE_KEY') || secrets.get('SUPABASE_SERVICE_ROLE_KEY'),
+    };
+    const HUNT_WROTE = ['improved', 'created', 'reverified'];
+
+    // ESCALATING HUNT. Pass 1 targets the jurisdiction we would actually cite.
+    // If it writes nothing, pass 2 tries the OTHER governing body — a site
+    // inside city limits whose tower rules live in the county code, or an
+    // unincorporated place whose named town does publish one. Previously a
+    // single miss ended the hunt and the report shipped thin, then that thin
+    // report was cached for 30 days. Capped at two passes so the worst case
+    // stays bounded, and it still runs alongside the gap-fill.
+    async function huntWithEscalation() {
+      const order = [];
+      for (const j of [huntJurisdiction, city, countyLabel]) {
+        if (!j) continue;
+        const k = String(j).toUpperCase();
+        if (!order.some((o) => String(o).toUpperCase() === k)) order.push(j);
+        if (order.length === 2) break;
+      }
+      let last = null;
+      for (let i = 0; i < order.length; i++) {
+        const target = order[i];
+        const res = await withBudget(
+          processJurisdiction(base44, {
+            jurisdiction: target,
+            state: geo.state_code,
+            existing: i === 0 ? ordinance : null,
+            creds: huntCreds,
+          }),
+          i === 0 ? CODEHAWK_BUDGET_MS : CODEHAWK_RETRY_BUDGET_MS
+        );
+        if (res) last = { ...res, jurisdiction: target };
+        // A confirmed absence of local code is a final answer — stop escalating.
+        if (res?.action === 'no_local_code') return last;
+        if (res && HUNT_WROTE.includes(res.action)) return last;
+        if (i === 0 && order.length > 1) {
+          console.log(`[CODEHAWK] pass 1 miss on ${target} — escalating to ${order[1]}`);
+        }
+      }
+      return last;
+    }
+
     const [llmReport, huntResult] = await Promise.all([
       llmExtractReport(base44, llmCtx),
-      shouldHunt
-        ? withBudget(
-            processJurisdiction(base44, {
-              jurisdiction: huntJurisdiction,
-              state: geo.state_code,
-              existing: ordinance,
-              creds: {
-                oxylabs_username: secrets.get('OXYLABS_USERNAME'),
-                oxylabs_password: secrets.get('OXYLABS_PASSWORD'),
-                scrapfly_key: secrets.get('SCRAPFLY_API_KEY'),
-                supabase_url: secrets.get('HAWK_SUPABASE_URL'),
-                supabase_key: secrets.get('HAWK_SUPABASE_SERVICE_ROLE_KEY') || secrets.get('SUPABASE_SERVICE_ROLE_KEY'),
-              },
-            }),
-            CODEHAWK_BUDGET_MS
-          )
-        : Promise.resolve(null),
+      shouldHunt ? huntWithEscalation() : Promise.resolve(null),
     ]);
 
-    // Re-read the registry only if CodeHawk actually wrote something.
+    // Re-read the registry only if CodeHawk actually wrote something. Read back
+    // the jurisdiction the escalation LANDED on, which may not be the one pass 1
+    // targeted — reading the original would have thrown away pass 2's write.
     let registry = ordinance;
-    if (huntResult && ['improved', 'created', 'reverified'].includes(huntResult.action)) {
-      const refreshed = await getTelecomOrdinance(base44, geo.state_code, huntJurisdiction).catch(() => null);
-      if (refreshed) registry = refreshed;
+    if (huntResult && HUNT_WROTE.includes(huntResult.action)) {
+      const wroteFor = huntResult.jurisdiction || huntJurisdiction;
+      const refreshed = await getTelecomOrdinance(base44, geo.state_code, wroteFor).catch(() => null);
+      if (refreshed) {
+        registry = refreshed;
+        ordinanceJurisdiction = ordinanceJurisdiction || wroteFor;
+      }
     }
 
     const report = llmReport || {};
@@ -1088,8 +1245,8 @@ Deno.serve(async (req) => {
         );
         zoning_district_conflict = { zoneomics: zoCode, realie: realie.zoning };
       } else if (!zoFields.property_zoning_district) {
-        // Zoneomics left it blank → Realie fills it.
-        report.zoning_overview.property_zoning_district = row(realieDistrict, 'Realie', 'high');
+        // Zoneomics left it blank → the parcel source fills it.
+        report.zoning_overview.property_zoning_district = row(realieDistrict, parcelSource || 'Realie', 'high');
       }
     }
 
@@ -1098,10 +1255,10 @@ Deno.serve(async (req) => {
     const isEmpty = (cell) => !clean(cell?.value) || clean(cell?.value) === 'NEEDS RESEARCH';
     if (realie?.land_use) {
       if (isEmpty(report.zoning_overview?.property_current_usage)) {
-        report.zoning_overview.property_current_usage = row(realie.land_use, 'Realie', 'medium');
+        report.zoning_overview.property_current_usage = row(realie.land_use, parcelSource || 'Realie', 'medium');
       }
       if (isEmpty(report.zoning_overview?.property_future_land_use)) {
-        report.zoning_overview.property_future_land_use = row(realie.land_use, 'Realie', 'low');
+        report.zoning_overview.property_future_land_use = row(realie.land_use, parcelSource || 'Realie', 'low');
       }
     }
 
@@ -1164,6 +1321,8 @@ Deno.serve(async (req) => {
           : { ran: false, reason: ordinance ? 'registry_already_complete' : 'no_jurisdiction_resolved' },
         realie: !!realie,
         realie_zoning: realie?.zoning || null,
+        parcel_source: parcelSource,
+        panel_strength: { score: panelStrength(report), of: PANEL_CRITICAL_ROWS.length, publishable: panelsArePublishable(report) },
       },
     };
 
