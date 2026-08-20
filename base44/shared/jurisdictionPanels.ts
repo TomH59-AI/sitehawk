@@ -10,6 +10,9 @@
 // those rows, so without this overlay two of the four SCIP panels stay empty
 // even when the data is sitting in the backend.
 
+import { normalizeJurisdiction } from './telecomOrdinance.ts';
+import { countyWordPattern } from './codehawk.ts';
+
 function clean(v: any): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).replace(/\s+/g, ' ').trim();
@@ -57,12 +60,11 @@ function splitFallZone(text: string | null) {
   return out;
 }
 
-const COUNTY_WORD = /\b(county|parish|borough)\b/i;
-
 /**
- * Find the Jurisdiction row for a state + jurisdiction label. Mirrors
- * findOrdinance's discipline: a county query must not match a city row of the
- * same name (York County vs the city of York).
+ * Find the Jurisdiction row for a state + jurisdiction label. Uses the SAME
+ * normalizer and county-word test as findOrdinance, which is state-aware:
+ * a Borough is a county-equivalent in Alaska but a MUNICIPALITY in Pennsylvania
+ * and New Jersey. A private copy of that test rejected every PA/NJ borough.
  */
 export async function getJurisdictionRecord(base44: any, state: string, jurisdiction: string): Promise<any> {
   const st = String(state || '').toUpperCase();
@@ -72,14 +74,15 @@ export async function getJurisdictionRecord(base44: any, state: string, jurisdic
   const exact = await base44.asServiceRole.entities.Jurisdiction.filter({ name, state: st }, null, 1).catch(() => []);
   if (exact && exact[0]) return exact[0];
 
-  const bare = name.replace(COUNTY_WORD, '').replace(/\b(city|town|village|charter township|township)\s+of\s+/i, '').trim();
+  const bare = normalizeJurisdiction(name);
   if (!bare) return null;
   const escaped = bare.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const candidates = await base44.asServiceRole.entities.Jurisdiction
     .filter({ state: st, name: { $regex: escaped, $options: 'i' } }, null, 10)
     .catch(() => []);
-  const wantCounty = COUNTY_WORD.test(name);
-  return (candidates || []).find((r: any) => COUNTY_WORD.test(r.name || '') === wantCounty) || null;
+  const countyWord = countyWordPattern(st);
+  const wantCounty = countyWord.test(name);
+  return (candidates || []).find((r: any) => countyWord.test(r.name || '') === wantCounty) || null;
 }
 
 /**
@@ -92,7 +95,7 @@ export async function getJurisdictionRecord(base44: any, state: string, jurisdic
  */
 export function overlayJurisdictionPanels(report: any, j: any, row: (v: any, s: string, c?: string) => any): number {
   if (!j) return 0;
-  const source = j.source_url ? 'SiteHawk Zoning Library' : 'SiteHawk Zoning Library';
+  const source = 'SiteHawk Zoning Library';
   let written = 0;
 
   const put = (section: string, field: string, value: any) => {
@@ -117,10 +120,9 @@ export function overlayJurisdictionPanels(report: any, j: any, row: (v: any, s: 
   put('zoning_overview', 'pe_self_certification', zp.pe);
   put('zoning_overview', 'zoning_fees', j.zoning_fees);
   put('zoning_overview', 'zoning_approval_timeframe', j.zoning_approval_timeframe);
-  put('zoning_overview', 'property_zoning_district', j.property_zoning_district);
-  put('zoning_overview', 'property_future_land_use', j.property_future_land_use);
-  put('zoning_overview', 'property_current_usage', j.property_current_usage);
-  put('zoning_overview', 'meets_minimum_lot_requirements', yn(j.meets_minimum_lot_requirements));
+  // property_zoning_district / future_land_use / current_usage / minimum-lot are
+  // PARCEL facts, not jurisdiction facts. Writing a jurisdiction-wide value into
+  // them would block the Realie/Regrid parcel data that fills them later.
 
   // ── TOWER SPECIFICS ──
   put('tower_specifics', 'ldc_section_references', j.ldc_section_reference);
