@@ -71,23 +71,35 @@ export default function ScipStudio() {
   const [qcBusy, setQcBusy] = useState(false);
   const [qcResult, setQcResult] = useState(null);
 
-  // Wait for EVERY image in the document to finish downloading before opening
-  // the print dialog — otherwise not-yet-loaded map exhibits print blank.
+  // Run OpenRouter QC + repair first, then wait for every image before print.
   const handlePrint = async () => {
     ensurePrintStyles();
     setPreparingPrint(true);
-    const imgs = Array.from(document.querySelectorAll("#scip-studio-doc img"));
-    await Promise.all(imgs.map((img) =>
-      img.complete && img.naturalWidth > 0
-        ? Promise.resolve()
-        : new Promise((res) => {
-            img.addEventListener("load", res, { once: true });
-            img.addEventListener("error", res, { once: true });
-            setTimeout(res, 20000); // never hang forever on a dead image
-          })
-    ));
-    setPreparingPrint(false);
-    window.print();
+    try {
+      const qc = await base44.functions.invoke("scipStudioQcFill", { scip_record_id: id });
+      if (qc?.error) throw new Error(qc.error);
+      setQcResult(qc);
+      if (qc?.status !== "PASS" || qc?.release_allowed !== true) {
+        throw new Error(qc?.blockers?.[0] || qc?.summary || "OpenRouter QC blocked Studio printing");
+      }
+      if (qc.doc) setDoc(qc.doc);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const imgs = Array.from(document.querySelectorAll("#scip-studio-doc img"));
+      await Promise.all(imgs.map((img) =>
+        img.complete && img.naturalWidth > 0
+          ? Promise.resolve()
+          : new Promise((resolve) => {
+              img.addEventListener("load", resolve, { once: true });
+              img.addEventListener("error", resolve, { once: true });
+              setTimeout(resolve, 20000);
+            })
+      ));
+      window.print();
+    } catch (error) {
+      toast.error(error.message || "OpenRouter QC blocked Studio printing");
+    } finally {
+      setPreparingPrint(false);
+    }
   };
 
   const load = useCallback(async () => {
@@ -113,7 +125,7 @@ export default function ScipStudio() {
 
   // Re-point the document to whichever parcel is currently the active target
   // (Target A → B → C when one is turned down), regenerate all 12 map exhibits
-  // for it, then run the Gemini web-grounded QC pass to fill every blank,
+  // for it, then run the OpenRouter evidence-grounded QC + repair pass on every blank,
   // web-researchable field before printing.
   const rebuildAndQc = async () => {
     setAssembling(true);
@@ -166,7 +178,7 @@ export default function ScipStudio() {
           {doc && (
             <Button variant="outline" onClick={rebuildAndQc} disabled={assembling || qcBusy}>
               {qcBusy ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 mr-2" />}
-              {qcBusy ? "Running QC…" : "Rebuild & QC (Gemini)"}
+              {qcBusy ? "Running QC + repair…" : "Rebuild & QC (OpenRouter)"}
             </Button>
           )}
           {doc && (
