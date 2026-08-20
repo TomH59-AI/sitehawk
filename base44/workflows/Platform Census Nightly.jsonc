@@ -1,0 +1,48 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "0 1 * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "Platform Census Nightly",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "platform_census_nightly",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "platform_census": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "platformCensus",
+            "args": {
+              "states_per_run": 8,
+              "recheck_days": 90
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Census 8 states of publisher directories",
+            "description": "Stamps scrape_platform + code URL on counties and municipalities"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Walks the code-publisher directories (Municode public API, American Legal per-state pages) and stamps every county in national_jurisdictions and every municipality in scrape_queue with the platform that publishes its code, the direct URL, and \u2014 for Municode \u2014 the ClientID that lets CodeHawk read telecom sections through the free API with no scraping and no LLM discovery. Processes 8 states a night: the full national backlog clears in about a week, after which the same schedule re-verifies anything older than 90 days so the census never goes stale. Jurisdictions on JS-only publishers (eCode360, ICC/Code Publishing) are marked unlisted and continue through CodeHawk's normal discovery path."
+}
