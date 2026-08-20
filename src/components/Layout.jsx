@@ -103,6 +103,7 @@ export default function Layout() {
   const adminExtra = isAdmin
     ? [
         { path: "/usage-analytics", icon: BarChart2, label: "Usage Analytics" },
+        { path: "/qc-control", icon: ShieldCheck, label: "Adaptive QC Center" },
         { path: "/subscriber-crm", icon: Users, label: "Subscriber CRM" },
         { path: "/code", icon: FileCode, label: "Code Browser" },
         { path: "/send-update", icon: Send, label: "Send Update" },
