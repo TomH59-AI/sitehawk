@@ -24,7 +24,7 @@ and no conflict with what is already on file. Everything else goes to
 `OrdinanceReviewQueue`. The quote-in-source check is the real guard — an LLM
 saying it found a quote is not evidence that the quote exists.
 
-**The agent has READ-ONLY registry access.** `base44/agents/ordinance_hunter.jsonc`
+**The agent has READ-ONLY registry access.** `base44/agents/codehawk_super_agent.jsonc`
 must never be granted create/update on `TelecomOrdinance`. Uncited agent writes are
 how the registry filled with 1,203 valueless rows in the first place.
 
