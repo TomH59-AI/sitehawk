@@ -1,7 +1,7 @@
 {
   "name": "CodeHawkRun",
   "type": "object",
-  "description": "One CodeHawk Superagent processing run \u2014 either a nightly batch or a single on-demand jurisdiction hunt. Powers the CodeHawk processing dashboard.",
+  "description": "One CodeHawk Super Agent processing run \u2014 either a nightly batch or a single on-demand jurisdiction hunt. Powers the CodeHawk processing dashboard.",
   "properties": {
     "run_type": {
       "type": "string",
