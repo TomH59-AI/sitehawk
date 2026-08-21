@@ -87,10 +87,44 @@
       "default": 0,
       "description": "Total count of individual fields written with a QC-passed citation."
     },
+    "scrapfly_calls": {
+      "type": "number",
+      "default": 0,
+      "description": "Actual Scrapfly API requests made across the plain, browser, and ASP tiers."
+    },
+    "scrapfly_credits": {
+      "type": "number",
+      "default": 0,
+      "description": "Scrapfly credits charged for this run, reported by the Scrapfly response."
+    },
+    "scrapfly_cache_hits": {
+      "type": "number",
+      "default": 0,
+      "description": "Scrapfly requests served from its project cache."
+    },
+    "scrapfly_budget_exhausted": {
+      "type": "number",
+      "default": 0,
+      "description": "Number of escalations stopped by the per-run Scrapfly call ceiling."
+    },
+    "scrapfly_remaining_credits": {
+      "type": "number",
+      "description": "Remaining Scrapfly account credits reported by the last response in this run."
+    },
+    "max_scrapfly_calls": {
+      "type": "number",
+      "default": 0,
+      "description": "Maximum Scrapfly requests permitted for this run."
+    },
+    "cache_hits": {
+      "type": "number",
+      "default": 0,
+      "description": "SiteHawk ordinance-cache hits that avoided all live scraping."
+    },
     "oxylabs_calls": {
       "type": "number",
       "default": 0,
-      "description": "How many times the direct fetch failed and CodeHawk had to escalate to Oxylabs."
+      "description": "Final-fallback OxyLabs requests after direct and Scrapfly retrieval failed."
     },
     "direct_fetch_calls": {
       "type": "number",
