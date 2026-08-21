@@ -1,32 +1,6 @@
 {
   "name": "Zoning Sweep Auto-Advance (FL)",
-  "definition": {
-    "document": {
-      "dsl": "1.0.0",
-      "name": "zoning_sweep_auto_advance_fl",
-      "version": "1.0",
-      "namespace": "base44"
-    },
-    "do": [
-      {
-        "advance_sweep": {
-          "call": "invoke_backend_function",
-          "with": {
-            "function_name": "zoningSweepAdvance",
-            "args": {
-              "batch": 25,
-              "stop_after_state": "FL"
-            }
-          },
-          "then": "end",
-          "x-base44": {
-            "title": "Advance Florida zoning sweep",
-            "description": "Runs next batch when the scraper is idle"
-          }
-        }
-      }
-    ]
-  },
+  "description": "Every 10 minutes, checks the zoning scraper. If no job is in flight it fires the next batch of 25 jurisdictions until the FL/NC/GA sweep is complete.",
   "trigger": {
     "condition": null,
     "config": {
@@ -44,5 +18,31 @@
       "ends_after_count": null
     }
   },
-  "description": "Every 10 minutes, checks the zoning scraper. If no job is in flight it fires the next batch of 25 Florida jurisdictions, so Florida finishes unattended. Stops advancing once the cursor leaves FL."
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "zoning_sweep_auto_advance_fl",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "advance_sweep": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "zoningSweepAdvance",
+            "args": {
+              "batch": 25,
+              "stop_after_state": null
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Advance zoning sweep",
+            "description": "Runs next batch when the scraper is idle"
+          }
+        }
+      }
+    ]
+  }
 }
