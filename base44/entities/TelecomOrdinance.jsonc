@@ -15,6 +15,23 @@
       "type": "string",
       "description": "Two-letter uppercase state code."
     },
+    "county_fips": {
+      "type": "string",
+      "description": "Five-digit county FIPS code when this is a county-level registry row."
+    },
+    "county_profile": {
+      "type": "object",
+      "description": "Canonical lossless county zoning, tower, site-plan, building-permit, and source-URL profile used by Site Search.",
+      "additionalProperties": true
+    },
+    "county_profile_history": {
+      "type": "array",
+      "description": "Distinct prior or conflicting county profiles preserved losslessly during consolidation.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    },
     "height_limit_ft": {
       "type": "number"
     },
