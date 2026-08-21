@@ -1,7 +1,7 @@
 /**
  * CodeHawk — shared ordinance-harvesting pipeline.
  *
- * This module is the engine behind the CodeHawk Superagent. It fixes the two
+ * This module is the engine behind the CodeHawk Super Agent. It fixes the two
  * structural problems the old pipeline had:
  *
  *   1. The scraper and the extractor were not connected. OxyLabs returned the
