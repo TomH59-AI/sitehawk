@@ -2,7 +2,7 @@
   "name": "CountyZoningData",
   "type": "object",
   "title": "County Zoning & Tower Data",
-  "description": "Structured zoning, tower, site plan, and building permit data for SiteHawk SCIPO generation",
+  "description": "DEPRECATED empty staging entity. County zoning profiles are stored only on TelecomOrdinance.county_profile for SiteHawk coordinate searches; do not insert records here.",
   "properties": {
     "county": {
       "type": "string"
