@@ -339,6 +339,84 @@ function row(value, source, confidence = 'medium') {
   return { value: v, source, confidence };
 }
 
+const COUNTY_PROFILE_PLACEHOLDER =
+  /^\s*(NEEDS DETAILED RESEARCH|NEEDS RESEARCH|NEEDS_HUMAN_REVIEW|TBD|UNVERIFIED|N\/?A|UNKNOWN|PENDING)\b/i;
+
+// Lossless county profiles now live on TelecomOrdinance, the same canonical
+// registry used by coordinate search. They fill the four SCIP panels above
+// inference and below any more-specific researched jurisdiction/cited rule.
+function overlayCountyProfilePanels(report, profile, rowFactory) {
+  if (!profile || typeof profile !== 'object') return 0;
+  const sourceUrl = /^https?:\/\//i.test(clean(profile?.source_urls?.zoning_ordinance))
+    ? clean(profile.source_urls.zoning_ordinance)
+    : null;
+  const usable = (value) => {
+    const v = clean(value);
+    return v && !COUNTY_PROFILE_PLACEHOLDER.test(v) ? v : null;
+  };
+  let written = 0;
+  const put = (section, field, value) => {
+    const v = usable(value);
+    if (!v) return;
+    const cell = rowFactory(v, 'SiteHawk County Registry', 'medium');
+    if (sourceUrl) cell.source_url = sourceUrl;
+    report[section] = report[section] || {};
+    report[section][field] = cell;
+    written += 1;
+  };
+
+  const zoning = profile.zoning_overview || {};
+  put('zoning_overview', 'zoning_jurisdiction', zoning.jurisdiction || `${profile.county || ''} County`);
+  put('zoning_overview', 'zoning_contact_information', zoning.contact_information);
+  put('zoning_overview', 'zoning_process', zoning.process || zoning.permit_type_required);
+  put('zoning_overview', 'cup_or_special_exception', zoning.cup_special_exception_path);
+  put('zoning_overview', 'pe_self_certification', zoning.pe_self_certification);
+  put('zoning_overview', 'zoning_fees', zoning.fees);
+  put('zoning_overview', 'zoning_approval_timeframe', zoning.approval_timeframe);
+
+  const tower = profile.tower_specifics || {};
+  put('tower_specifics', 'ldc_section_references', tower.ldc_section_references);
+  put('tower_specifics', 'maximum_tower_height', tower.maximum_tower_height);
+  put('tower_specifics', 'stealth_required', tower.stealth_required);
+  put('tower_specifics', 'required_collocations', tower.required_collocations);
+  put('tower_specifics', 'residential_separation', tower.residential_separation || tower.setbacks);
+  put('tower_specifics', 'tower_separation', tower.tower_separation);
+  put('tower_specifics', 'measured_from_base_or_center', tower.measured_from);
+  put('tower_specifics', 'fall_zone_requirements', tower.fall_zone_requirements);
+  put('tower_specifics', 'pe_letter', tower.pe_letter_fall_zone_relief);
+  put('tower_specifics', 'special_tower_landscaping', tower.special_tower_landscaping);
+
+  const site = profile.site_plan_overview || {};
+  put('site_plan', 'site_plan_jurisdiction', site.jurisdiction);
+  put('site_plan', 'site_plan_contact_info', site.contact_information);
+  put('site_plan', 'site_plan_fees', site.fees);
+  put('site_plan', 'site_plan_timeframe', site.timeframe_for_approval);
+  put('site_plan', 'existing_site_plan_amend', site.existing_site_plan_to_amend);
+  put('site_plan', 'concurrent_to_zoning_or_bp', site.concurrent_to_zoning_or_bp);
+  put('site_plan', 'submittal_deadlines', site.submittal_deadlines);
+  put('site_plan', 'electronic_hard_or_both', site.electronic_hard_copy_or_both);
+
+  const building = profile.building_permit_information || {};
+  put('building_permit', 'building_permit_jurisdiction', building.jurisdiction);
+  put('building_permit', 'building_dept_contact_info', building.building_department_contact);
+  put('building_permit', 'gc_must_submit', building.does_gc_have_to_submit);
+  put('building_permit', 'building_permit_fees', building.fees);
+  put('building_permit', 'building_permit_timeframe', building.timeframe);
+  put('building_permit', 'bond_required', building.bond_required);
+  put('building_permit', 'e911_address_assigned', building.e911_address_assigned);
+
+  if (written) {
+    report._county_profile = {
+      county: profile.county || null,
+      state: profile.state || null,
+      fips: profile.fips || null,
+      last_updated: profile.last_updated || null,
+      source_url: sourceUrl,
+    };
+  }
+  return written;
+}
+
 // ─── FCC geo fallback (state/county) ────────────────────────────────────────
 async function getGeoContext(lat, lon) {
   const url = `https://geo.fcc.gov/api/census/block/find?latitude=${lat}&longitude=${lon}&format=json`;
@@ -932,6 +1010,16 @@ Deno.serve(async (req) => {
     // Notion is the curated staging/library mirror for the n8n + OxyLabs /
     // Scrapfly pipeline. Read it directly when the Base44 registry is absent or
     // incomplete so an already-researched ordinance is never skipped.
+    // A city may have its own ordinance row while county planning/building
+    // details still apply. Pull the county row independently so Site Search can
+    // use its canonical full profile as a fallback without overriding city rules.
+    const countyRegistry = countyLabel
+      ? (ordinanceJurisdiction === countyLabel
+          ? ordinance
+          : await getTelecomOrdinance(base44, geo.state_code, countyLabel).catch(() => null))
+      : null;
+    const countyProfile = countyRegistry?.county_profile || null;
+
     let notionOrdinance = null;
     if (!ordinance || completenessScore(ordinance) < CRITICAL_FIELDS.length) {
       const notionConnection = await base44.asServiceRole.connectors.getConnection('notion').catch(() => null);
@@ -1167,6 +1255,14 @@ Deno.serve(async (req) => {
       if (!sec) continue;
       report[sec] = report[sec] || {};
       report[sec][field] = row(value, 'Zoneomics', 'high');
+    }
+
+    // STEP 5a-county — lossless county profile from the SAME canonical
+    // TelecomOrdinance registry. It fills the full four-panel sheet, while any
+    // researched jurisdiction template and cited ordinance fields below still win.
+    const countyProfileFieldsWritten = overlayCountyProfilePanels(report, countyProfile, row);
+    if (countyProfileFieldsWritten) {
+      console.log(`[COUNTY REGISTRY] overlaid ${countyProfileFieldsWritten} SCIP fields from ${countyProfile.county} County, ${geo.state_code}`);
     }
 
     // STEP 5a-lib — SiteHawk Zoning Library overlay (the Jurisdiction entity).
@@ -1502,6 +1598,14 @@ Deno.serve(async (req) => {
       },
       sources_used: {
         telecom_ordinance: !!registry,
+        county_profile: countyProfile
+          ? {
+              matched: true,
+              county: countyProfile.county || geo.county_name || null,
+              fips: countyProfile.fips || countyRegistry?.county_fips || null,
+              last_updated: countyProfile.last_updated || null,
+            }
+          : { matched: false },
         notion: notionOrdinance ? { matched: true, page_url: notionOrdinance.page_url || null } : { matched: false },
         // The SCIP zoning template pulled from our own Jurisdiction entity, and
         // whether this run had to go fetch it out of the Notion URL library first.
