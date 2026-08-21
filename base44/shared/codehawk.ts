@@ -19,8 +19,9 @@
  *
  * Fetch escalation is direct-first and deliberately cost-aware:
  *   every candidate is tried directly, in parallel, and only if ALL of them
- *   fail does one single candidate get escalated to OxyLabs, then Scrapfly.
- *   Paid scraping is a fallback, never the default path.
+ *   fail does one single candidate get escalated through a tiered Scrapfly
+ *   request, then OxyLabs only as a final fallback. Paid scraping is capped,
+ *   measured, and never the default path.
  *
  * Secrets are passed IN by the calling function (which imports base44:runtime
  * statically) rather than read here, so this module stays bundler-safe.
@@ -332,7 +333,11 @@ async function directFetch(base44, url) {
 }
 
 /* ------------------------------------------------------------------ *
- * Tier 2 / 3 — OxyLabs, then Scrapfly. Creds come from the caller.
+ * Paid escalation — Scrapfly first, then OxyLabs as the final fallback.
+ *
+ * Scrapfly is deliberately tiered. A cached datacenter request is cheapest;
+ * browser rendering is added only when the plain response is not usable; ASP
+ * is the last Scrapfly step and carries its own per-request cost budget.
  * ------------------------------------------------------------------ */
 
 async function oxylabsFetch(url, creds) {
@@ -362,20 +367,117 @@ async function oxylabsFetch(url, creds) {
   }
 }
 
-async function scrapflyFetch(url, creds) {
-  const key = creds?.scrapfly_key;
-  if (!key) return { ok: false, reason: 'scrapfly_not_configured' };
-  try {
-    const params = new URLSearchParams({ key, url, asp: 'true', render_js: 'true', country: 'US' });
-    const res = await fetch(`https://api.scrapfly.io/scrape?${params}`, { signal: AbortSignal.timeout(90000) });
-    if (!res.ok) return { ok: false, reason: `scrapfly_http_${res.status}` };
-    const data = await res.json();
-    const text = cleanHtml(data?.result?.content || '');
-    if (text.length < 500) return { ok: false, reason: 'scrapfly_empty' };
-    return { ok: true, method: 'scrapfly', text, chars: text.length };
-  } catch (error) {
-    return { ok: false, reason: `scrapfly_error:${String(error?.message || error).slice(0, 80)}` };
+function asFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function scrapflyResponseCost(res, data) {
+  const fromHeader = asFiniteNumber(res.headers.get('X-Scrapfly-Api-Cost'));
+  if (fromHeader !== null) return fromHeader;
+
+  const cost = data?.context?.cost;
+  const direct = asFiniteNumber(cost);
+  if (direct !== null) return direct;
+  if (cost && typeof cost === 'object') {
+    for (const key of ['total', 'total_cost', 'credits', 'api_credits']) {
+      const candidate = asFiniteNumber(cost[key]);
+      if (candidate !== null) return candidate;
+    }
   }
+  return 0;
+}
+
+async function scrapflyFetch(url, creds, counters = {}) {
+  const key = creds?.scrapfly_key;
+  if (!key) return { ok: false, reason: 'scrapfly_not_configured', tier_attempts: [] };
+
+  const callLimit = asFiniteNumber(creds?.scrapfly_call_limit);
+  const aspBudget = Math.max(25, Math.min(asFiniteNumber(creds?.scrapfly_asp_cost_budget) || 50, 100));
+  const tiers = [
+    { name: 'plain_cached', params: {} },
+    { name: 'browser_cached', params: { render_js: 'true', rendering_stage: 'domcontentloaded' } },
+    { name: 'asp_cached', params: { render_js: 'true', asp: 'true', cost_budget: String(aspBudget) } },
+  ];
+  const tierAttempts = [];
+  let lastReason = 'scrapfly_empty';
+
+  for (const tier of tiers) {
+    if (callLimit !== null && (counters.scrapfly_calls || 0) >= callLimit) {
+      counters.scrapfly_budget_exhausted = (counters.scrapfly_budget_exhausted || 0) + 1;
+      return { ok: false, reason: 'scrapfly_run_call_limit_reached', tier_attempts: tierAttempts };
+    }
+
+    counters.scrapfly_calls = (counters.scrapfly_calls || 0) + 1;
+    try {
+      const params = new URLSearchParams({
+        key,
+        url,
+        country: 'US',
+        format: 'markdown:no_links,no_images,only_content',
+        cache: 'true',
+        cache_ttl: '604800',
+        retry: 'false',
+        ...tier.params,
+      });
+      const res = await fetch(`https://api.scrapfly.io/scrape?${params}`, {
+        signal: AbortSignal.timeout(120000),
+      });
+      const data = await res.json().catch(() => ({}));
+      const cost = scrapflyResponseCost(res, data);
+      counters.scrapfly_credits = (counters.scrapfly_credits || 0) + cost;
+
+      const remaining = asFiniteNumber(res.headers.get('X-Scrapfly-Remaining-Api-Credit'));
+      if (remaining !== null) counters.scrapfly_remaining_credits = remaining;
+
+      const cacheState = String(data?.context?.cache?.state || '').toUpperCase();
+      if (cacheState === 'HIT') {
+        counters.scrapfly_cache_hits = (counters.scrapfly_cache_hits || 0) + 1;
+      }
+
+      if (!res.ok) {
+        lastReason = `scrapfly_http_${res.status}`;
+        tierAttempts.push({ tier: tier.name, ok: false, reason: lastReason, cost, cache_state: cacheState || null });
+        continue;
+      }
+
+      let rawContent = data?.result?.content || '';
+      if (String(data?.result?.format || '').toLowerCase() === 'clob' && /^https?:\/\//i.test(String(rawContent))) {
+        const clob = await fetch(String(rawContent), { signal: AbortSignal.timeout(30000) });
+        if (clob.ok) rawContent = await clob.text();
+      }
+
+      const text = cleanHtml(rawContent);
+      const usable = !BLOCK_MARKERS.test(text.slice(0, 4000)) && isUsableSource({ ok: true, text });
+      lastReason = text.length < 500 ? 'scrapfly_empty' : 'scrapfly_low_signal';
+      tierAttempts.push({
+        tier: tier.name,
+        ok: usable,
+        reason: usable ? null : lastReason,
+        chars: text.length,
+        signal: towerSignal(text),
+        cost,
+        cache_state: cacheState || null,
+      });
+
+      if (usable) {
+        return {
+          ok: true,
+          method: 'scrapfly',
+          scrapfly_tier: tier.name,
+          text,
+          chars: text.length,
+          tier_attempts: tierAttempts,
+        };
+      }
+    } catch (error) {
+      lastReason = `scrapfly_error:${String(error?.message || error).slice(0, 80)}`;
+      tierAttempts.push({ tier: tier.name, ok: false, reason: lastReason });
+    }
+  }
+
+  return { ok: false, reason: lastReason || 'scrapfly_failed', tier_attempts: tierAttempts };
 }
 
 /**
@@ -388,21 +490,28 @@ export async function fetchOrdinanceSource(base44, url, counters = {}, creds = {
   counters.direct_fetch_calls = (counters.direct_fetch_calls || 0) + 1;
   const direct = await directFetch(base44, url);
   attempts.push({ tier: 'direct', ok: direct.ok, reason: direct.reason || null });
-  if (direct.ok) return { ...direct, url, attempts };
+  if (direct.ok && (!allowPaid || isUsableSource(direct))) return { ...direct, url, attempts };
 
   if (!allowPaid) return { ok: false, url, attempts, reason: direct.reason || 'direct_failed' };
 
-  counters.oxylabs_calls = (counters.oxylabs_calls || 0) + 1;
-  const oxy = await oxylabsFetch(url, creds);
+  const scrapfly = await scrapflyFetch(url, creds, counters);
+  attempts.push({
+    tier: 'scrapfly',
+    ok: scrapfly.ok,
+    reason: scrapfly.reason || null,
+    modes: scrapfly.tier_attempts || [],
+  });
+  if (scrapfly.ok) return { ...scrapfly, url, attempts };
+
+  let oxy = { ok: false, reason: 'oxylabs_not_configured' };
+  if (creds?.oxylabs_username && creds?.oxylabs_password) {
+    counters.oxylabs_calls = (counters.oxylabs_calls || 0) + 1;
+    oxy = await oxylabsFetch(url, creds);
+  }
   attempts.push({ tier: 'oxylabs', ok: oxy.ok, reason: oxy.reason || null });
   if (oxy.ok) return { ...oxy, url, attempts };
 
-  counters.scrapfly_calls = (counters.scrapfly_calls || 0) + 1;
-  const scrapfly = await scrapflyFetch(url, creds);
-  attempts.push({ tier: 'scrapfly', ok: scrapfly.ok, reason: scrapfly.reason || null });
-  if (scrapfly.ok) return { ...scrapfly, url, attempts };
-
-  return { ok: false, url, attempts, reason: direct.reason || oxy.reason || scrapfly.reason || 'all_tiers_failed' };
+  return { ok: false, url, attempts, reason: scrapfly.reason || direct.reason || oxy.reason || 'all_tiers_failed' };
 }
 
 /* ------------------------------------------------------------------ *
@@ -702,7 +811,7 @@ Return up to ${limit} candidate URLs, best first. Rules:
  * and for most jurisdictions it is the only path needed. Paid scraping is only
  * reached if every direct attempt failed, and even then only ONE candidate is
  * escalated rather than all of them. This is what stops a 25-jurisdiction night
- * from turning into 100 OxyLabs calls.
+ * from turning into an uncontrolled paid-scraping bill.
  */
 export async function resolveBestSource(base44, candidates, counters = {}, creds = {}) {
   if (!candidates?.length) return { ok: false, reason: 'no_candidates', tried: [] };
