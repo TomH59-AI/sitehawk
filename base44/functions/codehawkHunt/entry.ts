@@ -3,9 +3,9 @@
  *
  * Registry-first: if SiteHawk already holds a complete, cited record we answer
  * instantly and spend nothing. Only on a miss, a gap, or an explicit refresh do
- * we go out to the official code — fetch it directly, escalate to OxyLabs only
- * if that fails, extract from the text we are already holding, QC it, and write
- * only what carries a verified quote.
+ * we go out to the official code — fetch it directly, use capped tiered
+ * Scrapfly retrieval only when needed, keep OxyLabs as a final fallback, extract
+ * from the text already retrieved, QC it, and write only verified quotes.
  *
  * POST {
  *   jurisdiction: string,     // required — "Brevard County" / "City of Rockledge"
@@ -95,6 +95,8 @@ export default async function (req) {
       oxylabs_username: secrets.get('OXYLABS_USERNAME'),
       oxylabs_password: secrets.get('OXYLABS_PASSWORD'),
       scrapfly_key: secrets.get('SCRAPFLY_API_KEY'),
+      scrapfly_call_limit: 6,
+      scrapfly_asp_cost_budget: 50,
       supabase_url: secrets.get('HAWK_SUPABASE_URL'),
       supabase_key: secrets.get('HAWK_SUPABASE_SERVICE_ROLE_KEY') || secrets.get('SUPABASE_SERVICE_ROLE_KEY'),
     };
@@ -106,9 +108,21 @@ export default async function (req) {
       batch_size: 1,
       state_filter: state,
       started_at: startedAt,
+      max_scrapfly_calls: 6,
       triggered_by: user.email || 'unknown',
     });
     runId = run?.id || null;
+
+    const counters = {
+      direct_fetch_calls: 0,
+      cache_hits: 0,
+      census_hits: 0,
+      scrapfly_calls: 0,
+      scrapfly_credits: 0,
+      scrapfly_cache_hits: 0,
+      scrapfly_budget_exhausted: 0,
+      oxylabs_calls: 0,
+    };
 
     const result = await processJurisdiction(base44, {
       jurisdiction,
@@ -116,6 +130,7 @@ export default async function (req) {
       existing,
       creds,
       runId,
+      counters,
       dryRun,
       forceDiscovery: forceRefresh && !existing?.source_url,
       skipCache: forceRefresh, // force_refresh means "re-read the official code", not the cache
@@ -134,6 +149,14 @@ export default async function (req) {
         queued_for_review: Number(result.queued || 0),
         failed: result.action === 'error' ? 1 : 0,
         fields_verified: (result.fields_written || []).length,
+        direct_fetch_calls: counters.direct_fetch_calls || 0,
+        cache_hits: counters.cache_hits || 0,
+        scrapfly_calls: counters.scrapfly_calls || 0,
+        scrapfly_credits: counters.scrapfly_credits || 0,
+        scrapfly_cache_hits: counters.scrapfly_cache_hits || 0,
+        scrapfly_budget_exhausted: counters.scrapfly_budget_exhausted || 0,
+        scrapfly_remaining_credits: counters.scrapfly_remaining_credits,
+        oxylabs_calls: counters.oxylabs_calls || 0,
         results: [result],
         error: result.error || undefined,
       });
@@ -145,6 +168,17 @@ export default async function (req) {
       hunted: true,
       run_id: runId,
       result,
+      retrieval: {
+        direct_fetch_calls: counters.direct_fetch_calls || 0,
+        cache_hits: counters.cache_hits || 0,
+        max_scrapfly_calls: 6,
+        scrapfly_calls: counters.scrapfly_calls || 0,
+        scrapfly_credits: counters.scrapfly_credits || 0,
+        scrapfly_cache_hits: counters.scrapfly_cache_hits || 0,
+        scrapfly_budget_exhausted: counters.scrapfly_budget_exhausted || 0,
+        scrapfly_remaining_credits: counters.scrapfly_remaining_credits ?? null,
+        oxylabs_calls: counters.oxylabs_calls || 0,
+      },
       record: presentRecord(updated),
       registry_had: existing ? { completeness_score: score, verification_status: existing.verification_status || 'unverified' } : null,
     });
