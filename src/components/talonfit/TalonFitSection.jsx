@@ -1,12 +1,8 @@
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { ensureMapboxLoaded } from "@/lib/mapboxLoader";
+import { loadPublicConfig } from "@/lib/publicConfig";
 import { MapPin, Plus } from "lucide-react";
-
-// Token is read here but ONLY assigned to mapboxgl.accessToken inside the
-// "Open in TalonFit Map" click handler — never at module scope for mapboxgl,
-// never in a useEffect.
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 /**
  * TalonFitSection — the TalonFit panel embedded in the Site Search pipeline.
@@ -47,15 +43,22 @@ export default function TalonFitSection({ searchCoords = null, targets = [], add
     if (!coordsReady || mapRef.current) return;
     setMapError("");
     flushSync(() => setMapOpen(true));
+    let token = "";
     try {
-      await ensureMapboxLoaded();
+      const [config] = await Promise.all([loadPublicConfig(), ensureMapboxLoaded()]);
+      token = config?.mapboxAccessToken || "";
     } catch (e) {
       setMapError(e?.message || "Failed to load Mapbox GL JS");
       return;
     }
+    if (!token) {
+      setMapError("Map unavailable — no Mapbox access token configured.");
+      setMapOpen(false);
+      return;
+    }
     if (mapRef.current || !mapContainerRef.current) return;
     const mapboxgl = window.mapboxgl;
-    mapboxgl.accessToken = MAPBOX_TOKEN;
+    mapboxgl.accessToken = token;
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: "mapbox://styles/mapbox/satellite-streets-v12",
