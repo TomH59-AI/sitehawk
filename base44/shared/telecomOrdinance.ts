@@ -44,6 +44,9 @@ export function toLegacyShape(rec) {
     section_ref: rec.section_ref ?? null,
     jurisdiction: rec.jurisdiction ?? null,
     state: rec.state ?? null,
+    county_fips: rec.county_fips ?? null,
+    county_profile: rec.county_profile ?? null,
+    county_profile_history: rec.county_profile_history ?? [],
   };
 }
 
@@ -83,6 +86,11 @@ export async function findOrdinance(base44, state, jurisdiction) {
     }
   }
 
-  const structured = row && (row.setback_rule != null || row.setback_ft != null || row.height_limit_ft != null);
+  const structured = row && (
+    row.setback_rule != null ||
+    row.setback_ft != null ||
+    row.height_limit_ft != null ||
+    row.county_profile != null
+  );
   return { row, rules: structured ? toLegacyShape(row) : null };
 }
