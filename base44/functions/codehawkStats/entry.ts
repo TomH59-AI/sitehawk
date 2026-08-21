@@ -83,6 +83,13 @@ export default async function (req) {
         queued_for_review: run.queued_for_review || 0,
         failed: run.failed || 0,
         fields_verified: run.fields_verified || 0,
+        cache_hits: run.cache_hits || 0,
+        max_scrapfly_calls: run.max_scrapfly_calls || 0,
+        scrapfly_calls: run.scrapfly_calls || 0,
+        scrapfly_credits: run.scrapfly_credits || 0,
+        scrapfly_cache_hits: run.scrapfly_cache_hits || 0,
+        scrapfly_budget_exhausted: run.scrapfly_budget_exhausted || 0,
+        scrapfly_remaining_credits: run.scrapfly_remaining_credits ?? null,
         oxylabs_calls: run.oxylabs_calls || 0,
         direct_fetch_calls: run.direct_fetch_calls || 0,
         state_filter: run.state_filter || null,
@@ -117,6 +124,12 @@ export default async function (req) {
       review_queue: {
         pending: (pendingReview || []).length,
         by_reason: queueByReason,
+      },
+      scrapfly: {
+        recent_calls: runs.reduce((sum, run) => sum + run.scrapfly_calls, 0),
+        recent_credits: runs.reduce((sum, run) => sum + run.scrapfly_credits, 0),
+        recent_cache_hits: runs.reduce((sum, run) => sum + run.scrapfly_cache_hits, 0),
+        latest_remaining_credits: runs.find((run) => run.scrapfly_remaining_credits !== null)?.scrapfly_remaining_credits ?? null,
       },
       runs,
     });
