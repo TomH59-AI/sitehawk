@@ -35,7 +35,7 @@
               "batch_size": 25,
               "mode": "backfill",
               "cooldown_days": 30,
-              "concurrency": 5,
+              "concurrency": 2,
               "time_budget_ms": 240000,
               "max_scrapfly_calls": 50,
               "scrapfly_asp_cost_budget": 50
