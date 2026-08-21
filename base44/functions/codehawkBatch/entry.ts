@@ -16,7 +16,7 @@
  *   state_filter?: string,  // scope to one state
  *   mode?: 'backfill' | 'discovery' | 'mixed',
  *   cooldown_days?: number, // default 30
- *   concurrency?: number,   // default 5
+ *   concurrency?: number,   // default 2, capped at 2 for worker safety
  *   time_budget_ms?: number,// default 240000
  *   max_scrapfly_calls?: number, // default 50, capped at 100 (0 disables Scrapfly)
  *   scrapfly_asp_cost_budget?: number, // per-request ASP ceiling, default 50
@@ -53,7 +53,7 @@ export default async function (req) {
     const stateFilter = body.state_filter ? String(body.state_filter).toUpperCase() : null;
     const requestedMode = ['backfill', 'discovery', 'mixed'].includes(body.mode) ? body.mode : 'backfill';
     const cooldownDays = Number.isFinite(Number(body.cooldown_days)) ? Number(body.cooldown_days) : 30;
-    const concurrency = Math.max(1, Math.min(Number(body.concurrency) || 5, 8));
+    const concurrency = Math.max(1, Math.min(Number(body.concurrency) || 2, 2));
     const timeBudgetMs = Math.max(30000, Math.min(Number(body.time_budget_ms) || 240000, 600000));
     const requestedScrapflyLimit = Number(body.max_scrapfly_calls);
     const maxScrapflyCalls = Number.isFinite(requestedScrapflyLimit)
