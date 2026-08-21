@@ -12,7 +12,7 @@ const QUICK_PROMPTS = [
   "Ordinance rules at 28.3199, -80.7301 — refresh from the source",
 ];
 
-// CodeHawk — the reconnected Ordinance Hunter. The chat tab coordinates the
+// CodeHawk — the supervised Scrapfly-backed Super Agent. The chat tab coordinates the
 // in-app agent; the agent delegates every scrape, extraction, and write to the
 // codehawk* backend functions so nothing lands in the registry uncited.
 function HuntChat() {
@@ -43,7 +43,7 @@ function HuntChat() {
       let conv = conversation;
       if (!conv) {
         conv = await base44.agents.createConversation({
-          agent_name: "ordinance_hunter",
+          agent_name: "codehawk_super_agent",
           metadata: { name: "CodeHawk Hunt", description: "CodeHawk ordinance session" },
         });
         setConversation(conv);
