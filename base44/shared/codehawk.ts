@@ -263,6 +263,49 @@ const BROWSER_HEADERS = {
 const BLOCK_MARKERS =
   /(just a moment|checking your browser|cloudflare|access denied|request unsuccessful|are you a robot|captcha|enable javascript to|please enable js)/i;
 
+// Base44 workers have a finite memory ceiling. Stream remote bodies into a
+// bounded buffer so one unusually large code book cannot kill the whole run.
+const MAX_PDF_BYTES = 12 * 1024 * 1024;
+const MAX_DIRECT_HTML_BYTES = 4 * 1024 * 1024;
+const MAX_RENDERED_TEXT_CHARS = 1_500_000;
+
+async function readBodyBytesCapped(res, maxBytes) {
+  const declared = Number(res.headers.get('content-length') || 0);
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await res.body?.cancel().catch(() => {});
+    return { ok: false, reason: `source_too_large:${declared}` };
+  }
+
+  if (!res.body) {
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    return bytes.byteLength <= maxBytes
+      ? { ok: true, bytes }
+      : { ok: false, reason: `source_too_large:${bytes.byteLength}` };
+  }
+
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      return { ok: false, reason: `source_too_large:${total}` };
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, bytes };
+}
+
 /**
  * Signals that we got an app shell instead of the ordinance text.
  * The markup-ratio test only fires on genuinely short output — a long, legitimate
@@ -313,7 +356,9 @@ async function directFetch(base44, url) {
 
     // PDF codes: hand the file to the model directly rather than mangling bytes.
     if (contentType.includes('pdf') || /\.pdf($|\?)/i.test(url)) {
-      const bytes = await res.arrayBuffer();
+      const body = await readBodyBytesCapped(res, MAX_PDF_BYTES);
+      if (!body.ok) return { ok: false, reason: body.reason };
+      const bytes = body.bytes;
       if (bytes.byteLength < 1000) return { ok: false, reason: 'empty_pdf' };
       const file = new File([bytes], 'ordinance.pdf', { type: 'application/pdf' });
       const uploaded = await base44.asServiceRole.integrations.Core.UploadFile({ file });
@@ -321,7 +366,9 @@ async function directFetch(base44, url) {
       return { ok: true, method: 'direct_pdf', file_url: uploaded.file_url, text: '', chars: bytes.byteLength };
     }
 
-    const rawHtml = await res.text();
+    const body = await readBodyBytesCapped(res, MAX_DIRECT_HTML_BYTES);
+    if (!body.ok) return { ok: false, reason: body.reason };
+    const rawHtml = new TextDecoder().decode(body.bytes);
     const text = cleanHtml(rawHtml);
     if (looksJsOnly(text, rawHtml)) {
       return { ok: false, reason: text.length < 900 ? 'empty_or_js_only' : 'blocked_or_js_only' };
@@ -445,9 +492,13 @@ async function scrapflyFetch(url, creds, counters = {}) {
       let rawContent = data?.result?.content || '';
       if (String(data?.result?.format || '').toLowerCase() === 'clob' && /^https?:\/\//i.test(String(rawContent))) {
         const clob = await fetch(String(rawContent), { signal: AbortSignal.timeout(30000) });
-        if (clob.ok) rawContent = await clob.text();
+        if (clob.ok) {
+          const clobBody = await readBodyBytesCapped(clob, MAX_RENDERED_TEXT_CHARS * 2);
+          rawContent = clobBody.ok ? new TextDecoder().decode(clobBody.bytes) : '';
+        }
       }
 
+      rawContent = String(rawContent).slice(0, MAX_RENDERED_TEXT_CHARS);
       const text = cleanHtml(rawContent);
       const usable = !BLOCK_MARKERS.test(text.slice(0, 4000)) && isUsableSource({ ok: true, text });
       lastReason = text.length < 500 ? 'scrapfly_empty' : 'scrapfly_low_signal';
@@ -562,7 +613,7 @@ export async function fetchCachedOrdinanceText(jurisdiction, state, creds) {
         return {
           ok: true,
           method: 'supabase_cache',
-          text: best.full_text,
+          text: focusOrdinanceText(best.full_text, 180000),
           chars: best.full_text.length,
           url: best.municode_url || '',
           cached_at: best.fetched_at || null,
