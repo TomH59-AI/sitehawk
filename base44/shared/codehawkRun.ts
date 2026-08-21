@@ -399,7 +399,16 @@ export async function selectDiscoveryTargets(base44, existingRecords, { batchSiz
  * batch picks them up first.
  */
 export async function runBatch(base44, targets, { creds, runId, dryRun, concurrency = 5, deadlineMs = 240000, onProgress }) {
-  const counters = { direct_fetch_calls: 0, oxylabs_calls: 0, scrapfly_calls: 0, cache_hits: 0 };
+  const counters = {
+    direct_fetch_calls: 0,
+    cache_hits: 0,
+    census_hits: 0,
+    scrapfly_calls: 0,
+    scrapfly_credits: 0,
+    scrapfly_cache_hits: 0,
+    scrapfly_budget_exhausted: 0,
+    oxylabs_calls: 0,
+  };
   const started = Date.now();
   const results = [];
 
