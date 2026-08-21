@@ -42,6 +42,7 @@ export default function RegistryHealth({ isAdmin }) {
   const [runResult, setRunResult] = useState(null);
   const [batchSize, setBatchSize] = useState(25);
   const [stateFilter, setStateFilter] = useState("");
+  const [maxScrapflyCalls, setMaxScrapflyCalls] = useState(50);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,6 +70,7 @@ export default function RegistryHealth({ isAdmin }) {
         batch_size: Number(batchSize) || 25,
         state_filter: stateFilter.trim().toUpperCase() || undefined,
         mode: "backfill",
+        max_scrapfly_calls: Number(maxScrapflyCalls) || 0,
         dry_run: dryRun,
       });
       if (res.data?.error) throw new Error(res.data.error);
@@ -127,6 +129,15 @@ export default function RegistryHealth({ isAdmin }) {
         />
       </div>
 
+      <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">Scrapfly guardrail:</span>{" "}
+        {(data?.scrapfly?.recent_calls || 0).toLocaleString()} calls used {(data?.scrapfly?.recent_credits || 0).toLocaleString()} credits
+        across the 12 most recent runs, with {(data?.scrapfly?.recent_cache_hits || 0).toLocaleString()} free cache hits.
+        {data?.scrapfly?.latest_remaining_credits !== null &&
+          data?.scrapfly?.latest_remaining_credits !== undefined &&
+          ` ${data.scrapfly.latest_remaining_credits.toLocaleString()} credits remained after the latest reported call.`}
+      </div>
+
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="mb-3 flex items-center gap-2">
           <Database className="h-4 w-4 text-primary" />
@@ -182,6 +193,17 @@ export default function RegistryHealth({ isAdmin }) {
             <label className="mb-1 block text-xs text-muted-foreground">State (optional)</label>
             <Input value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} placeholder="FL" maxLength={2} className="w-20 uppercase" />
           </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">Scrapfly call cap</label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={maxScrapflyCalls}
+              onChange={(e) => setMaxScrapflyCalls(e.target.value)}
+              className="w-28"
+            />
+          </div>
           <Button variant="outline" disabled={running} onClick={() => runBatch(true)} className="gap-1.5">
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Dry run
           </Button>
@@ -193,8 +215,8 @@ export default function RegistryHealth({ isAdmin }) {
           </Button>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          Backfill first: weakest and stalest records go first, and anything checked in the last 30 days is skipped. A dry run extracts and
-          quality-checks everything but writes nothing.
+          Backfill first: weakest and stalest records go first, and anything checked in the last 30 days is skipped. Scrapfly starts with
+          its cheapest cached mode and cannot exceed the call cap. A dry run writes nothing, but live retrieval can still consume credits.
         </p>
 
         {runResult && (
@@ -208,7 +230,10 @@ export default function RegistryHealth({ isAdmin }) {
                   {runResult.created} created, {runResult.queued_for_review} queued for review, {runResult.failed} failed.
                 </div>
                 <div className="text-muted-foreground">
-                  {runResult.direct_fetch_calls} direct fetches · {runResult.oxylabs_calls} needed OxyLabs
+                  {runResult.direct_fetch_calls} direct fetches · {runResult.cache_hits} SiteHawk cache hits · {runResult.scrapfly_calls}/
+                  {runResult.max_scrapfly_calls} Scrapfly calls · {runResult.scrapfly_credits} credits · {runResult.scrapfly_cache_hits} Scrapfly cache hits
+                  {runResult.oxylabs_calls > 0 && ` · ${runResult.oxylabs_calls} final OxyLabs fallbacks`}
+                  {runResult.scrapfly_budget_exhausted > 0 && " · Scrapfly cap reached; remaining work deferred"}
                   {runResult.skipped_time_budget > 0 && ` · ${runResult.skipped_time_budget} deferred to the next run (time budget)`}
                 </div>
               </div>
@@ -233,7 +258,7 @@ export default function RegistryHealth({ isAdmin }) {
                   <th className="py-2 pr-3 font-medium text-right">Improved</th>
                   <th className="py-2 pr-3 font-medium text-right">New</th>
                   <th className="py-2 pr-3 font-medium text-right">Queued</th>
-                  <th className="py-2 pr-3 font-medium text-right">OxyLabs</th>
+                  <th className="py-2 pr-3 font-medium text-right">Scrapfly</th>
                   <th className="py-2 font-medium text-right">Time</th>
                 </tr>
               </thead>
@@ -262,7 +287,9 @@ export default function RegistryHealth({ isAdmin }) {
                     <td className="py-2 pr-3 text-right">{run.improved}</td>
                     <td className="py-2 pr-3 text-right">{run.created}</td>
                     <td className="py-2 pr-3 text-right">{run.queued_for_review}</td>
-                    <td className="py-2 pr-3 text-right">{run.oxylabs_calls}</td>
+                    <td className="py-2 pr-3 text-right" title={`${run.scrapfly_cache_hits} cache hits · cap ${run.max_scrapfly_calls || "—"}`}>
+                      {run.scrapfly_calls} / {run.scrapfly_credits} cr
+                    </td>
                     <td className="py-2 text-right text-muted-foreground">{duration(run.duration_ms)}</td>
                   </tr>
                 ))}
