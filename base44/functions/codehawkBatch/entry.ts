@@ -18,6 +18,8 @@
  *   cooldown_days?: number, // default 30
  *   concurrency?: number,   // default 5
  *   time_budget_ms?: number,// default 240000
+ *   max_scrapfly_calls?: number, // default 50, capped at 100 (0 disables Scrapfly)
+ *   scrapfly_asp_cost_budget?: number, // per-request ASP ceiling, default 50
  *   dry_run?: boolean,
  *   scheduled?: boolean     // set by the nightly workflow so the run is labelled honestly
  * }
@@ -53,6 +55,11 @@ export default async function (req) {
     const cooldownDays = Number.isFinite(Number(body.cooldown_days)) ? Number(body.cooldown_days) : 30;
     const concurrency = Math.max(1, Math.min(Number(body.concurrency) || 5, 8));
     const timeBudgetMs = Math.max(30000, Math.min(Number(body.time_budget_ms) || 240000, 600000));
+    const requestedScrapflyLimit = Number(body.max_scrapfly_calls);
+    const maxScrapflyCalls = Number.isFinite(requestedScrapflyLimit)
+      ? Math.max(0, Math.min(requestedScrapflyLimit, 100))
+      : 50;
+    const scrapflyAspCostBudget = Math.max(25, Math.min(Number(body.scrapfly_asp_cost_budget) || 50, 100));
     const dryRun = body.dry_run === true;
     // The scheduler authenticates as a real user, so we cannot infer "nightly"
     // from the absence of an email — the workflow says so explicitly instead.
@@ -99,6 +106,7 @@ export default async function (req) {
       batch_size: targets.length,
       state_filter: stateFilter || undefined,
       started_at: startedAt,
+      max_scrapfly_calls: maxScrapflyCalls,
       triggered_by: scheduled ? 'scheduler' : user.email || 'unknown',
     });
     runId = run?.id || null;
@@ -107,6 +115,8 @@ export default async function (req) {
       oxylabs_username: secrets.get('OXYLABS_USERNAME'),
       oxylabs_password: secrets.get('OXYLABS_PASSWORD'),
       scrapfly_key: secrets.get('SCRAPFLY_API_KEY'),
+      scrapfly_call_limit: maxScrapflyCalls,
+      scrapfly_asp_cost_budget: scrapflyAspCostBudget,
       supabase_url: secrets.get('HAWK_SUPABASE_URL'),
       supabase_key: secrets.get('HAWK_SUPABASE_SERVICE_ROLE_KEY') || secrets.get('SUPABASE_SERVICE_ROLE_KEY'),
     };
@@ -118,6 +128,12 @@ export default async function (req) {
       await base44.asServiceRole.entities.CodeHawkRun.update(runId, {
         ...summarize(partial),
         direct_fetch_calls: counters.direct_fetch_calls || 0,
+        cache_hits: counters.cache_hits || 0,
+        scrapfly_calls: counters.scrapfly_calls || 0,
+        scrapfly_credits: counters.scrapfly_credits || 0,
+        scrapfly_cache_hits: counters.scrapfly_cache_hits || 0,
+        scrapfly_budget_exhausted: counters.scrapfly_budget_exhausted || 0,
+        scrapfly_remaining_credits: counters.scrapfly_remaining_credits,
         oxylabs_calls: counters.oxylabs_calls || 0,
       });
     };
@@ -141,13 +157,19 @@ export default async function (req) {
         completed_at: new Date().toISOString(),
         duration_ms: Date.now() - startedMs,
         direct_fetch_calls: counters.direct_fetch_calls || 0,
+        cache_hits: counters.cache_hits || 0,
+        scrapfly_calls: counters.scrapfly_calls || 0,
+        scrapfly_credits: counters.scrapfly_credits || 0,
+        scrapfly_cache_hits: counters.scrapfly_cache_hits || 0,
+        scrapfly_budget_exhausted: counters.scrapfly_budget_exhausted || 0,
+        scrapfly_remaining_credits: counters.scrapfly_remaining_credits,
         oxylabs_calls: counters.oxylabs_calls || 0,
         results: results.slice(0, 200),
       });
     }
 
     console.log(
-      `[codehawkBatch] mode=${mode} targets=${targets.length} improved=${tally.improved} created=${tally.created} queued=${tally.queued_for_review} oxylabs=${counters.oxylabs_calls} skipped=${skipped}`
+      `[codehawkBatch] mode=${mode} targets=${targets.length} improved=${tally.improved} created=${tally.created} queued=${tally.queued_for_review} scrapfly_calls=${counters.scrapfly_calls} scrapfly_credits=${counters.scrapfly_credits} oxylabs=${counters.oxylabs_calls} skipped=${skipped}`
     );
 
     return Response.json({
@@ -160,6 +182,13 @@ export default async function (req) {
       skipped_time_budget: skipped,
       ...tally,
       direct_fetch_calls: counters.direct_fetch_calls || 0,
+      cache_hits: counters.cache_hits || 0,
+      max_scrapfly_calls: maxScrapflyCalls,
+      scrapfly_calls: counters.scrapfly_calls || 0,
+      scrapfly_credits: counters.scrapfly_credits || 0,
+      scrapfly_cache_hits: counters.scrapfly_cache_hits || 0,
+      scrapfly_budget_exhausted: counters.scrapfly_budget_exhausted || 0,
+      scrapfly_remaining_credits: counters.scrapfly_remaining_credits ?? null,
       oxylabs_calls: counters.oxylabs_calls || 0,
       results,
     });
