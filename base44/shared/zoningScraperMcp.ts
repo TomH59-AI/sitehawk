@@ -77,6 +77,28 @@ export function zoningMcpConfigured(secrets: any): boolean {
   return Boolean(secrets.get('ZONING_MCP_TOKEN'));
 }
 
+function mcpUrl(secrets: any): string {
+  return secrets.get('ZONING_MCP_URL') || DEFAULT_URL;
+}
+
+/** Where the durable multi-state sweep currently stands. */
+export async function getZoningSweepStatus(secrets: any, timeoutMs = 25000): Promise<any> {
+  const token = secrets.get('ZONING_MCP_TOKEN');
+  if (!token) return { ok: false, error: 'ZONING_MCP_TOKEN not configured' };
+  return await call(mcpUrl(secrets), token, 'getSweepStatus', {}, timeoutMs);
+}
+
+/**
+ * Scrape the next N jurisdictions in the sweep and advance the durable cursor.
+ * Returns immediately with a job_id; refuses to double-run while a job is in
+ * flight (ok:false), which is exactly the guard the scheduled advance relies on.
+ */
+export async function runNextZoningBatch(secrets: any, batch: number, timeoutMs = 25000): Promise<any> {
+  const token = secrets.get('ZONING_MCP_TOKEN');
+  if (!token) return { ok: false, error: 'ZONING_MCP_TOKEN not configured' };
+  return await call(mcpUrl(secrets), token, 'runNextBatch', { batch }, timeoutMs);
+}
+
 /**
  * Does the Notion zoning-URL library hold rows for this jurisdiction?
  * Cheap (~2s) — used to avoid burning the scrape budget on a jurisdiction that

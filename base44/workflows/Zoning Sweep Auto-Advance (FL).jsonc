@@ -1,0 +1,48 @@
+{
+  "name": "Zoning Sweep Auto-Advance (FL)",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "zoning_sweep_auto_advance_fl",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "advance_sweep": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "zoningSweepAdvance",
+            "args": {
+              "batch": 25,
+              "stop_after_state": "FL"
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Advance Florida zoning sweep",
+            "description": "Runs next batch when the scraper is idle"
+          }
+        }
+      }
+    ]
+  },
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/10 * * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "description": "Every 10 minutes, checks the zoning scraper. If no job is in flight it fires the next batch of 25 Florida jurisdictions, so Florida finishes unattended. Stops advancing once the cursor leaves FL."
+}
