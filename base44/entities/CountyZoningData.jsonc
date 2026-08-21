@@ -1,0 +1,194 @@
+{
+  "name": "CountyZoningData",
+  "type": "object",
+  "title": "County Zoning & Tower Data",
+  "description": "Structured zoning, tower, site plan, and building permit data for SiteHawk SCIPO generation",
+  "properties": {
+    "county": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "fips": {
+      "type": "string"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date"
+    },
+    "source_urls": {
+      "type": "object",
+      "properties": {
+        "zoning_ordinance": {
+          "type": "string"
+        },
+        "planning_dept": {
+          "type": "string"
+        },
+        "building_dept": {
+          "type": "string"
+        },
+        "gis": {
+          "type": "string"
+        }
+      }
+    },
+    "zoning_overview": {
+      "type": "object",
+      "properties": {
+        "jurisdiction": {
+          "type": "string"
+        },
+        "contact_information": {
+          "type": "string"
+        },
+        "process": {
+          "type": "string"
+        },
+        "permit_type_required": {
+          "type": "string"
+        },
+        "cup_special_exception_path": {
+          "type": "string"
+        },
+        "public_hearing_required": {
+          "type": "string"
+        },
+        "appeal_process": {
+          "type": "string"
+        },
+        "pe_self_certification": {
+          "type": "string"
+        },
+        "fees": {
+          "type": "string"
+        },
+        "approval_timeframe": {
+          "type": "string"
+        }
+      }
+    },
+    "tower_specifics": {
+      "type": "object",
+      "properties": {
+        "ldc_section_references": {
+          "type": "string"
+        },
+        "maximum_tower_height": {
+          "type": "string"
+        },
+        "height_restrictions": {
+          "type": "string"
+        },
+        "setbacks": {
+          "type": "string"
+        },
+        "stealth_required": {
+          "type": "string"
+        },
+        "required_collocations": {
+          "type": "string"
+        },
+        "residential_separation": {
+          "type": "string"
+        },
+        "tower_separation": {
+          "type": "string"
+        },
+        "measured_from": {
+          "type": "string"
+        },
+        "fall_zone_requirements": {
+          "type": "string"
+        },
+        "pe_letter_fall_zone_relief": {
+          "type": "string"
+        },
+        "special_tower_landscaping": {
+          "type": "string"
+        }
+      }
+    },
+    "site_plan_overview": {
+      "type": "object",
+      "properties": {
+        "jurisdiction": {
+          "type": "string"
+        },
+        "contact_information": {
+          "type": "string"
+        },
+        "fees": {
+          "type": "string"
+        },
+        "timeframe_for_approval": {
+          "type": "string"
+        },
+        "existing_site_plan_to_amend": {
+          "type": "string"
+        },
+        "concurrent_to_zoning_or_bp": {
+          "type": "string"
+        },
+        "submittal_deadlines": {
+          "type": "string"
+        },
+        "electronic_hard_copy_or_both": {
+          "type": "string"
+        }
+      }
+    },
+    "building_permit_information": {
+      "type": "object",
+      "properties": {
+        "jurisdiction": {
+          "type": "string"
+        },
+        "building_department_contact": {
+          "type": "string"
+        },
+        "does_gc_have_to_submit": {
+          "type": "string"
+        },
+        "fees": {
+          "type": "string"
+        },
+        "timeframe": {
+          "type": "string"
+        },
+        "permit_validity_period": {
+          "type": "string"
+        },
+        "bond_required": {
+          "type": "string"
+        },
+        "e911_address_assigned": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "county",
+    "state"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
