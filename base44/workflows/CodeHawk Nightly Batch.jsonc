@@ -5,7 +5,7 @@
       "trigger_type": "scheduled",
       "events": [],
       "schedule_mode": "recurring",
-      "cron_expression": "0 3 * * *",
+      "cron_expression": "*/20 * * * *",
       "one_time_date": null,
       "timezone": "America/New_York",
       "interval_value": null,
@@ -32,23 +32,23 @@
             "function_name": "codehawkBatch",
             "args": {
               "scheduled": true,
-              "batch_size": 25,
+              "batch_size": 2,
               "mode": "backfill",
-              "cooldown_days": 30,
+              "cooldown_days": 0,
               "concurrency": 2,
-              "time_budget_ms": 240000,
-              "max_scrapfly_calls": 50,
+              "time_budget_ms": 210000,
+              "max_scrapfly_calls": 6,
               "scrapfly_asp_cost_budget": 50
             }
           },
           "then": "end",
           "x-base44": {
             "title": "Run the CodeHawk backfill batch",
-            "description": "25 jurisdictions, weakest and stalest first, with a 50-call Scrapfly ceiling"
+            "description": "Two jurisdictions per resumable pass, weakest and stalest first, with a six-call Scrapfly ceiling"
           }
         }
       }
     ]
   },
-  "description": "Runs the CodeHawk Super Agent pipeline against 25 jurisdictions a night, prioritising registry records missing one or more of the six critical tower-siting values. Retrieval is registry/cache first, then direct, then tiered cached Scrapfly (plain, browser, ASP) with a hard 50-call run ceiling and per-request ASP budget; OxyLabs remains the final fallback. The retrieved text goes through cited extraction and an adversarial quality-control pass. Anything unproven goes to the admin review queue. A 30-day cooldown prevents re-grinding jurisdictions whose codes simply do not state a rule."
+  "description": "Runs the CodeHawk Super Agent every 20 minutes against two of the weakest incomplete registry records. It prefers official government and codifier sources, classifies PDFs to exclude public-right-of-way-only rules, then uses direct retrieval, capped Scrapfly, and OxyLabs only as the final fallback. Every proposed value requires an exact quote, matching rule scope, section citation, and independent QC confirmation; anything unproven goes to the admin review queue. Small resumable passes prevent one slow jurisdiction from stalling the backlog."
 }
