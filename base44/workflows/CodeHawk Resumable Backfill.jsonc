@@ -1,0 +1,55 @@
+{
+  "trigger": {
+    "condition": null,
+    "config": {
+      "trigger_type": "scheduled",
+      "events": [],
+      "schedule_mode": "recurring",
+      "cron_expression": "*/20 * * * *",
+      "one_time_date": null,
+      "timezone": "America/New_York",
+      "interval_value": null,
+      "interval_unit": null,
+      "interval_anchor": null,
+      "ends_type": "never",
+      "ends_on_date": null,
+      "ends_after_count": null
+    }
+  },
+  "name": "CodeHawk Resumable Backfill",
+  "definition": {
+    "document": {
+      "dsl": "1.0.0",
+      "name": "codehawk_resumable_backfill",
+      "version": "1.0",
+      "namespace": "base44"
+    },
+    "do": [
+      {
+        "codehawk_backfill": {
+          "call": "invoke_backend_function",
+          "with": {
+            "function_name": "codehawkBatch",
+            "args": {
+              "scheduled": true,
+              "batch_size": 2,
+              "mode": "backfill",
+              "cooldown_days": 0,
+              "concurrency": 2,
+              "time_budget_ms": 210000,
+              "max_scrapfly_calls": 6,
+              "scrapfly_asp_cost_budget": 50,
+              "dry_run": false
+            }
+          },
+          "then": "end",
+          "x-base44": {
+            "title": "Run a resumable CodeHawk backfill pass",
+            "description": "Two weak jurisdictions per pass; official sources first, Scrapfly capped, OxyLabs last"
+          }
+        }
+      }
+    ]
+  },
+  "description": "Runs the CodeHawk Super Agent every 20 minutes against two of the weakest incomplete TelecomOrdinance records. It prefers official government and codifier sources, classifies PDFs to exclude public-right-of-way-only rules, then uses direct retrieval, capped Scrapfly, and OxyLabs only as the final fallback. Every proposed value requires an exact quote, matching rule scope, section citation, and independent QC confirmation; anything unproven goes to the admin review queue."
+}
