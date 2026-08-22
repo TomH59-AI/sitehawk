@@ -188,10 +188,9 @@ export default function Layout() {
                   <p className="px-4 -mt-1 mb-1 text-[10px] leading-snug text-sidebar-foreground/40">{item.desc}</p>
                 )}
                 {/* On Site Search, mirror the live pipeline right under the menu item.
-                    Kept compact + independently scrollable so it never pushes the
-                    rest of the main menu (Time Savers → Pricing) below the fold. */}
+                    Flows inline with the main sidebar scroll — one scrollbar only. */}
                 {item.path === "/search" && location.pathname === "/search" && (
-                  <div className="mt-1 mb-1 max-h-28 overflow-y-auto sidebar-scroll shrink-0">
+                  <div className="mt-1 mb-1">
                     <PipelineSidebarNav />
                   </div>
                 )}
