@@ -1,7 +1,7 @@
 import {
-  Search, Zap, ShieldCheck, Radar, Network, MapPin, Landmark,
+  Search, ShieldCheck, Radar, Network, MapPin, Landmark,
   FileSignature, Scale, ClipboardEdit,
-  ScanLine, CreditCard, Settings, Info, Eye, Mail,
+  ScanLine, CreditCard, Settings, Info, Mail,
 } from "lucide-react";
 
 export const DASHBOARD_TOOL_PAGES = [
@@ -18,8 +18,6 @@ export const DASHBOARD_TOOL_PAGES = [
     title: "Site Intelligence",
     description: "Open the intelligence tools that support your existing pipeline.",
     tools: [
-      { title: "TalonFit®", description: "Screen ordinance constraints and scout candidate targets.", to: "/talonfit", icon: Zap },
-      { title: "SiteSitter™ Feasibility", description: "See every scored site ranked by allowable tower height.", to: "/sitesitter", icon: Eye },
       { title: "Zoning Verifier", description: "Review zoning findings and source confidence.", to: "/zoning-verifier", icon: ShieldCheck },
       { title: "CodeHawk", description: "Look up any jurisdiction's tower ordinance, cited to its code section.", to: "/codehawk", icon: Landmark },
       { title: "Siting IQ™", description: "Review environmental, RF, terrain, and airspace siting intelligence.", to: "/siting-iq", icon: Radar },

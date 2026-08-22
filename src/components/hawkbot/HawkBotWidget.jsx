@@ -22,9 +22,7 @@ const SCIP_CONTEXT = `You are HawkBot — the AI brain of SiteHawk, a profession
 
 Dashboard (/) — landing hub: recent SCIP activity, quick access to all tools, subscription tier stats.
 
-SiteSearch (/search) — main acquisition search. Enter address or lat/lon center + ring radius. TalonFit™ engine scores and ranks candidate parcels: A/B/C = auto-targets, D/E/F = saved alternates. Click any parcel to view owner data, APN, acreage, zoning classification, and run enrichment tools.
-
-TalonFit (/talonfit) — siting engine for scoring and ranking candidates. User adjusts weighted scoring across zoning compatibility, parcel size, proximity, owner type, and line-of-sight. All candidates ranked 1–N with an exportable scorecard.
+SiteSearch (/search) — main acquisition search. Enter address or lat/lon center + ring radius. SiteHawk scores and ranks candidate parcels: A/B/C = auto-targets. Click any parcel to view owner data, APN, acreage, zoning classification, and run enrichment tools.
 
 Site Sketch (/site-sketch) — animated hand-drawn site exhibit builder. Uses Rough.js pencil texture to draw the tower compound, setback lines, equipment shelter, and access road in 11 sequential animation phases. Engineering grid paper, feTurbulence graphite grain filter, SKETCH COMPLETE stamp. Required for the SCIP lease exhibit (Section 6). Fully printable.
 
@@ -90,9 +88,7 @@ const WELCOME = "I'm HawkBot — the brains of SiteHawk. I know every page, ever
 const HOW_TO_QUESTION = "How do I use SiteHawk?";
 const HOW_TO_ANSWER = `SiteHawk is a full-stack wireless site acquisition platform. Here is what each major section does:
 
-🔍 SITESEARCH (/search) — Start here. Enter an address or lat/lon plus a search radius. TalonFit scores and ranks candidate parcels automatically. A/B/C are auto-targets; D/E/F are saved alternates. Click any parcel to see owner info, APN, acreage, and zoning.
-
-🏗 TALONFIT (/talonfit) — Siting engine. Tune weighted scoring across zoning compatibility, parcel size, proximity, line-of-sight, and owner type. Get a ranked scorecard of every candidate.
+🔍 SITESEARCH (/search) — Start here. Enter an address or lat/lon plus a search radius. SiteHawk scores and ranks candidate parcels automatically. A/B/C are auto-targets. Click any parcel to see owner info, APN, acreage, and zoning.
 
 ✏️ SITE SKETCH (/site-sketch) — Animated hand-drawn site exhibit. Generates the tower compound, setback lines, equipment shelter, and access road using Rough.js pencil-texture animation across 11 phases. Required for the SCIP lease exhibit in Section 6.
 

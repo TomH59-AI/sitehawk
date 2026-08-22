@@ -29,7 +29,7 @@ export default function Dashboard() {
               </Button>
             </Link>
             <p className="text-xs md:text-sm font-bold text-foreground text-center leading-snug">
-              Powered by TalonFit® — designed by AI engineers to make sure every parcel meets the criteria required.
+              Designed by AI engineers to make sure every parcel meets the criteria required.
             </p>
           </div>
         </div>

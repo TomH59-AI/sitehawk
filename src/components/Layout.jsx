@@ -7,7 +7,7 @@ import HawkVoiceGuide from "./guide/HawkVoiceGuide";
 import HawkVoiceAssistant from "./guide/HawkVoiceAssistant";
 import RestartTourButton from "./guide/RestartTourButton";
 import { useTheme } from "../hooks/useTheme";
-import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ShieldCheck, Network, Zap, Map, Target, Landmark, FileText, FileCode, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Sun, Moon, LayoutDashboard, Search, CreditCard, Radio, LogOut, Menu, X, Settings, Send, Mail, BarChart2, ScanLine, Users, FileSignature, Scale, ClipboardEdit, MapPin, Info, ShieldCheck, Network, Map, Target, Landmark, FileText, FileCode, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import HawkIcon from "./HawkIcon";
 import PipelineSidebarNav from "./PipelineSidebarNav";
 import UsageBadge from "./billing/UsageBadge";
@@ -38,9 +38,8 @@ const BASE_NAV = [
   { path: "/hawk-lease", icon: FileSignature, label: "15 · HawkLease" },
   { path: "/government-forms", icon: Landmark, label: "16 · Government Forms" },
   { path: "/siting-iq", icon: Radio, label: "17 · Siting IQ™" },
-  { path: "/talonfit", icon: Zap, label: "18 · TalonFit™" },
-  { path: "/hawk-tracker", icon: MapPin, label: "19 · Hawk Tracker" },
-  { path: "/mail-orders", icon: Mail, label: "20 · Mail Orders" },
+  { path: "/hawk-tracker", icon: MapPin, label: "18 · Hawk Tracker" },
+  { path: "/mail-orders", icon: Mail, label: "19 · Mail Orders" },
   { header: "MORE TOOLS" },
   { header: "ACCOUNT" },
   { path: "/pricing", icon: CreditCard, label: "Pricing & Plans" },
@@ -112,9 +111,9 @@ export default function Layout() {
     : [];
 
   const navItems = [
-    ...BASE_NAV.slice(0, 20), // flow header + the numbered site-acquisition steps
+    ...BASE_NAV.slice(0, 19), // flow header + the numbered site-acquisition steps
     ...(isAdmin ? [{ header: "ADMIN" }, ...adminExtra] : []),
-    ...BASE_NAV.slice(20),
+    ...BASE_NAV.slice(19),
   ];
 
   const handleLogout = () => {

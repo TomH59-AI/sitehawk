@@ -80,10 +80,10 @@ export default function ChangeTargetCPanel({ center, proposal, onPick }) {
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Crosshair className="h-4 w-4 text-primary" /> Change Target C — TalonFit pick
+          <Crosshair className="h-4 w-4 text-primary" /> Change Target C — map pick
         </div>
         <span className="text-xs text-muted-foreground">
-          Click any point inside the 2-mile TalonFit radius to grade it. Targets A and B stay exactly as they are.
+          Click any point inside the 2-mile radius to grade it. Targets A and B stay exactly as they are.
         </span>
         <span className="w-full text-[11px] text-muted-foreground">
           Coverage is a 2-mile radius measured from {center.label || "the search ring center"}.
@@ -107,7 +107,7 @@ export default function ChangeTargetCPanel({ center, proposal, onPick }) {
       <div className="space-y-2 border-t border-border p-3">
         {solving && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Grading that coordinate with TalonFit-AI-1.0…
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Grading that coordinate…
           </div>
         )}
         {!solving && probe && !candidate && (
@@ -129,7 +129,7 @@ export default function ChangeTargetCPanel({ center, proposal, onPick }) {
             </div>
             {candidate.max_height_ft != null && (
               <div className="mt-1 text-[11px] text-muted-foreground">
-                TalonFit max buildable height: {candidate.max_height_ft} ft
+                Max buildable height: {candidate.max_height_ft} ft
                 {candidate.talonfit_decision ? ` · ${candidate.talonfit_decision}` : ""}
               </div>
             )}

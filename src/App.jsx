@@ -97,7 +97,6 @@ import CodeHawk from './pages/CodeHawk';
 import AnthemNetScip from './pages/AnthemNetScip';
 import FiberOperators from './pages/FiberOperators';
 import Presentation from './pages/Presentation';
-import TalonFit from './pages/TalonFit';
 import SiteSketch from './pages/SiteSketch';
 import SarfMapPage from './pages/pipeline/SarfMapPage';
 import ZoningPage from './pages/pipeline/ZoningPage';
@@ -175,12 +174,11 @@ const AuthenticatedApp = () => {
         <Route path="/fiber-layers-admin" element={<FiberLayersAdmin />} />
         {/* Fiber Operators — regional/rural backhaul call list */}
         <Route path="/fiber-operators" element={<FiberOperators />} />
-        {/* TalonFit® — ordinance intelligence + ten-target scout */}
-        <Route path="/talonfit" element={<TalonFit />} />
         <Route path="/site-sketch" element={<SiteSketch />} />
-        {/* Legacy path — the feasibility dashboard now lives on TalonFit™ */}
-        <Route path="/sitesitter" element={<Navigate to="/talonfit" replace />} />
-        <Route path="/hawkbolt" element={<Navigate to="/talonfit" replace />} />
+        {/* Legacy siting paths — TalonFit removed; land on Siting IQ */}
+        <Route path="/talonfit" element={<Navigate to="/siting-iq" replace />} />
+        <Route path="/sitesitter" element={<Navigate to="/siting-iq" replace />} />
+        <Route path="/hawkbolt" element={<Navigate to="/siting-iq" replace />} />
         {/* Siting IQ™ — unified environmental, RF, terrain, and airspace intelligence */}
         <Route path="/siting-iq" element={<SitingIQ />} />
         <Route path="/rfi-engine" element={<Navigate to="/siting-iq" replace />} />
@@ -201,19 +199,19 @@ const AuthenticatedApp = () => {
         <Route path="/scip/:id/anthemnet" element={<AnthemNetScip />} />
         <Route path="/hawk-docs" element={<HawkDocs />} />
         <Route path="/hawk-fill" element={<HawkFill />} />
-        {/* AIHawkSit / HawkVision retired — TalonFit is the tower-fit surface */}
-        <Route path="/hawkfit-map" element={<Navigate to="/talonfit" replace />} />
+        {/* AIHawkSit / HawkVision retired */}
+        <Route path="/hawkfit-map" element={<Navigate to="/siting-iq" replace />} />
         {/* Hawk Forms retired — Government Forms (step 16) is the single forms library */}
         <Route path="/hawk-forms" element={<Navigate to="/government-forms" replace />} />
         <Route path="/hawk-tracker" element={<HawkTracker />} />
         {/* Simplified read-only tracker view for pilot clients */}
         <Route path="/pilot-tracker" element={<PilotTracker />} />
-        <Route path="/tower-fit-exhibit" element={<Navigate to="/talonfit" replace />} />
-        {/* Legacy siting routes — all redirect to TalonFIT™ */}
-        <Route path="/tower-siter" element={<Navigate to="/talonfit" replace />} />
-        <Route path="/tower-3d-viewer" element={<Navigate to="/talonfit" replace />} />
-        <Route path="/cesium-tower-viewer" element={<Navigate to="/talonfit" replace />} />
-        <Route path="/photo-3d-viewer" element={<Navigate to="/talonfit" replace />} />
+        <Route path="/tower-fit-exhibit" element={<Navigate to="/siting-iq" replace />} />
+        {/* Legacy siting routes — all redirect to Siting IQ */}
+        <Route path="/tower-siter" element={<Navigate to="/siting-iq" replace />} />
+        <Route path="/tower-3d-viewer" element={<Navigate to="/siting-iq" replace />} />
+        <Route path="/cesium-tower-viewer" element={<Navigate to="/siting-iq" replace />} />
+        <Route path="/photo-3d-viewer" element={<Navigate to="/siting-iq" replace />} />
         {/* HawkLease */}
         <Route path="/hawk-lease" element={<HawkLease />}>
           <Route index element={<HawkLeaseDashboard />} />

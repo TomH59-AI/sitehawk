@@ -50,19 +50,6 @@ export const DECK_SLIDES = [
       "Before you pick a parcel, you need the rules of the game. SiteHawk pulls the local telecommunications ordinance for the exact jurisdiction — the maximum height they'll allow, setback rules, fall-zone requirements, residential separation, whether stealth design is required, and the approval path. And it doesn't stop at the rules — SiteHawk hunts down the jurisdiction's own website and pulls the actual zoning and building permit applications you'll need to file, or drops you straight into their online permit portal to apply. No more digging through messy municipal websites hunting for a PDF. This is the stuff that kills deals late when you skip it early. SiteHawk reads the ordinance for you, and hands you the paperwork, on day one.",
   },
   {
-    key: "deck/talonfit",
-    kicker: "Patent Pending",
-    title: "TalonFit™",
-    subtitle: "The tower siter that never says no",
-    bullets: [
-      "Runs the ordinance math across every point of the parcel",
-      "Grades sites instead of rejecting them — every point gets a max height",
-      "PE-certified fall-zone rescue can take a tight parcel to full height",
-    ],
-    narration:
-      "Now the crown jewel — TalonFit, our patent-pending AI siting engine. It runs the ordinance math across every point of the parcel: per-edge setbacks, fall zones, residential buffers, tower separation. And here's what makes it different — it grades sites, it doesn't reject them. A failing spot still gets a maximum allowable height, so a no at one ninety-nine can still be a yes at one twenty. And where the ordinance allows an engineered fall-zone reduction, TalonFit finds that pathway and rescues tight parcels to full height.",
-  },
-  {
     key: "deck/maps",
     kicker: "Fourteen Answers",
     title: "The Hawk Map Suite",

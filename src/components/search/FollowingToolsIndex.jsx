@@ -1,9 +1,8 @@
 import { Link } from "react-router-dom";
-import { Radio, ShieldCheck, MapPin, FileSignature, Zap, ArrowRight } from "lucide-react";
+import { Radio, ShieldCheck, MapPin, FileSignature, ArrowRight } from "lucide-react";
 
 // Ordered continuation of the flow — each card navigates to its tool page.
 const TOOLS = [
-  { path: "/talonfit", icon: Zap, label: "TalonFit® Map", desc: "AI spatial intelligence and deterministic tower-fit checks." },
   { path: "/zoning-verifier", icon: ShieldCheck, label: "Zoning Verifier", desc: "Cross-check zoning findings and approval requirements." },
   { path: "/siting-iq", icon: Radio, label: "Siting IQ™", desc: "Unified environmental, RF, terrain, and airspace siting intelligence." },
   { path: "/hawk-tracker", icon: MapPin, label: "Hawk Tracker", desc: "Carry the selected site from outreach through build-out." },

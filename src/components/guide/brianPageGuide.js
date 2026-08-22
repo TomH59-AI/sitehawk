@@ -74,16 +74,6 @@ export const PAGE_GUIDES = [
     guide: `Tracks owner follow-ups with due dates; a daily digest email summarizes what's due.`,
   },
   {
-    path: "/tower-siter",
-    title: "Tower Siter (HawkPerch)",
-    guide: `2D tower placement solver on a parcel: loads parcel geometry + ordinance rules, then computes setbacks, fall zone, compound fit, and tower separation. Controls: tower height, type, compound size, PE-letter toggle for engineered fall-zone reduction. Output: buildable candidate area, proposed compound, verdict (clean pass / PE relief possible / fail), plus 3D image and exhibit export buttons. Common asks: "why did it fail?" → check the binding constraint in the verdict panel (height cap, fall zone, setback). "Can PE letter help?" → toggle it on and rerun.`,
-  },
-  {
-    path: "/hawkfit-map",
-    title: "HawkFit Map",
-    guide: `Interactive tower-fit map: look up a property (address/APN/coords via Realie), the parcel boundary draws on the map, then drag the tower point and adjust height/compound to see live fit status (works/fails with reasons). TalonFit® certification runs from here. Save scenarios for later. Common asks: "parcel won't load" → try coordinates instead of address.`,
-  },
-  {
     path: "/hawk-vision",
     title: "HawkVision",
     guide: `AI photo renders: upload a photo of the parcel and HawkVision composites a to-scale tower, fenced compound, and landscaped buffer into that photo. Options: tower height/type, compound size (50/75/100), buffer (10/25/50 ft), camera perspective (drone/eye-level/street). Common asks: "render looks off" → try a wider photo with clear ground visible.`,

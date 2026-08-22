@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RotateCcw, Square, Sparkles } from "lucide-react";
+import { RotateCcw, Square } from "lucide-react";
 import { base44 } from "@/api/base44Client";
 import { useToast } from "@/components/ui/use-toast";
 import SearchForm from "../components/search/SearchForm";
@@ -20,7 +20,6 @@ import { usfwsSpeciesLookup } from "@/functions/usfwsSpeciesLookup";
 import { epaHazWasteLookup } from "@/functions/epaHazWasteLookup";
 import { tribalLandLookup } from "@/functions/tribalLandLookup";
 import GenerateScipButton from "../components/search/GenerateScipButton";
-import TalonFitSection from "../components/talonfit/TalonFitSection";
 import FollowingToolsIndex from "../components/search/FollowingToolsIndex";
 import PipelineLiveSketch from "../components/search/PipelineLiveSketch";
 import LocalAuthoritiesTable from "../components/scip/LocalAuthoritiesTable";
@@ -36,20 +35,6 @@ export default function SiteSearch() {
   const [pageLoading, setPageLoading] = useState(true);
   const [scanError, setScanError] = useState(null);
   const [searchCenter, setSearchCenter] = useState(null);
-  // ── SINGLE SOURCE OF TRUTH for the TalonFit coordinate pipeline ───────────
-  // searchCoords is the ONE shared copy of the confirmed search coordinates
-  // ({ lat, lng, radius: miles } — all numbers). The TalonFit section reads it
-  // via props; it never keeps a local copy.
-  const [searchCoords, setSearchCoords] = useState(null);
-  // Shared target slots (max 6): slots 0–2 source 'sitehawk' (read-only,
-  // populated from Section 3), slots 3–5 source 'user' (added via TalonFit).
-  const [targets, setTargets] = useState([]);
-  const addTarget = (target) => {
-    setTargets((prev) => {
-      if (prev.length >= 6) return prev; // never exceed 6 slots
-      return [...prev, { ...target, source: "user" }];
-    });
-  };
   const [searchParams, setSearchParams] = useState({ radius_miles: 0.5, tower_height_ft: 150, agent_name: "", ring_name: "", compound_size: "100x100" });
   const [chatOpen, setChatOpen] = useState(false);
   // Pipeline state machine. Steps: "sarf" → "zoning" → ... Each downstream
@@ -150,7 +135,7 @@ export default function SiteSearch() {
 
     // Roll back readiness flags from the cleared step onward.
     if (affected.includes("zoning")) setZoningReady(false);
-    if (affected.includes("targets")) { setTargetA(null); setAllTargets([null, null, null]); setPerchTargets([null, null, null]); setLanesOpen({ B: false, C: false }); setTargets((prev) => prev.filter((t) => t.source === "user")); }
+    if (affected.includes("targets")) { setTargetA(null); setAllTargets([null, null, null]); setPerchTargets([null, null, null]); setLanesOpen({ B: false, C: false }); }
     if (affected.includes("maps")) setMapsComplete(false);
 
     // Drop bus data emitted by the cleared sections so the scorecard can't read stale values.
@@ -173,8 +158,6 @@ export default function SiteSearch() {
     setMapsComplete(false);
     setSectionData({});
     setSearchCenter(null);
-    setSearchCoords(null);
-    setTargets([]);
     setGeneratedLabels([]);
     setPipelineStep("sarf");
     bumpKeys(["sarf", "zoning", "targets", "maps"]);
@@ -268,9 +251,6 @@ export default function SiteSearch() {
     // Normalize the SARF center to 4 decimals (~11 m) at the single entry point.
     // Every downstream fetch / cache key / emit reads off this rounded center.
     setSearchCenter({ lat: round4(latitude), lon: round4(longitude) });
-    // Confirmed coordinates → the shared TalonFit coordinate pipeline.
-    setSearchCoords({ lat: round4(latitude), lng: round4(longitude), radius: Number(merged.radius_miles) || 0 });
-    setTargets([]);
     setPipelineStep("sarf");
   };
 
@@ -371,17 +351,6 @@ export default function SiteSearch() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {targetA && mapsComplete && (
-            <button
-              type="button"
-              onClick={() => document.getElementById("talonfit-ai")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/60 bg-gradient-to-r from-cyan-600 to-emerald-600 px-3 py-2 text-sm font-extrabold text-white shadow-lg transition-transform hover:scale-[1.02]"
-              title="Jump to TalonFit™ — expand search ring, save D/E/F sites"
-            >
-              <Sparkles className="h-4 w-4" />
-              TalonFit™ · Find 3 More SCIP Sites
-            </button>
-          )}
           {coordsReady && (
             <ExportSvpButton
               searchCenter={searchCenter}
@@ -511,18 +480,6 @@ export default function SiteSearch() {
           onTargetAReady={(t) => setTargetA(t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : t)}
           onAllTargets={(slots) => {
             setAllTargets(slots.map((t) => (t ? { ...t, latitude: round4(t.latitude), longitude: round4(t.longitude) } : null)));
-            // SiteHawk-located targets fill shared slots 0–2 (read-only).
-            setTargets(
-              slots
-                .filter(Boolean)
-                .map((t, i) => ({
-                  id: `sitehawk-${i}`,
-                  lat: round4(t.latitude),
-                  lng: round4(t.longitude),
-                  label: t.label || `Target ${"ABC"[i]}`,
-                  source: "sitehawk",
-                }))
-            );
           }}
           onData={mergeSectionData}
         />
@@ -563,19 +520,6 @@ export default function SiteSearch() {
           onData={mergeSectionData}
         />
         </div>
-      )}
-
-      {/* TALONFIT™ SECTION — receives the shared searchCoords + targets straight
-          from this parent (single source of truth). The map inside it initializes
-          ONLY when the user clicks "Open in TalonFit Map". Standalone grading
-          remains at /talonfit. */}
-      {coordsReady && (
-        <TalonFitSection
-          searchCoords={searchCoords}
-          targets={targets}
-          addTarget={addTarget}
-          zoningDecision={zoningDecision}
-        />
       )}
 
       {/* INDEPENDENT TARGET B / C PIPELINES — additive. Target A above stays the
